@@ -4,34 +4,41 @@ This module provides tools for executing shell commands and scripts.
 """
 
 import os
-from typing import final
+from typing import Any, final
 
 from mcp.server.fastmcp import Context as MCPContext, FastMCP
 
 from mcp_claude_code.enhanced_commands import CommandResult, EnhancedCommandExecutor
-from mcp_claude_code.executors import ScriptExecutor
 from mcp_claude_code.tools.common.permissions import PermissionManager
 from mcp_claude_code.tools.common.context import ToolContext, create_tool_context
 
 
 @final
 class CommandExecution:
-    """Command execution tools for MCP Claude Code."""
+    """Command execution tools for MCP Claude Code.
+    
+    This class provides a unified interface for command and script execution,
+    using the EnhancedCommandExecutor as the underlying implementation.
+    """
     
     def __init__(self, 
                  command_executor: EnhancedCommandExecutor,
-                 script_executor: ScriptExecutor,
-                 permission_manager: PermissionManager) -> None:
+                 script_executor: Any = None,  # Kept for backward compatibility
+                 permission_manager: PermissionManager = None) -> None:
         """Initialize command execution.
         
         Args:
             command_executor: Enhanced command executor for running shell commands
-            script_executor: Script executor for running scripts in various languages
+            script_executor: Deprecated, kept for backward compatibility
             permission_manager: Permission manager for access control
         """
         self.command_executor: EnhancedCommandExecutor = command_executor
-        self.script_executor: ScriptExecutor = script_executor
-        self.permission_manager: PermissionManager = permission_manager
+        
+        # Use the permission manager from command_executor if none is provided
+        self.permission_manager: PermissionManager = (
+            permission_manager if permission_manager is not None 
+            else command_executor.permission_manager
+        )
     
     def register_tools(self, mcp_server: FastMCP) -> None:
         """Register command execution tools with the MCP server.
@@ -172,10 +179,22 @@ class CommandExecution:
             tool_ctx.info(f"Executing {language} script")
             
             # Check if the language is supported
-            available_languages = self.script_executor.get_available_languages()
-            if language not in available_languages:
+            # Just use language_map from EnhancedCommandExecutor's execute_script_from_file method
+            language_map = {
+                "python": {"command": "python", "extension": ".py"},
+                "javascript": {"command": "node", "extension": ".js"},
+                "typescript": {"command": "ts-node", "extension": ".ts"},
+                "bash": {"command": "bash", "extension": ".sh"},
+                "fish": {"command": "fish", "extension": ".fish"},
+                "ruby": {"command": "ruby", "extension": ".rb"},
+                "php": {"command": "php", "extension": ".php"},
+                "perl": {"command": "perl", "extension": ".pl"},
+                "r": {"command": "Rscript", "extension": ".R"},
+            }
+            
+            if language not in language_map:
                 tool_ctx.error(f"Unsupported language: {language}")
-                return f"Error: Unsupported language: {language}. Supported languages: {', '.join(available_languages)}"
+                return f"Error: Unsupported language: {language}. Supported languages: {', '.join(language_map.keys())}"
             
             # Check if working directory is allowed
             if cwd and not self.permission_manager.is_path_allowed(cwd):
@@ -191,23 +210,50 @@ class CommandExecution:
                 self.permission_manager.approve_operation(script_path, operation)
                 return f"Permission requested to execute {language} script in {script_path}\nPlease approve the script execution and try again."
             
-            # Execute the script
-            return_code, stdout, stderr = await self.script_executor.execute_script(
-                language,
-                script,
+            # Execute the script using EnhancedCommandExecutor's execute_script_from_file
+            result = await self.command_executor.execute_script_from_file(
+                script=script,
+                language=language,
                 cwd=cwd,
                 timeout=30.0,
                 args=args
             )
             
             # Report result
-            if return_code == 0:
+            if result.is_success:
                 tool_ctx.info(f"{language} script executed successfully")
             else:
-                tool_ctx.error(f"{language} script execution failed with exit code {return_code}")
+                tool_ctx.error(f"{language} script execution failed with exit code {result.return_code}")
             
             # Format the result
-            if return_code != 0:
-                return f"Script execution failed with exit code {return_code}:\n{stderr}"
-            
-            return f"Script execution succeeded:\n\n{stdout}"
+            if result.is_success:
+                # Format the successful result
+                output = f"{language} script executed successfully.\n\n"
+                if result.stdout:
+                    output += f"STDOUT:\n{result.stdout}\n\n"
+                if result.stderr:
+                    output += f"STDERR:\n{result.stderr}"
+                return output.strip()
+            else:
+                # For failed scripts, include all available information
+                return result.format_output()
+    
+    def get_available_languages(self) -> list[str]:
+        """Get a list of available script languages.
+        
+        Returns:
+            List of supported language names
+        """
+        # Use the same language map as in EnhancedCommandExecutor
+        language_map = {
+            "python": {"command": "python", "extension": ".py"},
+            "javascript": {"command": "node", "extension": ".js"},
+            "typescript": {"command": "ts-node", "extension": ".ts"},
+            "bash": {"command": "bash", "extension": ".sh"},
+            "fish": {"command": "fish", "extension": ".fish"},
+            "ruby": {"command": "ruby", "extension": ".rb"},
+            "php": {"command": "php", "extension": ".php"},
+            "perl": {"command": "perl", "extension": ".pl"},
+            "r": {"command": "Rscript", "extension": ".R"},
+        }
+        return list(language_map.keys())

@@ -7,6 +7,7 @@ import tempfile
 from typing import Any, final
 
 from mcp_claude_code.tools.common.permissions import PermissionManager
+from mcp_claude_code.enhanced_commands import EnhancedCommandExecutor
 
 
 @final
@@ -288,13 +289,13 @@ class ScriptExecutor:
 class ProjectAnalyzer:
     """Analyzes project structure and dependencies."""
     
-    def __init__(self, script_executor: ScriptExecutor) -> None:
+    def __init__(self, command_executor: EnhancedCommandExecutor) -> None:
         """Initialize the project analyzer.
         
         Args:
-            script_executor: The script executor for running analysis scripts
+            command_executor: The command executor for running analysis scripts
         """
-        self.script_executor: ScriptExecutor = script_executor
+        self.command_executor: EnhancedCommandExecutor = command_executor
     
     async def analyze_python_dependencies(self, project_dir: str) -> dict[str, Any]:
         """Analyze Python project dependencies.
@@ -351,12 +352,13 @@ print(json.dumps(result))
 """
         
         # Execute script
-        code, stdout, stderr = await self.script_executor.execute_script(
-            "python",
-            script,
+        result = await self.command_executor.execute_script_from_file(
+            script=script,
+            language="python",
             cwd=project_dir,
             timeout=30.0
         )
+        code, stdout, stderr = result.return_code, result.stdout, result.stderr
         
         if code != 0:
             return {
@@ -477,12 +479,13 @@ try {
 """
         
         # Execute script
-        code, stdout, stderr = await self.script_executor.execute_script(
-            "javascript",
-            script,
+        result = await self.command_executor.execute_script_from_file(
+            script=script,
+            language="javascript",
             cwd=project_dir,
             timeout=30.0
         )
+        code, stdout, stderr = result.return_code, result.stdout, result.stderr
         
         if code != 0:
             return {
@@ -565,12 +568,13 @@ print(json.dumps(result))
 """
         
         # Execute script
-        code, stdout, stderr = await self.script_executor.execute_script(
-            "python",
-            script,
+        result = await self.command_executor.execute_script_from_file(
+            script=script,
+            language="python",
             cwd=project_dir,
             timeout=30.0
         )
+        code, stdout, stderr = result.return_code, result.stdout, result.stderr
         
         if code != 0:
             return {

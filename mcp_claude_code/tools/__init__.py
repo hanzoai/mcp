@@ -8,7 +8,7 @@ from mcp.server.fastmcp import FastMCP
 
 from mcp_claude_code.context import DocumentContext
 from mcp_claude_code.enhanced_commands import EnhancedCommandExecutor
-from mcp_claude_code.executors import ProjectAnalyzer, ScriptExecutor
+from mcp_claude_code.executors import ProjectAnalyzer
 from mcp_claude_code.tools.common.permissions import PermissionManager
 from mcp_claude_code.project import ProjectManager
 from mcp_claude_code.tools.filesystem.file_operations import FileOperations
@@ -21,7 +21,6 @@ def register_all_tools(mcp_server: FastMCP,
                       document_context: DocumentContext,
                       permission_manager: PermissionManager,
                       command_executor: EnhancedCommandExecutor,
-                      script_executor: ScriptExecutor,
                       project_manager: ProjectManager,
                       project_analyzer: ProjectAnalyzer) -> None:
     """Register all Claude Code tools with the MCP server.
@@ -31,7 +30,6 @@ def register_all_tools(mcp_server: FastMCP,
         document_context: Document context for tracking file contents
         permission_manager: Permission manager for access control
         command_executor: Enhanced command executor for running shell commands
-        script_executor: Script executor for running scripts in various languages
         project_manager: Project manager for tracking projects
         project_analyzer: Project analyzer for analyzing project structure and dependencies
     """

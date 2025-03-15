@@ -8,7 +8,7 @@ from mcp.server.fastmcp import FastMCP
 
 from mcp_claude_code.enhanced_commands import EnhancedCommandExecutor
 from mcp_claude_code.context import DocumentContext
-from mcp_claude_code.executors import ProjectAnalyzer, ScriptExecutor
+from mcp_claude_code.executors import ProjectAnalyzer
 from mcp_claude_code.tools.common.permissions import PermissionManager
 from mcp_claude_code.project import ProjectManager
 from mcp_claude_code.tools import register_all_tools
@@ -37,9 +37,8 @@ class ClaudeCodeServer:
             verbose=False  # Set to True for debugging
         )
         
-        # Initialize script executor and project analyzer
-        self.script_executor = ScriptExecutor(self.permission_manager)
-        self.project_analyzer = ProjectAnalyzer(self.script_executor)
+        # Initialize project analyzer
+        self.project_analyzer = ProjectAnalyzer(self.command_executor)
         
         # Initialize project manager
         self.project_manager = ProjectManager(
@@ -60,7 +59,6 @@ class ClaudeCodeServer:
             document_context=self.document_context,
             permission_manager=self.permission_manager,
             command_executor=self.command_executor,
-            script_executor=self.script_executor,
             project_manager=self.project_manager,
             project_analyzer=self.project_analyzer
         )
