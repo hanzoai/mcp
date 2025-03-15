@@ -9,7 +9,7 @@ from typing import final
 from mcp.server.fastmcp import Context as MCPContext, FastMCP
 
 from mcp_claude_code.context import DocumentContext
-from mcp_claude_code.permissions import PermissionManager
+from mcp_claude_code.tools.common.permissions import PermissionManager
 from mcp_claude_code.tools.common.context import ToolContext, create_tool_context
 
 

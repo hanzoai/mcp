@@ -9,7 +9,7 @@ from mcp.server.fastmcp import FastMCP
 from mcp_claude_code.context import DocumentContext
 from mcp_claude_code.enhanced_commands import EnhancedCommandExecutor
 from mcp_claude_code.executors import ProjectAnalyzer, ScriptExecutor
-from mcp_claude_code.permissions import PermissionManager
+from mcp_claude_code.tools.common.permissions import PermissionManager
 from mcp_claude_code.project import ProjectManager
 from mcp_claude_code.tools.filesystem.file_operations import FileOperations
 from mcp_claude_code.tools.filesystem.navigation import FilesystemNavigation

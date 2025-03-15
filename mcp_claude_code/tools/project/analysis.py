@@ -8,7 +8,7 @@ from typing import Any, final
 from mcp.server.fastmcp import Context as MCPContext, FastMCP
 
 from mcp_claude_code.executors import ProjectAnalyzer
-from mcp_claude_code.permissions import PermissionManager
+from mcp_claude_code.tools.common.permissions import PermissionManager
 from mcp_claude_code.project import ProjectManager
 from mcp_claude_code.tools.common.context import ToolContext, create_tool_context
 

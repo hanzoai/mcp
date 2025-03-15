@@ -7,7 +7,7 @@ import unittest
 from pathlib import Path
 
 from mcp_claude_code.enhanced_commands import CommandResult, EnhancedCommandExecutor
-from mcp_claude_code.permissions import PermissionManager
+from mcp_claude_code.tools.common.permissions import PermissionManager
 
 
 class MockPermissionManager:

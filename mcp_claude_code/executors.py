@@ -6,7 +6,7 @@ import os
 import tempfile
 from typing import Any, final
 
-from mcp_claude_code.permissions import PermissionManager
+from mcp_claude_code.tools.common.permissions import PermissionManager
 
 
 @final

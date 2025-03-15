@@ -6,7 +6,7 @@ from typing import Any, final
 
 from mcp_claude_code.context import DocumentContext
 from mcp_claude_code.executors import ProjectAnalyzer
-from mcp_claude_code.permissions import PermissionManager
+from mcp_claude_code.tools.common.permissions import PermissionManager
 
 
 @final

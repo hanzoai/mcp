@@ -13,7 +13,7 @@ import tempfile
 from collections.abc import Awaitable, Callable
 from typing import final
 
-from mcp_claude_code.permissions import PermissionManager
+from mcp_claude_code.tools.common.permissions import PermissionManager
 
 
 @final

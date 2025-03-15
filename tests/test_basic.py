@@ -12,7 +12,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 
 from mcp_claude_code.server import ClaudeCodeServer
 from mcp_claude_code.context import DocumentContext
-from mcp_claude_code.permissions import PermissionManager
+from mcp_claude_code.tools.common.permissions import PermissionManager
 from mcp_claude_code.enhanced_commands import EnhancedCommandExecutor
 
 
