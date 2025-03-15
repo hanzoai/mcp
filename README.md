@@ -29,7 +29,7 @@ This project provides an MCP server that implements Claude Code-like functionali
 | `run_command` | Executes shell commands with enhanced error handling | Yes |
 | `run_script` | Executes scripts with specified interpreters | Yes |
 | `run_language_script` | Executes scripts in specific programming languages | Yes |
-| `BashTool` | Legacy tool for executing shell commands | Yes |
+| `bash_tool` | Legacy tool for executing shell commands | Yes |
 | `GlobTool` | Finds files based on pattern matching | No |
 | `GrepTool` | Searches for patterns in file contents | No |
 | `LSTool` | Lists files and directories | No |

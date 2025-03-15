@@ -13,7 +13,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 from mcp_claude_code.server import ClaudeCodeServer
 from mcp_claude_code.context import DocumentContext
 from mcp_claude_code.permissions import PermissionManager
-from mcp_claude_code.commands import CommandExecutor
+from mcp_claude_code.enhanced_commands import EnhancedCommandExecutor
 
 
 class TestBasicFunctionality(unittest.TestCase):
@@ -77,17 +77,17 @@ class TestBasicFunctionality(unittest.TestCase):
     async def async_test_command_executor(self):
         """Test the CommandExecutor class."""
         manager = PermissionManager()
-        executor = CommandExecutor(manager)
+        executor = EnhancedCommandExecutor(manager)
         
         # Test executing a command
-        code, stdout, stderr = await executor.execute_command("echo Hello, World!")
-        self.assertEqual(code, 0)
-        self.assertEqual(stdout.strip(), "Hello, World!")
+        result = await executor.execute_command("echo Hello, World!")
+        self.assertTrue(result.is_success)
+        self.assertEqual(result.stdout.strip(), "Hello, World!")
         
         # Test executing a script
-        code, stdout, stderr = await executor.execute_script("echo Hello from script!", "bash")
-        self.assertEqual(code, 0)
-        self.assertEqual(stdout.strip(), "Hello from script!")
+        result = await executor.execute_script("echo Hello from script!", interpreter="bash")
+        self.assertTrue(result.is_success)
+        self.assertEqual(result.stdout.strip(), "Hello from script!")
     
     def test_command_executor(self):
         """Run the async test for CommandExecutor."""

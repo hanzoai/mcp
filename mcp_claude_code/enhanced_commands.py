@@ -8,9 +8,10 @@ import asyncio
 import base64
 import os
 import shlex
+import sys
 import tempfile
-from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, final
+from collections.abc import Awaitable, Callable
+from typing import final
 
 from mcp_claude_code.permissions import PermissionManager
 
@@ -24,7 +25,7 @@ class CommandResult:
         return_code: int = 0,
         stdout: str = "",
         stderr: str = "",
-        error_message: Optional[str] = None
+        error_message: str | None = None
     ):
         """Initialize a command result.
         
@@ -37,7 +38,7 @@ class CommandResult:
         self.return_code: int = return_code
         self.stdout: str = stdout
         self.stderr: str = stderr
-        self.error_message: Optional[str] = error_message
+        self.error_message: str | None = error_message
     
     @property
     def is_success(self) -> bool:
@@ -57,7 +58,7 @@ class CommandResult:
         Returns:
             Formatted output string
         """
-        result_parts: List[str] = []
+        result_parts: list[str] = []
         
         # Add error message if present
         if self.error_message:
@@ -98,21 +99,21 @@ class EnhancedCommandExecutor:
         self.verbose: bool = verbose
         
         # Excluded commands or patterns
-        self.excluded_commands: List[str] = []
-        self.excluded_patterns: List[str] = []
+        self.excluded_commands: list[str] = []
+        self.excluded_patterns: list[str] = []
         
         # Add default exclusions
         self._add_default_exclusions()
         
         # Map of supported interpreters with special handling
-        self.special_interpreters: Dict[str, str] = {
+        self.special_interpreters: dict[str, Callable[[str, str, str | None, dict[str, str] | None, float | None], Awaitable[CommandResult]]] = {
             "fish": self._handle_fish_script,
         }
     
     def _add_default_exclusions(self) -> None:
         """Add default exclusions for potentially dangerous commands and patterns."""
         # Potentially dangerous commands
-        dangerous_commands: List[str] = [
+        dangerous_commands: list[str] = [
             "rm", "rmdir", "mv", "cp", 
             "dd", "mkfs", "fdisk", "format",
             "chmod", "chown", "chgrp",
@@ -128,7 +129,7 @@ class EnhancedCommandExecutor:
         self.excluded_commands.extend(dangerous_commands)
         
         # Dangerous patterns
-        dangerous_patterns: List[str] = [
+        dangerous_patterns: list[str] = [
             ">", ">>",  # Redirection
             "|", "&", "&&", "||",  # Pipes and control operators
             ";",  # Command separator
@@ -156,7 +157,7 @@ class EnhancedCommandExecutor:
         if command not in self.excluded_commands:
             self.excluded_commands.append(command)
     
-    def _log(self, message: str, data: Any = None) -> None:
+    def _log(self, message: str, data: object = None) -> None:
         """Log a message if verbose logging is enabled.
         
         Args:
@@ -173,11 +174,11 @@ class EnhancedCommandExecutor:
                     data_str = json.dumps(data)
                 else:
                     data_str = str(data)
-                print(f"DEBUG: {message}: {data_str}", file=os.sys.stderr)
+                print(f"DEBUG: {message}: {data_str}", file=sys.stderr)
             except Exception:
-                print(f"DEBUG: {message}: {data}", file=os.sys.stderr)
+                print(f"DEBUG: {message}: {data}", file=sys.stderr)
         else:
-            print(f"DEBUG: {message}", file=os.sys.stderr)
+            print(f"DEBUG: {message}", file=sys.stderr)
     
     def is_command_allowed(self, command: str) -> bool:
         """Check if a command is allowed based on exclusion lists.
@@ -190,7 +191,7 @@ class EnhancedCommandExecutor:
         """
         # Check for empty commands
         try:
-            args: List[str] = shlex.split(command)
+            args: list[str] = shlex.split(command)
         except ValueError as e:
             self._log(f"Command parsing error: {e}")
             return False
@@ -216,9 +217,9 @@ class EnhancedCommandExecutor:
     async def execute_command(
         self, 
         command: str, 
-        cwd: Optional[str] = None,
-        env: Optional[Dict[str, str]] = None,
-        timeout: Optional[float] = 60.0,
+        cwd: str | None = None,
+        env: dict[str, str] | None = None,
+        timeout: float | None = 60.0,
     ) -> CommandResult:
         """Execute a shell command with safety checks.
         
@@ -255,13 +256,13 @@ class EnhancedCommandExecutor:
                 )
         
         # Set up environment
-        command_env: Dict[str, str] = os.environ.copy()
+        command_env: dict[str, str] = os.environ.copy()
         if env:
             command_env.update(env)
         
         try:
             # Split the command into arguments
-            args: List[str] = shlex.split(command)
+            args: list[str] = shlex.split(command)
             
             # Create and run the process
             process = await asyncio.create_subprocess_exec(
@@ -306,9 +307,9 @@ class EnhancedCommandExecutor:
         self, 
         script: str,
         interpreter: str = "bash",
-        cwd: Optional[str] = None,
-        env: Optional[Dict[str, str]] = None,
-        timeout: Optional[float] = 60.0,
+        cwd: str | None = None,
+        env: dict[str, str] | None = None,
+        timeout: float | None = 60.0,
     ) -> CommandResult:
         """Execute a script with the specified interpreter.
         
@@ -352,9 +353,9 @@ class EnhancedCommandExecutor:
         self,
         interpreter: str,
         script: str,
-        cwd: Optional[str] = None,
-        env: Optional[Dict[str, str]] = None,
-        timeout: Optional[float] = 60.0,
+        cwd: str | None = None,
+        env: dict[str, str] | None = None,
+        timeout: float | None = 60.0,
     ) -> CommandResult:
         """Execute a script by passing it to stdin of the interpreter.
         
@@ -369,7 +370,7 @@ class EnhancedCommandExecutor:
             CommandResult containing execution results
         """
         # Set up environment
-        command_env: Dict[str, str] = os.environ.copy()
+        command_env: dict[str, str] = os.environ.copy()
         if env:
             command_env.update(env)
         
@@ -422,9 +423,9 @@ class EnhancedCommandExecutor:
         self,
         interpreter: str,
         script: str,
-        cwd: Optional[str] = None,
-        env: Optional[Dict[str, str]] = None,
-        timeout: Optional[float] = 60.0,
+        cwd: str | None = None,
+        env: dict[str, str] | None = None,
+        timeout: float | None = 60.0,
     ) -> CommandResult:
         """Special handler for Fish shell scripts.
         
@@ -444,7 +445,7 @@ class EnhancedCommandExecutor:
         self._log("Using Fish shell workaround")
         
         # Set up environment
-        command_env: Dict[str, str] = os.environ.copy()
+        command_env: dict[str, str] = os.environ.copy()
         if env:
             command_env.update(env)
         
@@ -499,10 +500,10 @@ class EnhancedCommandExecutor:
         self,
         script: str,
         language: str,
-        cwd: Optional[str] = None,
-        env: Optional[Dict[str, str]] = None,
-        timeout: Optional[float] = 60.0,
-        args: Optional[List[str]] = None,
+        cwd: str | None = None,
+        env: dict[str, str] | None = None,
+        timeout: float | None = 60.0,
+        args: list[str] | None = None,
     ) -> CommandResult:
         """Execute a script by writing it to a temporary file and executing it.
         
@@ -521,7 +522,7 @@ class EnhancedCommandExecutor:
             CommandResult containing execution results
         """
         # Language to interpreter mapping
-        language_map: Dict[str, Dict[str, str]] = {
+        language_map: dict[str, dict[str, str]] = {
             "python": {
                 "command": "python",
                 "extension": ".py",
@@ -573,14 +574,14 @@ class EnhancedCommandExecutor:
         extension = language_info["extension"]
         
         # Set up environment
-        command_env: Dict[str, str] = os.environ.copy()
+        command_env: dict[str, str] = os.environ.copy()
         if env:
             command_env.update(env)
         
         # Create a temporary file for the script
         with tempfile.NamedTemporaryFile(suffix=extension, mode='w', delete=False) as temp:
             temp_path = temp.name
-            temp.write(script)
+            _ = temp.write(script)  # Explicitly ignore the return value
         
         try:
             # Build command arguments

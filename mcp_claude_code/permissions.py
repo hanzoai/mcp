@@ -2,9 +2,13 @@
 
 import json
 import time
+from collections.abc import Awaitable, Callable
 from pathlib import Path
-from typing import Any, Callable, Optional, final
+from typing import Any, TypeVar, final
 
+# Define type variables for better type annotations
+T = TypeVar('T')
+P = TypeVar('P')
 
 @final
 class PermissionManager:
@@ -235,20 +239,20 @@ class PermissibleOperation:
         self, 
         permission_manager: PermissionManager, 
         operation: str, 
-        get_path_fn: Callable[[Any], str] | None = None
+        get_path_fn: Callable[[list[Any], dict[str, Any]], str] | None = None
     ) -> None:
         """Initialize the permissible operation.
         
         Args:
             permission_manager: The permission manager
             operation: The operation type (read, write, execute, etc.)
-            get_path_fn: Optional function to extract the path from args
+            get_path_fn: Optional function to extract the path from args and kwargs
         """
         self.permission_manager: PermissionManager = permission_manager
         self.operation: str = operation
-        self.get_path_fn: Callable[[Any], str] | None = get_path_fn
+        self.get_path_fn: Callable[[list[Any], dict[str, Any]], str] | None = get_path_fn
     
-    def __call__(self, func):
+    def __call__(self, func: Callable[..., Awaitable[T]]) -> Callable[..., Awaitable[T]]:
         """Decorate the function.
         
         Args:
@@ -257,10 +261,11 @@ class PermissibleOperation:
         Returns:
             The decorated function
         """
-        async def wrapper(*args, **kwargs):
+        async def wrapper(*args: Any, **kwargs: Any) -> T:
             # Extract the path
             if self.get_path_fn:
-                path = self.get_path_fn(args, kwargs)
+                # Pass args as a list and kwargs as a dict to the path function
+                path = self.get_path_fn(list(args), kwargs)
             else:
                 # Default to first argument
                 path = args[0] if args else next(iter(kwargs.values()), None)

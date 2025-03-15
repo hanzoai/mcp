@@ -41,7 +41,7 @@ class DocumentContext:
         # Check if the path is within any allowed path
         for allowed_path in self.allowed_paths:
             try:
-                resolved_path.relative_to(allowed_path)
+                _ = resolved_path.relative_to(allowed_path)
                 return True
             except ValueError:
                 continue

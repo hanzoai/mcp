@@ -106,7 +106,7 @@ class ScriptExecutor:
                     stderr=asyncio.subprocess.PIPE
                 )
                 
-                await process.communicate()
+                _ = await process.communicate()
                 return process.returncode == 0
             except Exception:
                 return False

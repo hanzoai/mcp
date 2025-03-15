@@ -1,14 +1,16 @@
 """Command-line interface for the MCP Claude Code server."""
 
 import argparse
+import json
 import os
 import sys
 from pathlib import Path
+from typing import Any, cast
 
 from mcp_claude_code.server import ClaudeCodeServer
 
 
-def main():
+def main() -> None:
     """Run the CLI for the MCP Claude Code server."""
     parser = argparse.ArgumentParser(
         description="MCP server implementing Claude Code capabilities"
@@ -48,24 +50,32 @@ def main():
     
     args = parser.parse_args()
     
-    if args.install:
-        install_claude_desktop_config(args.name, args.allowed_paths)
+    # Cast args attributes to appropriate types to avoid 'Any' warnings
+    name: str = cast(str, args.name)
+    install: bool = cast(bool, args.install)
+    transport: str = cast(str, args.transport)
+    project_dir: str | None = cast(str | None, args.project_dir)
+    allowed_paths: list[str] = cast(list[str], args.allowed_paths) if args.allowed_paths else []
+    
+    if install:
+        install_claude_desktop_config(name, allowed_paths)
         return
     
     # If no allowed paths are specified, use the current directory
-    if not args.allowed_paths:
-        args.allowed_paths = [os.getcwd()]
+    if not allowed_paths:
+        allowed_paths = [os.getcwd()]
     
     # If project directory is specified, add it to allowed paths
-    if args.project_dir and args.project_dir not in args.allowed_paths:
-        args.allowed_paths.append(args.project_dir)
+    if project_dir and project_dir not in allowed_paths:
+        allowed_paths.append(project_dir)
     
     # Run the server
-    server = ClaudeCodeServer(name=args.name, allowed_paths=args.allowed_paths)
-    server.run(transport=args.transport)
+    server = ClaudeCodeServer(name=name, allowed_paths=allowed_paths)
+    # Transport will be automatically cast to Literal['stdio', 'sse'] by the server
+    server.run(transport=transport)
 
 
-def install_claude_desktop_config(name="claude-code", allowed_paths=None):
+def install_claude_desktop_config(name: str = "claude-code", allowed_paths: list[str] | None = None) -> None:
     """Install the server configuration in Claude Desktop.
     
     Args:
@@ -73,25 +83,25 @@ def install_claude_desktop_config(name="claude-code", allowed_paths=None):
         allowed_paths: Optional list of paths to allow
     """
     # Find the Claude Desktop config directory
-    home = Path.home()
+    home: Path = Path.home()
     
     if sys.platform == "darwin":  # macOS
-        config_dir = home / "Library" / "Application Support" / "Claude"
+        config_dir: Path = home / "Library" / "Application Support" / "Claude"
     elif sys.platform == "win32":  # Windows
         config_dir = Path(os.environ.get("APPDATA", "")) / "Claude"
     else:  # Linux and others
         config_dir = home / ".config" / "claude"
     
-    config_file = config_dir / "claude_desktop_config.json"
+    config_file: Path = config_dir / "claude_desktop_config.json"
     
     # Create directory if it doesn't exist
     config_dir.mkdir(parents=True, exist_ok=True)
     
     # Get current script path
-    script_path = Path(sys.executable)
+    script_path: Path = Path(sys.executable)
     
     # Create args array
-    args = ["-m", "mcp_claude_code.cli"]
+    args: list[str] = ["-m", "mcp_claude_code.cli"]
     
     # Add allowed paths if specified
     if allowed_paths:
@@ -102,7 +112,7 @@ def install_claude_desktop_config(name="claude-code", allowed_paths=None):
         args.extend(["--allow-path", str(home)])
     
     # Create config object
-    config = {
+    config: dict[str, Any] = {
         "mcpServers": {
             name: {
                 "command": str(script_path),
@@ -113,10 +123,9 @@ def install_claude_desktop_config(name="claude-code", allowed_paths=None):
     
     # Check if the file already exists
     if config_file.exists():
-        import json
         try:
             with open(config_file, 'r') as f:
-                existing_config = json.load(f)
+                existing_config: dict[str, Any] = json.load(f)
             
             # Update the existing config
             if "mcpServers" not in existing_config:
@@ -129,7 +138,6 @@ def install_claude_desktop_config(name="claude-code", allowed_paths=None):
             print("Creating new config file.")
     
     # Write the config file
-    import json
     with open(config_file, 'w') as f:
         json.dump(config, f, indent=2)
     

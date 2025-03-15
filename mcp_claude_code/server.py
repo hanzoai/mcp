@@ -6,7 +6,6 @@ from typing import Any, Literal, cast, final
 
 from mcp.server.fastmcp import Context, FastMCP
 
-from mcp_claude_code.commands import CommandExecutor
 from mcp_claude_code.enhanced_commands import EnhancedCommandExecutor
 from mcp_claude_code.tool_integration import register_command_tools
 from mcp_claude_code.context import DocumentContext
@@ -31,11 +30,8 @@ class ClaudeCodeServer:
         # Initialize context, permissions, and command executor
         self.document_context = DocumentContext()
         self.permission_manager = PermissionManager()
-        # Initialize traditional command executor for backward compatibility
-        self.command_executor = CommandExecutor(self.permission_manager)
-        
-        # Initialize enhanced command executor
-        self.enhanced_executor = EnhancedCommandExecutor(
+        # Initialize command executor
+        self.command_executor = EnhancedCommandExecutor(
             permission_manager=self.permission_manager,
             verbose=False  # Set to True for debugging
         )
@@ -57,8 +53,8 @@ class ClaudeCodeServer:
         
     def _setup_tools(self):
         """Set up all the Claude Code tools."""
-        # Register enhanced command execution tools
-        register_command_tools(self.mcp, self.enhanced_executor)
+        # Register command execution tools
+        register_command_tools(self.mcp, self.command_executor)
         # Bash tool for executing shell commands
         @self.mcp.tool()
         async def bash_tool(command: str, ctx: Context, cwd: str | None = None) -> str:

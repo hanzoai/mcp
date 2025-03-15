@@ -2,7 +2,8 @@
 
 from mcp.server.fastmcp import Context, FastMCP
 
-from mcp_claude_code.enhanced_commands import EnhancedCommandExecutor, CommandResult
+from mcp_claude_code.enhanced_commands import (CommandResult,
+                                               EnhancedCommandExecutor)
 
 
 def register_command_tools(mcp_server: FastMCP, command_executor: EnhancedCommandExecutor):
