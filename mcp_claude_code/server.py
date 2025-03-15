@@ -6,7 +6,7 @@ from typing import Any, Literal, cast, final
 
 from mcp.server.fastmcp import FastMCP
 
-from mcp_claude_code.enhanced_commands import EnhancedCommandExecutor
+from mcp_claude_code.tools.shell.command_execution import CommandExecution
 from mcp_claude_code.context import DocumentContext
 from mcp_claude_code.executors import ProjectAnalyzer
 from mcp_claude_code.tools.common.permissions import PermissionManager
@@ -32,7 +32,7 @@ class ClaudeCodeServer:
         self.permission_manager = PermissionManager()
         
         # Initialize command executor
-        self.command_executor = EnhancedCommandExecutor(
+        self.command_executor = CommandExecution(
             permission_manager=self.permission_manager,
             verbose=False  # Set to True for debugging
         )

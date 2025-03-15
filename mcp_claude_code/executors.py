@@ -6,8 +6,7 @@ import os
 import tempfile
 from typing import Any, final
 
-from mcp_claude_code.tools.common.permissions import PermissionManager
-from mcp_claude_code.enhanced_commands import EnhancedCommandExecutor
+from mcp_claude_code.tools.shell.command_execution import CommandExecution, CommandResult
 
 
 @final
@@ -289,13 +288,13 @@ class ScriptExecutor:
 class ProjectAnalyzer:
     """Analyzes project structure and dependencies."""
     
-    def __init__(self, command_executor: EnhancedCommandExecutor) -> None:
+    def __init__(self, command_executor: CommandExecution) -> None:
         """Initialize the project analyzer.
         
         Args:
             command_executor: The command executor for running analysis scripts
         """
-        self.command_executor: EnhancedCommandExecutor = command_executor
+        self.command_executor: CommandExecution = command_executor
     
     async def analyze_python_dependencies(self, project_dir: str) -> dict[str, Any]:
         """Analyze Python project dependencies.
