@@ -12,7 +12,7 @@ from mcp_claude_code.project import ProjectManager
 from mcp_claude_code.tools.common.permissions import PermissionManager
 from mcp_claude_code.tools.filesystem.file_operations import FileOperations
 from mcp_claude_code.tools.project.analysis import ProjectAnalysis
-from mcp_claude_code.tools.shell.command_execution import CommandExecution
+from mcp_claude_code.tools.shell.command_executor import CommandExecutor
 
 
 def register_all_tools(mcp_server: FastMCP,
@@ -36,7 +36,7 @@ def register_all_tools(mcp_server: FastMCP,
     file_ops.register_tools(mcp_server)
     
     # Initialize and register command execution tools
-    cmd_exec = CommandExecution(permission_manager)
+    cmd_exec = CommandExecutor(permission_manager)
     cmd_exec.register_tools(mcp_server)
     
     # Initialize and register project analysis tools

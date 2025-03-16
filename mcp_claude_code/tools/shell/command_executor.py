@@ -1,4 +1,4 @@
-"""Command execution tools for MCP Claude Code.
+"""Command executor tools for MCP Claude Code.
 
 This module provides tools for executing shell commands and scripts with
 comprehensive error handling, permissions checking, and progress tracking.
@@ -85,8 +85,8 @@ class CommandResult:
 
 
 @final
-class CommandExecution:
-    """Command execution tools for MCP Claude Code.
+class CommandExecutor:
+    """Command executor tools for MCP Claude Code.
     
     This class provides tools for executing shell commands and scripts with
     comprehensive error handling, permissions checking, and progress tracking.
