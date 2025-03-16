@@ -4,22 +4,26 @@ This package contains all the tools for the MCP Claude Code server.
 It provides a unified interface for registering all tools with an MCP server.
 """
 
+from typing import Any
+
 from mcp.server.fastmcp import FastMCP
 
 from mcp_claude_code.context import DocumentContext
-from mcp_claude_code.executors import ProjectAnalyzer
 from mcp_claude_code.project import ProjectManager
 from mcp_claude_code.tools.common.permissions import PermissionManager
 from mcp_claude_code.tools.filesystem.file_operations import FileOperations
 from mcp_claude_code.tools.project.analysis import ProjectAnalysis
 from mcp_claude_code.tools.shell.command_executor import CommandExecutor
 
+# Forward reference to avoid circular imports
+ProjectAnalyzer = Any  # Will be properly typed in register_all_tools
+
 
 def register_all_tools(mcp_server: FastMCP,
                       document_context: DocumentContext,
                       permission_manager: PermissionManager,
                       project_manager: ProjectManager,
-                      project_analyzer: ProjectAnalyzer) -> None:
+                      project_analyzer: Any) -> None:
     """Register all Claude Code tools with the MCP server.
     
     Args:

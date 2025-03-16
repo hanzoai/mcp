@@ -11,7 +11,7 @@ import shlex
 import sys
 import tempfile
 from collections.abc import Awaitable, Callable
-from typing import Any, final
+from typing import final
 
 from mcp.server.fastmcp import Context as MCPContext
 from mcp.server.fastmcp import FastMCP

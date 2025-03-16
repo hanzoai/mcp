@@ -4,9 +4,11 @@ This module provides an enhanced Context class that wraps the MCP Context
 and adds additional functionality specific to Claude Code tools.
 """
 
-from typing import Any, ClassVar, final
+from collections.abc import Iterable
+from typing import ClassVar, final
 
 from mcp.server.fastmcp import Context as MCPContext
+from mcp.server.lowlevel.helper_types import ReadResourceContents
 
 
 @final
@@ -57,7 +59,7 @@ class ToolContext:
         return self._mcp_context.request_id
     
     @property
-    def client_id(self) -> str:
+    def client_id(self) -> str | None:
         """Get the client ID from the MCP context.
         
         Returns:
@@ -75,37 +77,37 @@ class ToolContext:
         self._tool_name = tool_name
         self._execution_id = execution_id
     
-    def info(self, message: str) -> None:
+    async def info(self, message: str) -> None:
         """Log an informational message.
         
         Args:
             message: The message to log
         """
-        self._mcp_context.info(self._format_message(message))
+        await self._mcp_context.info(self._format_message(message))
     
-    def debug(self, message: str) -> None:
+    async def debug(self, message: str) -> None:
         """Log a debug message.
         
         Args:
             message: The message to log
         """
-        self._mcp_context.debug(self._format_message(message))
+        await self._mcp_context.debug(self._format_message(message))
     
-    def warning(self, message: str) -> None:
+    async def warning(self, message: str) -> None:
         """Log a warning message.
         
         Args:
             message: The message to log
         """
-        self._mcp_context.warning(self._format_message(message))
+        await self._mcp_context.warning(self._format_message(message))
     
-    def error(self, message: str) -> None:
+    async def error(self, message: str) -> None:
         """Log an error message.
         
         Args:
             message: The message to log
         """
-        self._mcp_context.error(self._format_message(message))
+        await self._mcp_context.error(self._format_message(message))
     
     def _format_message(self, message: str) -> str:
         """Format a message with tool information if available.
@@ -131,7 +133,7 @@ class ToolContext:
         """
         await self._mcp_context.report_progress(current, total)
     
-    async def read_resource(self, uri: str) -> tuple[bytes, str]:
+    async def read_resource(self, uri: str) -> Iterable[ReadResourceContents]:
         """Read a resource via the MCP protocol.
         
         Args:
