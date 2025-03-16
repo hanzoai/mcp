@@ -40,3 +40,5 @@ htmlcov/
 
 # uv specific
 uv.lock
+
+.llm-context
