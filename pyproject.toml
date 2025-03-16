@@ -32,3 +32,6 @@ reportUnusedParameter = false
 reportAny = false
 reportRedeclaration = false
 reportExplicitAny = false
+reportMissingTypeArgument = false
+reportUnusedFunction = false
+reportUnknownParameterType = false

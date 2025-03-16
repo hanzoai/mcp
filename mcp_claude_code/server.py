@@ -6,12 +6,12 @@ from typing import Any, Literal, cast, final
 
 from mcp.server.fastmcp import FastMCP
 
-from mcp_claude_code.tools.shell.command_execution import CommandExecution
 from mcp_claude_code.context import DocumentContext
 from mcp_claude_code.executors import ProjectAnalyzer
-from mcp_claude_code.tools.common.permissions import PermissionManager
 from mcp_claude_code.project import ProjectManager
 from mcp_claude_code.tools import register_all_tools
+from mcp_claude_code.tools.common.permissions import PermissionManager
+from mcp_claude_code.tools.shell.command_execution import CommandExecution
 
 
 @final
@@ -58,7 +58,6 @@ class ClaudeCodeServer:
             mcp_server=self.mcp,
             document_context=self.document_context,
             permission_manager=self.permission_manager,
-            command_executor=self.command_executor,
             project_manager=self.project_manager,
             project_analyzer=self.project_analyzer
         )

@@ -7,12 +7,10 @@ It provides a unified interface for registering all tools with an MCP server.
 from mcp.server.fastmcp import FastMCP
 
 from mcp_claude_code.context import DocumentContext
-from mcp_claude_code.tools.shell.command_execution import CommandExecution
 from mcp_claude_code.executors import ProjectAnalyzer
-from mcp_claude_code.tools.common.permissions import PermissionManager
 from mcp_claude_code.project import ProjectManager
+from mcp_claude_code.tools.common.permissions import PermissionManager
 from mcp_claude_code.tools.filesystem.file_operations import FileOperations
-from mcp_claude_code.tools.filesystem.navigation import FilesystemNavigation
 from mcp_claude_code.tools.project.analysis import ProjectAnalysis
 from mcp_claude_code.tools.shell.command_execution import CommandExecution
 
@@ -20,7 +18,6 @@ from mcp_claude_code.tools.shell.command_execution import CommandExecution
 def register_all_tools(mcp_server: FastMCP,
                       document_context: DocumentContext,
                       permission_manager: PermissionManager,
-                      command_executor: CommandExecution,
                       project_manager: ProjectManager,
                       project_analyzer: ProjectAnalyzer) -> None:
     """Register all Claude Code tools with the MCP server.
@@ -34,15 +31,12 @@ def register_all_tools(mcp_server: FastMCP,
         project_analyzer: Project analyzer for analyzing project structure and dependencies
     """
     # Initialize and register file operations tools
+    # Now includes all filesystem functionality (navigation + file operations)
     file_ops = FileOperations(document_context, permission_manager)
     file_ops.register_tools(mcp_server)
     
-    # Initialize and register filesystem navigation tools
-    fs_nav = FilesystemNavigation(document_context, permission_manager)
-    fs_nav.register_tools(mcp_server)
-    
     # Initialize and register command execution tools
-    cmd_exec = CommandExecution(command_executor, script_executor, permission_manager)
+    cmd_exec = CommandExecution(permission_manager)
     cmd_exec.register_tools(mcp_server)
     
     # Initialize and register project analysis tools
