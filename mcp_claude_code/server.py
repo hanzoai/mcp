@@ -1,7 +1,6 @@
 """MCP server implementing Claude Code capabilities."""
 
-from pathlib import Path
-from typing import Any, Literal, cast, final
+from typing import Literal, cast, final
 
 from mcp.server.fastmcp import FastMCP
 
