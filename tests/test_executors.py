@@ -1,0 +1,238 @@
+"""Tests for the script executors module."""
+
+import os
+from pathlib import Path
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
+
+from mcp_claude_code.executors import ScriptExecutor
+
+
+class TestScriptExecutor:
+    """Test the ScriptExecutor class."""
+    
+    @pytest.fixture
+    def script_executor(self, permission_manager):
+        """Create a ScriptExecutor instance for testing."""
+        return ScriptExecutor(permission_manager)
+    
+    def test_initialization(self, permission_manager):
+        """Test initializing ScriptExecutor."""
+        executor = ScriptExecutor(permission_manager)
+        
+        assert executor.permission_manager is permission_manager
+        assert isinstance(executor.language_map, dict)
+        assert "python" in executor.language_map
+        assert "javascript" in executor.language_map
+    
+    def test_get_available_languages(self, script_executor):
+        """Test getting available script languages."""
+        languages = script_executor.get_available_languages()
+        
+        assert isinstance(languages, list)
+        assert "python" in languages
+        assert "javascript" in languages
+        assert "bash" in languages
+    
+    @pytest.mark.asyncio
+    async def test_is_language_installed_success(self, script_executor):
+        """Test checking if a language is installed (success case)."""
+        # Mock subprocess behavior for a successful check
+        mock_process = AsyncMock()
+        mock_process.returncode = 0
+        
+        with patch("asyncio.create_subprocess_exec", return_value=mock_process):
+            # Check if Python is installed
+            result = await script_executor.is_language_installed("python")
+            
+            # Verify result
+            assert result is True
+    
+    @pytest.mark.asyncio
+    async def test_is_language_installed_failure(self, script_executor):
+        """Test checking if a language is installed (failure case)."""
+        # Mock subprocess behavior for a failed check
+        mock_process = AsyncMock()
+        mock_process.returncode = 1
+        
+        with patch("asyncio.create_subprocess_exec", return_value=mock_process):
+            # Check if an unknown language is installed
+            result = await script_executor.is_language_installed("unknown_language")
+            
+            # Verify result
+            assert result is False
+    
+    @pytest.mark.asyncio
+    async def test_is_language_installed_with_fallback(self, script_executor):
+        """Test checking if a language is installed with -v fallback."""
+        # Mock subprocess behavior: fail with --version, succeed with -v
+        mock_process_fail = AsyncMock()
+        mock_process_fail.returncode = 1
+        
+        mock_process_success = AsyncMock()
+        mock_process_success.returncode = 0
+        
+        # Create a side effect that returns different mock processes based on args
+        async def create_subprocess_side_effect(*args, **kwargs):
+            if "--version" in args:
+                return mock_process_fail
+            return mock_process_success
+        
+        with patch("asyncio.create_subprocess_exec", side_effect=create_subprocess_side_effect):
+            # Check if a language with -v flag is installed
+            result = await script_executor.is_language_installed("some_language")
+            
+            # Verify result
+            assert result is True
+    
+    @pytest.mark.asyncio
+    async def test_execute_script_unsupported_language(self, script_executor):
+        """Test executing a script in an unsupported language."""
+        # Execute script in an unsupported language
+        result = await script_executor.execute_script(
+            language="unsupported_lang",
+            script="print('test')"
+        )
+        
+        # Verify result
+        assert result[0] == 1  # Return code
+        assert "Error: Unsupported language" in result[2]  # stderr
+    
+    @pytest.mark.asyncio
+    async def test_execute_script_disallowed_cwd(self, script_executor):
+        """Test executing a script with a disallowed working directory."""
+        # Mock permission check
+        script_executor.permission_manager.is_path_allowed = MagicMock(return_value=False)
+        
+        # Execute script with disallowed cwd
+        result = await script_executor.execute_script(
+            language="python",
+            script="print('test')",
+            cwd="/disallowed/path"
+        )
+        
+        # Verify result
+        assert result[0] == 1  # Return code
+        assert "Error: Working directory not allowed" in result[2]  # stderr
+    
+    @pytest.mark.asyncio
+    async def test_execute_script_success(self, script_executor, temp_dir):
+        """Test successfully executing a script."""
+        # Allow the temp directory
+        script_executor.permission_manager.is_path_allowed = MagicMock(return_value=True)
+        
+        # Mock subprocess behavior
+        mock_process = AsyncMock()
+        mock_process.returncode = 0
+        mock_process.communicate = AsyncMock(return_value=(b"Script output", b""))
+        
+        with patch("asyncio.create_subprocess_exec", return_value=mock_process), \
+             patch("tempfile.NamedTemporaryFile") as mock_temp_file:
+            
+            # Mock the temporary file
+            mock_file = MagicMock()
+            mock_file.name = os.path.join(temp_dir, "test_script.py")
+            mock_temp_file.return_value.__enter__.return_value = mock_file
+            
+            # Execute script
+            result = await script_executor.execute_script(
+                language="python",
+                script="print('test')",
+                cwd=temp_dir
+            )
+            
+            # Verify result
+            assert result[0] == 0  # Return code
+            assert "Script output" in result[1]  # stdout
+            assert result[2] == ""  # stderr
+    
+    @pytest.mark.asyncio
+    async def test_execute_script_timeout(self, script_executor, temp_dir):
+        """Test script execution with timeout."""
+        # Allow the temp directory
+        script_executor.permission_manager.is_path_allowed = MagicMock(return_value=True)
+        
+        # Mock subprocess behavior that times out
+        mock_process = AsyncMock()
+        mock_process.returncode = 0
+        # Make communicate raise a TimeoutError
+        mock_process.communicate = AsyncMock(side_effect=asyncio.TimeoutError)
+        
+        with patch("asyncio.create_subprocess_exec", return_value=mock_process), \
+             patch("tempfile.NamedTemporaryFile") as mock_temp_file, \
+             patch("os.unlink"):
+            
+            # Mock the temporary file
+            mock_file = MagicMock()
+            mock_file.name = os.path.join(temp_dir, "test_script.py")
+            mock_temp_file.return_value.__enter__.return_value = mock_file
+            
+            # Execute script with a short timeout
+            result = await script_executor.execute_script(
+                language="python",
+                script="import time; time.sleep(10)",
+                cwd=temp_dir,
+                timeout=0.1
+            )
+            
+            # Verify result
+            assert result[0] == -1  # Special timeout return code
+            assert "Error: Script execution timed out" in result[2]  # stderr
+    
+    @pytest.mark.asyncio
+    async def test_execute_script_inline_success(self, script_executor):
+        """Test successfully executing an inline script."""
+        # Mock subprocess behavior
+        mock_process = AsyncMock()
+        mock_process.returncode = 0
+        mock_process.communicate = AsyncMock(return_value=(b"Inline output", b""))
+        
+        with patch("asyncio.create_subprocess_exec", return_value=mock_process):
+            # Execute inline script
+            result = await script_executor.execute_script_inline(
+                language="python",
+                script="print('test inline')"
+            )
+            
+            # Verify result
+            assert result[0] == 0  # Return code
+            assert "Inline output" in result[1]  # stdout
+            assert result[2] == ""  # stderr
+    
+    @pytest.mark.asyncio
+    async def test_execute_script_from_file(self, script_executor, temp_dir):
+        """Test executing a script from a file."""
+        # Allow the temp directory
+        script_executor.permission_manager.is_path_allowed = MagicMock(return_value=True)
+        
+        # Mock subprocess behavior
+        mock_process = AsyncMock()
+        mock_process.returncode = 0
+        mock_process.communicate = AsyncMock(return_value=(b"File script output", b""))
+        
+        with patch("asyncio.create_subprocess_exec", return_value=mock_process), \
+             patch("tempfile.NamedTemporaryFile") as mock_temp_file, \
+             patch("os.unlink"):
+            
+            # Mock the temporary file
+            mock_file = MagicMock()
+            mock_file.name = os.path.join(temp_dir, "test_script.py")
+            mock_temp_file.return_value.__enter__.return_value = mock_file
+            
+            # Execute script from file
+            result = await script_executor.execute_script_from_file(
+                script="print('test from file')",
+                language="python",
+                cwd=temp_dir,
+                args=["arg1", "arg2"]
+            )
+            
+            # Verify result
+            assert result[0] == 0  # Return code
+            assert "File script output" in result[1]  # stdout
+            assert result[2] == ""  # stderr
+            
+            # Verify subprocess was called with correct arguments
+            call_args = list(mock_process.communicate.call_args[0])
+            assert mock_process.communicate.call_count == 1
