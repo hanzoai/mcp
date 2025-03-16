@@ -59,22 +59,22 @@ class FileOperations:
             """
             tool_ctx = create_tool_context(ctx)
             tool_ctx.set_tool_info("read_file")
-            tool_ctx.info(f"Reading file: {path}")
+            await tool_ctx.info(f"Reading file: {path}")
             
             # Check if file is allowed to be read
             if not self.permission_manager.is_path_allowed(path):
-                tool_ctx.error(f"Access denied - path outside allowed directories: {path}")
+                await tool_ctx.error(f"Access denied - path outside allowed directories: {path}")
                 return f"Error: Access denied - path outside allowed directories: {path}"
                 
             try:
                 file_path = Path(path)
                 
                 if not file_path.exists():
-                    tool_ctx.error(f"File does not exist: {path}")
+                    await tool_ctx.error(f"File does not exist: {path}")
                     return f"Error: File does not exist: {path}"
                 
                 if not file_path.is_file():
-                    tool_ctx.error(f"Path is not a file: {path}")
+                    await tool_ctx.error(f"Path is not a file: {path}")
                     return f"Error: Path is not a file: {path}"
                 
                 # Read the file
@@ -85,20 +85,20 @@ class FileOperations:
                     # Add to document context
                     self.document_context.add_document(path, content)
                     
-                    tool_ctx.info(f"Successfully read file: {path} ({len(content)} bytes)")
+                    await tool_ctx.info(f"Successfully read file: {path} ({len(content)} bytes)")
                     return content
                 except UnicodeDecodeError:
                     # Try with different encoding
                     try:
                         with open(file_path, 'r', encoding='latin-1') as f:
                             content = f.read()
-                        tool_ctx.warning(f"File read with latin-1 encoding: {path}")
+                        await tool_ctx.warning(f"File read with latin-1 encoding: {path}")
                         return content
                     except Exception:
-                        tool_ctx.error(f"Cannot read binary file: {path}")
+                        await tool_ctx.error(f"Cannot read binary file: {path}")
                         return f"Error: Cannot read binary file: {path}"
             except Exception as e:
-                tool_ctx.error(f"Error reading file: {str(e)}")
+                await tool_ctx.error(f"Error reading file: {str(e)}")
                 return f"Error reading file: {str(e)}"
         
         # Read multiple files tool
@@ -120,7 +120,7 @@ class FileOperations:
             """
             tool_ctx = create_tool_context(ctx)
             tool_ctx.set_tool_info("read_multiple_files")
-            tool_ctx.info(f"Reading {len(paths)} files")
+            await tool_ctx.info(f"Reading {len(paths)} files")
             
             results: list[str] = []
             
@@ -167,7 +167,7 @@ class FileOperations:
             # Final progress report
             await tool_ctx.report_progress(len(paths), len(paths))
             
-            tool_ctx.info(f"Read {len(paths)} files")
+            await tool_ctx.info(f"Read {len(paths)} files")
             return "\n\n---\n\n".join(results)
         
         # Write file tool
@@ -188,17 +188,17 @@ class FileOperations:
             """
             tool_ctx = create_tool_context(ctx)
             tool_ctx.set_tool_info("write_file")
-            tool_ctx.info(f"Writing file: {path}")
+            await tool_ctx.info(f"Writing file: {path}")
             
             # Check if file is allowed to be written
             if not self.permission_manager.is_path_allowed(path):
-                tool_ctx.error(f"Access denied - path outside allowed directories: {path}")
+                await tool_ctx.error(f"Access denied - path outside allowed directories: {path}")
                 return f"Error: Access denied - path outside allowed directories: {path}"
             
             # Check if file write permission has been granted
             if not self.permission_manager.is_operation_approved(path, "write"):
                 # Request permission
-                tool_ctx.info(f"Requesting permission to write file: {path}")
+                await tool_ctx.info(f"Requesting permission to write file: {path}")
                 self.permission_manager.approve_operation(path, "write")
                 return f"Permission requested to write file: {path}\nPlease approve the write operation and try again."
             
@@ -208,7 +208,7 @@ class FileOperations:
                 # Check if parent directory is allowed
                 parent_dir = str(file_path.parent)
                 if not self.permission_manager.is_path_allowed(parent_dir):
-                    tool_ctx.error(f"Parent directory not allowed: {parent_dir}")
+                    await tool_ctx.error(f"Parent directory not allowed: {parent_dir}")
                     return f"Error: Parent directory not allowed: {parent_dir}"
                 
                 # Create parent directories if they don't exist
@@ -221,10 +221,10 @@ class FileOperations:
                 # Add to document context
                 self.document_context.add_document(path, content)
                 
-                tool_ctx.info(f"Successfully wrote file: {path} ({len(content)} bytes)")
+                await tool_ctx.info(f"Successfully wrote file: {path} ({len(content)} bytes)")
                 return f"Successfully wrote file: {path} ({len(content)} bytes)"
             except Exception as e:
-                tool_ctx.error(f"Error writing file: {str(e)}")
+                await tool_ctx.error(f"Error writing file: {str(e)}")
                 return f"Error writing file: {str(e)}"
         
         # Edit file tool
@@ -247,17 +247,17 @@ class FileOperations:
             """
             tool_ctx = create_tool_context(ctx)
             tool_ctx.set_tool_info("edit_file")
-            tool_ctx.info(f"Editing file: {path}")
+            await tool_ctx.info(f"Editing file: {path}")
             
             # Check if file is allowed to be edited
             if not self.permission_manager.is_path_allowed(path):
-                tool_ctx.error(f"Access denied - path outside allowed directories: {path}")
+                await tool_ctx.error(f"Access denied - path outside allowed directories: {path}")
                 return f"Error: Access denied - path outside allowed directories: {path}"
             
             # Check if file edit permission has been granted (unless dry run)
             if not dry_run and not self.permission_manager.is_operation_approved(path, "edit"):
                 # Request permission
-                tool_ctx.info(f"Requesting permission to edit file: {path}")
+                await tool_ctx.info(f"Requesting permission to edit file: {path}")
                 self.permission_manager.approve_operation(path, "edit")
                 return f"Permission requested to edit file: {path}\nPlease approve the edit operation and try again."
             
@@ -265,11 +265,11 @@ class FileOperations:
                 file_path = Path(path)
                 
                 if not file_path.exists():
-                    tool_ctx.error(f"File does not exist: {path}")
+                    await tool_ctx.error(f"File does not exist: {path}")
                     return f"Error: File does not exist: {path}"
                 
                 if not file_path.is_file():
-                    tool_ctx.error(f"Path is not a file: {path}")
+                    await tool_ctx.error(f"Path is not a file: {path}")
                     return f"Error: Path is not a file: {path}"
                 
                 # Read the file
@@ -311,7 +311,7 @@ class FileOperations:
                                     break
                     
                     if edits_applied < len(edits):
-                        tool_ctx.warning(f"Some edits could not be applied: {edits_applied}/{len(edits)}")
+                        await tool_ctx.warning(f"Some edits could not be applied: {edits_applied}/{len(edits)}")
                     
                     # Generate diff
                     original_lines = original_content.splitlines(keepends=True)
@@ -343,18 +343,18 @@ class FileOperations:
                         # Update document context
                         self.document_context.update_document(path, modified_content)
                         
-                        tool_ctx.info(f"Successfully edited file: {path} ({edits_applied} edits applied)")
+                        await tool_ctx.info(f"Successfully edited file: {path} ({edits_applied} edits applied)")
                         return f"Successfully edited file: {path} ({edits_applied} edits applied)\n\n{formatted_diff}"
                     elif not diff_text:
                         return f"No changes made to file: {path}"
                     else:
-                        tool_ctx.info(f"Dry run: {edits_applied} edits would be applied")
+                        await tool_ctx.info(f"Dry run: {edits_applied} edits would be applied")
                         return f"Dry run: {edits_applied} edits would be applied\n\n{formatted_diff}"
                 except UnicodeDecodeError:
-                    tool_ctx.error(f"Cannot edit binary file: {path}")
+                    await tool_ctx.error(f"Cannot edit binary file: {path}")
                     return f"Error: Cannot edit binary file: {path}"
             except Exception as e:
-                tool_ctx.error(f"Error editing file: {str(e)}")
+                await tool_ctx.error(f"Error editing file: {str(e)}")
                 return f"Error editing file: {str(e)}"
         
         # Create directory tool
@@ -375,17 +375,17 @@ class FileOperations:
             """
             tool_ctx = create_tool_context(ctx)
             tool_ctx.set_tool_info("create_directory")
-            tool_ctx.info(f"Creating directory: {path}")
+            await tool_ctx.info(f"Creating directory: {path}")
             
             # Check if path is allowed
             if not self.permission_manager.is_path_allowed(path):
-                tool_ctx.error(f"Access denied - path outside allowed directories: {path}")
+                await tool_ctx.error(f"Access denied - path outside allowed directories: {path}")
                 return f"Error: Access denied - path outside allowed directories: {path}"
             
             # Check if directory creation permission has been granted
             if not self.permission_manager.is_operation_approved(path, "write"):
                 # Request permission
-                tool_ctx.info(f"Requesting permission to create directory: {path}")
+                await tool_ctx.info(f"Requesting permission to create directory: {path}")
                 self.permission_manager.approve_operation(path, "write")
                 return f"Permission requested to create directory: {path}\nPlease approve the operation and try again."
             
@@ -395,10 +395,10 @@ class FileOperations:
                 # Create the directory
                 dir_path.mkdir(parents=True, exist_ok=True)
                 
-                tool_ctx.info(f"Successfully created directory: {path}")
+                await tool_ctx.info(f"Successfully created directory: {path}")
                 return f"Successfully created directory: {path}"
             except Exception as e:
-                tool_ctx.error(f"Error creating directory: {str(e)}")
+                await tool_ctx.error(f"Error creating directory: {str(e)}")
                 return f"Error creating directory: {str(e)}"
         
         # List directory tool
@@ -419,22 +419,22 @@ class FileOperations:
             """
             tool_ctx = create_tool_context(ctx)
             tool_ctx.set_tool_info("list_directory")
-            tool_ctx.info(f"Listing directory: {path}")
+            await tool_ctx.info(f"Listing directory: {path}")
             
             # Check if path is allowed
             if not self.permission_manager.is_path_allowed(path):
-                tool_ctx.error(f"Access denied - path outside allowed directories: {path}")
+                await tool_ctx.error(f"Access denied - path outside allowed directories: {path}")
                 return f"Error: Access denied - path outside allowed directories: {path}"
             
             try:
                 dir_path = Path(path)
                 
                 if not dir_path.exists():
-                    tool_ctx.error(f"Directory does not exist: {path}")
+                    await tool_ctx.error(f"Directory does not exist: {path}")
                     return f"Error: Directory does not exist: {path}"
                 
                 if not dir_path.is_dir():
-                    tool_ctx.error(f"Path is not a directory: {path}")
+                    await tool_ctx.error(f"Path is not a directory: {path}")
                     return f"Error: Path is not a directory: {path}"
                 
                 # List directory contents
@@ -457,10 +457,10 @@ class FileOperations:
                 if not sorted_entries:
                     return f"Directory is empty or contains no allowed entries: {path}"
                 
-                tool_ctx.info(f"Listed {len(sorted_entries)} entries in {path}")
+                await tool_ctx.info(f"Listed {len(sorted_entries)} entries in {path}")
                 return "\n".join(sorted_entries)
             except Exception as e:
-                tool_ctx.error(f"Error listing directory: {str(e)}")
+                await tool_ctx.error(f"Error listing directory: {str(e)}")
                 return f"Error listing directory: {str(e)}"
         
         # Directory tree tool
@@ -482,22 +482,22 @@ class FileOperations:
             """
             tool_ctx = create_tool_context(ctx)
             tool_ctx.set_tool_info("directory_tree")
-            tool_ctx.info(f"Getting directory tree: {path}")
+            await tool_ctx.info(f"Getting directory tree: {path}")
             
             # Check if path is allowed
             if not self.permission_manager.is_path_allowed(path):
-                tool_ctx.error(f"Access denied - path outside allowed directories: {path}")
+                await tool_ctx.error(f"Access denied - path outside allowed directories: {path}")
                 return f"Error: Access denied - path outside allowed directories: {path}"
             
             try:
                 dir_path = Path(path)
                 
                 if not dir_path.exists():
-                    tool_ctx.error(f"Directory does not exist: {path}")
+                    await tool_ctx.error(f"Directory does not exist: {path}")
                     return f"Error: Directory does not exist: {path}"
                 
                 if not dir_path.is_dir():
-                    tool_ctx.error(f"Path is not a directory: {path}")
+                    await tool_ctx.error(f"Path is not a directory: {path}")
                     return f"Error: Path is not a directory: {path}"
                 
                 # Build the tree recursively
@@ -524,17 +524,17 @@ class FileOperations:
                             
                             result.append(entry_data)
                     except Exception as e:
-                        tool_ctx.warning(f"Error processing {current_path}: {str(e)}")
+                        await tool_ctx.warning(f"Error processing {current_path}: {str(e)}")
                     
                     # Sort entries (directories first, then files)
                     return sorted(result, key=lambda x: (0 if x["type"] == "directory" else 1, x["name"]))
                 
                 tree_data = await build_tree(dir_path)
                 
-                tool_ctx.info(f"Generated directory tree for {path}")
+                await tool_ctx.info(f"Generated directory tree for {path}")
                 return json.dumps(tree_data, indent=2)
             except Exception as e:
-                tool_ctx.error(f"Error generating directory tree: {str(e)}")
+                await tool_ctx.error(f"Error generating directory tree: {str(e)}")
                 return f"Error generating directory tree: {str(e)}"
         
         # Move file tool
@@ -557,21 +557,21 @@ class FileOperations:
             """
             tool_ctx = create_tool_context(ctx)
             tool_ctx.set_tool_info("move_file")
-            tool_ctx.info(f"Moving {source} to {destination}")
+            await tool_ctx.info(f"Moving {source} to {destination}")
             
             # Check if source and destination are allowed
             if not self.permission_manager.is_path_allowed(source):
-                tool_ctx.error(f"Access denied - source path outside allowed directories: {source}")
+                await tool_ctx.error(f"Access denied - source path outside allowed directories: {source}")
                 return f"Error: Access denied - source path outside allowed directories: {source}"
             
             if not self.permission_manager.is_path_allowed(destination):
-                tool_ctx.error(f"Access denied - destination path outside allowed directories: {destination}")
+                await tool_ctx.error(f"Access denied - destination path outside allowed directories: {destination}")
                 return f"Error: Access denied - destination path outside allowed directories: {destination}"
             
             # Check if file move permission has been granted
             if not self.permission_manager.is_operation_approved(source, "write"):
                 # Request permission
-                tool_ctx.info(f"Requesting permission to move {source}")
+                await tool_ctx.info(f"Requesting permission to move {source}")
                 self.permission_manager.approve_operation(source, "write")
                 return f"Permission requested to move {source}\nPlease approve the operation and try again."
             
@@ -580,11 +580,11 @@ class FileOperations:
                 dest_path = Path(destination)
                 
                 if not source_path.exists():
-                    tool_ctx.error(f"Source does not exist: {source}")
+                    await tool_ctx.error(f"Source does not exist: {source}")
                     return f"Error: Source does not exist: {source}"
                 
                 if dest_path.exists():
-                    tool_ctx.error(f"Destination already exists: {destination}")
+                    await tool_ctx.error(f"Destination already exists: {destination}")
                     return f"Error: Destination already exists: {destination}"
                 
                 # Create parent directory if it doesn't exist
@@ -607,10 +607,10 @@ class FileOperations:
                 # Perform the move
                 source_path.rename(dest_path)
                 
-                tool_ctx.info(f"Successfully moved {source} to {destination}")
+                await tool_ctx.info(f"Successfully moved {source} to {destination}")
                 return f"Successfully moved {source} to {destination}"
             except Exception as e:
-                tool_ctx.error(f"Error moving file: {str(e)}")
+                await tool_ctx.error(f"Error moving file: {str(e)}")
                 return f"Error moving file: {str(e)}"
         
         # Search files tool
@@ -634,22 +634,22 @@ class FileOperations:
             """
             tool_ctx = create_tool_context(ctx)
             tool_ctx.set_tool_info("search_files")
-            tool_ctx.info(f"Searching for pattern '{pattern}' in {path}")
+            await tool_ctx.info(f"Searching for pattern '{pattern}' in {path}")
             
             # Check if path is allowed
             if not self.permission_manager.is_path_allowed(path):
-                tool_ctx.error(f"Access denied - path outside allowed directories: {path}")
+                await tool_ctx.error(f"Access denied - path outside allowed directories: {path}")
                 return f"Error: Access denied - path outside allowed directories: {path}"
             
             try:
                 start_path = Path(path)
                 
                 if not start_path.exists():
-                    tool_ctx.error(f"Path does not exist: {path}")
+                    await tool_ctx.error(f"Path does not exist: {path}")
                     return f"Error: Path does not exist: {path}"
                 
                 if not start_path.is_dir():
-                    tool_ctx.error(f"Path is not a directory: {path}")
+                    await tool_ctx.error(f"Path is not a directory: {path}")
                     return f"Error: Path is not a directory: {path}"
                 
                 # List to store results
@@ -693,7 +693,7 @@ class FileOperations:
                             if entry.is_dir():
                                 await search_recursive(entry)
                     except Exception as e:
-                        tool_ctx.warning(f"Error accessing {current_path}: {str(e)}")
+                        await tool_ctx.warning(f"Error accessing {current_path}: {str(e)}")
                 
                 # Start the search
                 await search_recursive(start_path)
@@ -704,10 +704,10 @@ class FileOperations:
                 if not results:
                     return f"No matches found for pattern '{pattern}' in {path}"
                 
-                tool_ctx.info(f"Found {len(results)} matches for pattern '{pattern}'")
+                await tool_ctx.info(f"Found {len(results)} matches for pattern '{pattern}'")
                 return f"Found {len(results)} matches for pattern '{pattern}':\n\n" + "\n".join(results)
             except Exception as e:
-                tool_ctx.error(f"Error searching files: {str(e)}")
+                await tool_ctx.error(f"Error searching files: {str(e)}")
                 return f"Error searching files: {str(e)}"
         
         # Get file info tool
@@ -729,18 +729,18 @@ class FileOperations:
             """
             tool_ctx = create_tool_context(ctx)
             tool_ctx.set_tool_info("get_file_info")
-            tool_ctx.info(f"Getting file info: {path}")
+            await tool_ctx.info(f"Getting file info: {path}")
             
             # Check if path is allowed
             if not self.permission_manager.is_path_allowed(path):
-                tool_ctx.error(f"Access denied - path outside allowed directories: {path}")
+                await tool_ctx.error(f"Access denied - path outside allowed directories: {path}")
                 return f"Error: Access denied - path outside allowed directories: {path}"
             
             try:
                 file_path = Path(path)
                 
                 if not file_path.exists():
-                    tool_ctx.error(f"Path does not exist: {path}")
+                    await tool_ctx.error(f"Path does not exist: {path}")
                     return f"Error: Path does not exist: {path}"
                 
                 # Get file stats
@@ -768,10 +768,10 @@ class FileOperations:
                 # Format the output
                 result = [f"{key}: {value}" for key, value in file_info.items()]
                 
-                tool_ctx.info(f"Retrieved info for {path}")
+                await tool_ctx.info(f"Retrieved info for {path}")
                 return "\n".join(result)
             except Exception as e:
-                tool_ctx.error(f"Error getting file info: {str(e)}")
+                await tool_ctx.error(f"Error getting file info: {str(e)}")
                 return f"Error getting file info: {str(e)}"
         
         # List allowed directories tool
@@ -789,7 +789,7 @@ class FileOperations:
             """
             tool_ctx = create_tool_context(ctx)
             tool_ctx.set_tool_info("list_allowed_directories")
-            tool_ctx.info("Listing allowed directories")
+            await tool_ctx.info("Listing allowed directories")
             
             # Get allowed paths from permission manager
             allowed_paths = [str(path) for path in self.permission_manager.allowed_paths]
@@ -797,7 +797,7 @@ class FileOperations:
             if not allowed_paths:
                 return "No directories are currently allowed."
             
-            tool_ctx.info(f"Listed {len(allowed_paths)} allowed directories")
+            await tool_ctx.info(f"Listed {len(allowed_paths)} allowed directories")
             return "Allowed directories:\n" + "\n".join(allowed_paths)
         
         # Search content tool (grep-like functionality)
@@ -821,22 +821,22 @@ class FileOperations:
             """
             tool_ctx = create_tool_context(ctx)
             tool_ctx.set_tool_info("search_content")
-            tool_ctx.info(f"Searching for pattern '{pattern}' in files matching '{file_pattern}' in {path}")
+            await tool_ctx.info(f"Searching for pattern '{pattern}' in files matching '{file_pattern}' in {path}")
             
             # Check if path is allowed
             if not self.permission_manager.is_path_allowed(path):
-                tool_ctx.error(f"Access denied - path outside allowed directories: {path}")
+                await tool_ctx.error(f"Access denied - path outside allowed directories: {path}")
                 return f"Error: Access denied - path outside allowed directories: {path}"
             
             try:
                 dir_path = Path(path)
                 
                 if not dir_path.exists():
-                    tool_ctx.error(f"Path does not exist: {path}")
+                    await tool_ctx.error(f"Path does not exist: {path}")
                     return f"Error: Path does not exist: {path}"
                 
                 if not dir_path.is_dir():
-                    tool_ctx.error(f"Path is not a directory: {path}")
+                    await tool_ctx.error(f"Path is not a directory: {path}")
                     return f"Error: Path is not a directory: {path}"
                 
                 # Find matching files
@@ -862,14 +862,14 @@ class FileOperations:
                                 # Recurse into directory
                                 await find_files(entry)
                     except Exception as e:
-                        tool_ctx.warning(f"Error accessing {current_path}: {str(e)}")
+                        await tool_ctx.warning(f"Error accessing {current_path}: {str(e)}")
                 
                 # Find all matching files
                 await find_files(dir_path)
                 
                 # Report progress
                 total_files = len(matching_files)
-                tool_ctx.info(f"Searching through {total_files} files")
+                await tool_ctx.info(f"Searching through {total_files} files")
                 
                 # Search through files
                 results: list[str] = []
@@ -892,7 +892,7 @@ class FileOperations:
                         # Skip binary files
                         continue
                     except Exception as e:
-                        tool_ctx.warning(f"Error reading {file_path}: {str(e)}")
+                        await tool_ctx.warning(f"Error reading {file_path}: {str(e)}")
                 
                 # Final progress report
                 await tool_ctx.report_progress(total_files, total_files)
@@ -900,10 +900,10 @@ class FileOperations:
                 if not results:
                     return f"No matches found for pattern '{pattern}' in files matching '{file_pattern}' in {path}"
                 
-                tool_ctx.info(f"Found {matches_found} matches in {files_processed} files")
+                await tool_ctx.info(f"Found {matches_found} matches in {files_processed} files")
                 return f"Found {matches_found} matches in {files_processed} files:\n\n" + "\n".join(results)
             except Exception as e:
-                tool_ctx.error(f"Error searching file contents: {str(e)}")
+                await tool_ctx.error(f"Error searching file contents: {str(e)}")
                 return f"Error searching file contents: {str(e)}"
         
         # Content replace tool (search and replace across multiple files)
@@ -929,17 +929,17 @@ class FileOperations:
             """
             tool_ctx = create_tool_context(ctx)
             tool_ctx.set_tool_info("content_replace")
-            tool_ctx.info(f"Replacing pattern '{pattern}' with '{replacement}' in files matching '{file_pattern}' in {path}")
+            await tool_ctx.info(f"Replacing pattern '{pattern}' with '{replacement}' in files matching '{file_pattern}' in {path}")
             
             # Check if path is allowed
             if not self.permission_manager.is_path_allowed(path):
-                tool_ctx.error(f"Access denied - path outside allowed directories: {path}")
+                await tool_ctx.error(f"Access denied - path outside allowed directories: {path}")
                 return f"Error: Access denied - path outside allowed directories: {path}"
             
             # Check for write permission if not a dry run
             if not dry_run and not self.permission_manager.is_operation_approved(path, "write"):
                 # Request permission
-                tool_ctx.info(f"Requesting permission to modify files in {path}")
+                await tool_ctx.info(f"Requesting permission to modify files in {path}")
                 self.permission_manager.approve_operation(path, "write")
                 return f"Permission requested to modify files in {path}\nPlease approve the operation and try again."
             
@@ -947,11 +947,11 @@ class FileOperations:
                 dir_path = Path(path)
                 
                 if not dir_path.exists():
-                    tool_ctx.error(f"Path does not exist: {path}")
+                    await tool_ctx.error(f"Path does not exist: {path}")
                     return f"Error: Path does not exist: {path}"
                 
                 if not dir_path.is_dir():
-                    tool_ctx.error(f"Path is not a directory: {path}")
+                    await tool_ctx.error(f"Path is not a directory: {path}")
                     return f"Error: Path is not a directory: {path}"
                 
                 # Find matching files
@@ -977,14 +977,14 @@ class FileOperations:
                                 # Recurse into directory
                                 await find_files(entry)
                     except Exception as e:
-                        tool_ctx.warning(f"Error accessing {current_path}: {str(e)}")
+                        await tool_ctx.warning(f"Error accessing {current_path}: {str(e)}")
                 
                 # Find all matching files
                 await find_files(dir_path)
                 
                 # Report progress
                 total_files = len(matching_files)
-                tool_ctx.info(f"Processing {total_files} files")
+                await tool_ctx.info(f"Processing {total_files} files")
                 
                 # Process files
                 results: list[str] = []
@@ -1024,7 +1024,7 @@ class FileOperations:
                         # Skip binary files
                         continue
                     except Exception as e:
-                        tool_ctx.warning(f"Error processing {file_path}: {str(e)}")
+                        await tool_ctx.warning(f"Error processing {file_path}: {str(e)}")
                 
                 # Final progress report
                 await tool_ctx.report_progress(total_files, total_files)
@@ -1033,13 +1033,13 @@ class FileOperations:
                     return f"No occurrences of pattern '{pattern}' found in files matching '{file_pattern}' in {path}"
                 
                 if dry_run:
-                    tool_ctx.info(f"Dry run: {replacements_made} replacements would be made in {files_modified} files")
+                    await tool_ctx.info(f"Dry run: {replacements_made} replacements would be made in {files_modified} files")
                     message = f"Dry run: {replacements_made} replacements of '{pattern}' with '{replacement}' would be made in {files_modified} files:"
                 else:
-                    tool_ctx.info(f"Made {replacements_made} replacements in {files_modified} files")
+                    await tool_ctx.info(f"Made {replacements_made} replacements in {files_modified} files")
                     message = f"Made {replacements_made} replacements of '{pattern}' with '{replacement}' in {files_modified} files:"
                 
                 return message + "\n\n" + "\n".join(results)
             except Exception as e:
-                tool_ctx.error(f"Error replacing content: {str(e)}")
+                await tool_ctx.error(f"Error replacing content: {str(e)}")
                 return f"Error replacing content: {str(e)}"

@@ -1,16 +1,15 @@
 """MCP server implementing Claude Code capabilities."""
 
-import os
 from pathlib import Path
 from typing import Any, Literal, cast, final
 
 from mcp.server.fastmcp import FastMCP
 
-from mcp_claude_code.context import DocumentContext
-from mcp_claude_code.executors import ProjectAnalyzer
-from mcp_claude_code.project import ProjectManager
 from mcp_claude_code.tools import register_all_tools
+from mcp_claude_code.tools.common.context import DocumentContext
 from mcp_claude_code.tools.common.permissions import PermissionManager
+from mcp_claude_code.tools.project.analysis import (ProjectAnalyzer,
+                                                    ProjectManager)
 from mcp_claude_code.tools.shell.command_executor import CommandExecutor
 
 

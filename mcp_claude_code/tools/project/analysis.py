@@ -10,8 +10,8 @@ from typing import Any, Callable, final
 from mcp.server.fastmcp import Context as MCPContext
 from mcp.server.fastmcp import FastMCP
 
-from mcp_claude_code.context import DocumentContext
-from mcp_claude_code.tools.common.context import create_tool_context
+from mcp_claude_code.tools.common.context import (DocumentContext,
+                                                  create_tool_context)
 from mcp_claude_code.tools.common.permissions import PermissionManager
 from mcp_claude_code.tools.shell.command_executor import CommandExecutor
 
@@ -826,19 +826,19 @@ class ProjectAnalysis:
             """
             tool_ctx = create_tool_context(ctx)
             tool_ctx.set_tool_info("project_analyze")
-            tool_ctx.info(f"Analyzing project: {project_dir}")
+            await tool_ctx.info(f"Analyzing project: {project_dir}")
             
             # Check if directory is allowed
             if not self.permission_manager.is_path_allowed(project_dir):
-                tool_ctx.error(f"Directory not allowed: {project_dir}")
+                await tool_ctx.error(f"Directory not allowed: {project_dir}")
                 return f"Error: Directory not allowed: {project_dir}"
             
             # Set project root
             if not self.project_manager.set_project_root(project_dir):
-                tool_ctx.error(f"Failed to set project root: {project_dir}")
+                await tool_ctx.error(f"Failed to set project root: {project_dir}")
                 return f"Error: Failed to set project root: {project_dir}"
             
-            tool_ctx.info("Analyzing project structure...")
+            await tool_ctx.info("Analyzing project structure...")
             
             # Report intermediate progress
             await tool_ctx.report_progress(10, 100)
@@ -846,13 +846,13 @@ class ProjectAnalysis:
             # Analyze project
             analysis: dict[str, Any] = await self.project_manager.analyze_project()
             if "error" in analysis:
-                tool_ctx.error(f"Error analyzing project: {analysis['error']}")
+                await tool_ctx.error(f"Error analyzing project: {analysis['error']}")
                 return f"Error analyzing project: {analysis['error']}"
             
             # Report more progress
             await tool_ctx.report_progress(50, 100)
             
-            tool_ctx.info("Generating project summary...")
+            await tool_ctx.info("Generating project summary...")
             
             # Generate summary
             summary = self.project_manager.generate_project_summary()
@@ -860,6 +860,6 @@ class ProjectAnalysis:
             # Complete progress
             await tool_ctx.report_progress(100, 100)
             
-            tool_ctx.info("Project analysis complete")
+            await tool_ctx.info("Project analysis complete")
             return summary
 

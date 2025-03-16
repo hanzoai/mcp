@@ -683,16 +683,16 @@ class CommandExecutor:
             """
             tool_ctx = create_tool_context(ctx)
             tool_ctx.set_tool_info("run_command")
-            tool_ctx.info(f"Executing command: {command}")
+            await tool_ctx.info(f"Executing command: {command}")
             
             # Check if command is allowed
             if not self.is_command_allowed(command):
-                tool_ctx.error(f"Command not allowed: {command}")
+                await tool_ctx.error(f"Command not allowed: {command}")
                 return f"Error: Command not allowed: {command}"
             
             # Check if working directory is allowed
             if cwd and not self.permission_manager.is_path_allowed(cwd):
-                tool_ctx.error(f"Working directory not allowed: {cwd}")
+                await tool_ctx.error(f"Working directory not allowed: {cwd}")
                 return f"Error: Working directory not allowed: {cwd}"
                 
             # Execute the command
@@ -704,9 +704,9 @@ class CommandExecutor:
             
             # Report result
             if result.is_success:
-                tool_ctx.info(f"Command executed successfully")
+                await tool_ctx.info(f"Command executed successfully")
             else:
-                tool_ctx.error(f"Command failed with exit code {result.return_code}")
+                await tool_ctx.error(f"Command failed with exit code {result.return_code}")
             
             # Format the result
             if result.is_success:
@@ -739,16 +739,16 @@ class CommandExecutor:
             """
             tool_ctx = create_tool_context(ctx)
             tool_ctx.set_tool_info("run_script")
-            tool_ctx.info(f"Executing script with interpreter: {interpreter}")
+            await tool_ctx.info(f"Executing script with interpreter: {interpreter}")
             
             # Check working directory permissions if specified
             if cwd:
                 if not os.path.isdir(cwd):
-                    tool_ctx.error(f"Working directory does not exist: {cwd}")
+                    await tool_ctx.error(f"Working directory does not exist: {cwd}")
                     return f"Error: Working directory does not exist: {cwd}"
                     
                 if not self.permission_manager.is_path_allowed(cwd):
-                    tool_ctx.error(f"Working directory not allowed: {cwd}")
+                    await tool_ctx.error(f"Working directory not allowed: {cwd}")
                     return f"Error: Working directory not allowed: {cwd}"
             
             # Execute the script
@@ -761,9 +761,9 @@ class CommandExecutor:
             
             # Report result
             if result.is_success:
-                tool_ctx.info(f"Script executed successfully")
+                await tool_ctx.info(f"Script executed successfully")
             else:
-                tool_ctx.error(f"Script execution failed with exit code {result.return_code}")
+                await tool_ctx.error(f"Script execution failed with exit code {result.return_code}")
             
             # Format the result
             if result.is_success:
@@ -798,16 +798,16 @@ class CommandExecutor:
             """
             tool_ctx = create_tool_context(ctx)
             tool_ctx.set_tool_info("script_tool")
-            tool_ctx.info(f"Executing {language} script")
+            await tool_ctx.info(f"Executing {language} script")
             
             # Check if the language is supported
             if language not in self.get_available_languages():
-                tool_ctx.error(f"Unsupported language: {language}")
+                await tool_ctx.error(f"Unsupported language: {language}")
                 return f"Error: Unsupported language: {language}. Supported languages: {', '.join(self.get_available_languages())}"
             
             # Check if working directory is allowed
             if cwd and not self.permission_manager.is_path_allowed(cwd):
-                tool_ctx.error(f"Working directory not allowed: {cwd}")
+                await tool_ctx.error(f"Working directory not allowed: {cwd}")
                 return f"Error: Working directory not allowed: {cwd}"
                 
             # Check if script execution permission has been granted
@@ -815,7 +815,7 @@ class CommandExecutor:
             script_path = cwd or os.getcwd()
             if not self.permission_manager.is_operation_approved(script_path, operation):
                 # Request permission
-                tool_ctx.info(f"Requesting permission to execute {language} script in {script_path}")
+                await tool_ctx.info(f"Requesting permission to execute {language} script in {script_path}")
                 self.permission_manager.approve_operation(script_path, operation)
                 return f"Permission requested to execute {language} script in {script_path}\nPlease approve the script execution and try again."
             
@@ -830,9 +830,9 @@ class CommandExecutor:
             
             # Report result
             if result.is_success:
-                tool_ctx.info(f"{language} script executed successfully")
+                await tool_ctx.info(f"{language} script executed successfully")
             else:
-                tool_ctx.error(f"{language} script execution failed with exit code {result.return_code}")
+                await tool_ctx.error(f"{language} script execution failed with exit code {result.return_code}")
             
             # Format the result
             if result.is_success:
