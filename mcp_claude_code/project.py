@@ -2,7 +2,7 @@
 
 import json
 from pathlib import Path
-from typing import Any, final
+from typing import Any, Callable, final
 
 from mcp_claude_code.context import DocumentContext
 from mcp_claude_code.executors import ProjectAnalyzer
@@ -144,57 +144,70 @@ class ProjectManager:
         root_path: Path = Path(self.project_root)
         result: dict[str, Any] = {"type": "unknown", "frameworks": []}
         
-        # Check for common project markers using list of tuples
-        markers: dict[str, list[tuple[str, callable]]] = {
+        # Define type checker functions with proper type annotations
+        def check_package_dependency(p: Path, dependency: str) -> bool:
+            return dependency in self._read_json(p).get("dependencies", {})
+        
+        def check_requirement(p: Path, prefix: str) -> bool:
+            return any(x.startswith(prefix) for x in self._read_lines(p))
+        
+        def always_true(p: Path) -> bool:
+            return True
+        
+        def is_directory(p: Path) -> bool:
+            return p.is_dir()
+        
+        # Check for common project markers using list of tuples with properly typed functions
+        markers: dict[str, list[tuple[str, Callable[[Path], bool]]]] = {
             "web-frontend": [
-                ("package.json", lambda p: "react" in self._read_json(p).get("dependencies", {})),
-                ("package.json", lambda p: "vue" in self._read_json(p).get("dependencies", {})),
-                ("package.json", lambda p: "angular" in self._read_json(p).get("dependencies", {})),
-                ("angular.json", lambda p: True),
-                ("next.config.js", lambda p: True),
-                ("nuxt.config.js", lambda p: True),
+                ("package.json", lambda p: check_package_dependency(p, "react")),
+                ("package.json", lambda p: check_package_dependency(p, "vue")),
+                ("package.json", lambda p: check_package_dependency(p, "angular")),
+                ("angular.json", always_true),
+                ("next.config.js", always_true),
+                ("nuxt.config.js", always_true),
             ],
             "web-backend": [
-                ("requirements.txt", lambda p: any(x.startswith("django") for x in self._read_lines(p))),
-                ("requirements.txt", lambda p: any(x.startswith("flask") for x in self._read_lines(p))),
-                ("requirements.txt", lambda p: any(x.startswith("fastapi") for x in self._read_lines(p))),
-                ("package.json", lambda p: "express" in self._read_json(p).get("dependencies", {})),
-                ("package.json", lambda p: "koa" in self._read_json(p).get("dependencies", {})),
-                ("package.json", lambda p: "nest" in self._read_json(p).get("dependencies", {})),
-                ("pom.xml", lambda p: True),
-                ("build.gradle", lambda p: True),
+                ("requirements.txt", lambda p: check_requirement(p, "django")),
+                ("requirements.txt", lambda p: check_requirement(p, "flask")),
+                ("requirements.txt", lambda p: check_requirement(p, "fastapi")),
+                ("package.json", lambda p: check_package_dependency(p, "express")),
+                ("package.json", lambda p: check_package_dependency(p, "koa")),
+                ("package.json", lambda p: check_package_dependency(p, "nest")),
+                ("pom.xml", always_true),
+                ("build.gradle", always_true),
             ],
             "mobile": [
-                ("pubspec.yaml", lambda p: True),  # Flutter
-                ("AndroidManifest.xml", lambda p: True),
-                ("Info.plist", lambda p: True),
-                ("package.json", lambda p: "react-native" in self._read_json(p).get("dependencies", {})),
+                ("pubspec.yaml", always_true),  # Flutter
+                ("AndroidManifest.xml", always_true),
+                ("Info.plist", always_true),
+                ("package.json", lambda p: check_package_dependency(p, "react-native")),
             ],
             "desktop": [
-                ("package.json", lambda p: "electron" in self._read_json(p).get("dependencies", {})),
-                ("CMakeLists.txt", lambda p: True),
-                ("Makefile", lambda p: True),
+                ("package.json", lambda p: check_package_dependency(p, "electron")),
+                ("CMakeLists.txt", always_true),
+                ("Makefile", always_true),
             ],
             "data-science": [
-                ("requirements.txt", lambda p: any(x.startswith("pandas") for x in self._read_lines(p))),
-                ("requirements.txt", lambda p: any(x.startswith("numpy") for x in self._read_lines(p))),
-                ("requirements.txt", lambda p: any(x.startswith("jupyter") for x in self._read_lines(p))),
-                ("environment.yml", lambda p: True),
+                ("requirements.txt", lambda p: check_requirement(p, "pandas")),
+                ("requirements.txt", lambda p: check_requirement(p, "numpy")),
+                ("requirements.txt", lambda p: check_requirement(p, "jupyter")),
+                ("environment.yml", always_true),
             ],
             "devops": [
-                (".github/workflows", lambda p: p.is_dir()),
-                (".gitlab-ci.yml", lambda p: True),
-                ("Dockerfile", lambda p: True),
-                ("docker-compose.yml", lambda p: True),
-                ("Jenkinsfile", lambda p: True),
-                ("terraform.tf", lambda p: True),
+                (".github/workflows", is_directory),
+                (".gitlab-ci.yml", always_true),
+                ("Dockerfile", always_true),
+                ("docker-compose.yml", always_true),
+                ("Jenkinsfile", always_true),
+                ("terraform.tf", always_true),
             ],
             "game": [
-                ("UnityProject.sln", lambda p: True),
-                ("Assembly-CSharp.csproj", lambda p: True),
-                ("ProjectSettings/ProjectSettings.asset", lambda p: True),
-                ("Godot", lambda p: True),
-                ("project.godot", lambda p: True),
+                ("UnityProject.sln", always_true),
+                ("Assembly-CSharp.csproj", always_true),
+                ("ProjectSettings/ProjectSettings.asset", always_true),
+                ("Godot", always_true),
+                ("project.godot", always_true),
             ],
         }
         
@@ -448,7 +461,7 @@ class ProjectManager:
         
         return "\n".join(summary)
     
-    def _format_size(self, size_bytes: int) -> str:
+    def _format_size(self, size_bytes: float) -> str:
         """Format file size in human-readable form.
         
         Args:
@@ -460,5 +473,5 @@ class ProjectManager:
         for unit in ['B', 'KB', 'MB', 'GB']:
             if size_bytes < 1024.0:
                 return f"{size_bytes:.1f} {unit}"
-            size_bytes /= 1024.0
+            size_bytes = size_bytes / 1024.0
         return f"{size_bytes:.1f} TB"
