@@ -138,7 +138,7 @@ def install_claude_desktop_config(name: str = "claude-code", allowed_paths: list
             print("Creating new config file.")
     
     # Write the config file
-    with open(config_file, 'w') as f:
+    with open(config_file, mode='w') as f:
         json.dump(config, f, indent=2)
     
     print(f"Successfully installed {name} in Claude Desktop configuration.")
