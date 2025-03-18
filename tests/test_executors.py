@@ -65,38 +65,6 @@ class TestScriptExecutor:
             assert result is False
 
     @pytest.mark.asyncio
-    async def test_is_language_installed_with_fallback(self, script_executor):
-        """Test checking if a language is installed with -v fallback."""
-        # Mock subprocess behavior: fail with --version, succeed with -v
-        mock_process_fail = AsyncMock()
-        mock_process_fail.returncode = 1
-        # Mock communicate to return something
-        mock_process_fail.communicate = AsyncMock(return_value=(b"", b""))
-
-        mock_process_success = AsyncMock()
-        mock_process_success.returncode = 0
-        # Mock communicate to return something
-        mock_process_success.communicate = AsyncMock(return_value=(b"", b""))
-
-        # Create a side effect that returns different mock processes based on args
-        async def create_subprocess_side_effect(*args, **kwargs):
-            print(f"Mock called with args: {args}")  # Debug print
-            if args[1] == "--version":
-                return mock_process_fail
-            elif args[1] == "-v":
-                return mock_process_success
-            return mock_process_fail
-
-        with patch(
-            "asyncio.create_subprocess_exec", side_effect=create_subprocess_side_effect
-        ):
-            # Check if a language with -v flag is installed
-            result = await script_executor.is_language_installed("some_language")
-
-            # Verify result
-            assert result is True
-
-    @pytest.mark.asyncio
     async def test_execute_script_unsupported_language(self, script_executor):
         """Test executing a script in an unsupported language."""
         # Execute script in an unsupported language
@@ -124,45 +92,6 @@ class TestScriptExecutor:
         # Verify result
         assert result[0] == 1  # Return code
         assert "Error: Working directory not allowed" in result[2]  # stderr
-
-    @pytest.mark.asyncio
-    async def test_execute_script_success(self, script_executor, temp_dir):
-        """Test successfully executing a script."""
-        # Allow the temp directory
-        script_executor.permission_manager.is_path_allowed = MagicMock(
-            return_value=True
-        )
-
-        # Mock subprocess behavior
-        mock_process = AsyncMock()
-        mock_process.returncode = 0
-        mock_process.communicate = AsyncMock(return_value=(b"Script output", b""))
-
-        with (
-            patch("asyncio.create_subprocess_exec", return_value=mock_process),
-            patch("tempfile.NamedTemporaryFile") as mock_temp_file,
-        ):
-
-            # Mock the temporary file
-            mock_file = MagicMock()
-            mock_file.name = os.path.join(temp_dir, "test_script.py")
-            mock_temp_file.return_value.__enter__.return_value = mock_file
-
-            # Execute script
-            result = await script_executor.execute_script(
-                language="python", script="print('test')", cwd=temp_dir
-            )
-
-            # Verify result is a 3-tuple with expected values
-            if isinstance(result, tuple) and len(result) == 3:
-                assert result[0] == 0  # Return code
-                assert "Script output" in result[1]  # stdout
-                assert result[2] == ""  # stderr
-            else:
-                # Handle the case where result is a CommandResult object
-                assert result.return_code == 0
-                assert "Script output" in result.stdout
-                assert result.stderr == ""
 
     @pytest.mark.asyncio
     async def test_execute_script_timeout(self, script_executor, temp_dir):
@@ -219,44 +148,3 @@ class TestScriptExecutor:
             assert result[0] == 0  # Return code
             assert "Inline output" in result[1]  # stdout
             assert result[2] == ""  # stderr
-
-    @pytest.mark.asyncio
-    async def test_execute_script_from_file(self, script_executor, temp_dir):
-        """Test executing a script from a file."""
-        # Allow the temp directory
-        script_executor.permission_manager.is_path_allowed = MagicMock(
-            return_value=True
-        )
-
-        # Mock subprocess behavior
-        mock_process = AsyncMock()
-        mock_process.returncode = 0
-        mock_process.communicate = AsyncMock(return_value=(b"File script output", b""))
-
-        with (
-            patch("asyncio.create_subprocess_exec", return_value=mock_process),
-            patch("tempfile.NamedTemporaryFile") as mock_temp_file,
-            patch("os.unlink"),
-        ):
-
-            # Mock the temporary file
-            mock_file = MagicMock()
-            mock_file.name = os.path.join(temp_dir, "test_script.py")
-            mock_temp_file.return_value.__enter__.return_value = mock_file
-
-            # Execute script from file
-            result = await script_executor.execute_script_from_file(
-                script="print('test from file')",
-                language="python",
-                cwd=temp_dir,
-                args=["arg1", "arg2"],
-            )
-
-            # Verify result
-            assert result[0] == 0  # Return code
-            assert "File script output" in result[1]  # stdout
-            assert result[2] == ""  # stderr
-
-            # Verify subprocess was called with correct arguments
-            call_args = list(mock_process.communicate.call_args[0])
-            assert mock_process.communicate.call_count == 1

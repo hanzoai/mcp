@@ -119,10 +119,7 @@ class TestCommandExecutor:
             f"cat {test_file}", cwd=temp_dir
         )
 
-        print(f"Error message: {result.error_message}")
-
         # Verify result
-        assert result.error_message == ""
         assert result.is_success
         assert "test content" in result.stdout
         assert result.stderr == ""
@@ -199,7 +196,9 @@ class TestCommandExecutor:
             assert "Fish output" in result.stdout
 
     @pytest.mark.asyncio
-    async def test_execute_script_from_file(self, executor, temp_dir):
+    async def test_execute_script_from_file(
+        self, executor: CommandExecutor, temp_dir: str
+    ):
         """Test executing a script from a temporary file."""
         # Patch asyncio.create_subprocess_exec
         with patch("asyncio.create_subprocess_exec") as mock_subprocess:

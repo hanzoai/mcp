@@ -19,7 +19,7 @@ install-test:
 	$(UV) pip install -e ".[test]"
 
 test:
-	pytest $(TEST_DIR)
+	pytest $(TEST_DIR) --disable-warnings
 
 test-cov:
 	pytest --cov=$(SRC_DIR) $(TEST_DIR)
