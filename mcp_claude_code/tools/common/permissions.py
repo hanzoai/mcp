@@ -2,7 +2,6 @@
 
 import json
 import os
-import time
 from collections.abc import Awaitable, Callable
 from pathlib import Path
 from typing import Any, TypeVar, final
@@ -19,7 +18,9 @@ class PermissionManager:
     def __init__(self) -> None:
         """Initialize the permission manager."""
         # Allowed paths
-        self.allowed_paths: set[Path] = set()
+        self.allowed_paths: set[Path] = set(
+            [Path("/tmp").resolve(), Path("/var").resolve()]
+        )
 
         # Excluded paths
         self.excluded_paths: set[Path] = set()
