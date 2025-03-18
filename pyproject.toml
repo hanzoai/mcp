@@ -6,6 +6,10 @@ readme = "README.md"
 requires-python = ">=3.13"
 dependencies = ["mcp>=1.3.0", "httpx>=0.27", "uvicorn>=0.23.1", "pynvim>=0.5.2"]
 
+[project.optional-dependencies]
+dev = ["pytest>=7.0.0", "pytest-cov", "ruff"]
+test = ["pytest>=7.0.0", "pytest-cov"]
+
 [project.scripts]
 claudecode = "mcp_claude_code.cli:main"
 
@@ -15,6 +19,11 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
 packages = ["mcp_claude_code"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = "test_*.py"
+pythonpath = ["."]
 
 [tool.basedpyright]
 exclude = [
