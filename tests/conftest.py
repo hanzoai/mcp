@@ -103,3 +103,9 @@ def command_executor(permission_manager):
 def project_analyzer(command_executor):
     """Create a project analyzer for testing."""
     return ProjectAnalyzer(command_executor)
+
+@pytest.fixture
+def project_manager(document_context, permission_manager, project_analyzer):
+    """Create a project manager for testing."""
+    from mcp_claude_code.tools.project.analysis import ProjectManager
+    return ProjectManager(document_context, permission_manager, project_analyzer)

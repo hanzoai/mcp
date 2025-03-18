@@ -308,9 +308,11 @@ class TestProjectAnalysis:
         mock_server = MagicMock()
         tools = {}
         
-        def mock_decorator(func):
-            tools[func.__name__] = func
-            return func
+        def mock_decorator():
+            def decorator(func):
+                tools[func.__name__] = func
+                return func
+            return decorator
             
         mock_server.tool = mock_decorator
         

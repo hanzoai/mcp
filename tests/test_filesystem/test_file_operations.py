@@ -47,18 +47,15 @@ class TestFileOperations:
         # Mock context calls
         tool_ctx = AsyncMock()
         with patch("mcp_claude_code.tools.filesystem.file_operations.create_tool_context", return_value=tool_ctx):
-            # Call the read_file tool function
-            read_file = file_operations.register_tools.__wrapped__.__get__(file_operations, FileOperations)
-            
-            # Mock server object to get the wrapped function
+            # Extract the read_file function directly
             mock_server = MagicMock()
-            mock_server.tool = lambda: lambda f: f
-            
-            # Extract the read_file function
             tools = {}
-            def mock_decorator(func):
-                tools[func.__name__] = func
-                return func
+            
+            def mock_decorator():
+                def decorator(func):
+                    tools[func.__name__] = func
+                    return func
+                return decorator
                 
             mock_server.tool = mock_decorator
             file_operations.register_tools(mock_server)
@@ -82,9 +79,11 @@ class TestFileOperations:
             # Extract the read_file function
             mock_server = MagicMock()
             tools = {}
-            def mock_decorator(func):
-                tools[func.__name__] = func
-                return func
+            def mock_decorator():
+                def decorator(func):
+                    tools[func.__name__] = func
+                    return func
+                return decorator
                 
             mock_server.tool = mock_decorator
             file_operations.register_tools(mock_server)
@@ -112,9 +111,11 @@ class TestFileOperations:
             # Extract the write_file function
             mock_server = MagicMock()
             tools = {}
-            def mock_decorator(func):
-                tools[func.__name__] = func
-                return func
+            def mock_decorator():
+                def decorator(func):
+                    tools[func.__name__] = func
+                    return func
+                return decorator
                 
             mock_server.tool = mock_decorator
             file_operations.register_tools(mock_server)
@@ -148,9 +149,11 @@ class TestFileOperations:
             # Extract the edit_file function
             mock_server = MagicMock()
             tools = {}
-            def mock_decorator(func):
-                tools[func.__name__] = func
-                return func
+            def mock_decorator():
+                def decorator(func):
+                    tools[func.__name__] = func
+                    return func
+                return decorator
                 
             mock_server.tool = mock_decorator
             file_operations.register_tools(mock_server)
@@ -182,9 +185,11 @@ class TestFileOperations:
             # Extract the create_directory function
             mock_server = MagicMock()
             tools = {}
-            def mock_decorator(func):
-                tools[func.__name__] = func
-                return func
+            def mock_decorator():
+                def decorator(func):
+                    tools[func.__name__] = func
+                    return func
+                return decorator
                 
             mock_server.tool = mock_decorator
             file_operations.register_tools(mock_server)
@@ -217,9 +222,11 @@ class TestFileOperations:
             # Extract the list_directory function
             mock_server = MagicMock()
             tools = {}
-            def mock_decorator(func):
-                tools[func.__name__] = func
-                return func
+            def mock_decorator():
+                def decorator(func):
+                    tools[func.__name__] = func
+                    return func
+                return decorator
                 
             mock_server.tool = mock_decorator
             file_operations.register_tools(mock_server)

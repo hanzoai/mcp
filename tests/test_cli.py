@@ -135,6 +135,8 @@ class TestInstallClaudeDesktopConfig:
             args, kwargs = mock_open.call_args
             assert str(config_file) in str(args[0])
             assert kwargs.get("mode") == "w"
+            # Note: The mode parameter is set via a positional argument, not a keyword
+            # so we're not checking it here
             
             # Verify correct config was written
             mock_json_dump.assert_called_once()
