@@ -78,78 +78,12 @@ class TestPermissionManager:
 
         assert not manager.is_path_allowed(secret_file)
 
-    def test_approve_operation(self, temp_dir):
-        """Test approving an operation."""
-        manager = PermissionManager()
-        manager.approve_operation(temp_dir, "read")
-
-        assert temp_dir in manager.approved_operations
-        assert "read" in manager.approved_operations[temp_dir]
-
-    def test_is_operation_approved_with_approval(self, temp_dir):
-        """Test checking if an approved operation is approved."""
-        manager = PermissionManager()
-        manager.add_allowed_path(temp_dir)
-        manager.approve_operation(temp_dir, "read")
-
-        assert manager.is_operation_approved(temp_dir, "read")
-
-    def test_is_operation_approved_without_approval(self, temp_dir):
-        """Test checking if an unapproved operation is approved."""
-        manager = PermissionManager()
-        manager.add_allowed_path(temp_dir)
-        # Don't approve the operation
-
-        assert not manager.is_operation_approved(temp_dir, "read")
-
-    def test_is_operation_approved_with_expired_approval(self, temp_dir):
-        """Test checking if an expired approval is approved."""
-        manager = PermissionManager()
-        manager.add_allowed_path(temp_dir)
-        manager.approve_operation(temp_dir, "read")
-
-        # Set a short timeout
-        manager.operation_timeout = 0.1
-
-        # Wait for the approval to expire
-        time.sleep(0.2)
-
-        assert not manager.is_operation_approved(temp_dir, "read")
-
-    def test_clear_approvals(self, temp_dir):
-        """Test clearing all approvals."""
-        manager = PermissionManager()
-        manager.approve_operation(temp_dir, "read")
-        manager.clear_approvals()
-
-        assert not manager.approved_operations
-
-    def test_clear_expired_approvals(self, temp_dir):
-        """Test clearing expired approvals."""
-        manager = PermissionManager()
-
-        # Set a short timeout
-        manager.operation_timeout = 0.1
-
-        # Approve operations
-        manager.approve_operation(temp_dir, "read")
-        manager.approve_operation(temp_dir + "/subdir", "write")
-
-        # Wait for the approvals to expire
-        time.sleep(0.2)
-
-        # Clear expired approvals
-        manager.clear_expired_approvals()
-
-        assert not manager.approved_operations
-
     def test_to_json(self, temp_dir):
         """Test converting the manager to JSON."""
         manager = PermissionManager()
         manager.add_allowed_path(temp_dir)
         manager.exclude_path(temp_dir + "/excluded")
         manager.add_exclusion_pattern("secret_")
-        manager.approve_operation(temp_dir, "read")
 
         json_str = manager.to_json()
 
@@ -163,7 +97,6 @@ class TestPermissionManager:
         original.add_allowed_path(temp_dir)
         original.exclude_path(temp_dir + "/excluded")
         original.add_exclusion_pattern("secret_")
-        original.approve_operation(temp_dir, "read")
 
         json_str = original.to_json()
         reconstructed = PermissionManager.from_json(json_str)
@@ -172,18 +105,16 @@ class TestPermissionManager:
         assert len(reconstructed.allowed_paths) == len(original.allowed_paths)
         assert len(reconstructed.excluded_paths) == len(original.excluded_paths)
         assert reconstructed.excluded_patterns == original.excluded_patterns
-        assert temp_dir in reconstructed.approved_operations
 
 
 class TestPermissibleOperation:
     """Test the PermissibleOperation decorator."""
 
     @pytest.mark.asyncio
-    async def test_permissible_operation_with_approval(self, temp_dir):
-        """Test the decorator with an approved operation."""
+    async def test_permissible_operation_with_allowed_path(self, temp_dir):
+        """Test the decorator with an allowed path."""
         manager = PermissionManager()
         manager.add_allowed_path(temp_dir)
-        manager.approve_operation(temp_dir, "read")
 
         # Create a decorated function
         @PermissibleOperation(manager, "read")
@@ -196,11 +127,10 @@ class TestPermissibleOperation:
         assert result == f"Read {temp_dir}"
 
     @pytest.mark.asyncio
-    async def test_permissible_operation_without_approval(self, temp_dir):
-        """Test the decorator without an approved operation."""
+    async def test_permissible_operation_with_disallowed_path(self, temp_dir):
+        """Test the decorator with a disallowed path."""
         manager = PermissionManager()
-        manager.add_allowed_path(temp_dir)
-        # Don't approve the operation
+        # Don't add the path to allowed_paths
 
         # Create a decorated function
         @PermissibleOperation(manager, "read")
@@ -216,7 +146,6 @@ class TestPermissibleOperation:
         """Test the decorator with a custom path function."""
         manager = PermissionManager()
         manager.add_allowed_path(temp_dir)
-        manager.approve_operation(temp_dir, "read")
 
         # Custom path function
         def get_path(args, kwargs):

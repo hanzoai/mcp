@@ -21,12 +21,6 @@ class PermissionManager:
         # Allowed paths
         self.allowed_paths: set[Path] = set()
 
-        # Approved operations (path -> operation -> timestamp)
-        self.approved_operations: dict[str, dict[str, float]] = {}
-
-        # Operation timeout in seconds (default: 5 minutes)
-        self.operation_timeout: float = 300.0
-
         # Excluded paths
         self.excluded_paths: set[Path] = set()
         self.excluded_patterns: list[str] = []
@@ -162,63 +156,6 @@ class PermissionManager:
 
         return False
 
-    def approve_operation(self, path: str, operation: str) -> None:
-        """Approve an operation on a path.
-
-        Args:
-            path: The path to approve
-            operation: The operation to approve (read, write, execute, etc.)
-        """
-        if path not in self.approved_operations:
-            self.approved_operations[path] = {}
-
-        self.approved_operations[path][operation] = time.time()
-
-    def is_operation_approved(self, path: str, operation: str) -> bool:
-        """Check if an operation is approved.
-
-        Args:
-            path: The path to check
-            operation: The operation to check
-
-        Returns:
-            True if the operation is approved, False otherwise
-        """
-        # If path isn't allowed, operation isn't approved
-        if not self.is_path_allowed(path):
-            return False
-
-        # Check if the operation is approved
-        if (
-            path in self.approved_operations
-            and operation in self.approved_operations[path]
-        ):
-            timestamp: float = self.approved_operations[path][operation]
-
-            # Check if the approval is still valid
-            if time.time() - timestamp <= self.operation_timeout:
-                return True
-
-        return False
-
-    def clear_approvals(self) -> None:
-        """Clear all approved operations."""
-        self.approved_operations = {}
-
-    def clear_expired_approvals(self) -> None:
-        """Clear expired approved operations."""
-        now: float = time.time()
-
-        for path in list(self.approved_operations.keys()):
-            for operation in list(self.approved_operations[path].keys()):
-                timestamp: float = self.approved_operations[path][operation]
-
-                if now - timestamp > self.operation_timeout:
-                    del self.approved_operations[path][operation]
-
-            if not self.approved_operations[path]:
-                del self.approved_operations[path]
-
     def to_json(self) -> str:
         """Convert the permission manager to a JSON string.
 
@@ -229,8 +166,6 @@ class PermissionManager:
             "allowed_paths": [str(p) for p in self.allowed_paths],
             "excluded_paths": [str(p) for p in self.excluded_paths],
             "excluded_patterns": self.excluded_patterns,
-            "approved_operations": self.approved_operations,
-            "operation_timeout": self.operation_timeout,
         }
 
         return json.dumps(data)
@@ -256,8 +191,6 @@ class PermissionManager:
             manager.exclude_path(path)
 
         manager.excluded_patterns = data.get("excluded_patterns", [])
-        manager.approved_operations = data.get("approved_operations", {})
-        manager.operation_timeout = data.get("operation_timeout", 300)
 
         return manager
 
@@ -309,9 +242,9 @@ class PermissibleOperation:
                 raise ValueError(f"Invalid path type: {type(path)}")
 
             # Check permission
-            if not self.permission_manager.is_operation_approved(path, self.operation):
+            if not self.permission_manager.is_path_allowed(path):
                 raise PermissionError(
-                    f"Operation '{self.operation}' not approved for path: {path}"
+                    f"Operation '{self.operation}' not allowed for path: {path}"
                 )
 
             # Call the function

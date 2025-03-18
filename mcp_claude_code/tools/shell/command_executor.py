@@ -708,7 +708,7 @@ class CommandExecutor:
 
             Args:
                 command: The shell command to execute
-                
+
                 cwd: Optional working directory for the command
 
             Returns:
@@ -763,7 +763,7 @@ class CommandExecutor:
 
             Args:
                 script: The script content to execute
-                
+
                 interpreter: The interpreter to use (bash, python, etc.)
                 cwd: Optional working directory
 
@@ -821,7 +821,7 @@ class CommandExecutor:
             Args:
                 language: The programming language (python, javascript, etc.)
                 script: The script code to execute
-                
+
                 args: Optional command-line arguments
                 cwd: Optional working directory
 
@@ -842,18 +842,14 @@ class CommandExecutor:
                 await tool_ctx.error(f"Working directory not allowed: {cwd}")
                 return f"Error: Working directory not allowed: {cwd}"
 
-            # Check if script execution permission has been granted
-            operation = f"execute_{language}"
+            # Check if the working directory is allowed
             script_path = cwd or os.getcwd()
-            if not self.permission_manager.is_operation_approved(
-                script_path, operation
-            ):
-                # Request permission
-                await tool_ctx.info(
-                    f"Requesting permission to execute {language} script in {script_path}"
-                )
-                self.permission_manager.approve_operation(script_path, operation)
-                return f"Permission requested to execute {language} script in {script_path}\nPlease approve the script execution and try again."
+            if not self.permission_manager.is_path_allowed(script_path):
+                await tool_ctx.error(f"Working directory not allowed: {script_path}")
+                return f"Error: Working directory not allowed: {script_path}"
+
+            # Proceed with execution
+            await tool_ctx.info(f"Executing {language} script in {script_path}")
 
             # Execute the script
             result = await self.execute_script_from_file(

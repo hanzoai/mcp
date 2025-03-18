@@ -207,12 +207,8 @@ class FileOperations:
                     f"Error: Access denied - path outside allowed directories: {path}"
                 )
 
-            # Check if file write permission has been granted
-            if not self.permission_manager.is_operation_approved(path, "write"):
-                # Request permission
-                await tool_ctx.info(f"Requesting permission to write file: {path}")
-                self.permission_manager.approve_operation(path, "write")
-                return f"Permission requested to write file: {path}\nPlease approve the write operation and try again."
+            # Additional check already verified by is_path_allowed above
+            await tool_ctx.info(f"Writing file: {path}")
 
             try:
                 file_path = Path(path)
@@ -273,14 +269,8 @@ class FileOperations:
                     f"Error: Access denied - path outside allowed directories: {path}"
                 )
 
-            # Check if file edit permission has been granted (unless dry run)
-            if not dry_run and not self.permission_manager.is_operation_approved(
-                path, "edit"
-            ):
-                # Request permission
-                await tool_ctx.info(f"Requesting permission to edit file: {path}")
-                self.permission_manager.approve_operation(path, "edit")
-                return f"Permission requested to edit file: {path}\nPlease approve the edit operation and try again."
+            # Additional check already verified by is_path_allowed above
+            await tool_ctx.info(f"Editing file: {path}")
 
             try:
                 file_path = Path(path)
@@ -420,14 +410,8 @@ class FileOperations:
                     f"Error: Access denied - path outside allowed directories: {path}"
                 )
 
-            # Check if directory creation permission has been granted
-            if not self.permission_manager.is_operation_approved(path, "write"):
-                # Request permission
-                await tool_ctx.info(
-                    f"Requesting permission to create directory: {path}"
-                )
-                self.permission_manager.approve_operation(path, "write")
-                return f"Permission requested to create directory: {path}\nPlease approve the operation and try again."
+            # Additional check already verified by is_path_allowed above
+            await tool_ctx.info(f"Creating directory: {path}")
 
             try:
                 dir_path = Path(path)
@@ -623,12 +607,8 @@ class FileOperations:
                 )
                 return f"Error: Access denied - destination path outside allowed directories: {destination}"
 
-            # Check if file move permission has been granted
-            if not self.permission_manager.is_operation_approved(source, "write"):
-                # Request permission
-                await tool_ctx.info(f"Requesting permission to move {source}")
-                self.permission_manager.approve_operation(source, "write")
-                return f"Permission requested to move {source}\nPlease approve the operation and try again."
+            # Additional check already verified by is_path_allowed above
+            await tool_ctx.info(f"Moving {source} to {destination}")
 
             try:
                 source_path = Path(source)
@@ -1043,14 +1023,10 @@ class FileOperations:
                     f"Error: Access denied - path outside allowed directories: {path}"
                 )
 
-            # Check for write permission if not a dry run
-            if not dry_run and not self.permission_manager.is_operation_approved(
-                path, "write"
-            ):
-                # Request permission
-                await tool_ctx.info(f"Requesting permission to modify files in {path}")
-                self.permission_manager.approve_operation(path, "write")
-                return f"Permission requested to modify files in {path}\nPlease approve the operation and try again."
+            # Additional check already verified by is_path_allowed above
+            await tool_ctx.info(
+                f"Replacing pattern '{pattern}' with '{replacement}' in files matching '{file_pattern}' in {path}"
+            )
 
             try:
                 dir_path = Path(path)
