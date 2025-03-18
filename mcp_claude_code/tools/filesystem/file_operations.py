@@ -53,7 +53,6 @@ class FileOperations:
 
             Args:
                 path: Path to the file to read
-                ctx: MCP context for logging and progress tracking
 
             Returns:
                 The contents of the file
@@ -122,7 +121,6 @@ class FileOperations:
 
             Args:
                 paths: List of file paths to read
-                ctx: MCP context for logging and progress tracking
 
             Returns:
                 Contents of all files with path references
@@ -192,7 +190,6 @@ class FileOperations:
             Args:
                 path: Path to the file to write
                 content: Content to write to the file
-                ctx: MCP context for logging and progress tracking
 
             Returns:
                 Result of the write operation
@@ -259,7 +256,6 @@ class FileOperations:
                 path: Path to the file to edit
                 edits: List of edit operations [{"oldText": "...", "newText": "..."}]
                 dry_run: Preview changes without applying them (default: False)
-                ctx: MCP context for logging and progress tracking
 
             Returns:
                 Git-style diff of the changes
@@ -407,7 +403,6 @@ class FileOperations:
 
             Args:
                 path: Path to the directory to create
-                ctx: MCP context for logging and progress tracking
 
             Returns:
                 Result of the operation
@@ -457,7 +452,6 @@ class FileOperations:
 
             Args:
                 path: Path to the directory to list
-                ctx: MCP context for logging and progress tracking
 
             Returns:
                 List of files and directories with type indicators
@@ -524,7 +518,6 @@ class FileOperations:
 
             Args:
                 path: Path to the directory to traverse
-                ctx: MCP context for logging and progress tracking
 
             Returns:
                 JSON structure representing the directory tree
@@ -608,7 +601,7 @@ class FileOperations:
             Args:
                 source: Source path
                 destination: Destination path
-                ctx: MCP context for logging and progress tracking
+
 
             Returns:
                 Result of the move operation
@@ -691,7 +684,7 @@ class FileOperations:
                 path: Starting directory path
                 pattern: Search pattern
                 exclude_patterns: Patterns to exclude
-                ctx: MCP context for logging and progress tracking
+
 
             Returns:
                 List of matching files and directories
@@ -799,7 +792,7 @@ class FileOperations:
 
             Args:
                 path: Path to the file or directory
-                ctx: MCP context for logging and progress tracking
+
 
             Returns:
                 Detailed metadata about the file or directory
@@ -868,9 +861,6 @@ class FileOperations:
 
             Use this to understand which directories are available before trying to access files.
 
-            Args:
-                ctx: MCP context for logging and progress tracking
-
             Returns:
                 List of allowed directories
             """
@@ -905,7 +895,6 @@ class FileOperations:
                 pattern: Text pattern to search for
                 path: Directory to search in
                 file_pattern: File pattern to match (e.g., "*.py" for Python files)
-                ctx: MCP context for logging and progress tracking
 
             Returns:
                 Matching lines with file and line number references
@@ -1035,7 +1024,6 @@ class FileOperations:
                 path: Directory to search in
                 file_pattern: File pattern to match (e.g., "*.py" for Python files)
                 dry_run: Preview changes without applying them (default: False)
-                ctx: MCP context for logging and progress tracking
 
             Returns:
                 Summary of replacements made or preview of changes

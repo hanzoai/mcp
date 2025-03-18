@@ -828,7 +828,7 @@ class ProjectAnalysis:
 
             Args:
                 project_dir: Path to the project directory
-                ctx: MCP context for logging and progress tracking
+                
 
             Returns:
                 Analysis of the project

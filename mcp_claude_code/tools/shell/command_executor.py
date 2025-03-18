@@ -708,7 +708,7 @@ class CommandExecutor:
 
             Args:
                 command: The shell command to execute
-                ctx: MCP context for logging and progress tracking
+                
                 cwd: Optional working directory for the command
 
             Returns:
@@ -763,7 +763,7 @@ class CommandExecutor:
 
             Args:
                 script: The script content to execute
-                ctx: MCP context for logging and progress tracking
+                
                 interpreter: The interpreter to use (bash, python, etc.)
                 cwd: Optional working directory
 
@@ -821,7 +821,7 @@ class CommandExecutor:
             Args:
                 language: The programming language (python, javascript, etc.)
                 script: The script code to execute
-                ctx: MCP context for logging and progress tracking
+                
                 args: Optional command-line arguments
                 cwd: Optional working directory
 
