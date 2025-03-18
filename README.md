@@ -75,6 +75,26 @@ To configure Claude Desktop to use this server, add the following to your Claude
 }
 ```
 
+### Configuring Claude Desktop System Prompt
+
+To get the best experience with Claude Code, you need to add the provided system prompt to your Claude Desktop client. This system prompt guides Claude through a structured workflow for code modifications and project management.
+
+Follow these steps:
+
+1. Locate the system prompt file in this repository at `doc/system_prompt.md`
+2. Open your Claude Desktop client settings
+3. Navigate to the system prompt configuration section
+4. Copy the contents of `system_prompt.md` into your Claude Desktop system prompt
+5. Replace `{{project_path}}` with the actual path to your project
+
+The system prompt provides Claude with:
+- A structured workflow for analyzing and modifying code
+- Best practices for project exploration and analysis
+- Guidelines for development, refactoring, and quality assurance
+- Special formatting instructions for mathematical content
+
+This step is crucial as it enables Claude to follow a consistent approach when helping you with code modifications.
+
 ## Security
 
 This implementation follows best practices for securing access to your filesystem:
