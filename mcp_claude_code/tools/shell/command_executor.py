@@ -105,11 +105,7 @@ class CommandExecutor:
         self.verbose: bool = verbose
 
         # Excluded commands or patterns
-        self.excluded_commands: list[str] = []
-        self.excluded_patterns: list[str] = []
-
-        # Add default exclusions
-        self._add_default_exclusions()
+        self.excluded_commands: list[str] = ["rm"]
 
         # Map of supported interpreters with special handling
         self.special_interpreters: dict[
@@ -121,65 +117,6 @@ class CommandExecutor:
         ] = {
             "fish": self._handle_fish_script,
         }
-
-    def _add_default_exclusions(self) -> None:
-        """Add default exclusions for potentially dangerous commands and patterns."""
-        # Potentially dangerous commands
-        dangerous_commands: list[str] = [
-            "rm",
-            "rmdir",
-            "mv",
-            "cp",
-            "dd",
-            "mkfs",
-            "fdisk",
-            "format",
-            "chmod",
-            "chown",
-            "chgrp",
-            "sudo",
-            "su",
-            "passwd",
-            "mkpasswd",
-            "ssh",
-            "scp",
-            "sftp",
-            "ftp",
-            "curl",
-            "wget",
-            "nc",
-            "netcat",
-            "mount",
-            "umount",
-            "apt",
-            "apt-get",
-            "yum",
-            "dnf",
-            "brew",
-            "systemctl",
-            "service",
-        ]
-
-        self.excluded_commands.extend(dangerous_commands)
-
-        # Dangerous patterns
-        dangerous_patterns: list[str] = [
-            ">",
-            ">>",  # Redirection
-            "|",
-            "&",
-            "&&",
-            "||",  # Pipes and control operators
-            ";",  # Command separator
-            "`",
-            "$(",
-            "$((",  # Command substitution
-            "<(",
-            ">(",
-            "<<<",  # Process substitution and here documents
-        ]
-
-        self.excluded_patterns.extend(dangerous_patterns)
 
     def allow_command(self, command: str) -> None:
         """Allow a specific command that might otherwise be excluded.
@@ -248,12 +185,6 @@ class CommandExecutor:
         if base_command in self.excluded_commands:
             self._log(f"Command rejected (in exclusion list): {base_command}")
             return False
-
-        # Check excluded patterns
-        for pattern in self.excluded_patterns:
-            if pattern in command:
-                self._log(f"Command rejected (contains excluded pattern): {pattern}")
-                return False
 
         return True
 

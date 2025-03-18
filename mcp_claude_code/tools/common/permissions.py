@@ -33,7 +33,6 @@ class PermissionManager:
         # Sensitive directories
         sensitive_dirs: list[str] = [
             ".git",
-            ".github",
             ".ssh",
             ".gnupg",
             ".config",
