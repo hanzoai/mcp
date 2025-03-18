@@ -3,9 +3,15 @@
 import json
 import os
 from pathlib import Path
+from typing import TYPE_CHECKING, Any, Dict
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+
+if TYPE_CHECKING:
+    from mcp_claude_code.tools.common.context import DocumentContext
+    from mcp_claude_code.tools.common.permissions import PermissionManager
+    from mcp_claude_code.tools.shell.command_executor import CommandExecutor
 
 from mcp_claude_code.tools.project.analysis import (ProjectAnalysis,
                                                     ProjectAnalyzer,
@@ -16,12 +22,14 @@ class TestProjectAnalyzer:
     """Test the ProjectAnalyzer class."""
 
     @pytest.fixture
-    def analyzer(self, command_executor):
+    def analyzer(self, command_executor: "CommandExecutor"):
         """Create a ProjectAnalyzer instance for testing."""
         return ProjectAnalyzer(command_executor)
 
     @pytest.mark.asyncio
-    async def test_analyze_python_dependencies(self, analyzer, test_project_dir):
+    async def test_analyze_python_dependencies(
+        self, analyzer: ProjectAnalyzer, test_project_dir: str
+    ):
         """Test analyzing Python dependencies."""
         # Mock the execute_script_from_file method
         mock_result = MagicMock()
@@ -54,7 +62,7 @@ class TestProjectAnalyzer:
 
     @pytest.mark.asyncio
     async def test_analyze_python_dependencies_failure(
-        self, analyzer, test_project_dir
+        self, analyzer: ProjectAnalyzer, test_project_dir: str
     ):
         """Test handling failure when analyzing Python dependencies."""
         # Mock the execute_script_from_file method to return an error
@@ -75,7 +83,9 @@ class TestProjectAnalyzer:
             assert "Failed to analyze Python dependencies" in result["error"]
 
     @pytest.mark.asyncio
-    async def test_analyze_javascript_dependencies(self, analyzer, test_project_dir):
+    async def test_analyze_javascript_dependencies(
+        self, analyzer: ProjectAnalyzer, test_project_dir: str
+    ):
         """Test analyzing JavaScript dependencies."""
         # Mock the execute_script_from_file method
         mock_result = MagicMock()
@@ -115,7 +125,9 @@ class TestProjectAnalyzer:
             assert "package.json" in result["packageFiles"]
 
     @pytest.mark.asyncio
-    async def test_analyze_project_structure(self, analyzer, test_project_dir):
+    async def test_analyze_project_structure(
+        self, analyzer: ProjectAnalyzer, test_project_dir: str
+    ):
         """Test analyzing project structure."""
         # Mock the execute_script_from_file method
         mock_result = MagicMock()
@@ -158,12 +170,20 @@ class TestProjectManager:
     """Test the ProjectManager class."""
 
     @pytest.fixture
-    def project_manager(self, document_context, permission_manager, project_analyzer):
+    def project_manager(
+        self,
+        document_context: "DocumentContext",
+        permission_manager: "PermissionManager",
+        project_analyzer: ProjectAnalyzer,
+    ):
         """Create a ProjectManager instance for testing."""
         return ProjectManager(document_context, permission_manager, project_analyzer)
 
     def test_initialization(
-        self, document_context, permission_manager, project_analyzer
+        self,
+        document_context: "DocumentContext",
+        permission_manager: "PermissionManager",
+        project_analyzer: ProjectAnalyzer,
     ):
         """Test initializing ProjectManager."""
         manager = ProjectManager(document_context, permission_manager, project_analyzer)
@@ -175,7 +195,12 @@ class TestProjectManager:
         assert isinstance(manager.project_metadata, dict)
         assert isinstance(manager.project_analysis, dict)
 
-    def test_set_project_root(self, project_manager, temp_dir, permission_manager):
+    def test_set_project_root(
+        self,
+        project_manager: ProjectManager,
+        temp_dir: str,
+        permission_manager: "PermissionManager",
+    ):
         """Test setting the project root directory."""
         # Allow the temp_dir path
         permission_manager.add_allowed_path(temp_dir)
@@ -187,7 +212,9 @@ class TestProjectManager:
         assert result
         assert project_manager.project_root == Path(temp_dir).resolve().as_posix()
 
-    def test_set_project_root_disallowed(self, project_manager, temp_dir):
+    def test_set_project_root_disallowed(
+        self, project_manager: ProjectManager, temp_dir: str
+    ):
         """Test setting a disallowed project root directory."""
         # Don't allow the temp_dir path
 
@@ -198,7 +225,10 @@ class TestProjectManager:
         assert result
 
     def test_detect_programming_languages(
-        self, project_manager, test_project_dir, permission_manager
+        self,
+        project_manager: ProjectManager,
+        test_project_dir: str,
+        permission_manager: "PermissionManager",
     ):
         """Test detecting programming languages in a project."""
         # Allow the project directory
@@ -214,7 +244,10 @@ class TestProjectManager:
         assert "Markdown" in languages
 
     def test_detect_project_type(
-        self, project_manager, test_project_dir, permission_manager
+        self,
+        project_manager: ProjectManager,
+        test_project_dir: str,
+        permission_manager: "PermissionManager",
     ):
         """Test detecting project type."""
         # Allow the project directory
@@ -240,7 +273,10 @@ class TestProjectManager:
 
     @pytest.mark.asyncio
     async def test_analyze_project(
-        self, project_manager, test_project_dir, permission_manager
+        self,
+        project_manager: ProjectManager,
+        test_project_dir: str,
+        permission_manager: "PermissionManager",
     ):
         """Test analyzing a project."""
         # Allow the project directory
@@ -282,7 +318,10 @@ class TestProjectManager:
         assert result["project_type"]["type"] == "web-backend"
 
     def test_generate_project_summary(
-        self, project_manager, test_project_dir, permission_manager
+        self,
+        project_manager: ProjectManager,
+        test_project_dir: str,
+        permission_manager: "PermissionManager",
     ):
         """Test generating a project summary."""
         # Allow the project directory
@@ -321,7 +360,7 @@ class TestProjectManager:
         assert "Project Structure" in summary
         assert "Total lines of code: 100" in summary
 
-    def test_format_size(self, project_manager):
+    def test_format_size(self, project_manager: ProjectManager):
         """Test formatting file sizes."""
         # Test different file sizes
         assert project_manager._format_size(0) == "0.0 B"
@@ -335,12 +374,20 @@ class TestProjectAnalysis:
     """Test the ProjectAnalysis class."""
 
     @pytest.fixture
-    def project_analysis(self, project_manager, project_analyzer, permission_manager):
+    def project_analysis(
+        self,
+        project_manager: ProjectManager,
+        project_analyzer: ProjectAnalyzer,
+        permission_manager: "PermissionManager",
+    ):
         """Create a ProjectAnalysis instance for testing."""
         return ProjectAnalysis(project_manager, project_analyzer, permission_manager)
 
     def test_initialization(
-        self, project_manager, project_analyzer, permission_manager
+        self,
+        project_manager: ProjectManager,
+        project_analyzer: ProjectAnalyzer,
+        permission_manager: "PermissionManager",
     ):
         """Test initializing ProjectAnalysis."""
         analysis = ProjectAnalysis(
@@ -352,7 +399,7 @@ class TestProjectAnalysis:
         assert analysis.permission_manager is permission_manager
 
     @pytest.mark.asyncio
-    async def test_register_tools(self, project_analysis):
+    async def test_register_tools(self, project_analysis: ProjectAnalysis):
         """Test registering project analysis tools."""
         mock_server = MagicMock()
         tools = {}

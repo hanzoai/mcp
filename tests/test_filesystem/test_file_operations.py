@@ -2,9 +2,14 @@
 
 import os
 from pathlib import Path
+from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+
+if TYPE_CHECKING:
+    from mcp_claude_code.tools.common.context import DocumentContext
+    from mcp_claude_code.tools.common.permissions import PermissionManager
 
 from mcp_claude_code.tools.filesystem.file_operations import FileOperations
 
@@ -13,25 +18,38 @@ class TestFileOperations:
     """Test the FileOperations class."""
 
     @pytest.fixture
-    def file_operations(self, document_context, permission_manager):
+    def file_operations(
+        self,
+        document_context: "DocumentContext",
+        permission_manager: "PermissionManager",
+    ):
         """Create a FileOperations instance for testing."""
         return FileOperations(document_context, permission_manager)
 
     @pytest.fixture
-    def setup_allowed_path(self, permission_manager, document_context, temp_dir):
+    def setup_allowed_path(
+        self,
+        permission_manager: "PermissionManager",
+        document_context: "DocumentContext",
+        temp_dir: str,
+    ):
         """Set up an allowed path for testing."""
         permission_manager.add_allowed_path(temp_dir)
         document_context.add_allowed_path(temp_dir)
         return temp_dir
 
-    def test_initialization(self, document_context, permission_manager):
+    def test_initialization(
+        self,
+        document_context: "DocumentContext",
+        permission_manager: "PermissionManager",
+    ):
         """Test initializing FileOperations."""
         file_ops = FileOperations(document_context, permission_manager)
 
         assert file_ops.document_context is document_context
         assert file_ops.permission_manager is permission_manager
 
-    def test_register_tools(self, file_operations):
+    def test_register_tools(self, file_operations: FileOperations):
         """Test registering tools with MCP server."""
         mock_server = MagicMock()
         mock_server.tool = MagicMock(return_value=lambda x: x)
@@ -43,7 +61,11 @@ class TestFileOperations:
 
     @pytest.mark.asyncio
     async def test_read_file_allowed(
-        self, file_operations, setup_allowed_path, test_file, mcp_context
+        self,
+        file_operations: FileOperations,
+        setup_allowed_path: str,
+        test_file: str,
+        mcp_context: MagicMock,
     ):
         """Test reading an allowed file."""
         # Mock context calls
@@ -74,7 +96,9 @@ class TestFileOperations:
             tool_ctx.info.assert_called()
 
     @pytest.mark.asyncio
-    async def test_read_file_not_allowed(self, file_operations, mcp_context):
+    async def test_read_file_not_allowed(
+        self, file_operations: FileOperations, mcp_context: MagicMock
+    ):
         """Test reading a file that is not allowed."""
         # Path outside of allowed paths
         path = "/not/allowed/path.txt"
@@ -107,7 +131,12 @@ class TestFileOperations:
             tool_ctx.error.assert_called()
 
     @pytest.mark.asyncio
-    async def test_write_file(self, file_operations, setup_allowed_path, mcp_context):
+    async def test_write_file(
+        self,
+        file_operations: FileOperations,
+        setup_allowed_path: str,
+        mcp_context: MagicMock,
+    ):
         """Test writing a file."""
         # Create a test path within allowed path
         test_path = os.path.join(setup_allowed_path, "write_test.txt")
@@ -149,7 +178,11 @@ class TestFileOperations:
 
     @pytest.mark.asyncio
     async def test_edit_file(
-        self, file_operations, setup_allowed_path, test_file, mcp_context
+        self,
+        file_operations: FileOperations,
+        setup_allowed_path: str,
+        test_file: str,
+        mcp_context: MagicMock,
     ):
         """Test editing a file."""
         # Set up edits
@@ -196,7 +229,10 @@ class TestFileOperations:
 
     @pytest.mark.asyncio
     async def test_create_directory(
-        self, file_operations, setup_allowed_path, mcp_context
+        self,
+        file_operations: FileOperations,
+        setup_allowed_path: str,
+        mcp_context: MagicMock,
     ):
         """Test creating a directory."""
         # Create a test directory path
@@ -237,7 +273,10 @@ class TestFileOperations:
 
     @pytest.mark.asyncio
     async def test_list_directory(
-        self, file_operations, setup_allowed_path, mcp_context
+        self,
+        file_operations: FileOperations,
+        setup_allowed_path: str,
+        mcp_context: MagicMock,
     ):
         """Test listing a directory."""
         # Create test content

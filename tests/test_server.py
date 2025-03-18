@@ -2,6 +2,7 @@
 
 import os
 from unittest.mock import MagicMock, patch
+from typing import Tuple, Any
 
 import pytest
 
@@ -12,7 +13,7 @@ class TestClaudeCodeServer:
     """Test the ClaudeCodeServer class."""
     
     @pytest.fixture
-    def server(self):
+    def server(self) -> Tuple[ClaudeCodeServer, MagicMock]:
         """Create a ClaudeCodeServer instance for testing."""
         with patch("mcp.server.fastmcp.FastMCP") as mock_fastmcp:
             # Create a mock FastMCP instance
@@ -25,7 +26,7 @@ class TestClaudeCodeServer:
             # Return both the server and the mock MCP
             yield server, mock_mcp
     
-    def test_initialization(self, server):
+    def test_initialization(self, server: Tuple[ClaudeCodeServer, MagicMock]) -> None:
         """Test initializing ClaudeCodeServer."""
         server_instance, mock_mcp = server
         
@@ -37,7 +38,7 @@ class TestClaudeCodeServer:
         assert server_instance.project_analyzer is not None
         assert server_instance.project_manager is not None
     
-    def test_initialization_with_allowed_paths(self):
+    def test_initialization_with_allowed_paths(self) -> None:
         """Test initializing with allowed paths."""
         allowed_paths = ["/test/path1", "/test/path2"]
         
@@ -81,7 +82,7 @@ class TestClaudeCodeServer:
             mock_register.assert_called_once()
     
     @pytest.mark.skip(reason="Cannot run stdio server in a test environment")
-    def test_run(self, server):
+    def test_run(self, server: Tuple[ClaudeCodeServer, MagicMock]) -> None:
         """Test running the server."""
         server_instance, mock_mcp = server
 
@@ -102,7 +103,7 @@ class TestClaudeCodeServer:
     #     mock_mcp.run.assert_called_once_with(transport="sse")
     
     @pytest.mark.skip(reason="Cannot run stdio server in a test environment")
-    def test_run_with_allowed_paths(self, server):
+    def test_run_with_allowed_paths(self, server: Tuple[ClaudeCodeServer, MagicMock]) -> None:
         """Test running the server with additional allowed paths."""
         server_instance, mock_mcp = server
         
@@ -127,7 +128,7 @@ class TestClaudeCodeServer:
         mock_mcp.run.assert_called_once()
 
 
-def test_main():
+def test_main() -> None:
     """Test the main function."""
     with patch("argparse.ArgumentParser.parse_args") as mock_parse_args, \
          patch("mcp_claude_code.server.ClaudeCodeServer") as mock_server_class:

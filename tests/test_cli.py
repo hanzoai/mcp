@@ -5,6 +5,7 @@ import os
 import sys
 from pathlib import Path
 from unittest.mock import MagicMock, patch
+from typing import Callable, Any
 
 import pytest
 
@@ -14,7 +15,7 @@ from mcp_claude_code.cli import install_claude_desktop_config, main
 class TestCLI:
     """Test the CLI module."""
     
-    def test_main_server_run(self):
+    def test_main_server_run(self) -> None:
         """Test the main function running the server."""
         with patch("argparse.ArgumentParser.parse_args") as mock_parse_args, \
              patch("mcp_claude_code.cli.ClaudeCodeServer") as mock_server_class:
@@ -41,7 +42,7 @@ class TestCLI:
             mock_server_class.assert_called_once_with(name="test-server", allowed_paths=expected_paths)
             mock_server.run.assert_called_once_with(transport="stdio")
     
-    def test_main_with_install(self):
+    def test_main_with_install(self) -> None:
         """Test the main function with install option."""
         with patch("argparse.ArgumentParser.parse_args") as mock_parse_args, \
              patch("mcp_claude_code.cli.install_claude_desktop_config") as mock_install:
@@ -59,7 +60,7 @@ class TestCLI:
             # Verify install function was called
             mock_install.assert_called_once_with("test-server", ["/test/path"])
     
-    def test_main_without_allowed_paths(self):
+    def test_main_without_allowed_paths(self) -> None:
         """Test the main function without specified allowed paths."""
         with patch("argparse.ArgumentParser.parse_args") as mock_parse_args, \
              patch("mcp_claude_code.cli.ClaudeCodeServer") as mock_server_class, \
@@ -90,7 +91,7 @@ class TestInstallClaudeDesktopConfig:
     """Test the install_claude_desktop_config function."""
     
     @pytest.fixture
-    def mock_platform(self, monkeypatch):
+    def mock_platform(self, monkeypatch) -> Callable[[str], str]:
         """Mock the sys.platform value."""
         original_platform = sys.platform
         
@@ -103,7 +104,7 @@ class TestInstallClaudeDesktopConfig:
         # Restore original platform
         monkeypatch.setattr(sys, "platform", original_platform)
     
-    def test_install_config_macos(self, mock_platform, tmp_path):
+    def test_install_config_macos(self, mock_platform: Callable[[str], str], tmp_path: Path) -> None:
         """Test installing config on macOS."""
         # Set platform to macOS
         mock_platform("darwin")
@@ -147,7 +148,7 @@ class TestInstallClaudeDesktopConfig:
             assert "--allow-path" in str(config_data["mcpServers"]["test-server"]["args"])
             assert "/test/path" in str(config_data["mcpServers"]["test-server"]["args"])
     
-    def test_install_config_windows(self, mock_platform, tmp_path):
+    def test_install_config_windows(self, mock_platform: Callable[[str], str], tmp_path: Path) -> None:
         """Test installing config on Windows."""
         # Set platform to Windows
         mock_platform("win32")
@@ -185,7 +186,7 @@ class TestInstallClaudeDesktopConfig:
             assert "mcpServers" in config_data
             assert "test-server" in config_data["mcpServers"]
     
-    def test_install_config_merge_existing(self, mock_platform, tmp_path):
+    def test_install_config_merge_existing(self, mock_platform: Callable[[str], str], tmp_path: Path) -> None:
         """Test merging with existing config file."""
         # Set platform to Linux
         mock_platform("linux")
@@ -235,7 +236,7 @@ class TestInstallClaudeDesktopConfig:
             assert "test-server" in config_data["mcpServers"]
             assert "otherSetting" in config_data
     
-    def test_install_config_default_paths(self, mock_platform, tmp_path):
+    def test_install_config_default_paths(self, mock_platform: Callable[[str], str], tmp_path: Path) -> None:
         """Test installing config with default allowed paths."""
         # Set platform to macOS
         mock_platform("darwin")

@@ -3,6 +3,7 @@
 import json
 import os
 from pathlib import Path
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -13,7 +14,7 @@ from mcp_claude_code.tools.common.context import (DocumentContext, ToolContext,
 class TestDocumentContext:
     """Test the DocumentContext class."""
 
-    def test_add_allowed_path(self, temp_dir):
+    def test_add_allowed_path(self, temp_dir: str):
         """Test adding an allowed path."""
         context = DocumentContext()
         context.add_allowed_path(temp_dir)
@@ -21,7 +22,7 @@ class TestDocumentContext:
         resolved_path = Path(temp_dir).resolve()
         assert resolved_path in context.allowed_paths
 
-    def test_is_path_allowed(self, temp_dir):
+    def test_is_path_allowed(self, temp_dir: str):
         """Test checking if a path is allowed."""
         context = DocumentContext()
         context.add_allowed_path(temp_dir)
@@ -34,7 +35,7 @@ class TestDocumentContext:
         outside_file = os.path.join(os.path.dirname(temp_dir), "outside.txt")
         assert not context.is_path_allowed(outside_file)
 
-    def test_add_document(self, test_file):
+    def test_add_document(self, test_file: str):
         """Test adding a document to the context."""
         context = DocumentContext()
         content = "Test content"
@@ -45,7 +46,7 @@ class TestDocumentContext:
         assert context.documents[test_file] == content
         assert test_file in context.document_metadata
 
-    def test_get_document(self, test_file):
+    def test_get_document(self, test_file: str):
         """Test getting a document from the context."""
         context = DocumentContext()
         content = "Test content"
@@ -58,7 +59,7 @@ class TestDocumentContext:
         # Test non-existent document
         assert context.get_document("nonexistent.txt") is None
 
-    def test_get_document_metadata(self, test_file):
+    def test_get_document_metadata(self, test_file: str):
         """Test getting document metadata."""
         context = DocumentContext()
         content = "Test content"
@@ -74,7 +75,7 @@ class TestDocumentContext:
         # Test non-existent document
         assert context.get_document_metadata("nonexistent.txt") is None
 
-    def test_update_document(self, test_file):
+    def test_update_document(self, test_file: str):
         """Test updating a document in the context."""
         context = DocumentContext()
         original_content = "Original content"
@@ -88,7 +89,7 @@ class TestDocumentContext:
         context.update_document(test_file, updated_content)
         assert context.documents[test_file] == updated_content
 
-    def test_remove_document(self, test_file):
+    def test_remove_document(self, test_file: str):
         """Test removing a document from the context."""
         context = DocumentContext()
         content = "Test content"
@@ -103,7 +104,7 @@ class TestDocumentContext:
         assert test_file not in context.document_metadata
         assert test_file not in context.modified_times
 
-    def test_infer_metadata(self, temp_dir):
+    def test_infer_metadata(self, temp_dir: str):
         """Test metadata inference for different file types."""
         context = DocumentContext()
 
@@ -125,7 +126,7 @@ class TestDocumentContext:
         assert metadata["extension"] == ".json"
         assert metadata["size"] == len(json_content)
 
-    def test_to_json(self, test_file):
+    def test_to_json(self, test_file: str):
         """Test converting the context to JSON."""
         context = DocumentContext()
         content = "Test content"
@@ -142,7 +143,7 @@ class TestDocumentContext:
         assert "metadata" in data
         assert "allowed_paths" in data
 
-    def test_from_json(self, test_file):
+    def test_from_json(self, test_file: str):
         """Test creating a context from JSON."""
         original = DocumentContext()
         content = "Test content"
@@ -160,7 +161,7 @@ class TestDocumentContext:
     @pytest.mark.parametrize(
         "exclude_patterns", [None, [".git", "__pycache__"], ["*.txt"]]
     )
-    def test_load_directory(self, temp_dir, exclude_patterns):
+    def test_load_directory(self, temp_dir: str, exclude_patterns: list[str] | None):
         """Test loading a directory into the context."""
         # Skip actual test implementation for now as it requires
         # complex directory setup
@@ -171,7 +172,7 @@ class TestDocumentContext:
 class TestToolContext:
     """Test the ToolContext class."""
 
-    def test_initialization(self, mcp_context):
+    def test_initialization(self, mcp_context: MagicMock):
         """Test initializing a ToolContext."""
         tool_context = ToolContext(mcp_context)
 
@@ -179,7 +180,7 @@ class TestToolContext:
         assert tool_context.request_id == mcp_context.request_id
         assert tool_context.client_id == mcp_context.client_id
 
-    def test_set_tool_info(self, mcp_context):
+    def test_set_tool_info(self, mcp_context: MagicMock):
         """Test setting tool info."""
         tool_context = ToolContext(mcp_context)
         tool_name = "test_tool"
@@ -192,7 +193,7 @@ class TestToolContext:
         assert tool_context._execution_id == execution_id
 
     @pytest.mark.asyncio
-    async def test_logging_methods(self, mcp_context):
+    async def test_logging_methods(self, mcp_context: MagicMock):
         """Test logging methods."""
         tool_context = ToolContext(mcp_context)
         tool_context.set_tool_info("test_tool")
@@ -213,7 +214,7 @@ class TestToolContext:
         await tool_context.error("Test error")
         mcp_context.error.assert_called_once_with("[test_tool] Test error")
 
-    def test_format_message(self, mcp_context):
+    def test_format_message(self, mcp_context: MagicMock):
         """Test message formatting."""
         tool_context = ToolContext(mcp_context)
 
@@ -232,7 +233,7 @@ class TestToolContext:
         assert message == "[test_tool:123456] Test message"
 
     @pytest.mark.asyncio
-    async def test_report_progress(self, mcp_context):
+    async def test_report_progress(self, mcp_context: MagicMock):
         """Test progress reporting."""
         tool_context = ToolContext(mcp_context)
 
@@ -240,7 +241,7 @@ class TestToolContext:
         mcp_context.report_progress.assert_called_once_with(50, 100)
 
     @pytest.mark.asyncio
-    async def test_read_resource(self, mcp_context):
+    async def test_read_resource(self, mcp_context: MagicMock):
         """Test reading a resource."""
         tool_context = ToolContext(mcp_context)
 
@@ -248,7 +249,7 @@ class TestToolContext:
         mcp_context.read_resource.assert_called_once_with("resource://test")
 
 
-def test_create_tool_context(mcp_context):
+def test_create_tool_context(mcp_context: MagicMock):
     """Test creating a tool context."""
     tool_context = create_tool_context(mcp_context)
 

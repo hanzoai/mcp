@@ -2,9 +2,13 @@
 
 import os
 from pathlib import Path
+from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+
+if TYPE_CHECKING:
+    from mcp_claude_code.tools.common.permissions import PermissionManager
 
 from mcp_claude_code.tools.shell.command_executor import (CommandExecutor,
                                                           CommandResult)
@@ -13,7 +17,7 @@ from mcp_claude_code.tools.shell.command_executor import (CommandExecutor,
 class TestCommandResult:
     """Test the CommandResult class."""
 
-    def test_initialization(self):
+    def test_initialization(self) -> None:
         """Test initializing a CommandResult."""
         result = CommandResult(
             return_code=0,
@@ -27,7 +31,7 @@ class TestCommandResult:
         assert result.stderr == "Standard error"
         assert result.error_message is None
 
-    def test_is_success(self):
+    def test_is_success(self) -> None:
         """Test the is_success property."""
         # Success case
         success = CommandResult(return_code=0)
@@ -37,7 +41,7 @@ class TestCommandResult:
         failure = CommandResult(return_code=1)
         assert not failure.is_success
 
-    def test_format_output_success(self):
+    def test_format_output_success(self) -> None:
         """Test formatting output for successful commands."""
         result = CommandResult(return_code=0, stdout="Command output", stderr="")
 
@@ -45,7 +49,7 @@ class TestCommandResult:
         assert "Exit code: 0" in formatted
         assert "Command output" in formatted
 
-    def test_format_output_failure(self):
+    def test_format_output_failure(self) -> None:
         """Test formatting output for failed commands."""
         result = CommandResult(
             return_code=1,
@@ -59,7 +63,7 @@ class TestCommandResult:
         assert "Command output" in formatted
         assert "Error message" in formatted
 
-    def test_format_output_without_exit_code(self):
+    def test_format_output_without_exit_code(self) -> None:
         """Test formatting output without including exit code."""
         result = CommandResult(return_code=0, stdout="Command output", stderr="")
 
@@ -72,11 +76,11 @@ class TestCommandExecutor:
     """Test the CommandExecutor class."""
 
     @pytest.fixture
-    def executor(self, permission_manager):
+    def executor(self, permission_manager: 'PermissionManager') -> CommandExecutor:
         """Create a CommandExecutor instance for testing."""
         return CommandExecutor(permission_manager)
 
-    def test_initialization(self, permission_manager):
+    def test_initialization(self, permission_manager: 'PermissionManager') -> None:
         """Test initializing CommandExecutor."""
         executor = CommandExecutor(permission_manager)
 
@@ -84,7 +88,7 @@ class TestCommandExecutor:
         assert not executor.verbose
         assert isinstance(executor.excluded_commands, list)
 
-    def test_deny_command(self, executor):
+    def test_deny_command(self, executor: CommandExecutor) -> None:
         """Test denying a command."""
         # Add a new command to denied list
         executor.deny_command("custom_command")
@@ -92,7 +96,7 @@ class TestCommandExecutor:
         # Verify command is excluded
         assert "custom_command" in executor.excluded_commands
 
-    def test_is_command_allowed(self, executor):
+    def test_is_command_allowed(self, executor: CommandExecutor) -> None:
         """Test checking if a command is allowed."""
         # Allowed command
         assert executor.is_command_allowed("echo Hello")
@@ -107,7 +111,9 @@ class TestCommandExecutor:
         assert not executor.is_command_allowed("")
 
     @pytest.mark.asyncio
-    async def test_execute_command_allowed(self, executor, temp_dir):
+    async def test_execute_command_allowed(
+        self, executor: CommandExecutor, temp_dir: str
+    ) -> None:
         """Test executing an allowed command."""
         # Create a test file
         test_file = os.path.join(temp_dir, "test_exec.txt")
@@ -125,7 +131,7 @@ class TestCommandExecutor:
         assert result.stderr == ""
 
     @pytest.mark.asyncio
-    async def test_execute_command_not_allowed(self, executor):
+    async def test_execute_command_not_allowed(self, executor: CommandExecutor) -> None:
         """Test executing a command that is not allowed."""
         # Try an excluded command
         result = await executor.execute_command("rm test.txt")
@@ -135,7 +141,7 @@ class TestCommandExecutor:
         assert "Command not allowed" in result.error_message
 
     @pytest.mark.asyncio
-    async def test_execute_command_with_invalid_cwd(self, executor):
+    async def test_execute_command_with_invalid_cwd(self, executor: CommandExecutor) -> None:
         """Test executing a command with an invalid working directory."""
         # Try with non-existent directory
         result = await executor.execute_command("ls", cwd="/nonexistent/dir")
@@ -145,7 +151,7 @@ class TestCommandExecutor:
         assert "Working directory does not exist" in result.error_message
 
     @pytest.mark.asyncio
-    async def test_execute_command_with_timeout(self, executor):
+    async def test_execute_command_with_timeout(self, executor: CommandExecutor) -> None:
         """Test command execution with timeout."""
         # Execute a command that sleeps
         result = await executor.execute_command("sleep 5", timeout=0.1)
@@ -155,7 +161,7 @@ class TestCommandExecutor:
         assert "Command timed out" in result.error_message
 
     @pytest.mark.asyncio
-    async def test_execute_script(self, executor, temp_dir):
+    async def test_execute_script(self, executor: CommandExecutor, temp_dir: str) -> None:
         """Test executing a script."""
         # Mock the _execute_script_with_stdin method
         with patch.object(executor, "_execute_script_with_stdin") as mock_execute:
@@ -173,7 +179,7 @@ class TestCommandExecutor:
             assert "Script output" in result.stdout
 
     @pytest.mark.asyncio
-    async def test_handle_fish_script(self, executor, temp_dir):
+    async def test_handle_fish_script(self, executor: CommandExecutor, temp_dir: str) -> None:
         """Test special handling for Fish shell scripts."""
         # Patch asyncio.create_subprocess_shell
         with patch("asyncio.create_subprocess_shell") as mock_subprocess:
@@ -198,7 +204,7 @@ class TestCommandExecutor:
     @pytest.mark.asyncio
     async def test_execute_script_from_file(
         self, executor: CommandExecutor, temp_dir: str
-    ):
+    ) -> None:
         """Test executing a script from a temporary file."""
         # Patch asyncio.create_subprocess_exec
         with patch("asyncio.create_subprocess_exec") as mock_subprocess:
@@ -222,7 +228,7 @@ class TestCommandExecutor:
             assert result.is_success
             assert "Python output" in result.stdout
 
-    def test_get_available_languages(self, executor):
+    def test_get_available_languages(self, executor: CommandExecutor) -> None:
         """Test getting available script languages."""
         languages = executor.get_available_languages()
 
@@ -232,7 +238,7 @@ class TestCommandExecutor:
         assert "bash" in languages
 
     @pytest.mark.asyncio
-    async def test_register_tools(self, executor):
+    async def test_register_tools(self, executor: CommandExecutor) -> None:
         """Test registering command execution tools."""
         mock_server = MagicMock()
         tools = {}

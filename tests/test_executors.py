@@ -4,8 +4,12 @@ import asyncio
 import os
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
+from typing import TYPE_CHECKING
 
 import pytest
+
+if TYPE_CHECKING:
+    from mcp_claude_code.tools.common.permissions import PermissionManager
 
 from mcp_claude_code.executors import ScriptExecutor
 
@@ -14,11 +18,11 @@ class TestScriptExecutor:
     """Test the ScriptExecutor class."""
 
     @pytest.fixture
-    def script_executor(self, permission_manager):
+    def script_executor(self, permission_manager: 'PermissionManager') -> ScriptExecutor:
         """Create a ScriptExecutor instance for testing."""
         return ScriptExecutor(permission_manager)
 
-    def test_initialization(self, permission_manager):
+    def test_initialization(self, permission_manager: 'PermissionManager') -> None:
         """Test initializing ScriptExecutor."""
         executor = ScriptExecutor(permission_manager)
 
@@ -27,7 +31,7 @@ class TestScriptExecutor:
         assert "python" in executor.language_map
         assert "javascript" in executor.language_map
 
-    def test_get_available_languages(self, script_executor):
+    def test_get_available_languages(self, script_executor: ScriptExecutor) -> None:
         """Test getting available script languages."""
         languages = script_executor.get_available_languages()
 
@@ -37,7 +41,7 @@ class TestScriptExecutor:
         assert "bash" in languages
 
     @pytest.mark.asyncio
-    async def test_is_language_installed_success(self, script_executor):
+    async def test_is_language_installed_success(self, script_executor: ScriptExecutor) -> None:
         """Test checking if a language is installed (success case)."""
         # Mock subprocess behavior for a successful check
         mock_process = AsyncMock()
@@ -51,7 +55,7 @@ class TestScriptExecutor:
             assert result is True or result is False  # Just skip this test for now
 
     @pytest.mark.asyncio
-    async def test_is_language_installed_failure(self, script_executor):
+    async def test_is_language_installed_failure(self, script_executor: ScriptExecutor) -> None:
         """Test checking if a language is installed (failure case)."""
         # Mock subprocess behavior for a failed check
         mock_process = AsyncMock()
@@ -65,7 +69,7 @@ class TestScriptExecutor:
             assert result is False
 
     @pytest.mark.asyncio
-    async def test_execute_script_unsupported_language(self, script_executor):
+    async def test_execute_script_unsupported_language(self, script_executor: ScriptExecutor) -> None:
         """Test executing a script in an unsupported language."""
         # Execute script in an unsupported language
         result = await script_executor.execute_script(
@@ -77,7 +81,7 @@ class TestScriptExecutor:
         assert "Error: Unsupported language" in result[2]  # stderr
 
     @pytest.mark.asyncio
-    async def test_execute_script_disallowed_cwd(self, script_executor):
+    async def test_execute_script_disallowed_cwd(self, script_executor: ScriptExecutor) -> None:
         """Test executing a script with a disallowed working directory."""
         # Mock permission check
         script_executor.permission_manager.is_path_allowed = MagicMock(
@@ -94,7 +98,7 @@ class TestScriptExecutor:
         assert "Error: Working directory not allowed" in result[2]  # stderr
 
     @pytest.mark.asyncio
-    async def test_execute_script_timeout(self, script_executor, temp_dir):
+    async def test_execute_script_timeout(self, script_executor: ScriptExecutor, temp_dir: str) -> None:
         """Test script execution with timeout."""
         # Allow the temp directory
         script_executor.permission_manager.is_path_allowed = MagicMock(
@@ -131,7 +135,7 @@ class TestScriptExecutor:
             assert "Error: Script execution timed out" in result[2]  # stderr
 
     @pytest.mark.asyncio
-    async def test_execute_script_inline_success(self, script_executor):
+    async def test_execute_script_inline_success(self, script_executor: ScriptExecutor) -> None:
         """Test successfully executing an inline script."""
         # Mock subprocess behavior
         mock_process = AsyncMock()
