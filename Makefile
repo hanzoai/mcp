@@ -12,6 +12,9 @@ TEST_DIR = tests
 install:
 	$(UV) pip install -e "."
 
+uninstall:
+	$(UV) pip uninstall mcp-claude-code
+
 install-dev: 
 	$(UV) pip install -e ".[dev]"
 
