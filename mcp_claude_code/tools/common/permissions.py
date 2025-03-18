@@ -1,6 +1,7 @@
 """Permission system for the MCP Claude Code server."""
 
 import json
+import os
 import time
 from collections.abc import Awaitable, Callable
 from pathlib import Path
@@ -138,6 +139,7 @@ class PermissionManager:
         Returns:
             True if the path is excluded, False otherwise
         """
+
         # Check exact excluded paths
         if path in self.excluded_paths:
             return True
@@ -145,12 +147,18 @@ class PermissionManager:
         # Check excluded patterns
         path_str: str = str(path)
 
+        # Get path parts to check for exact directory/file name matches
+        path_parts = path_str.split(os.sep)
+
         for pattern in self.excluded_patterns:
+            # Handle wildcard patterns (e.g., "*.log")
             if pattern.startswith("*"):
                 if path_str.endswith(pattern[1:]):
                     return True
-            elif pattern in path_str:
-                return True
+            else:
+                # For non-wildcard patterns, check if any path component matches exactly
+                if pattern in path_parts:
+                    return True
 
         return False
 
