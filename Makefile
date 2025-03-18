@@ -15,6 +15,9 @@ install:
 install-dev: 
 	$(UV) pip install -e ".[dev]"
 
+install-test: 
+	$(UV) pip install -e ".[test]"
+
 test:
 	pytest $(TEST_DIR)
 
@@ -30,11 +33,6 @@ format:
 clean:
 	rm -rf .pytest_cache htmlcov .coverage
 	find . -name "__pycache__" -type d -exec rm -rf {} +
-
-# Dev setup with dependencies for CI
-setup-ci:
-	pip install pytest pytest-cov
-	pip install -e ".[test]"
 
 # Default target
 all: test

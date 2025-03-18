@@ -23,7 +23,7 @@ jobs:
 
     - name: Install dependencies
       run: |
-        make setup-ci
+        make install-test
 
     - name: Run tests
       run: make test
