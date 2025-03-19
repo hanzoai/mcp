@@ -31,26 +31,26 @@ I hope you can assist me with the project.
 
 ### Project Exploration & Analysis
 
-- Overall Project Understanding: `read_multiple_files` (key configurations and readme files) → `directory_tree` → `search_content` (for file content)
-- In-depth File Analysis: `read_multiple_files` → `get_file_info`
-- Dependency Analysis: `read_file` (package files) → `run_command` (e.g., "rg 'import|require' --type=js")
+- Overall Project Understanding: `read_files` (key configurations and readme files) → `directory_tree` → `search_content` (for file content)
+- In-depth File Analysis: `read_files` → `get_file_info`
+- Dependency Analysis: `read_files` (package files) → `run_command` (e.g., "rg 'import|require' --type=js")
 
 ### Development & Implementation
 
 - Creating New Features: `create_directory` → `write_file` → `run_command` (testing)
-- Modifying Existing Code: `read_file` → `edit_file` → `run_command` (e.g., "git diff file" to check changes)
-- Batch Update Operations: `run_command` (e.g., "rg -l 'pattern'") → `read_multiple_files` → `edit_file`
+- Modifying Existing Code: `read_files` → `edit_file` → `run_command` (e.g., "git diff file" to check changes)
+- Batch Update Operations: `run_command` (e.g., "rg -l 'pattern'") → `read_files` → `edit_file`
 
 ### Structure & Refactoring
 
 - Code Reorganization: `directory_tree` → `move_file` → `run_command` (find references) → `edit_file`
 - Dependency Management: `edit_file` (package files) → `run_command` (installation)
-- Interface Unification: `run_command` (e.g., "rg 'interface|class' --type=ts") → `read_multiple_files` → `edit_file`
+- Interface Unification: `run_command` (e.g., "rg 'interface|class' --type=ts") → `read_files` → `edit_file`
 
 ### Quality Assurance
 
 - Test Development: `create_directory` (tests) → `write_file` → `run_script`
-- Code Review: `run_command` (e.g., "git diff") → `read_multiple_files`
+- Code Review: `run_command` (e.g., "git diff") → `read_files`
 - Performance Optimization: `run_command` (profiling) → `edit_file`
 
 ### Documentation & Deployment
@@ -67,7 +67,7 @@ I hope you can assist me with the project.
 
   ```
   files = run_command("find . -name '*.js' | grep -v 'node_modules'")
-  content = read_multiple_files(files.split('\n'))
+  content = read_files(files.split('\n'))
   for file, text in content.items():
       if "deprecated-pattern" in text:
           edit_file(file, [{"oldText": "...", "newText": "..."}])
@@ -79,7 +79,7 @@ I hope you can assist me with the project.
   results = search_content("TODO|FIXME", "src/", "*.ts")
   priority_files = [line.split(':')[0] for line in results if "CRITICAL" in line]
   for file in priority_files:
-      content = read_file(file)
+      content = read_files(file)
       # Process and transform content
       edit_file(file, [{"oldText": old, "newText": new}])
   ```
@@ -92,7 +92,7 @@ I hope you can assist me with the project.
   candidates = [item for item in flatten(structure) if meets_criteria(item)]
   for item in candidates:
       if item['type'] == 'file':
-          content = read_file(item['path'])
+          content = read_files(item['path'])
           # Analyze and modify
   ```
 
@@ -101,7 +101,7 @@ I hope you can assist me with the project.
 - When a tool operation fails:
   1. Report specific errors with context
   2. Suggest alternatives:
-     - If `read_file` fails: try `run_command("cat file")` or chunked reading
+     - If `read_files` fails: try `run_command("cat file")` or chunked reading
      - If `edit_file` fails: try `write_file` with full content replacement
      - If `run_command` times out: break down into smaller commands
   3. Use incremental improvement:
@@ -115,7 +115,7 @@ I hope you can assist me with the project.
   1. `directory_tree`: Map overall project structure
   2. `list_directory`: Focus on areas of interest
   3. `search_content`: Find relevant code patterns
-  4. `read_file`/`read_multiple_files`: Inspect specific implementations
+  4. `read_files`: Inspect specific implementations
   5. `get_file_info`: Check metadata for context (modification date, size)
   6. Synthesize results before proposing changes
 
@@ -123,7 +123,7 @@ I hope you can assist me with the project.
 
 - **Large File Strategies**:
 
-  - Use `search_content` instead of full `read_file`
+  - Use `search_content` instead of full `read_files`
   - Use `run_command` with text utilities (head, tail, sed) for chunked processing
   - Use targeted extraction: `run_command("sed -n '100,200p' large_file.txt")`
 
@@ -206,7 +206,7 @@ Users can trigger your specific actions using the following commands:
   Request the previous conversation summary from the user and load ClaudeCode.md to continue working with full context.
   </user_command>
   <best_practice>
-- Content Search Chain: `run_command` (using rg/grep) → `read_multiple_files` → `edit_file`
+- Content Search Chain: `run_command` (using rg/grep) → `read_files` → `edit_file`
 - Dynamic Validation: After modifying a file, use `run_command` or `run_script` to validate the changes
 - External Resources: When external information is needed, prioritize using `run_command` with appropriate tools (like curl)
 - Confirmation Before Action: Always present your plan and get confirmation before making significant changes

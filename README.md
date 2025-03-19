@@ -19,8 +19,7 @@ This project provides an MCP server that implements Claude Code-like functionali
 
 | Tool | Description | Permission Required |
 | ---- | ----------- | ------------------- |
-| `read_file` | Read file contents with encoding detection | No |
-| `read_multiple_files` | Read multiple files simultaneously | No |
+| `read_files` | Read one or multiple files with encoding detection | No |
 | `write_file` | Create or overwrite files | Yes |
 | `edit_file` | Make line-based edits to text files | Yes |
 | `create_directory` | Create a new directory | Yes |

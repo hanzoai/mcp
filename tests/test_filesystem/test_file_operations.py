@@ -60,21 +60,21 @@ class TestFileOperations:
         assert mock_server.tool.call_count > 0
 
     @pytest.mark.asyncio
-    async def test_read_file_allowed(
+    async def test_read_files_single_allowed(
         self,
         file_operations: FileOperations,
         setup_allowed_path: str,
         test_file: str,
         mcp_context: MagicMock,
     ):
-        """Test reading an allowed file."""
+        """Test reading a single allowed file."""
         # Mock context calls
         tool_ctx = AsyncMock()
         with patch(
             "mcp_claude_code.tools.filesystem.file_operations.create_tool_context",
             return_value=tool_ctx,
         ):
-            # Extract the read_file function directly
+            # Extract the read_files function directly
             mock_server = MagicMock()
             tools = {}
 
@@ -88,15 +88,15 @@ class TestFileOperations:
             mock_server.tool = mock_decorator
             file_operations.register_tools(mock_server)
 
-            # Use the extracted read_file function
-            result = await tools["read_file"](test_file, mcp_context)
+            # Use the extracted read_files function with a single file path string
+            result = await tools["read_files"](test_file, mcp_context)
 
             # Verify result
             assert "This is a test file content" in result
             tool_ctx.info.assert_called()
 
     @pytest.mark.asyncio
-    async def test_read_file_not_allowed(
+    async def test_read_files_single_not_allowed(
         self, file_operations: FileOperations, mcp_context: MagicMock
     ):
         """Test reading a file that is not allowed."""
@@ -109,7 +109,7 @@ class TestFileOperations:
             "mcp_claude_code.tools.filesystem.file_operations.create_tool_context",
             return_value=tool_ctx,
         ):
-            # Extract the read_file function
+            # Extract the read_files function
             mock_server = MagicMock()
             tools = {}
 
@@ -123,8 +123,8 @@ class TestFileOperations:
             mock_server.tool = mock_decorator
             file_operations.register_tools(mock_server)
 
-            # Use the extracted read_file function
-            result = await tools["read_file"](path, mcp_context)
+            # Use the extracted read_files function with a single file path string
+            result = await tools["read_files"](path, mcp_context)
 
             # Verify result
             assert "Error: Access denied" in result
@@ -315,4 +315,81 @@ class TestFileOperations:
             assert "[FILE] list_test.txt" in result
             tool_ctx.info.assert_called()
 
+    @pytest.mark.asyncio
+    async def test_read_files_multiple(
+        self,
+        file_operations: FileOperations,
+        setup_allowed_path: str,
+        test_file: str,
+        mcp_context: MagicMock,
+    ):
+        """Test reading multiple files."""
+        # Create a second test file
+        second_file = os.path.join(setup_allowed_path, "test_file2.txt")
+        with open(second_file, "w") as f:
+            f.write("This is the second test file.")
+            
+        # Mock context calls
+        tool_ctx = AsyncMock()
+        with patch(
+            "mcp_claude_code.tools.filesystem.file_operations.create_tool_context",
+            return_value=tool_ctx,
+        ):
+            # Extract the read_files function
+            mock_server = MagicMock()
+            tools = {}
+
+            def mock_decorator():
+                def decorator(func):
+                    tools[func.__name__] = func
+                    return func
+
+                return decorator
+
+            mock_server.tool = mock_decorator
+            file_operations.register_tools(mock_server)
+
+            # Use the extracted read_files function with a list of file paths
+            result = await tools["read_files"]([test_file, second_file], mcp_context)
+
+            # Verify result contains both file contents
+            assert "This is a test file content" in result
+            assert "This is the second test file" in result
+            assert "---" in result  # Separator between files
+            tool_ctx.info.assert_called()
+
+    @pytest.mark.asyncio
+    async def test_read_files_empty_list(
+        self,
+        file_operations: FileOperations,
+        mcp_context: MagicMock,
+    ):
+        """Test reading an empty list of files."""
+        # Mock context calls
+        tool_ctx = AsyncMock()
+        with patch(
+            "mcp_claude_code.tools.filesystem.file_operations.create_tool_context",
+            return_value=tool_ctx,
+        ):
+            # Extract the read_files function
+            mock_server = MagicMock()
+            tools = {}
+
+            def mock_decorator():
+                def decorator(func):
+                    tools[func.__name__] = func
+                    return func
+
+                return decorator
+
+            mock_server.tool = mock_decorator
+            file_operations.register_tools(mock_server)
+
+            # Use the extracted read_files function with an empty list
+            result = await tools["read_files"]([], mcp_context)
+
+            # Verify result
+            assert "Error: No files specified" in result
+            tool_ctx.warning.assert_called()
+    
     # Add more tests for remaining functionality...

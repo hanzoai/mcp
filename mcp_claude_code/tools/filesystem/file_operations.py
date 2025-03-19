@@ -42,99 +42,43 @@ class FileOperations:
             mcp_server: The FastMCP server instance
         """
 
-        # Read file tool
+        # Read files tool
         @mcp_server.tool()
-        async def read_file(path: str, ctx: MCPContext) -> str:
-            """Read the complete contents of a file from the file system.
+        async def read_files(paths: list[str] | str, ctx: MCPContext) -> str:
+            """Read the contents of one or multiple files.
 
-            Handles various text encodings and provides detailed error messages
-            if the file cannot be read. Use this tool when you need to examine
-            the contents of a single file. Only works within allowed directories.
+            Can read a single file or multiple files simultaneously. When reading multiple files,
+            each file's content is returned with its path as a reference. Failed reads for 
+            individual files won't stop the entire operation. Only works within allowed directories.
 
             Args:
-                path: Path to the file to read
+                paths: Either a single file path (string) or a list of file paths
 
             Returns:
-                The contents of the file
+                Contents of the file(s) with path references
             """
             tool_ctx = create_tool_context(ctx)
-            tool_ctx.set_tool_info("read_file")
-            await tool_ctx.info(f"Reading file: {path}")
-
-            # Check if file is allowed to be read
-            if not self.permission_manager.is_path_allowed(path):
-                await tool_ctx.error(
-                    f"Access denied - path outside allowed directories: {path}"
-                )
-                return (
-                    f"Error: Access denied - path outside allowed directories: {path}"
-                )
-
-            try:
-                file_path = Path(path)
-
-                if not file_path.exists():
-                    await tool_ctx.error(f"File does not exist: {path}")
-                    return f"Error: File does not exist: {path}"
-
-                if not file_path.is_file():
-                    await tool_ctx.error(f"Path is not a file: {path}")
-                    return f"Error: Path is not a file: {path}"
-
-                # Read the file
-                try:
-                    with open(file_path, "r", encoding="utf-8") as f:
-                        content = f.read()
-
-                    # Add to document context
-                    self.document_context.add_document(path, content)
-
-                    await tool_ctx.info(
-                        f"Successfully read file: {path} ({len(content)} bytes)"
-                    )
-                    return content
-                except UnicodeDecodeError:
-                    # Try with different encoding
-                    try:
-                        with open(file_path, "r", encoding="latin-1") as f:
-                            content = f.read()
-                        await tool_ctx.warning(
-                            f"File read with latin-1 encoding: {path}"
-                        )
-                        return content
-                    except Exception:
-                        await tool_ctx.error(f"Cannot read binary file: {path}")
-                        return f"Error: Cannot read binary file: {path}"
-            except Exception as e:
-                await tool_ctx.error(f"Error reading file: {str(e)}")
-                return f"Error reading file: {str(e)}"
-
-        # Read multiple files tool
-        @mcp_server.tool()
-        async def read_multiple_files(paths: list[str], ctx: MCPContext) -> str:
-            """Read the contents of multiple files simultaneously.
-
-            This is more efficient than reading files one by one when you need to analyze
-            or compare multiple files. Each file's content is returned with its path as
-            a reference. Failed reads for individual files won't stop the entire operation.
-            Only works within allowed directories.
-
-            Args:
-                paths: List of file paths to read
-
-            Returns:
-                Contents of all files with path references
-            """
-            tool_ctx = create_tool_context(ctx)
-            tool_ctx.set_tool_info("read_multiple_files")
-            await tool_ctx.info(f"Reading {len(paths)} files")
+            tool_ctx.set_tool_info("read_files")
+            
+            # Convert single path to list if necessary
+            path_list: list[str] = [paths] if isinstance(paths, str) else paths
+            
+            # Handle empty list case
+            if not path_list:
+                await tool_ctx.warning("No files specified to read")
+                return "Error: No files specified to read"
+                
+            # For a single file with direct string return
+            single_file_mode = isinstance(paths, str)
+            
+            await tool_ctx.info(f"Reading {len(path_list)} file(s)")
 
             results: list[str] = []
 
             # Read each file
-            for i, path in enumerate(paths):
+            for i, path in enumerate(path_list):
                 # Report progress
-                await tool_ctx.report_progress(i, len(paths))
+                await tool_ctx.report_progress(i, len(path_list))
 
                 # Check if path is allowed
                 if not self.permission_manager.is_path_allowed(path):
@@ -174,9 +118,23 @@ class FileOperations:
                     results.append(f"{path}: Error - {str(e)}")
 
             # Final progress report
-            await tool_ctx.report_progress(len(paths), len(paths))
+            await tool_ctx.report_progress(len(path_list), len(path_list))
 
-            await tool_ctx.info(f"Read {len(paths)} files")
+            await tool_ctx.info(f"Read {len(path_list)} file(s)")
+            
+            # For single file mode with direct string input, return just the content
+            # if successful, otherwise return the error
+            if single_file_mode and len(results) == 1:
+                result_text = results[0]
+                # If it's a successful read (doesn't contain "Error - ")
+                if not result_text.split(':', 1)[1].strip().startswith("Error - "):
+                    # Just return the content part (after the first colon and newline)
+                    return result_text.split(':', 1)[1].strip()
+                else:
+                    # Return just the error message
+                    return "Error: " + result_text.split("Error - ", 1)[1]
+            
+            # For multiple files or failed single file read, return all results
             return "\n\n---\n\n".join(results)
 
         # Write file tool
