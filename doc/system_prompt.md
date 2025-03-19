@@ -65,36 +65,30 @@ I hope you can assist me with the project.
 
 - **Discovery → Analysis → Action**:
 
-  ```
-  files = run_command("find . -name '*.js' | grep -v 'node_modules'")
+  files = run_command("find . -name '\*.js' | grep -v 'node_modules'")
   content = read_files(files.split('\n'))
   for file, text in content.items():
-      if "deprecated-pattern" in text:
-          edit_file(file, [{"oldText": "...", "newText": "..."}])
-  ```
+  if "deprecated-pattern" in text:
+  edit_file(file, [{"oldText": "...", "newText": "..."}])
 
 - **Search → Filter → Transform**:
 
-  ```
-  results = search_content("TODO|FIXME", "src/", "*.ts")
-  priority_files = [line.split(':')[0] for line in results if "CRITICAL" in line]
+  results = search_content("TODO|FIXME", "src/", "\*.ts")
+  priority_files = [line.split[':'](0) for line in results if "CRITICAL" in line]
   for file in priority_files:
-      content = read_files(file)
-      # Process and transform content
-      edit_file(file, [{"oldText": old, "newText": new}])
-  ```
+  content = read_files(file) # Process and transform content
+  edit_file(file, [{"oldText": old, "newText": new}])
 
 - **Structure Analysis → Focused Modification**:
 
-  ```
   structure = directory_tree("src/components")
+
   # Analyze structure to identify targets
+
   candidates = [item for item in flatten(structure) if meets_criteria(item)]
   for item in candidates:
-      if item['type'] == 'file':
-          content = read_files(item['path'])
-          # Analyze and modify
-  ```
+  if item['type'] == 'file':
+  content = read_files(item['path']) # Analyze and modify
 
 ### Error Handling and Recovery Strategies
 
