@@ -3,24 +3,29 @@
 # Python interpreter
 PYTHON = python
 # Path to package manager (uv or pip)
-# Check if uv is available, otherwise use pip
-UV := $(shell command -v uv 2> /dev/null || echo pip)
+# Check if uv is available, otherwise use plain pip
+UV := $(shell command -v uv 2> /dev/null)
+ifeq ($(UV),)
+	PACKAGE_CMD = pip install
+else
+	PACKAGE_CMD = $(UV) pip install
+endif
 
 # Project paths
 SRC_DIR = mcp_claude_code
 TEST_DIR = tests
 
 install:
-	$(UV) pip install -e "."
+	$(PACKAGE_CMD) -e "."
 
 uninstall:
-	$(UV) pip uninstall mcp-claude-code
+	$(PYTHON) -m pip uninstall mcp-claude-code
 
 install-dev: 
-	$(UV) pip install -e ".[dev]"
+	$(PACKAGE_CMD) -e ".[dev]"
 
 install-test: 
-	$(UV) pip install -e ".[test]"
+	$(PACKAGE_CMD) -e ".[test]"
 
 test:
 	pytest $(TEST_DIR) --disable-warnings
