@@ -233,17 +233,32 @@ class CommandExecutor:
             command_env.update(env)
 
         try:
-            # Split the command into arguments
-            args: list[str] = shlex.split(command)
+            # Check if command uses shell features like &&, ||, |, etc.
+            shell_operators = ["&&", "||", "|", ";", ">", "<", "$(", "`"]
+            needs_shell = any(op in command for op in shell_operators)
 
-            # Create and run the process
-            process = await asyncio.create_subprocess_exec(
-                *args,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-                cwd=cwd,
-                env=command_env,
-            )
+            if needs_shell:
+                self._log(f"Using shell for command with shell operators: {command}")
+                # Use shell for commands with shell operators
+                process = await asyncio.create_subprocess_shell(
+                    command,
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE,
+                    cwd=cwd,
+                    env=command_env,
+                )
+            else:
+                # Split the command into arguments for regular commands
+                args: list[str] = shlex.split(command)
+
+                # Create and run the process without shell
+                process = await asyncio.create_subprocess_exec(
+                    *args,
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE,
+                    cwd=cwd,
+                    env=command_env,
+                )
 
             # Wait for the process to complete with timeout
             try:
