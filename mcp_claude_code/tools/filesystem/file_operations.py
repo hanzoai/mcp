@@ -82,6 +82,9 @@ class FileOperations:
 
                 # Check if path is allowed
                 if not self.permission_manager.is_path_allowed(path):
+                    await tool_ctx.error(
+                        f"Access denied - path outside allowed directories: {path}"
+                    )
                     results.append(
                         f"{path}: Error - Access denied - path outside allowed directories"
                     )
@@ -91,10 +94,12 @@ class FileOperations:
                     file_path = Path(path)
 
                     if not file_path.exists():
+                        await tool_ctx.error(f"File does not exist: {path}")
                         results.append(f"{path}: Error - File does not exist")
                         continue
 
                     if not file_path.is_file():
+                        await tool_ctx.error(f"Path is not a file: {path}")
                         results.append(f"{path}: Error - Path is not a file")
                         continue
 
@@ -111,10 +116,15 @@ class FileOperations:
                         try:
                             with open(file_path, "r", encoding="latin-1") as f:
                                 content = f.read()
+                            await tool_ctx.warning(
+                                f"File read with latin-1 encoding: {path}"
+                            )
                             results.append(f"{path} (latin-1 encoding):\n{content}")
                         except Exception:
+                            await tool_ctx.error(f"Cannot read binary file: {path}")
                             results.append(f"{path}: Error - Cannot read binary file")
                 except Exception as e:
+                    await tool_ctx.error(f"Error reading file: {str(e)}")
                     results.append(f"{path}: Error - {str(e)}")
 
             # Final progress report
