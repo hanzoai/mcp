@@ -718,6 +718,28 @@ class CommandExecutor:
             """
             tool_ctx = create_tool_context(ctx)
             tool_ctx.set_tool_info("run_script")
+
+            # Validate script parameter
+            if not script:
+                await tool_ctx.error("Parameter 'script' is required but was None")
+                return "Error: Parameter 'script' is required but was None"
+
+            if script.strip() == "":
+                await tool_ctx.error("Parameter 'script' cannot be empty")
+                return "Error: Parameter 'script' cannot be empty"
+
+            # interpreter can be None safely as it has a default value
+            if not interpreter:
+                interpreter = "bash"  # Use default if None
+            elif interpreter.strip() == "":
+                await tool_ctx.error("Parameter 'interpreter' cannot be empty")
+                return "Error: Parameter 'interpreter' cannot be empty"
+
+            # cwd can be None as it's optional
+            if cwd is not None and cwd.strip() == "":
+                await tool_ctx.error("Parameter 'cwd' cannot be empty")
+                return "Error: Parameter 'cwd' cannot be empty"
+
             await tool_ctx.info(f"Executing script with interpreter: {interpreter}")
 
             # Check working directory permissions if specified
@@ -776,6 +798,35 @@ class CommandExecutor:
             """
             tool_ctx = create_tool_context(ctx)
             tool_ctx.set_tool_info("script_tool")
+
+            # Validate required parameters
+            if not language:
+                await tool_ctx.error("Parameter 'language' is required but was None")
+                return "Error: Parameter 'language' is required but was None"
+
+            if language.strip() == "":
+                await tool_ctx.error("Parameter 'language' cannot be empty")
+                return "Error: Parameter 'language' cannot be empty"
+
+            if not script:
+                await tool_ctx.error("Parameter 'script' is required but was None")
+                return "Error: Parameter 'script' is required but was None"
+
+            if script.strip() == "":
+                await tool_ctx.error("Parameter 'script' cannot be empty")
+                return "Error: Parameter 'script' cannot be empty"
+
+            # args can be None as it's optional
+            # Check for empty list but still allow None
+            if args is not None and len(args) == 0:
+                await tool_ctx.warning("Parameter 'args' is an empty list")
+                # We don't return error for this as empty args is acceptable
+
+            # cwd can be None as it's optional
+            if cwd is not None and cwd.strip() == "":
+                await tool_ctx.error("Parameter 'cwd' cannot be empty")
+                return "Error: Parameter 'cwd' cannot be empty"
+
             await tool_ctx.info(f"Executing {language} script")
 
             # Check if the language is supported

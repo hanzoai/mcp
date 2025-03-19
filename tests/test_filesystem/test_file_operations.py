@@ -1,7 +1,6 @@
 """Tests for the file operations module."""
 
 import os
-from pathlib import Path
 from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -328,7 +327,7 @@ class TestFileOperations:
         second_file = os.path.join(setup_allowed_path, "test_file2.txt")
         with open(second_file, "w") as f:
             f.write("This is the second test file.")
-            
+
         # Mock context calls
         tool_ctx = AsyncMock()
         with patch(
@@ -389,7 +388,7 @@ class TestFileOperations:
             result = await tools["read_files"]([], mcp_context)
 
             # Verify result
-            assert "Error: No files specified" in result
-            tool_ctx.warning.assert_called()
-    
+            assert "Error: Parameter 'paths' is required" in result
+            tool_ctx.error.assert_called()
+
     # Add more tests for remaining functionality...

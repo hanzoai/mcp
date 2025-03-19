@@ -17,6 +17,7 @@ from mcp.server.fastmcp import FastMCP
 from mcp_claude_code.tools.common.context import (DocumentContext,
                                                   create_tool_context)
 from mcp_claude_code.tools.common.permissions import PermissionManager
+from mcp_claude_code.tools.common.validation import validate_path_parameter
 
 
 @final
@@ -48,7 +49,7 @@ class FileOperations:
             """Read the contents of one or multiple files.
 
             Can read a single file or multiple files simultaneously. When reading multiple files,
-            each file's content is returned with its path as a reference. Failed reads for 
+            each file's content is returned with its path as a reference. Failed reads for
             individual files won't stop the entire operation. Only works within allowed directories.
 
             Args:
@@ -59,18 +60,23 @@ class FileOperations:
             """
             tool_ctx = create_tool_context(ctx)
             tool_ctx.set_tool_info("read_files")
-            
+
+            # Validate the 'paths' parameter
+            if not paths:
+                await tool_ctx.error("Parameter 'paths' is required but was None")
+                return "Error: Parameter 'paths' is required but was None"
+
             # Convert single path to list if necessary
             path_list: list[str] = [paths] if isinstance(paths, str) else paths
-            
+
             # Handle empty list case
             if not path_list:
                 await tool_ctx.warning("No files specified to read")
                 return "Error: No files specified to read"
-                
+
             # For a single file with direct string return
             single_file_mode = isinstance(paths, str)
-            
+
             await tool_ctx.info(f"Reading {len(path_list)} file(s)")
 
             results: list[str] = []
@@ -131,19 +137,19 @@ class FileOperations:
             await tool_ctx.report_progress(len(path_list), len(path_list))
 
             await tool_ctx.info(f"Read {len(path_list)} file(s)")
-            
+
             # For single file mode with direct string input, return just the content
             # if successful, otherwise return the error
             if single_file_mode and len(results) == 1:
                 result_text = results[0]
                 # If it's a successful read (doesn't contain "Error - ")
-                if not result_text.split(':', 1)[1].strip().startswith("Error - "):
+                if not result_text.split(":", 1)[1].strip().startswith("Error - "):
                     # Just return the content part (after the first colon and newline)
-                    return result_text.split(':', 1)[1].strip()
+                    return result_text.split(":", 1)[1].strip()
                 else:
                     # Return just the error message
                     return "Error: " + result_text.split("Error - ", 1)[1]
-            
+
             # For multiple files or failed single file read, return all results
             return "\n\n---\n\n".join(results)
 
@@ -164,6 +170,17 @@ class FileOperations:
             """
             tool_ctx = create_tool_context(ctx)
             tool_ctx.set_tool_info("write_file")
+
+            # Validate parameters
+            path_validation = validate_path_parameter(path)
+            if path_validation.is_error:
+                await tool_ctx.error(path_validation.error_message)
+                return f"Error: {path_validation.error_message}"
+
+            if not content:
+                await tool_ctx.error("Parameter 'content' is required but was None")
+                return "Error: Parameter 'content' is required but was None"
+
             await tool_ctx.info(f"Writing file: {path}")
 
             # Check if file is allowed to be written
@@ -226,6 +243,23 @@ class FileOperations:
             """
             tool_ctx = create_tool_context(ctx)
             tool_ctx.set_tool_info("edit_file")
+
+            # Validate parameters
+            path_validation = validate_path_parameter(path)
+            if path_validation.is_error:
+                await tool_ctx.error(path_validation.error_message)
+                return f"Error: {path_validation.error_message}"
+
+            if not edits:
+                await tool_ctx.error("Parameter 'edits' is required but was None")
+                return "Error: Parameter 'edits' is required but was None"
+
+            if not edits:  # Check for empty list
+                await tool_ctx.warning("No edits specified")
+                return "Error: No edits specified"
+
+            # dry_run parameter can be None safely as it has a default value in the function signature
+
             await tool_ctx.info(f"Editing file: {path}")
 
             # Check if file is allowed to be edited
@@ -367,6 +401,13 @@ class FileOperations:
             """
             tool_ctx = create_tool_context(ctx)
             tool_ctx.set_tool_info("create_directory")
+
+            # Validate path parameter
+            path_validation = validate_path_parameter(path)
+            if path_validation.is_error:
+                await tool_ctx.error(path_validation.error_message)
+                return f"Error: {path_validation.error_message}"
+
             await tool_ctx.info(f"Creating directory: {path}")
 
             # Check if path is allowed
@@ -410,6 +451,13 @@ class FileOperations:
             """
             tool_ctx = create_tool_context(ctx)
             tool_ctx.set_tool_info("list_directory")
+
+            # Validate path parameter
+            path_validation = validate_path_parameter(path)
+            if path_validation.is_error:
+                await tool_ctx.error(path_validation.error_message)
+                return f"Error: {path_validation.error_message}"
+
             await tool_ctx.info(f"Listing directory: {path}")
 
             # Check if path is allowed
@@ -476,6 +524,13 @@ class FileOperations:
             """
             tool_ctx = create_tool_context(ctx)
             tool_ctx.set_tool_info("directory_tree")
+
+            # Validate path parameter
+            path_validation = validate_path_parameter(path)
+            if path_validation.is_error:
+                await tool_ctx.error(path_validation.error_message)
+                return f"Error: {path_validation.error_message}"
+
             await tool_ctx.info(f"Getting directory tree: {path}")
 
             # Check if path is allowed
@@ -560,6 +615,18 @@ class FileOperations:
             """
             tool_ctx = create_tool_context(ctx)
             tool_ctx.set_tool_info("move_file")
+
+            # Validate source and destination parameters
+            source_validation = validate_path_parameter(source, "source")
+            if source_validation.is_error:
+                await tool_ctx.error(source_validation.error_message)
+                return f"Error: {source_validation.error_message}"
+
+            dest_validation = validate_path_parameter(destination, "destination")
+            if dest_validation.is_error:
+                await tool_ctx.error(dest_validation.error_message)
+                return f"Error: {dest_validation.error_message}"
+
             await tool_ctx.info(f"Moving {source} to {destination}")
 
             # Check if source and destination are allowed
@@ -635,6 +702,13 @@ class FileOperations:
             """
             tool_ctx = create_tool_context(ctx)
             tool_ctx.set_tool_info("get_file_info")
+
+            # Validate path parameter
+            path_validation = validate_path_parameter(path)
+            if path_validation.is_error:
+                await tool_ctx.error(path_validation.error_message)
+                return f"Error: {path_validation.error_message}"
+
             await tool_ctx.info(f"Getting file info: {path}")
 
             # Check if path is allowed
@@ -737,6 +811,23 @@ class FileOperations:
             """
             tool_ctx = create_tool_context(ctx)
             tool_ctx.set_tool_info("search_content")
+
+            # Validate required parameters
+            if not pattern:
+                await tool_ctx.error("Parameter 'pattern' is required but was None")
+                return "Error: Parameter 'pattern' is required but was None"
+
+            if pattern.strip() == "":
+                await tool_ctx.error("Parameter 'pattern' cannot be empty")
+                return "Error: Parameter 'pattern' cannot be empty"
+
+            path_validation = validate_path_parameter(path)
+            if path_validation.is_error:
+                await tool_ctx.error(path_validation.error_message)
+                return f"Error: {path_validation.error_message}"
+
+            # file_pattern can be None safely as it has a default value
+
             await tool_ctx.info(
                 f"Searching for pattern '{pattern}' in files matching '{file_pattern}' in {path}"
             )
@@ -866,6 +957,29 @@ class FileOperations:
             """
             tool_ctx = create_tool_context(ctx)
             tool_ctx.set_tool_info("content_replace")
+
+            # Validate required parameters
+            if not pattern:
+                await tool_ctx.error("Parameter 'pattern' is required but was None")
+                return "Error: Parameter 'pattern' is required but was None"
+
+            if pattern.strip() == "":
+                await tool_ctx.error("Parameter 'pattern' cannot be empty")
+                return "Error: Parameter 'pattern' cannot be empty"
+
+            if not replacement:
+                await tool_ctx.error("Parameter 'replacement' is required but was None")
+                return "Error: Parameter 'replacement' is required but was None"
+
+            # Note: replacement can be an empty string as sometimes you want to delete the pattern
+
+            path_validation = validate_path_parameter(path)
+            if path_validation.is_error:
+                await tool_ctx.error(path_validation.error_message)
+                return f"Error: {path_validation.error_message}"
+
+            # file_pattern and dry_run can be None safely as they have default values
+
             await tool_ctx.info(
                 f"Replacing pattern '{pattern}' with '{replacement}' in files matching '{file_pattern}' in {path}"
             )

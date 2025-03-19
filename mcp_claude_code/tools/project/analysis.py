@@ -13,6 +13,7 @@ from mcp.server.fastmcp import FastMCP
 from mcp_claude_code.tools.common.context import (DocumentContext,
                                                   create_tool_context)
 from mcp_claude_code.tools.common.permissions import PermissionManager
+from mcp_claude_code.tools.common.validation import validate_path_parameter
 from mcp_claude_code.tools.shell.command_executor import CommandExecutor
 
 
@@ -828,13 +829,19 @@ class ProjectAnalysis:
 
             Args:
                 project_dir: Path to the project directory
-                
 
             Returns:
                 Analysis of the project
             """
             tool_ctx = create_tool_context(ctx)
             tool_ctx.set_tool_info("project_analyze")
+
+            # Validate project_dir parameter
+            path_validation = validate_path_parameter(project_dir, "project_dir")
+            if path_validation.is_error:
+                await tool_ctx.error(path_validation.error_message)
+                return f"Error: {path_validation.error_message}"
+
             await tool_ctx.info(f"Analyzing project: {project_dir}")
 
             # Check if directory is allowed
