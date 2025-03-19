@@ -3,7 +3,8 @@
 # Python interpreter
 PYTHON = python
 # Path to package manager (uv or pip)
-UV = uv
+# Check if uv is available, otherwise use pip
+UV := $(shell command -v uv 2> /dev/null || echo pip)
 
 # Project paths
 SRC_DIR = mcp_claude_code
