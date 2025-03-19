@@ -4,13 +4,13 @@
 set -e
 
 # Detect the script's directory
-SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
 # Create virtual environment if it doesn't exist
 if [ ! -d .venv ]; then
-    echo "Creating virtual environment..."
-    python -m venv .venv
+  echo "Creating virtual environment..."
+  python -m venv .venv
 fi
 
 # Activate virtual environment
