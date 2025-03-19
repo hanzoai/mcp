@@ -2,14 +2,6 @@
 
 An implementation of Claude Code capabilities using the Model Context Protocol (MCP).
 
-## What's New in v0.1.1
-
-- **Enhanced Command Execution**: Added improved command and script execution with better error handling and support for multiple shells (including Fish shell)
-- **Script Language Support**: Run scripts in Python, JavaScript, TypeScript, Ruby, PHP, Perl, R, and more
-- **Improved Error Reporting**: Better formatting of command outputs with clear error messages
-
-See [Command Execution](docs/command_execution.md) documentation for details.
-
 ## Overview
 
 This project provides an MCP server that implements Claude Code-like functionality, allowing Claude to directly execute instructions for modifying and improving project files. By leveraging the Model Context Protocol, this implementation enables seamless integration with various MCP clients including Claude Desktop.
@@ -21,46 +13,68 @@ This project provides an MCP server that implements Claude Code-like functionali
 - **Enhanced Command Execution**: Run commands and scripts in various languages with improved error handling and shell support
 - **File Operations**: Create, move, and manage files with proper security controls
 - **Code Discovery**: Find relevant files and code patterns across your project
+- **Project Analysis**: Understand project structure, dependencies, and frameworks
 
 ## Tools Implemented
 
 | Tool | Description | Permission Required |
 | ---- | ----------- | ------------------- |
-| `run_command` | Executes shell commands with enhanced error handling | Yes |
-| `run_script` | Executes scripts with specified interpreters | Yes |
-| `run_language_script` | Executes scripts in specific programming languages | Yes |
-| `bash_tool` | Legacy tool for executing shell commands | Yes |
-| `GlobTool` | Finds files based on pattern matching | No |
-| `GrepTool` | Searches for patterns in file contents | No |
-| `LSTool` | Lists files and directories | No |
-| `FileReadTool` | Reads the contents of files | No |
-| `FileEditTool` | Makes targeted edits to specific files | Yes |
-| `FileWriteTool` | Creates or overwrites files | Yes |
+| `read_file` | Read file contents with encoding detection | No |
+| `read_multiple_files` | Read multiple files simultaneously | No |
+| `write_file` | Create or overwrite files | Yes |
+| `edit_file` | Make line-based edits to text files | Yes |
+| `create_directory` | Create a new directory | Yes |
+| `list_directory` | List contents of a directory | No |
+| `directory_tree` | Get a recursive tree view of directories | No |
+| `move_file` | Move or rename files and directories | Yes |
+| `get_file_info` | Get metadata about a file or directory | No |
+| `list_allowed_directories` | List directories the server can access | No |
+| `search_content` | Search for patterns in file contents | No |
+| `content_replace` | Replace patterns in file contents | Yes |
+| `run_command` | Execute shell commands | Yes |
+| `run_script` | Execute scripts with specified interpreters | Yes |
+| `script_tool` | Execute scripts in specific programming languages | Yes |
+| `project_analyze_tool` | Analyze project structure and dependencies | No |
 
 ## Getting Started
 
 ### Installation
+
+The project requires Python 3.13 or newer.
+
+You can install MCP Claude Code using the provided Makefile:
 
 ```bash
 # Clone the repository
 git clone https://github.com/yourusername/mcp-claude-code.git
 cd mcp-claude-code
 
-# Create and activate a virtual environment
+# Create a virtual environment first
 python -m venv .venv
 source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 
-# Install dependencies
-pip install -e .
+# Install using make
+make install
+```
+
+The Makefile will automatically detect if you have `uv` installed and use it; otherwise, it will fall back to `pip`.
+
+If you encounter an error about no virtual environment found:
+
+```
+error: No virtual environment found; run `uv venv` to create an environment, or pass `--system` to install into a non-virtual environment
+```
+
+Make sure to create and activate a virtual environment before running `make install`.
+
+For development purposes, you can install additional dependencies:
+
+```bash
+make install-dev  # Install development dependencies
+make install-test  # Install testing dependencies
 ```
 
 ### Usage
-
-To start the MCP server:
-
-```bash
-python -m mcp_claude_code.server
-```
 
 To configure Claude Desktop to use this server, add the following to your Claude Desktop config file:
 
@@ -69,7 +83,28 @@ To configure Claude Desktop to use this server, add the following to your Claude
   "mcpServers": {
     "claude-code": {
       "command": "python",
-      "args": ["-m", "mcp_claude_code.server"]
+      "args": ["-m", "mcp_claude_code.server", "--allow-path", "/path/to/your/project"]
+    }
+  }
+}
+```
+
+Make sure to replace `/path/to/your/project` with the actual path to the project you want Claude to have access to.
+
+Additional configuration options:
+
+```json
+{
+  "mcpServers": {
+    "claude-code": {
+      "command": "python",
+      "args": [
+        "-m", 
+        "mcp_claude_code.server", 
+        "--allow-path", "/path/to/project",
+        "--name", "custom-claude-code",
+        "--transport", "stdio"
+      ]
     }
   }
 }
