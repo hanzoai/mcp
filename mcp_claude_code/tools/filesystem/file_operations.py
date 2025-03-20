@@ -384,7 +384,6 @@ class FileOperations:
                 await tool_ctx.error(f"Error editing file: {str(e)}")
                 return f"Error editing file: {str(e)}"
 
-
         # Directory tree tool
         @mcp_server.tool()
         async def directory_tree(path: str, ctx: MCPContext) -> str:
@@ -474,8 +473,6 @@ class FileOperations:
                 await tool_ctx.error(f"Error generating directory tree: {str(e)}")
                 return f"Error generating directory tree: {str(e)}"
 
-
-
         # Get file info tool
         @mcp_server.tool()
         async def get_file_info(path: str, ctx: MCPContext) -> str:
@@ -561,8 +558,6 @@ class FileOperations:
         @mcp_server.tool()
         async def list_allowed_directories(ctx: MCPContext) -> str:
             """Returns the list of directories that this server is allowed to access.
-
-            Use this to understand which directories are available before trying to access files.
 
             Returns:
                 List of allowed directories
@@ -901,3 +896,4 @@ class FileOperations:
             except Exception as e:
                 await tool_ctx.error(f"Error replacing content: {str(e)}")
                 return f"Error replacing content: {str(e)}"
+
