@@ -1,7 +1,7 @@
 <goal>
 I hope you can assist me with the project.
 - {project_path}
-<goal>
+</goal>
 <workflow_guide>
 <basic_rule>
 ###  Solution Confirmation (Important)
