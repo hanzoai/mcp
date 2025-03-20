@@ -226,93 +226,9 @@ class TestFileOperations:
                 content = f.read()
                 assert "This is modified content." in content
 
-    @pytest.mark.asyncio
-    async def test_create_directory(
-        self,
-        file_operations: FileOperations,
-        setup_allowed_path: str,
-        mcp_context: MagicMock,
-    ):
-        """Test creating a directory."""
-        # Create a test directory path
-        test_dir = os.path.join(setup_allowed_path, "test_create_dir")
+    # test_create_directory removed - functionality now handled by run_command
 
-        # Mock permission approval
-
-        # Mock context calls
-        tool_ctx = AsyncMock()
-        with patch(
-            "mcp_claude_code.tools.filesystem.file_operations.create_tool_context",
-            return_value=tool_ctx,
-        ):
-            # Extract the create_directory function
-            mock_server = MagicMock()
-            tools = {}
-
-            def mock_decorator():
-                def decorator(func):
-                    tools[func.__name__] = func
-                    return func
-
-                return decorator
-
-            mock_server.tool = mock_decorator
-            file_operations.register_tools(mock_server)
-
-            # Use the extracted create_directory function
-            result = await tools["create_directory"](test_dir, mcp_context)
-
-            # Verify result
-            assert "Successfully created directory" in result
-            tool_ctx.info.assert_called()
-
-            # Verify directory was created
-            assert os.path.exists(test_dir)
-            assert os.path.isdir(test_dir)
-
-    @pytest.mark.asyncio
-    async def test_list_directory(
-        self,
-        file_operations: FileOperations,
-        setup_allowed_path: str,
-        mcp_context: MagicMock,
-    ):
-        """Test listing a directory."""
-        # Create test content
-        test_subdir = os.path.join(setup_allowed_path, "test_subdir")
-        os.makedirs(test_subdir, exist_ok=True)
-
-        test_file_path = os.path.join(setup_allowed_path, "list_test.txt")
-        with open(test_file_path, "w") as f:
-            f.write("Test content")
-
-        # Mock context calls
-        tool_ctx = AsyncMock()
-        with patch(
-            "mcp_claude_code.tools.filesystem.file_operations.create_tool_context",
-            return_value=tool_ctx,
-        ):
-            # Extract the list_directory function
-            mock_server = MagicMock()
-            tools = {}
-
-            def mock_decorator():
-                def decorator(func):
-                    tools[func.__name__] = func
-                    return func
-
-                return decorator
-
-            mock_server.tool = mock_decorator
-            file_operations.register_tools(mock_server)
-
-            # Use the extracted list_directory function
-            result = await tools["list_directory"](setup_allowed_path, mcp_context)
-
-            # Verify result
-            assert "[DIR] test_subdir" in result
-            assert "[FILE] list_test.txt" in result
-            tool_ctx.info.assert_called()
+    # test_list_directory removed - functionality now handled by run_command
 
     @pytest.mark.asyncio
     async def test_read_files_multiple(

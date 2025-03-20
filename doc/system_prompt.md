@@ -34,29 +34,30 @@ I hope you can assist me with the project.
 - Overall Project Understanding: `read_files` (key configurations and readme files) → `directory_tree` → `search_content` (for file content)
 - In-depth File Analysis: `read_files` → `get_file_info`
 - Dependency Analysis: `read_files` (package files) → `run_command` (e.g., "rg 'import|require' --type=js")
+- Directory Listing: `run_command` (e.g., "ls -la /path/to/dir")
 
 ### Development & Implementation
 
-- Creating New Features: `create_directory` → `write_file` → `run_command` (testing)
+- Creating New Features: `run_command` (e.g., "mkdir -p new/directory") → `write_file` → `run_command` (testing)
 - Modifying Existing Code: `read_files` → `edit_file` → `run_command` (e.g., "git diff file" to check changes)
 - Batch Update Operations: `run_command` (e.g., "rg -l 'pattern'") → `read_files` → `edit_file`
 
 ### Structure & Refactoring
 
-- Code Reorganization: `directory_tree` → `move_file` → `run_command` (find references) → `edit_file`
+- Code Reorganization: `directory_tree` → `run_command` (e.g., "mv /source/path /destination/path") → `run_command` (find references) → `edit_file`
 - Dependency Management: `edit_file` (package files) → `run_command` (installation)
 - Interface Unification: `run_command` (e.g., "rg 'interface|class' --type=ts") → `read_files` → `edit_file`
 
 ### Quality Assurance
 
-- Test Development: `create_directory` (tests) → `write_file` → `run_script`
+- Test Development: `run_command` (e.g., "mkdir -p tests/unit") → `write_file` → `run_script`
 - Code Review: `run_command` (e.g., "git diff") → `read_files`
 - Performance Optimization: `run_command` (profiling) → `edit_file`
 
 ### Documentation & Deployment
 
 - Documentation Updates: `run_command` (e.g., "rg -t md 'TODO|FIXME'") → `edit_file` → `write_file`
-- CI/CD Configuration: `create_directory` (.github) → `write_file` (workflows)
+- CI/CD Configuration: `run_command` (e.g., "mkdir -p .github/workflows") → `write_file` (workflows)
 - External Integration: `run_command` (using curl/wget to get API documentation) → `write_file` (integration)
   </simple_workflow_example>
   <complex_workflow_example>
@@ -107,7 +108,7 @@ I hope you can assist me with the project.
 
 - **Layered Discovery Pattern**:
   1. `directory_tree`: Map overall project structure
-  2. `list_directory`: Focus on areas of interest
+  2. `run_command` (e.g., "ls -la /path/to/dir"): Focus on areas of interest
   3. `search_content`: Find relevant code patterns
   4. `read_files`: Inspect specific implementations
   5. `get_file_info`: Check metadata for context (modification date, size)

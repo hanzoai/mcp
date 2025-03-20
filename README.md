@@ -11,7 +11,7 @@ This project provides an MCP server that implements Claude Code-like functionali
 - **Code Understanding**: Analyze and understand codebases through file access and pattern searching
 - **Code Modification**: Make targeted edits to files with proper permission handling
 - **Enhanced Command Execution**: Run commands and scripts in various languages with improved error handling and shell support
-- **File Operations**: Create, move, and manage files with proper security controls
+- **File Operations**: Manage files with proper security controls through shell commands
 - **Code Discovery**: Find relevant files and code patterns across your project
 - **Project Analysis**: Understand project structure, dependencies, and frameworks
 
@@ -22,15 +22,12 @@ This project provides an MCP server that implements Claude Code-like functionali
 | `read_files` | Read one or multiple files with encoding detection | No |
 | `write_file` | Create or overwrite files | Yes |
 | `edit_file` | Make line-based edits to text files | Yes |
-| `create_directory` | Create a new directory | Yes |
-| `list_directory` | List contents of a directory | No |
 | `directory_tree` | Get a recursive tree view of directories | No |
-| `move_file` | Move or rename files and directories | Yes |
 | `get_file_info` | Get metadata about a file or directory | No |
 | `list_allowed_directories` | List directories the server can access | No |
 | `search_content` | Search for patterns in file contents | No |
 | `content_replace` | Replace patterns in file contents | Yes |
-| `run_command` | Execute shell commands | Yes |
+| `run_command` | Execute shell commands (also used for directory creation, file moving, and directory listing) | Yes |
 | `run_script` | Execute scripts with specified interpreters | Yes |
 | `script_tool` | Execute scripts in specific programming languages | Yes |
 | `project_analyze_tool` | Analyze project structure and dependencies | No |
