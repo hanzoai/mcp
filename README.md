@@ -17,20 +17,20 @@ This project provides an MCP server that implements Claude Code-like functionali
 
 ## Tools Implemented
 
-| Tool | Description | Permission Required |
-| ---- | ----------- | ------------------- |
-| `read_files` | Read one or multiple files with encoding detection | No |
-| `write_file` | Create or overwrite files | Yes |
-| `edit_file` | Make line-based edits to text files | Yes |
-| `directory_tree` | Get a recursive tree view of directories | No |
-| `get_file_info` | Get metadata about a file or directory | No |
-| `list_allowed_directories` | List directories the server can access | No |
-| `search_content` | Search for patterns in file contents | No |
-| `content_replace` | Replace patterns in file contents | Yes |
-| `run_command` | Execute shell commands (also used for directory creation, file moving, and directory listing) | Yes |
-| `run_script` | Execute scripts with specified interpreters | Yes |
-| `script_tool` | Execute scripts in specific programming languages | Yes |
-| `project_analyze_tool` | Analyze project structure and dependencies | No |
+| Tool                       | Description                                                                                   | Permission Required |
+| -------------------------- | --------------------------------------------------------------------------------------------- | ------------------- |
+| `read_files`               | Read one or multiple files with encoding detection                                            | No                  |
+| `write_file`               | Create or overwrite files                                                                     | Yes                 |
+| `edit_file`                | Make line-based edits to text files                                                           | Yes                 |
+| `directory_tree`           | Get a recursive tree view of directories                                                      | No                  |
+| `get_file_info`            | Get metadata about a file or directory                                                        | No                  |
+| `list_allowed_directories` | List directories the server can access                                                        | No                  |
+| `search_content`           | Search for patterns in file contents                                                          | No                  |
+| `content_replace`          | Replace patterns in file contents                                                             | Yes                 |
+| `run_command`              | Execute shell commands (also used for directory creation, file moving, and directory listing) | Yes                 |
+| `run_script`               | Execute scripts with specified interpreters                                                   | Yes                 |
+| `script_tool`              | Execute scripts in specific programming languages                                             | Yes                 |
+| `project_analyze_tool`     | Analyze project structure and dependencies                                                    | No                  |
 
 ## Getting Started
 
@@ -70,6 +70,20 @@ make install-dev  # Install development dependencies
 make install-test  # Install testing dependencies
 ```
 
+### Testing
+
+The project includes a comprehensive test suite. To run the tests:
+
+```bash
+# Run all tests
+make test
+
+# Run tests with coverage report
+make test-cov
+```
+
+The Makefile will automatically create and use a virtual environment (.venv) if one doesn't exist. It's designed to work on both Unix-based systems (macOS, Linux) and Windows environments.
+
 ### Usage
 
 To configure Claude Desktop to use this server, add the following to your Claude Desktop config file:
@@ -79,7 +93,12 @@ To configure Claude Desktop to use this server, add the following to your Claude
   "mcpServers": {
     "claude-code": {
       "command": "python",
-      "args": ["-m", "mcp_claude_code.server", "--allow-path", "/path/to/your/project"]
+      "args": [
+        "-m",
+        "mcp_claude_code.server",
+        "--allow-path",
+        "/path/to/your/project"
+      ]
     }
   }
 }
@@ -95,11 +114,14 @@ Additional configuration options:
     "claude-code": {
       "command": "python",
       "args": [
-        "-m", 
-        "mcp_claude_code.server", 
-        "--allow-path", "/path/to/project",
-        "--name", "custom-claude-code",
-        "--transport", "stdio"
+        "-m",
+        "mcp_claude_code.server",
+        "--allow-path",
+        "/path/to/project",
+        "--name",
+        "custom-claude-code",
+        "--transport",
+        "stdio"
       ]
     }
   }
@@ -119,6 +141,7 @@ Follow these steps:
 5. Replace `{{project_path}}` with the actual path to your project
 
 The system prompt provides Claude with:
+
 - A structured workflow for analyzing and modifying code
 - Best practices for project exploration and analysis
 - Guidelines for development, refactoring, and quality assurance
@@ -129,6 +152,7 @@ This step is crucial as it enables Claude to follow a consistent approach when h
 ## Security
 
 This implementation follows best practices for securing access to your filesystem:
+
 - Permission prompts for file modifications and command execution
 - Restricted access to specified directories only
 - Input validation and sanitization
@@ -147,3 +171,4 @@ To contribute to this project:
 ## License
 
 This project is licensed under the MIT License - see the LICENSE file for details.
+
