@@ -325,7 +325,7 @@ class TestCommandExecutor:
                 return_value=mock_tool_ctx,
             ):
                 # Call the run_command tool
-                result = await tools["run_command"]("echo test", mock_context)
+                result = await tools["run_command"]("echo test", "/tmp", mock_context)
 
                 # Verify execution and result
                 mock_execute.assert_called_once()
