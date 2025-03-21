@@ -1,0 +1,96 @@
+name: Create Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.13'
+
+      - name: Install dependencies
+        run: make install-test
+
+      - name: Run tests
+        run: make test
+
+  build:
+    name: Build Distribution
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.13'
+
+      - name: Install build dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install build
+
+      - name: Build distributions
+        run: python -m build
+
+      - name: Upload distribution artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: python-package-distributions
+          path: dist/
+
+  publish:
+    name: Publish Release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Download distribution artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: python-package-distributions
+          path: dist/
+
+      - name: Set tag name
+        id: tag
+        run: echo "tag=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+
+      - name: Extract release notes from CHANGELOG.md
+        id: extract-release-notes
+        run: |
+          CHANGELOG=$(cat CHANGELOG.md)
+          VERSION=$(echo ${{ steps.tag.outputs.tag }} | sed 's/^v//')
+          
+          # Extract the release notes for this version
+          NOTES=$(echo "$CHANGELOG" | awk -v version="## [$VERSION]" '/^## \[[0-9]+\.[0-9]+\.[0-9]+\]/ {if (p) exit; if ($0 ~ version) p=1; next} p {print}' | sed '/^## \[[0-9]+\.[0-9]+\.[0-9]+\]/,$d')
+          
+          # Save to file
+          echo "$NOTES" > release_notes.md
+          
+          echo "Successfully extracted release notes for version $VERSION"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ steps.tag.outputs.tag }}
+          name: MCP Claude Code ${{ steps.tag.outputs.tag }}
+          body_path: release_notes.md
+          files: dist/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
