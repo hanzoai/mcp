@@ -99,9 +99,6 @@ jobs:
     name: Publish to PyPI
     needs: [build, publish-github]
     runs-on: ubuntu-latest
-    environment: pypi  # Use GitHub environment for PyPI credentials
-    permissions:
-      id-token: write  # Required for trusted publishing
     steps:
       - name: Download distribution artifacts
         uses: actions/download-artifact@v3
@@ -109,6 +106,19 @@ jobs:
           name: python-package-distributions
           path: dist/
 
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.13'
+          
+      - name: Install publishing dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install twine
+          
       - name: Publish to PyPI
-        uses: pypa/gh-action-pypi-publish@release/v1
-        # Trusted publishing - no API token needed
+        env:
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
+        run: |
+          twine upload --skip-existing dist/*
