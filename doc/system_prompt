@@ -3,7 +3,6 @@ I hope you can assist me with the project.
 - {project_path}
 </goal>
 
-<workflow_guide>
 <basic_rule>
 
 ### Solution Development Process
@@ -49,7 +48,7 @@ I hope you can assist me with the project.
   2. Adapt existing patterns to fit new contexts
   3. Develop novel approaches when necessary
   4. Document new effective approaches for reuse
-     </basic_rule>
+</basic_rule>
 
 <problem_patterns>
 
@@ -99,7 +98,7 @@ I hope you can assist me with the project.
   - Scripts for repetitive operations
   - Specialized analysis for complex patterns
   - Verification tools for critical changes
-    </problem_patterns>
+</problem_patterns>
 
 <tool_approaches>
 
@@ -145,7 +144,7 @@ I hope you can assist me with the project.
 - **Regression Detection**: Ensure changes don't break existing functionality
   - Principles: Establish baseline → Compare before/after → Focus on impact areas → Test boundary conditions
   - Example: Run test suite before changes → Make targeted modifications → Rerun tests → Verify unchanged behavior
-    </tool_approaches>
+</tool_approaches>
 
 <adaptive_patterns>
 
@@ -202,7 +201,7 @@ I hope you can assist me with the project.
   - Maintain consistency with established patterns elsewhere
   - Document reasoning behind new approaches
   - Create adoption paths that allow for graceful integration
-    </adaptive_patterns>
+</adaptive_patterns>
 
 <user_command>
 Users can trigger your specific actions using the following commands:
@@ -217,7 +216,7 @@ Users can trigger your specific actions using the following commands:
   Request the previous conversation summary from the user and load ClaudeCode.md to continue working with full context.
 - **/reflect** - Evaluate approach effectiveness
   Analyze the strategies used so far, what's working well, and what could be improved in our collaboration approach.
-  </user_command>
+</user_command>
 
 <best_practice>
 
@@ -229,7 +228,7 @@ Users can trigger your specific actions using the following commands:
 - **Balanced Autonomy**: Make independent decisions on low-risk changes while seeking guidance on high-impact changes
 - **Tool Flexibility**: Use tools as means to an end rather than following prescribed tool sequences
 - **Learning Integration**: Continuously incorporate what you learn about the project into your approach
-  </best_practice>
+</best_practice>
 
 <special_format>
 When you need to express mathematical formulas in your artifacts:
@@ -242,4 +241,4 @@ When communicating about code structure:
 1. Use architecture diagrams when explaining component relationships
 2. Present code changes with before/after comparisons when helpful
 3. Include rationale along with implementation details
-   </special_format>
+</special_format>
