@@ -39,25 +39,63 @@ The project requires Python 3.13 or newer.
 
 #### Option 1: Install from PyPI (Recommended)
 
-You can install MCP Claude Code directly from PyPI:
+##### For Command-Line Accessibility: Install with pipx (Recommended)
+
+[pipx](https://pypa.github.io/pipx/) is designed for installing Python applications globally while keeping their dependencies isolated. This is ideal for command-line tools like `claudecode`.
 
 ```bash
-# Create a virtual environment (recommended)
-python -m venv .venv
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+# Install pipx if you don't have it
+# macOS
+brew install pipx
+pipx ensurepath
 
-# Install with pip
+# Linux
+python -m pip install --user pipx
+pipx ensurepath
+
+# Windows
+python -m pip install --user pipx
+
+# Then install mcp-claude-code
+pipx install mcp-claude-code
+```
+
+With this method, the `claudecode` command will be available globally in your terminal, which is required for Claude Desktop integration.
+
+##### Alternative: Install with pip
+
+You can also use pip, but you'll need to ensure the command is globally accessible:
+
+```bash
+# Global installation (may require admin permissions)
 pip install mcp-claude-code
 
-# Or with uv
-uv pip install mcp-claude-code
+# Or user installation (preferred if you don't have admin access)
+pip install --user mcp-claude-code
 ```
+
+If using `--user`, make sure your user binary directory is in your PATH.
+
+##### For development in a virtual environment
+
+If you're just developing with the package or don't need the global command:
+
+```bash
+python -m venv .venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+pip install mcp-claude-code
+```
+
+Note: When using a virtual environment, you'll need to:
+- Either activate the environment before running Claude Desktop
+- Or specify the full path to the `claudecode` executable in your Claude Desktop configuration
 
 To install optional extras:
 
 ```bash
-# For performance enhancements
-pip install mcp-claude-code[performance]
+pipx install "mcp-claude-code[performance]"
+# Or with pip
+pip install "mcp-claude-code[performance]"
 ```
 
 #### Option 2: Install from Source
@@ -116,13 +154,31 @@ The Makefile will automatically create and use a virtual environment (.venv) if 
 
 After installing mcp-claude-code, configure Claude Desktop to use this server by adding it to your Claude Desktop config file:
 
-##### When installed from PyPI:
+##### When installed with pipx or pip (globally accessible):
 
 ```json
 {
   "mcpServers": {
     "claude-code": {
       "command": "claudecode",
+      "args": [
+        "--allow-path",
+        "/path/to/your/project"
+      ]
+    }
+  }
+}
+```
+
+##### When installed in a virtual environment:
+
+You'll need to provide the full path to the claudecode command:
+
+```json
+{
+  "mcpServers": {
+    "claude-code": {
+      "command": "/path/to/your/venv/bin/claudecode",
       "args": [
         "--allow-path",
         "/path/to/your/project"
@@ -160,7 +216,7 @@ You can customize the server with additional options:
 {
   "mcpServers": {
     "claude-code": {
-      "command": "claudecode",  // or "python -m mcp_claude_code.server" if installed from source
+      "command": "claudecode",  // or full path if in a virtual environment
       "args": [
         "--allow-path",
         "/path/to/project",
@@ -217,4 +273,3 @@ To contribute to this project:
 ## License
 
 This project is licensed under the MIT License - see the LICENSE file for details.
-
