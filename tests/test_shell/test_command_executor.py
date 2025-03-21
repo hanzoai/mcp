@@ -215,7 +215,7 @@ class TestCommandExecutor:
     ) -> None:
         """Test executing a script from a temporary file."""
         # Patch asyncio.create_subprocess_exec
-        with patch("asyncio.create_subprocess_exec") as mock_subprocess:
+        with patch("asyncio.create_subprocess_shell") as mock_subprocess:
             # Setup mock process
             mock_process = AsyncMock()
             mock_process.returncode = 0
@@ -230,7 +230,7 @@ class TestCommandExecutor:
 
             # Verify subprocess was called with python
             mock_subprocess.assert_called_once()
-            assert mock_subprocess.call_args[0][0] == "python"
+            assert "python" in mock_subprocess.call_args[0][0]
 
             # Verify result
             assert result.is_success
