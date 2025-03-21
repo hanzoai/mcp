@@ -820,8 +820,12 @@ class CommandExecutor:
                 await tool_ctx.error("Parameter 'interpreter' cannot be empty")
                 return "Error: Parameter 'interpreter' cannot be empty"
 
-            # cwd can be None as it's optional
-            if cwd is not None and cwd.strip() == "":
+            # Validate required cwd parameter
+            if not cwd:
+                await tool_ctx.error("Parameter 'cwd' is required but was None")
+                return "Error: Parameter 'cwd' is required but was None"
+            
+            if cwd.strip() == "":
                 await tool_ctx.error("Parameter 'cwd' cannot be empty")
                 return "Error: Parameter 'cwd' cannot be empty"
 
@@ -869,9 +873,9 @@ class CommandExecutor:
         async def script_tool(
             language: str,
             script: str,
+            cwd: str,
             ctx: MCPContext,
             args: list[str] | None = None,
-            cwd: str | None = None,
             use_login_shell: bool = True,
         ) -> str:
             """Execute a script in the specified language.
@@ -879,9 +883,9 @@ class CommandExecutor:
             Args:
                 language: The programming language (python, javascript, etc.)
                 script: The script code to execute
+                cwd: Working directory for script execution
 
                 args: Optional command-line arguments
-                cwd: Optional working directory
                 use_login_shell: Whether to use login shell (loads ~/.zshrc, ~/.bashrc, etc.)
 
             Returns:
@@ -913,8 +917,12 @@ class CommandExecutor:
                 await tool_ctx.warning("Parameter 'args' is an empty list")
                 # We don't return error for this as empty args is acceptable
 
-            # cwd can be None as it's optional
-            if cwd is not None and cwd.strip() == "":
+            # Validate required cwd parameter
+            if not cwd:
+                await tool_ctx.error("Parameter 'cwd' is required but was None")
+                return "Error: Parameter 'cwd' is required but was None"
+            
+            if cwd.strip() == "":
                 await tool_ctx.error("Parameter 'cwd' cannot be empty")
                 return "Error: Parameter 'cwd' cannot be empty"
 
@@ -926,24 +934,23 @@ class CommandExecutor:
                 return f"Error: Unsupported language: {language}. Supported languages: {', '.join(self.get_available_languages())}"
 
             # Check if working directory is allowed
-            if cwd and not self.permission_manager.is_path_allowed(cwd):
+            if not self.permission_manager.is_path_allowed(cwd):
                 await tool_ctx.error(f"Working directory not allowed: {cwd}")
                 return f"Error: Working directory not allowed: {cwd}"
-
-            # Check if the working directory is allowed
-            script_path = cwd or os.getcwd()
-            if not self.permission_manager.is_path_allowed(script_path):
-                await tool_ctx.error(f"Working directory not allowed: {script_path}")
-                return f"Error: Working directory not allowed: {script_path}"
+                
+            # Check if working directory exists
+            if not os.path.isdir(cwd):
+                await tool_ctx.error(f"Working directory does not exist: {cwd}")
+                return f"Error: Working directory does not exist: {cwd}"
 
             # Proceed with execution
-            await tool_ctx.info(f"Executing {language} script in {script_path}")
+            await tool_ctx.info(f"Executing {language} script in {cwd}")
 
             # Execute the script
             result = await self.execute_script_from_file(
                 script=script,
                 language=language,
-                cwd=cwd,
+                cwd=cwd,  # cwd is now a required parameter
                 timeout=30.0,
                 args=args,
                 use_login_shell=use_login_shell,
