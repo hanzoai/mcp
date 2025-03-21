@@ -39,7 +39,43 @@ The project requires Python 3.13 or newer.
 
 #### Option 1: Install from PyPI (Recommended)
 
-##### For Command-Line Accessibility: Install with pipx (Recommended)
+##### Use UVX (Zero-Install Method)
+
+[UVX](https://github.com/astral-sh/uv) is a modern Python package runner that lets you run Python packages without installing them permanently. This is the simplest way to use `claudecode`:
+
+```bash
+# Install UV if you don't have it
+# macOS/Linux
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Windows PowerShell
+irm https://astral.sh/uv/install.ps1 -UseBasicParsing | iex
+
+# Run mcp-claude-code directly (no installation needed)
+uvx run mcp-claude-code --allow-path /path/to/your/project
+```
+
+With this approach, you don't need to install anything - UVX will handle dependencies for you automatically.
+
+When configuring Claude Desktop, you'll use UVX to run the package:
+
+```json
+{
+  "mcpServers": {
+    "claude-code": {
+      "command": "uvx",
+      "args": [
+        "run",
+        "mcp-claude-code",
+        "--allow-path",
+        "/path/to/your/project"
+      ]
+    }
+  }
+}
+```
+
+##### For Command-Line Accessibility: Install with pipx
 
 [pipx](https://pypa.github.io/pipx/) is designed for installing Python applications globally while keeping their dependencies isolated. This is ideal for command-line tools like `claudecode`.
 
@@ -153,6 +189,24 @@ The Makefile will automatically create and use a virtual environment (.venv) if 
 #### Configuring Claude Desktop
 
 After installing mcp-claude-code, configure Claude Desktop to use this server by adding it to your Claude Desktop config file:
+
+##### When running with UVX (recommended):
+
+```json
+{
+  "mcpServers": {
+    "claude-code": {
+      "command": "uvx",
+      "args": [
+        "run",
+        "mcp-claude-code",
+        "--allow-path",
+        "/path/to/your/project"
+      ]
+    }
+  }
+}
+```
 
 ##### When installed with pipx or pip (globally accessible):
 
