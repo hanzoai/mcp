@@ -275,6 +275,21 @@ class TestCommandExecutor:
         assert result.return_code != 0  # Specific error code depends on the shell
 
     @pytest.mark.asyncio
+    async def test_execute_command_with_env_vars(
+        self, executor: CommandExecutor
+    ) -> None:
+        """Test executing a command with environment variables."""
+        # Execute a command that echoes an environment variable
+        result: CommandResult = await executor.execute_command("echo $PATH")
+
+        # Verify result - $PATH should be expanded
+        assert result.is_success
+        # PATH should contain directories separated by colons
+        assert ":" in result.stdout
+        # The output should not just be the literal string "$PATH"
+        assert result.stdout.strip() != "$PATH"
+
+    @pytest.mark.asyncio
     async def test_register_tools(self, executor: CommandExecutor) -> None:
         """Test registering command execution tools."""
         mock_server = MagicMock()

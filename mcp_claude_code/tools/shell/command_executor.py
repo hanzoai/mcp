@@ -235,8 +235,8 @@ class CommandExecutor:
             command_env.update(env)
 
         try:
-            # Check if command uses shell features like &&, ||, |, etc.
-            shell_operators = ["&&", "||", "|", ";", ">", "<", "$(", "`"]
+            # Check if command uses shell features like &&, ||, |, etc. or $ for env vars
+            shell_operators = ["&&", "||", "|", ";", ">", "<", "$(", "`", "$"]
             needs_shell = any(op in command for op in shell_operators)
 
             if needs_shell or use_login_shell:
