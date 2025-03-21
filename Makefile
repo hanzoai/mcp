@@ -52,6 +52,8 @@ install: venv-check
 uninstall: venv-check
 	$(ACTIVATE_CMD) $(VENV_ACTIVATE) && $(PYTHON) -m pip uninstall -y mcp-claude-code
 
+reinstall: uninstall install
+
 install-dev: venv-check
 	$(ACTIVATE_CMD) $(VENV_ACTIVATE) && $(PACKAGE_CMD) -e ".[dev]"
 
