@@ -194,6 +194,7 @@ class CommandExecutor:
         cwd: str | None = None,
         env: dict[str, str] | None = None,
         timeout: float | None = 60.0,
+        use_login_shell: bool = True,
     ) -> CommandResult:
         """Execute a shell command with safety checks.
 
@@ -202,6 +203,7 @@ class CommandExecutor:
             cwd: Optional working directory
             env: Optional environment variables
             timeout: Optional timeout in seconds
+            use_login_shell: Whether to use login shell. default true (loads ~/.zshrc, ~/.bashrc, etc.)
 
         Returns:
             CommandResult containing execution results
@@ -237,11 +239,35 @@ class CommandExecutor:
             shell_operators = ["&&", "||", "|", ";", ">", "<", "$(", "`"]
             needs_shell = any(op in command for op in shell_operators)
 
-            if needs_shell:
-                self._log(f"Using shell for command with shell operators: {command}")
-                # Use shell for commands with shell operators
+            if needs_shell or use_login_shell:
+                # Determine which shell to use
+                shell_cmd = command
+
+                if use_login_shell:
+                    # Get the user's login shell
+                    user_shell = os.environ.get("SHELL", "/bin/bash")
+                    shell_basename = os.path.basename(user_shell)
+
+                    self._log(f"Using login shell: {user_shell}")
+
+                    # Wrap command with appropriate shell invocation
+                    if shell_basename == "zsh":
+                        shell_cmd = f"{user_shell} -l -c '{command}'"
+                    elif shell_basename == "bash":
+                        shell_cmd = f"{user_shell} -l -c '{command}'"
+                    elif shell_basename == "fish":
+                        shell_cmd = f"{user_shell} -l -c '{command}'"
+                    else:
+                        # Default fallback
+                        shell_cmd = f"{user_shell} -c '{command}'"
+                else:
+                    self._log(
+                        f"Using shell for command with shell operators: {command}"
+                    )
+
+                # Use shell for command execution
                 process = await asyncio.create_subprocess_shell(
-                    command,
+                    shell_cmd,
                     stdout=asyncio.subprocess.PIPE,
                     stderr=asyncio.subprocess.PIPE,
                     cwd=cwd,
@@ -295,6 +321,7 @@ class CommandExecutor:
         cwd: str | None = None,
         env: dict[str, str] | None = None,
         timeout: float | None = 60.0,
+        use_login_shell: bool = True,
     ) -> CommandResult:
         """Execute a script with the specified interpreter.
 
@@ -332,7 +359,7 @@ class CommandExecutor:
 
         # Regular execution
         return await self._execute_script_with_stdin(
-            interpreter, script, cwd, env, timeout
+            interpreter, script, cwd, env, timeout, use_login_shell
         )
 
     async def _execute_script_with_stdin(
@@ -342,6 +369,7 @@ class CommandExecutor:
         cwd: str | None = None,
         env: dict[str, str] | None = None,
         timeout: float | None = 60.0,
+        use_login_shell: bool = True,
     ) -> CommandResult:
         """Execute a script by passing it to stdin of the interpreter.
 
@@ -361,18 +389,39 @@ class CommandExecutor:
             command_env.update(env)
 
         try:
-            # Parse the interpreter command to get arguments
-            interpreter_parts = shlex.split(interpreter)
+            # Determine if we should use a login shell
+            if use_login_shell:
+                # Get the user's login shell
+                user_shell = os.environ.get("SHELL", "/bin/bash")
+                shell_basename = os.path.basename(user_shell)
 
-            # Create and run the process
-            process = await asyncio.create_subprocess_exec(
-                *interpreter_parts,
-                stdin=asyncio.subprocess.PIPE,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-                cwd=cwd,
-                env=command_env,
-            )
+                self._log(f"Using login shell for interpreter: {user_shell}")
+
+                # Create command that pipes script to interpreter through login shell
+                shell_cmd = f"{user_shell} -l -c '{interpreter}'"
+
+                # Create and run the process with shell
+                process = await asyncio.create_subprocess_shell(
+                    shell_cmd,
+                    stdin=asyncio.subprocess.PIPE,
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE,
+                    cwd=cwd,
+                    env=command_env,
+                )
+            else:
+                # Parse the interpreter command to get arguments
+                interpreter_parts = shlex.split(interpreter)
+
+                # Create and run the process normally
+                process = await asyncio.create_subprocess_exec(
+                    *interpreter_parts,
+                    stdin=asyncio.subprocess.PIPE,
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE,
+                    cwd=cwd,
+                    env=command_env,
+                )
 
             # Wait for the process to complete with timeout
             try:
@@ -486,6 +535,7 @@ class CommandExecutor:
         env: dict[str, str] | None = None,
         timeout: float | None = 60.0,
         args: list[str] | None = None,
+        use_login_shell: bool = True,
     ) -> CommandResult:
         """Execute a script by writing it to a temporary file and executing it.
 
@@ -499,6 +549,8 @@ class CommandExecutor:
             env: Optional environment variables
             timeout: Optional timeout in seconds
             args: Optional command-line arguments
+            use_login_shell: Whether to use login shell. default true (loads ~/.zshrc, ~/.bashrc, etc.)
+
 
         Returns:
             CommandResult containing execution results
@@ -568,21 +620,48 @@ class CommandExecutor:
             _ = temp.write(script)  # Explicitly ignore the return value
 
         try:
-            # Build command arguments
-            cmd_args = [command, temp_path]
-            if args:
-                cmd_args.extend(args)
+            # Determine if we should use a login shell
+            if use_login_shell:
+                # Get the user's login shell
+                user_shell = os.environ.get("SHELL", "/bin/bash")
+                shell_basename = os.path.basename(user_shell)
 
-            self._log(f"Executing script from file with: {' '.join(cmd_args)}")
+                self._log(f"Using login shell for script execution: {user_shell}")
 
-            # Create and run the process
-            process = await asyncio.create_subprocess_exec(
-                *cmd_args,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-                cwd=cwd,
-                env=command_env,
-            )
+                # Build the command including args
+                cmd = f"{command} {temp_path}"
+                if args:
+                    cmd += " " + " ".join(args)
+
+                # Create command that runs script through login shell
+                shell_cmd = f"{user_shell} -l -c '{cmd}'"
+
+                self._log(f"Executing script from file with login shell: {shell_cmd}")
+
+                # Create and run the process with shell
+                process = await asyncio.create_subprocess_shell(
+                    shell_cmd,
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE,
+                    cwd=cwd,
+                    env=command_env,
+                )
+            else:
+                # Build command arguments
+                cmd_args = [command, temp_path]
+                if args:
+                    cmd_args.extend(args)
+
+                self._log(f"Executing script from file with: {' '.join(cmd_args)}")
+
+                # Create and run the process normally
+                process = await asyncio.create_subprocess_exec(
+                    *cmd_args,
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE,
+                    cwd=cwd,
+                    env=command_env,
+                )
 
             # Wait for the process to complete with timeout
             try:
@@ -648,7 +727,10 @@ class CommandExecutor:
         # Run Command Tool
         @mcp_server.tool()
         async def run_command(
-            command: str, ctx: MCPContext, cwd: str | None = None
+            command: str,
+            ctx: MCPContext,
+            cwd: str | None = None,
+            use_login_shell: bool = True,
         ) -> str:
             """Execute a shell command.
 
@@ -656,6 +738,7 @@ class CommandExecutor:
                 command: The shell command to execute
 
                 cwd: Optional working directory for the command
+                use_login_shell: Whether to use login shell (loads ~/.zshrc, ~/.bashrc, etc.)
 
             Returns:
                 The output of the command
@@ -676,7 +759,7 @@ class CommandExecutor:
 
             # Execute the command
             result: CommandResult = await self.execute_command(
-                command, cwd=cwd, timeout=30.0
+                command, cwd=cwd, timeout=30.0, use_login_shell=use_login_shell
             )
 
             # Report result
@@ -704,6 +787,7 @@ class CommandExecutor:
             ctx: MCPContext,
             interpreter: str = "bash",
             cwd: str | None = None,
+            use_login_shell: bool = True,
         ) -> str:
             """Execute a script with the specified interpreter.
 
@@ -712,6 +796,7 @@ class CommandExecutor:
 
                 interpreter: The interpreter to use (bash, python, etc.)
                 cwd: Optional working directory
+                use_login_shell: Whether to use login shell (loads ~/.zshrc, ~/.bashrc, etc.)
 
             Returns:
                 The output of the script
@@ -754,7 +839,11 @@ class CommandExecutor:
 
             # Execute the script
             result: CommandResult = await self.execute_script(
-                script=script, interpreter=interpreter, cwd=cwd, timeout=30.0
+                script=script,
+                interpreter=interpreter,
+                cwd=cwd,
+                timeout=30.0,
+                use_login_shell=use_login_shell,
             )
 
             # Report result
@@ -783,6 +872,7 @@ class CommandExecutor:
             ctx: MCPContext,
             args: list[str] | None = None,
             cwd: str | None = None,
+            use_login_shell: bool = True,
         ) -> str:
             """Execute a script in the specified language.
 
@@ -792,6 +882,7 @@ class CommandExecutor:
 
                 args: Optional command-line arguments
                 cwd: Optional working directory
+                use_login_shell: Whether to use login shell (loads ~/.zshrc, ~/.bashrc, etc.)
 
             Returns:
                 Script execution results
@@ -850,7 +941,12 @@ class CommandExecutor:
 
             # Execute the script
             result = await self.execute_script_from_file(
-                script=script, language=language, cwd=cwd, timeout=30.0, args=args
+                script=script,
+                language=language,
+                cwd=cwd,
+                timeout=30.0,
+                args=args,
+                use_login_shell=use_login_shell,
             )
 
             # Report result
