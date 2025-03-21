@@ -554,29 +554,6 @@ class FileOperations:
                 await tool_ctx.error(f"Error getting file info: {str(e)}")
                 return f"Error getting file info: {str(e)}"
 
-        # List allowed directories tool
-        @mcp_server.tool()
-        async def list_allowed_directories(ctx: MCPContext) -> str:
-            """Returns the list of directories that this server is allowed to access.
-
-            Returns:
-                List of allowed directories
-            """
-            tool_ctx = create_tool_context(ctx)
-            tool_ctx.set_tool_info("list_allowed_directories")
-            await tool_ctx.info("Listing allowed directories")
-
-            # Get allowed paths from permission manager
-            allowed_paths = [
-                str(path) for path in self.permission_manager.allowed_paths
-            ]
-
-            if not allowed_paths:
-                return "No directories are currently allowed."
-
-            await tool_ctx.info(f"Listed {len(allowed_paths)} allowed directories")
-            return "Allowed directories:\n" + "\n".join(allowed_paths)
-
         # Search content tool (grep-like functionality)
         @mcp_server.tool()
         async def search_content(
@@ -896,4 +873,3 @@ class FileOperations:
             except Exception as e:
                 await tool_ctx.error(f"Error replacing content: {str(e)}")
                 return f"Error replacing content: {str(e)}"
-

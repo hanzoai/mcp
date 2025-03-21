@@ -24,7 +24,6 @@ This project provides an MCP server that implements Claude Code-like functionali
 | `edit_file`                | Make line-based edits to text files                                                           | Yes                 |
 | `directory_tree`           | Get a recursive tree view of directories                                                      | No                  |
 | `get_file_info`            | Get metadata about a file or directory                                                        | No                  |
-| `list_allowed_directories` | List directories the server can access                                                        | No                  |
 | `search_content`           | Search for patterns in file contents                                                          | No                  |
 | `content_replace`          | Replace patterns in file contents                                                             | Yes                 |
 | `run_command`              | Execute shell commands (also used for directory creation, file moving, and directory listing) | Yes                 |
