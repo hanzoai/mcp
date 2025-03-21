@@ -37,11 +37,36 @@ This project provides an MCP server that implements Claude Code-like functionali
 
 The project requires Python 3.13 or newer.
 
-You can install MCP Claude Code using the provided Makefile:
+#### Option 1: Install from PyPI (Recommended)
+
+You can install MCP Claude Code directly from PyPI:
+
+```bash
+# Create a virtual environment (recommended)
+python -m venv .venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+
+# Install with pip
+pip install mcp-claude-code
+
+# Or with uv
+uv pip install mcp-claude-code
+```
+
+To install optional extras:
+
+```bash
+# For performance enhancements
+pip install mcp-claude-code[performance]
+```
+
+#### Option 2: Install from Source
+
+If you prefer to install from source:
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/mcp-claude-code.git
+git clone https://github.com/SDGLBL/mcp-claude-code.git
 cd mcp-claude-code
 
 # Create a virtual environment first
@@ -62,7 +87,9 @@ error: No virtual environment found; run `uv venv` to create an environment, or 
 
 Make sure to create and activate a virtual environment before running `make install`.
 
-For development purposes, you can install additional dependencies:
+#### For Development
+
+If you're developing or contributing to the project, you can install additional dependencies:
 
 ```bash
 make install-dev  # Install development dependencies
@@ -85,7 +112,27 @@ The Makefile will automatically create and use a virtual environment (.venv) if 
 
 ### Usage
 
-To configure Claude Desktop to use this server, add the following to your Claude Desktop config file:
+#### Configuring Claude Desktop
+
+After installing mcp-claude-code, configure Claude Desktop to use this server by adding it to your Claude Desktop config file:
+
+##### When installed from PyPI:
+
+```json
+{
+  "mcpServers": {
+    "claude-code": {
+      "command": "claudecode",
+      "args": [
+        "--allow-path",
+        "/path/to/your/project"
+      ]
+    }
+  }
+}
+```
+
+##### When installed from source:
 
 ```json
 {
@@ -105,16 +152,16 @@ To configure Claude Desktop to use this server, add the following to your Claude
 
 Make sure to replace `/path/to/your/project` with the actual path to the project you want Claude to have access to.
 
-Additional configuration options:
+#### Advanced Configuration Options
+
+You can customize the server with additional options:
 
 ```json
 {
   "mcpServers": {
     "claude-code": {
-      "command": "python",
+      "command": "claudecode",  // or "python -m mcp_claude_code.server" if installed from source
       "args": [
-        "-m",
-        "mcp_claude_code.server",
         "--allow-path",
         "/path/to/project",
         "--name",
