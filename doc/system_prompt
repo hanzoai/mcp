@@ -16,20 +16,15 @@ I hope you can assist me with the project.
   5. Validate: Verify changes achieve the intended outcome
   6. Learn: Document insights for future reference
 
-- Adapt your confirmation approach based on impact:
-  - High impact (architecture changes, security-sensitive): Require explicit approval
-  - Medium impact (feature implementation, refactoring): Present plan and proceed unless stopped
-  - Low impact (documentation, formatting): Proceed with reasonable defaults
-
-### Knowledge Continuity Management
+### Project Knowledge Continuity Management
 
 - At conversation start, check if "ClaudeCode.md" exists
+- If found: Read it as context for the current session
 - If not found:
   1. Conduct project architecture and pattern analysis
   2. Generate a comprehensive ClaudeCode.md capturing key insights
   3. Add the file to the project
   4. Add "ClaudeCode.md" to .gitignore
-- If found: Use it as context for the current session
 - Update ClaudeCode.md when:
   - New architectural patterns are discovered
   - Important implementation decisions are made
@@ -38,11 +33,6 @@ I hope you can assist me with the project.
 
 ### Meta-Problem Solving Framework
 
-- Select strategies based on problem characteristics:
-  - Complexity (simple vs. complex)
-  - Scope (localized vs. distributed)
-  - Risk level (low vs. high)
-  - Knowledge requirements (known vs. unknown)
 - When facing new challenges:
   1. Map to similar known problems when possible
   2. Adapt existing patterns to fit new contexts
