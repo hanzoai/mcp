@@ -728,16 +728,16 @@ class CommandExecutor:
         @mcp_server.tool()
         async def run_command(
             command: str,
+            cwd: str,
             ctx: MCPContext,
-            cwd: str | None = None,
             use_login_shell: bool = True,
         ) -> str:
             """Execute a shell command.
 
             Args:
                 command: The shell command to execute
+                cwd: Working directory for the command
 
-                cwd: Optional working directory for the command
                 use_login_shell: Whether to use login shell (loads ~/.zshrc, ~/.bashrc, etc.)
 
             Returns:
@@ -752,10 +752,24 @@ class CommandExecutor:
                 await tool_ctx.error(f"Command not allowed: {command}")
                 return f"Error: Command not allowed: {command}"
 
+            # Validate required cwd parameter
+            if not cwd:
+                await tool_ctx.error("Parameter 'cwd' is required but was None")
+                return "Error: Parameter 'cwd' is required but was None"
+
+            if cwd.strip() == "":
+                await tool_ctx.error("Parameter 'cwd' cannot be empty")
+                return "Error: Parameter 'cwd' cannot be empty"
+
             # Check if working directory is allowed
-            if cwd and not self.permission_manager.is_path_allowed(cwd):
+            if not self.permission_manager.is_path_allowed(cwd):
                 await tool_ctx.error(f"Working directory not allowed: {cwd}")
                 return f"Error: Working directory not allowed: {cwd}"
+
+            # Check if working directory exists
+            if not os.path.isdir(cwd):
+                await tool_ctx.error(f"Working directory does not exist: {cwd}")
+                return f"Error: Working directory does not exist: {cwd}"
 
             # Execute the command
             result: CommandResult = await self.execute_command(
@@ -784,18 +798,18 @@ class CommandExecutor:
         @mcp_server.tool()
         async def run_script(
             script: str,
+            cwd: str,
             ctx: MCPContext,
             interpreter: str = "bash",
-            cwd: str | None = None,
             use_login_shell: bool = True,
         ) -> str:
             """Execute a script with the specified interpreter.
 
             Args:
                 script: The script content to execute
+                cwd: Working directory for script execution
 
                 interpreter: The interpreter to use (bash, python, etc.)
-                cwd: Optional working directory
                 use_login_shell: Whether to use login shell (loads ~/.zshrc, ~/.bashrc, etc.)
 
             Returns:
@@ -824,28 +838,37 @@ class CommandExecutor:
             if not cwd:
                 await tool_ctx.error("Parameter 'cwd' is required but was None")
                 return "Error: Parameter 'cwd' is required but was None"
-            
+
             if cwd.strip() == "":
                 await tool_ctx.error("Parameter 'cwd' cannot be empty")
                 return "Error: Parameter 'cwd' cannot be empty"
 
             await tool_ctx.info(f"Executing script with interpreter: {interpreter}")
 
-            # Check working directory permissions if specified
-            if cwd:
-                if not os.path.isdir(cwd):
-                    await tool_ctx.error(f"Working directory does not exist: {cwd}")
-                    return f"Error: Working directory does not exist: {cwd}"
+            # Validate required cwd parameter
+            if not cwd:
+                await tool_ctx.error("Parameter 'cwd' is required but was None")
+                return "Error: Parameter 'cwd' is required but was None"
 
-                if not self.permission_manager.is_path_allowed(cwd):
-                    await tool_ctx.error(f"Working directory not allowed: {cwd}")
-                    return f"Error: Working directory not allowed: {cwd}"
+            if cwd.strip() == "":
+                await tool_ctx.error("Parameter 'cwd' cannot be empty")
+                return "Error: Parameter 'cwd' cannot be empty"
+
+            # Check if working directory is allowed
+            if not self.permission_manager.is_path_allowed(cwd):
+                await tool_ctx.error(f"Working directory not allowed: {cwd}")
+                return f"Error: Working directory not allowed: {cwd}"
+
+            # Check if working directory exists
+            if not os.path.isdir(cwd):
+                await tool_ctx.error(f"Working directory does not exist: {cwd}")
+                return f"Error: Working directory does not exist: {cwd}"
 
             # Execute the script
             result: CommandResult = await self.execute_script(
                 script=script,
                 interpreter=interpreter,
-                cwd=cwd,
+                cwd=cwd,  # cwd is now a required parameter
                 timeout=30.0,
                 use_login_shell=use_login_shell,
             )
@@ -921,7 +944,7 @@ class CommandExecutor:
             if not cwd:
                 await tool_ctx.error("Parameter 'cwd' is required but was None")
                 return "Error: Parameter 'cwd' is required but was None"
-            
+
             if cwd.strip() == "":
                 await tool_ctx.error("Parameter 'cwd' cannot be empty")
                 return "Error: Parameter 'cwd' cannot be empty"
@@ -937,7 +960,7 @@ class CommandExecutor:
             if not self.permission_manager.is_path_allowed(cwd):
                 await tool_ctx.error(f"Working directory not allowed: {cwd}")
                 return f"Error: Working directory not allowed: {cwd}"
-                
+
             # Check if working directory exists
             if not os.path.isdir(cwd):
                 await tool_ctx.error(f"Working directory does not exist: {cwd}")
