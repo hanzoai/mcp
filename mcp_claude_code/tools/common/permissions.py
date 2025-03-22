@@ -33,7 +33,7 @@ class PermissionManager:
         """Add default exclusions for sensitive files and directories."""
         # Sensitive directories
         sensitive_dirs: list[str] = [
-            ".git",
+            # ".git" is now allowed by default
             ".ssh",
             ".gnupg",
             ".config",

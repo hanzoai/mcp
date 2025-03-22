@@ -33,8 +33,9 @@ class TestHiddenFilePermissions:
         assert manager.is_path_allowed(gitignore_file), "Should allow .gitignore"
         assert manager.is_path_allowed(git_related_file), "Should allow git-tutorial.md"
 
+        # Since .git is now allowed by default, this should also be allowed
         assert manager.is_path_allowed(actual_github_dir), (
-            "Should exclude actual .github directory"
+            "Should allow actual .github directory"
         )
 
     def test_various_hidden_files(self, temp_dir: str):
@@ -49,11 +50,12 @@ class TestHiddenFilePermissions:
             os.path.join(temp_dir, ".env-sample"),
             os.path.join(temp_dir, ".gitconfig-user"),
             os.path.join(temp_dir, ".github-actions-example.json"),
+            os.path.join(temp_dir, ".git", "config"),  # .git now allowed
         ]
 
         # Files that should be excluded (matching default exclusions)
         excluded_paths = [
-            os.path.join(temp_dir, ".git", "config"),
+            # os.path.join(temp_dir, ".git", "config"), # .git now allowed
             os.path.join(temp_dir, ".env"),
             os.path.join(temp_dir, ".vscode", "settings.json"),
             os.path.join(temp_dir, "logs", "app.log"),
@@ -152,7 +154,7 @@ class TestHiddenFilePermissions:
 
         # These should still be excluded (matching system exclusions)
         excluded_project_paths = [
-            f"{base_dir}/.git/HEAD",
+            # f"{base_dir}/.git/HEAD", # .git now allowed
             f"{base_dir}/.vscode/settings.json",
             f"{base_dir}/.env",
             f"{base_dir}/logs/debug.log",

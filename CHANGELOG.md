@@ -5,6 +5,12 @@ All notable changes to the MCP Claude Code project will be documented in this fi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.12] - 2025-03-22
+
+### Changed
+- Modified permissions system to allow access to `.git` folders by default
+- Updated tests to reflect the new permission behavior
+
 ## [0.1.11] - 2025-03-22
 
 ### Changed
