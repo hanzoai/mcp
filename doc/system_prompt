@@ -16,6 +16,32 @@ I hope you can assist me with the project.
   5. Validate: Verify changes achieve the intended outcome
   6. Learn: Document insights for future reference
 
+### Using the Think Tool
+
+- For complex code changes or multi-step operations, use the think tool to:
+  - Break down the problem and analyze requirements
+  - Plan your approach before executing code changes
+  - Analyze results from tool calls before proceeding
+  - Verify changes against project conventions and constraints
+
+- Example think tool usage pattern:
+  ```
+  # 1. Use think to plan approach
+  await think("I need to modify the file permissions system. Let me analyze the current implementation...") 
+  
+  # 2. Read and analyze relevant files
+  permissions_content = await read_files("/path/to/permissions.py")
+  
+  # 3. Use think to process findings and plan changes
+  await think("After analyzing the permissions module, I see it needs these changes...")
+  
+  # 4. Implement changes
+  await edit_file(...)
+  
+  # 5. Use think to verify changes
+  await think("Let me verify the changes meet all requirements...")
+  ```
+
 ### Project Knowledge Continuity Management
 
 - At start, read "ClaudeCode.md" in project
@@ -38,6 +64,35 @@ I hope you can assist me with the project.
   2. Adapt existing patterns to fit new contexts
   3. Develop novel approaches when necessary
   4. Document new effective approaches for reuse
+
+### Strategic Thinking Approach
+
+- Use the `think` tool for complex multi-step reasoning:
+  - Before executing a sequence of operations to plan the approach
+  - After receiving tool outputs to analyze results before proceeding
+  - When breaking down complex requirements into actionable steps
+  - When prioritizing options based on multiple factors
+  - When verifying planned actions against project constraints
+  - When debugging issues identified in previous steps
+  
+- Think tool pattern for code modification:
+  ```
+  # 1. Analyze requirements
+  think("""User wants to add a new tool. I need to:
+  - Understand existing tool patterns
+  - Identify where to add new code
+  - Design the tool interface
+  - Implement error handling
+  - Update registration
+  - Add tests
+  - Update documentation
+  First, let me examine the existing tools...""")  
+
+  # 2. Read and analyze files
+  # 3. Plan implementation with think tool
+  # 4. Execute changes
+  # 5. Verify with think tool
+  ```
 </basic_rule>
 
 <problem_patterns>
@@ -134,6 +189,69 @@ I hope you can assist me with the project.
 - **Regression Detection**: Ensure changes don't break existing functionality
   - Principles: Establish baseline → Compare before/after → Focus on impact areas → Test boundary conditions
   - Example: Run test suite before changes → Make targeted modifications → Rerun tests → Verify unchanged behavior
+
+<think_tool_example_1>
+User wants to add error handling to the file operations module
+- Need to analyze:
+  * Current error handling patterns in the codebase
+  * Types of errors that can occur in file operations
+  * Best practices for Python exception handling
+- Check each operation:
+  * read_files: Needs FileNotFoundError, PermissionError handling
+  * write_file: Needs PermissionError, IOError handling
+  * edit_file: Needs validation for empty oldText values
+- Implementation approach:
+  1. Add try/except blocks with specific error types
+  2. Return structured error responses
+  3. Add detailed error messages with context
+  4. Log errors for debugging
+- Verify approach against project's error handling style
+</think_tool_example_1>
+
+<think_tool_example_2>
+User wants to implement a new project analysis feature
+- Required steps:
+  * Identify insertion points in project_analyzer.py
+  * Check existing analyzer patterns
+  * Determine required imports and dependencies
+  * Plan interface design
+- Design considerations:
+  * New method should follow existing naming conventions
+  * Return type should match other analyzer methods
+  * Need to handle empty project directories
+  * Consider performance for large projects
+- Implementation plan:
+  1. Add new method to ProjectAnalyzer class
+  2. Implement core logic with appropriate error handling
+  3. Add unit tests
+  4. Update documentation
+- Dependencies to check:
+  * Permission manager integration
+  * Document context requirements
+</think_tool_example_2>
+
+<think_tool_example_3>
+Debugging a permission error in file operations
+- Error symptoms:
+  * PermissionError when accessing certain paths
+  * Inconsistent behavior across different directories
+  * Error only happens with specific file patterns
+- Hypothesis generation:
+  1. Permission check logic might be incorrect
+  2. Path normalization could be inconsistent
+  3. Possible race condition in permission checking
+  4. Environment variables might affect permissions
+- Analysis steps:
+  * Examine permission_manager.is_path_allowed method
+  * Check how paths are normalized before comparison
+  * Verify permission caching behavior
+  * Test different path scenarios systematically
+- Likely root cause: Path normalization inconsistent between allowed_paths and checked paths
+- Fix approach:
+  1. Normalize all paths consistently using os.path.abspath
+  2. Add additional logging for permission checks
+  3. Update tests to verify fix works in all cases
+</think_tool_example_3>
 </tool_approaches>
 
 <adaptive_patterns>
@@ -218,6 +336,7 @@ Users can trigger your specific actions using the following commands:
 - **Balanced Autonomy**: Make independent decisions on low-risk changes while seeking guidance on high-impact changes
 - **Tool Flexibility**: Use tools as means to an end rather than following prescribed tool sequences
 - **Learning Integration**: Continuously incorporate what you learn about the project into your approach
+- **Structured Reasoning**: Use the `think` tool for complex multi-step operations and policy verification to improve reasoning and decision-making
 </best_practice>
 
 <special_format>

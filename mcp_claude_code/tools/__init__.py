@@ -2,6 +2,10 @@
 
 This package contains all the tools for the MCP Claude Code server.
 It provides a unified interface for registering all tools with an MCP server.
+
+This includes a "think" tool implementation based on Anthropic's research showing
+improved performance for complex tool-based interactions when Claude has a dedicated
+space for structured thinking.
 """
 
 from typing import Any
@@ -10,6 +14,7 @@ from mcp.server.fastmcp import FastMCP
 
 from mcp_claude_code.tools.common.context import DocumentContext
 from mcp_claude_code.tools.common.permissions import PermissionManager
+from mcp_claude_code.tools.common.thinking import ThinkingTool
 from mcp_claude_code.tools.filesystem.file_operations import FileOperations
 from mcp_claude_code.tools.project.analysis import (ProjectAnalysis,
                                                     ProjectManager)
@@ -43,3 +48,7 @@ def register_all_tools(mcp_server: FastMCP,
     # Initialize and register project analysis tools
     proj_analysis = ProjectAnalysis(project_manager, project_analyzer, permission_manager)
     proj_analysis.register_tools(mcp_server)
+    
+    # Initialize and register thinking tool
+    thinking_tool = ThinkingTool()
+    thinking_tool.register_tools(mcp_server)
