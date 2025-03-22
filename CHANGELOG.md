@@ -5,6 +5,13 @@ All notable changes to the MCP Claude Code project will be documented in this fi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.11] - 2025-03-22
+
+### Changed
+- Improved documentation in file_operations.py to clarify that the `path` parameter refers to an absolute path rather than a relative path
+- Enhanced developer experience by providing clearer API documentation for FileOperations class methods
+
+
 ## [0.1.10] - 2025-03-22
 
 ### Added
