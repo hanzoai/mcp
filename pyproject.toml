@@ -8,34 +8,23 @@ version = "0.1.8"
 description = "MCP implementation of Claude Code capabilities"
 readme = "README.md"
 requires-python = ">=3.13"
-license = {text = "MIT"}
-authors = [
-    {name = "SDGLBL", email = "sdglbl.me@gmail.com"},
-]
+license = { text = "MIT" }
+authors = [{ name = "SDGLBL", email = "sdglbl.me@gmail.com" }]
 classifiers = [
-    "Programming Language :: Python :: 3",
-    "License :: OSI Approved :: MIT License",
-    "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent",
 ]
-dependencies = [
-    "mcp>=1.3.0",
-    "httpx>=0.27.0",
-    "uvicorn>=0.23.1",
-]
+dependencies = ["mcp>=1.3.0", "httpx>=0.27.0", "uvicorn>=0.23.1"]
 
 [project.optional-dependencies]
-dev = [
-    "pytest>=7.0.0",
-    "pytest-cov>=4.1.0",
-    "ruff>=0.1.0",
-    "black>=23.3.0",
-]
+dev = ["pytest>=7.0.0", "pytest-cov>=4.1.0", "ruff>=0.1.0", "black>=23.3.0"]
 test = [
-    "pytest>=7.0.0",
-    "pytest-cov>=4.1.0",
-    "pytest-mock>=3.10.0",
-    "pytest-asyncio>=0.25.3",
-    "twisted",
+  "pytest>=7.0.0",
+  "pytest-cov>=4.1.0",
+  "pytest-mock>=3.10.0",
+  "pytest-asyncio>=0.25.3",
+  "twisted",
 ]
 performance = ["ujson>=5.7.0", "orjson>=3.9.0"]
 
@@ -45,3 +34,23 @@ claudecode = "mcp_claude_code.cli:main"
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["mcp_claude_code*"]
+
+
+[tool.basedpyright]
+include = ["mcp_claude_code"]
+exclude = [
+  "**/node_modules",
+  "**/__pycache__",
+  "src/experimental",
+  "src/typestubs",
+]
+pythonVersion = "3.13"
+reportUnknownVariableType = false
+reportUnknownMemberType = false
+reportUnknownParameterType = false
+reportUnusedCallResult = false
+reportIgnoreCommentWithoutRule = false
+reportUnusedParameter = false
+reportAny = false
+reportRedeclaration = false
+reportMissingTypeArgument = false
