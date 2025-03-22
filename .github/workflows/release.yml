@@ -1,5 +1,9 @@
 name: Create Release and Publish to PyPI
 
+permissions:
+  contents: write
+  packages: write
+
 on:
   push:
     tags:
@@ -55,6 +59,8 @@ jobs:
     name: Publish GitHub Release
     needs: build
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -99,6 +105,8 @@ jobs:
     name: Publish to PyPI
     needs: [build, publish-github]
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write
     steps:
       - name: Download distribution artifacts
         uses: actions/download-artifact@v4
