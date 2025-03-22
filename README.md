@@ -45,8 +45,9 @@ You can run it with `uvx run mcp-claude-code` without installation. Configure Cl
     "claude-code": {
       "command": "uvx",
       "args": [
-        "run",
+        "--from",
         "mcp-claude-code",
+        "claudecode",
         "--allow-path",
         "/path/to/your/project"
       ]
@@ -67,8 +68,9 @@ You can customize the server using other options:你
     "claude-code": {
       "command": "uvx",
       "args": [
-        "run",
+        "--from",
         "mcp-claude-code",
+        "claudecode",
         "--allow-path",
         "/path/to/project",
         "--name",
