@@ -1,11 +1,10 @@
 """Tests for the CLI module."""
 
-import json
 import os
 import sys
 from pathlib import Path
 from unittest.mock import MagicMock, patch
-from typing import Callable, Any
+from typing import Callable
 
 import pytest
 
@@ -213,7 +212,7 @@ class TestInstallClaudeDesktopConfig:
             
             # Construct expected config path
             config_dir = tmp_path / ".config" / "claude"
-            config_file = config_dir / "claude_desktop_config.json"
+            config_dir / "claude_desktop_config.json"
             
             # Mock file opening
             mock_file = MagicMock()
@@ -247,7 +246,7 @@ class TestInstallClaudeDesktopConfig:
              patch("json.dump") as mock_json_dump, \
              patch("builtins.open", create=True) as mock_open, \
              patch("pathlib.Path.exists", return_value=False), \
-             patch("pathlib.Path.mkdir") as mock_mkdir:
+             patch("pathlib.Path.mkdir"):
             
             # Mock file opening
             mock_file = MagicMock()

@@ -393,7 +393,7 @@ class CommandExecutor:
             if use_login_shell:
                 # Get the user's login shell
                 user_shell = os.environ.get("SHELL", "/bin/bash")
-                shell_basename = os.path.basename(user_shell)
+                os.path.basename(user_shell)
 
                 self._log(f"Using login shell for interpreter: {user_shell}")
 
@@ -624,7 +624,7 @@ class CommandExecutor:
             if use_login_shell:
                 # Get the user's login shell
                 user_shell = os.environ.get("SHELL", "/bin/bash")
-                shell_basename = os.path.basename(user_shell)
+                os.path.basename(user_shell)
 
                 self._log(f"Using login shell for script execution: {user_shell}")
 
@@ -778,7 +778,7 @@ class CommandExecutor:
 
             # Report result
             if result.is_success:
-                await tool_ctx.info(f"Command executed successfully")
+                await tool_ctx.info("Command executed successfully")
             else:
                 await tool_ctx.error(
                     f"Command failed with exit code {result.return_code}"
@@ -875,7 +875,7 @@ class CommandExecutor:
 
             # Report result
             if result.is_success:
-                await tool_ctx.info(f"Script executed successfully")
+                await tool_ctx.info("Script executed successfully")
             else:
                 await tool_ctx.error(
                     f"Script execution failed with exit code {result.return_code}"

@@ -1,9 +1,7 @@
 """Tests for the permissions module."""
 
 import os
-import time
 from pathlib import Path
-from unittest.mock import AsyncMock, patch
 
 import pytest
 

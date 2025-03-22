@@ -1,9 +1,8 @@
 """Tests for the project analysis module."""
 
 import json
-import os
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict
+from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -74,7 +73,7 @@ class TestProjectAnalyzer:
             analyzer.command_executor,
             "execute_script_from_file",
             return_value=mock_result,
-        ) as mock_execute:
+        ):
             # Run analysis
             result = await analyzer.analyze_python_dependencies(test_project_dir)
 

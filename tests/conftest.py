@@ -1,9 +1,8 @@
 """Test fixtures for the MCP Claude Code project."""
 
-import os
 import tempfile
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 

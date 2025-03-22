@@ -1,7 +1,6 @@
 """Tests for the command executor module."""
 
 import os
-from pathlib import Path
 from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -267,7 +266,7 @@ class TestCommandExecutor:
         assert result.stderr == ""
 
         # Test with a non-existent directory
-        bad_command = f"cd /nonexistent/dir && ls"
+        bad_command = "cd /nonexistent/dir && ls"
         result = await executor.execute_command(bad_command)
 
         # Command should fail because of the cd to non-existent directory

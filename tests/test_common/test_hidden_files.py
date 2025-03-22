@@ -3,7 +3,6 @@
 import os
 from pathlib import Path
 
-import pytest
 
 from mcp_claude_code.tools.common.permissions import PermissionManager
 

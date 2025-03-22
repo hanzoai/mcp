@@ -1,8 +1,7 @@
 """Tests for the server module."""
 
-import os
 from unittest.mock import MagicMock, patch
-from typing import Tuple, Any
+from typing import Tuple
 
 import pytest
 

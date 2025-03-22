@@ -7,7 +7,6 @@ from mcp.server.fastmcp import FastMCP
 from mcp_claude_code.tools import register_all_tools
 from mcp_claude_code.tools.common.context import DocumentContext
 from mcp_claude_code.tools.common.permissions import PermissionManager
-from mcp_claude_code.tools.common.validation import validate_parameter, validate_path_parameter
 from mcp_claude_code.tools.project.analysis import (ProjectAnalyzer,
                                                     ProjectManager)
 from mcp_claude_code.tools.shell.command_executor import CommandExecutor
