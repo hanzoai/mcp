@@ -161,7 +161,7 @@ class FileOperations:
             Handles text content with proper encoding. Only works within allowed directories.
 
             Args:
-                path: Path to the file to write
+                path: Absolute path to the file to write
                 content: Content to write to the file
 
             Returns:
@@ -233,7 +233,7 @@ class FileOperations:
             Only works within allowed directories.
 
             Args:
-                path: Path to the file to edit
+                path: Absolute path to the file to edit
                 edits: List of edit operations [{"oldText": "...", "newText": "..."}]
                 dry_run: Preview changes without applying them (default: False)
 
@@ -403,7 +403,7 @@ class FileOperations:
             readability. Only works within allowed directories.
 
             Args:
-                path: Path to the directory to traverse
+                path: Absolute path to the file to write
 
             Returns:
                 JSON structure representing the directory tree
@@ -492,7 +492,7 @@ class FileOperations:
             Only works within allowed directories.
 
             Args:
-                path: Path to the file or directory
+                path: Absolute path to the file to write
 
 
             Returns:
@@ -576,7 +576,7 @@ class FileOperations:
 
             Args:
                 pattern: Text pattern to search for
-                path: Directory to search in
+                path: Absolute directory to search in
                 file_pattern: File pattern to match (e.g., "*.py" for Python files)
 
             Returns:
@@ -721,7 +721,7 @@ class FileOperations:
             Args:
                 pattern: Text pattern to search for
                 replacement: Text to replace with
-                path: Directory to search in
+                path: Absolute directory to search in
                 file_pattern: File pattern to match (e.g., "*.py" for Python files)
                 dry_run: Preview changes without applying them (default: False)
 
