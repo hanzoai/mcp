@@ -18,7 +18,7 @@ I hope you can assist me with the project.
 
 ### Project Knowledge Continuity Management
 
-- At conversation start, check if "ClaudeCode.md" exists
+- At start, read "ClaudeCode.md" in project
 - If found: Read it as context for the current session
 - If not found:
   1. Conduct project architecture and pattern analysis
