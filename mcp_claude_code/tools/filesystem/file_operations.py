@@ -53,7 +53,7 @@ class FileOperations:
             individual files won't stop the entire operation. Only works within allowed directories.
 
             Args:
-                paths: Either a single file path (string) or a list of file paths
+                paths: Either a single absolute file path (string) or a list of absolute file paths
 
             Returns:
                 Contents of the file(s) with path references
@@ -257,6 +257,15 @@ class FileOperations:
             if not edits:  # Check for empty list
                 await tool_ctx.warning("No edits specified")
                 return "Error: No edits specified"
+
+            # Validate each edit to ensure oldText is not empty
+            for i, edit in enumerate(edits):
+                old_text = edit.get("oldText", "")
+                if not old_text or old_text.strip() == "":
+                    await tool_ctx.error(
+                        f"Parameter 'oldText' in edit at index {i} is empty"
+                    )
+                    return f"Error: Parameter 'oldText' in edit at index {i} cannot be empty - must provide text to match"
 
             # dry_run parameter can be None safely as it has a default value in the function signature
 

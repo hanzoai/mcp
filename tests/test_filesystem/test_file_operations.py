@@ -226,6 +226,147 @@ class TestFileOperations:
                 content = f.read()
                 assert "This is modified content." in content
 
+    @pytest.mark.asyncio
+    async def test_edit_file_with_empty_oldtext(
+        self,
+        file_operations: FileOperations,
+        setup_allowed_path: str,
+        test_file: str,
+        mcp_context: MagicMock,
+    ):
+        """Test editing a file with empty oldText value."""
+        # Set up edits with empty oldText
+        edits = [
+            {
+                "oldText": "",  # Empty oldText
+                "newText": "This is new content.",
+            }
+        ]
+
+        # Mock context calls
+        tool_ctx = AsyncMock()
+        with patch(
+            "mcp_claude_code.tools.filesystem.file_operations.create_tool_context",
+            return_value=tool_ctx,
+        ):
+            # Extract the edit_file function
+            mock_server = MagicMock()
+            tools = {}
+
+            def mock_decorator():
+                def decorator(func):
+                    tools[func.__name__] = func
+                    return func
+
+                return decorator
+
+            mock_server.tool = mock_decorator
+            file_operations.register_tools(mock_server)
+
+            # Use the extracted edit_file function
+            result = await tools["edit_file"](test_file, edits, False, mcp_context)
+
+            # Verify result indicates error about empty oldText
+            assert (
+                "Error: Parameter 'oldText' in edit at index 0 cannot be empty"
+                in result
+            )
+            tool_ctx.error.assert_called()
+
+    @pytest.mark.asyncio
+    async def test_edit_file_with_whitespace_oldtext(
+        self,
+        file_operations: FileOperations,
+        setup_allowed_path: str,
+        test_file: str,
+        mcp_context: MagicMock,
+    ):
+        """Test editing a file with oldText value that is only whitespace."""
+        # Set up edits with whitespace oldText
+        edits = [
+            {
+                "oldText": "   \n  \t ",  # Whitespace oldText
+                "newText": "This is new content.",
+            }
+        ]
+
+        # Mock context calls
+        tool_ctx = AsyncMock()
+        with patch(
+            "mcp_claude_code.tools.filesystem.file_operations.create_tool_context",
+            return_value=tool_ctx,
+        ):
+            # Extract the edit_file function
+            mock_server = MagicMock()
+            tools = {}
+
+            def mock_decorator():
+                def decorator(func):
+                    tools[func.__name__] = func
+                    return func
+
+                return decorator
+
+            mock_server.tool = mock_decorator
+            file_operations.register_tools(mock_server)
+
+            # Use the extracted edit_file function
+            result = await tools["edit_file"](test_file, edits, False, mcp_context)
+
+            # Verify result indicates error about whitespace oldText
+            assert (
+                "Error: Parameter 'oldText' in edit at index 0 cannot be empty"
+                in result
+            )
+            tool_ctx.error.assert_called()
+
+    @pytest.mark.asyncio
+    async def test_edit_file_with_missing_oldtext(
+        self,
+        file_operations: FileOperations,
+        setup_allowed_path: str,
+        test_file: str,
+        mcp_context: MagicMock,
+    ):
+        """Test editing a file with a missing oldText field."""
+        # Set up edits with missing oldText field
+        edits = [
+            {
+                # Missing oldText field
+                "newText": "This is new content.",
+            }
+        ]
+
+        # Mock context calls
+        tool_ctx = AsyncMock()
+        with patch(
+            "mcp_claude_code.tools.filesystem.file_operations.create_tool_context",
+            return_value=tool_ctx,
+        ):
+            # Extract the edit_file function
+            mock_server = MagicMock()
+            tools = {}
+
+            def mock_decorator():
+                def decorator(func):
+                    tools[func.__name__] = func
+                    return func
+
+                return decorator
+
+            mock_server.tool = mock_decorator
+            file_operations.register_tools(mock_server)
+
+            # Use the extracted edit_file function
+            result = await tools["edit_file"](test_file, edits, False, mcp_context)
+
+            # Verify result indicates error about missing oldText
+            assert (
+                "Error: Parameter 'oldText' in edit at index 0 cannot be empty"
+                in result
+            )
+            tool_ctx.error.assert_called()
+
     # test_create_directory removed - functionality now handled by run_command
 
     # test_list_directory removed - functionality now handled by run_command
