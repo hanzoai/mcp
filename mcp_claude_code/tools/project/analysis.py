@@ -7,13 +7,10 @@ import json
 from pathlib import Path
 from typing import Any, Callable, final
 
-from mcp.server.fastmcp import Context as MCPContext
 from mcp.server.fastmcp import FastMCP
 
-from mcp_claude_code.tools.common.context import (DocumentContext,
-                                                  create_tool_context)
+from mcp_claude_code.tools.common.context import DocumentContext
 from mcp_claude_code.tools.common.permissions import PermissionManager
-from mcp_claude_code.tools.common.validation import validate_path_parameter
 from mcp_claude_code.tools.shell.command_executor import CommandExecutor
 
 
@@ -308,18 +305,19 @@ class ProjectManager:
         self,
         document_context: DocumentContext,
         permission_manager: PermissionManager,
-        project_analyzer: ProjectAnalyzer,
+        command_executor: CommandExecutor,
     ) -> None:
         """Initialize the project manager.
 
         Args:
             document_context: The document context for storing files
             permission_manager: The permission manager for checking permissions
-            project_analyzer: The project analyzer for analyzing project structure
+            command_executor: The command executor for running analysis scripts
         """
         self.document_context: DocumentContext = document_context
         self.permission_manager: PermissionManager = permission_manager
-        self.project_analyzer: ProjectAnalyzer = project_analyzer
+        self.command_executor: CommandExecutor = command_executor
+        self.project_analyzer: ProjectAnalyzer = ProjectAnalyzer(command_executor)
 
         # Project metadata
         self.project_root: str | None = None
@@ -821,60 +819,5 @@ class ProjectAnalysis:
         Args:
             mcp_server: The FastMCP server instance
         """
-
-        # Project analysis tool
-        @mcp_server.tool()
-        async def project_analyze_tool(project_dir: str, ctx: MCPContext) -> str:
-            """Analyze a project directory structure and dependencies.
-
-            Args:
-                project_dir: Path to the project directory
-
-            Returns:
-                Analysis of the project
-            """
-            tool_ctx = create_tool_context(ctx)
-            tool_ctx.set_tool_info("project_analyze")
-
-            # Validate project_dir parameter
-            path_validation = validate_path_parameter(project_dir, "project_dir")
-            if path_validation.is_error:
-                await tool_ctx.error(path_validation.error_message)
-                return f"Error: {path_validation.error_message}"
-
-            await tool_ctx.info(f"Analyzing project: {project_dir}")
-
-            # Check if directory is allowed
-            if not self.permission_manager.is_path_allowed(project_dir):
-                await tool_ctx.error(f"Directory not allowed: {project_dir}")
-                return f"Error: Directory not allowed: {project_dir}"
-
-            # Set project root
-            if not self.project_manager.set_project_root(project_dir):
-                await tool_ctx.error(f"Failed to set project root: {project_dir}")
-                return f"Error: Failed to set project root: {project_dir}"
-
-            await tool_ctx.info("Analyzing project structure...")
-
-            # Report intermediate progress
-            await tool_ctx.report_progress(10, 100)
-
-            # Analyze project
-            analysis: dict[str, Any] = await self.project_manager.analyze_project()
-            if "error" in analysis:
-                await tool_ctx.error(f"Error analyzing project: {analysis['error']}")
-                return f"Error analyzing project: {analysis['error']}"
-
-            # Report more progress
-            await tool_ctx.report_progress(50, 100)
-
-            await tool_ctx.info("Generating project summary...")
-
-            # Generate summary
-            summary = self.project_manager.generate_project_summary()
-
-            # Complete progress
-            await tool_ctx.report_progress(100, 100)
-
-            await tool_ctx.info("Project analysis complete")
-            return summary
+        # No tools to register after removing project_analyze_tool
+        pass

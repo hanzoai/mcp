@@ -35,7 +35,7 @@ class TestClaudeCodeServer:
         assert server_instance.document_context is not None
         assert server_instance.permission_manager is not None
         assert server_instance.command_executor is not None
-        assert server_instance.project_analyzer is not None
+        # project_analyzer has been removed
         assert server_instance.project_manager is not None
     
     def test_initialization_with_allowed_paths(self) -> None:
@@ -60,9 +60,9 @@ class TestClaudeCodeServer:
             server.permission_manager = perm_manager
             server.document_context = doc_context
             
-            # Manually call register_all_tools
+            # Project analyzer has been removed
             from mcp_claude_code.tools import register_all_tools
-            register_all_tools(mock_mcp, doc_context, perm_manager, server.project_manager, server.project_analyzer)
+            register_all_tools(mock_mcp, doc_context, perm_manager, server.project_manager, None)
             
             # Now call the code that would add the paths
             for path in allowed_paths:

@@ -29,7 +29,7 @@ This project provides an MCP server that implements Claude Code-like functionali
 | `run_command`          | Execute shell commands (also used for directory creation, file moving, and directory listing) | Yes                 |
 | `run_script`           | Execute scripts with specified interpreters                                                   | Yes                 |
 | `script_tool`          | Execute scripts in specific programming languages                                             | Yes                 |
-| `project_analyze_tool` | Analyze project structure and dependencies                                                    | No                  |
+
 
 ## Getting Started
 

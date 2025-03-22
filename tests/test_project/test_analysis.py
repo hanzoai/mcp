@@ -13,8 +13,7 @@ if TYPE_CHECKING:
     from mcp_claude_code.tools.common.permissions import PermissionManager
     from mcp_claude_code.tools.shell.command_executor import CommandExecutor
 
-from mcp_claude_code.tools.project.analysis import (ProjectAnalysis,
-                                                    ProjectAnalyzer,
+from mcp_claude_code.tools.project.analysis import (ProjectAnalyzer,
                                                     ProjectManager)
 
 
@@ -174,23 +173,24 @@ class TestProjectManager:
         self,
         document_context: "DocumentContext",
         permission_manager: "PermissionManager",
-        project_analyzer: ProjectAnalyzer,
+        command_executor: "CommandExecutor",
     ):
         """Create a ProjectManager instance for testing."""
-        return ProjectManager(document_context, permission_manager, project_analyzer)
+        return ProjectManager(document_context, permission_manager, command_executor)
 
     def test_initialization(
         self,
         document_context: "DocumentContext",
         permission_manager: "PermissionManager",
-        project_analyzer: ProjectAnalyzer,
+        command_executor: "CommandExecutor",
     ):
         """Test initializing ProjectManager."""
-        manager = ProjectManager(document_context, permission_manager, project_analyzer)
+        manager = ProjectManager(document_context, permission_manager, command_executor)
 
         assert manager.document_context is document_context
         assert manager.permission_manager is permission_manager
-        assert manager.project_analyzer is project_analyzer
+        assert manager.command_executor is command_executor
+        assert isinstance(manager.project_analyzer, ProjectAnalyzer)
         assert manager.project_root is None
         assert isinstance(manager.project_metadata, dict)
         assert isinstance(manager.project_analysis, dict)
@@ -368,90 +368,4 @@ class TestProjectManager:
         assert project_manager._format_size(1024) == "1.0 KB"
         assert project_manager._format_size(1024 * 1024) == "1.0 MB"
         assert project_manager._format_size(1024 * 1024 * 1024) == "1.0 GB"
-
-
-class TestProjectAnalysis:
-    """Test the ProjectAnalysis class."""
-
-    @pytest.fixture
-    def project_analysis(
-        self,
-        project_manager: ProjectManager,
-        project_analyzer: ProjectAnalyzer,
-        permission_manager: "PermissionManager",
-    ):
-        """Create a ProjectAnalysis instance for testing."""
-        return ProjectAnalysis(project_manager, project_analyzer, permission_manager)
-
-    def test_initialization(
-        self,
-        project_manager: ProjectManager,
-        project_analyzer: ProjectAnalyzer,
-        permission_manager: "PermissionManager",
-    ):
-        """Test initializing ProjectAnalysis."""
-        analysis = ProjectAnalysis(
-            project_manager, project_analyzer, permission_manager
-        )
-
-        assert analysis.project_manager is project_manager
-        assert analysis.project_analyzer is project_analyzer
-        assert analysis.permission_manager is permission_manager
-
-    @pytest.mark.asyncio
-    async def test_register_tools(self, project_analysis: ProjectAnalysis):
-        """Test registering project analysis tools."""
-        mock_server = MagicMock()
-        tools = {}
-
-        def mock_decorator():
-            def decorator(func):
-                tools[func.__name__] = func
-                return func
-
-            return decorator
-
-        mock_server.tool = mock_decorator
-
-        # Register tools
-        project_analysis.register_tools(mock_server)
-
-        # Verify tools were registered
-        assert "project_analyze_tool" in tools
-
-        # Test project_analyze_tool
-        with (
-            patch.object(
-                project_analysis.project_manager, "set_project_root", return_value=True
-            ),
-            patch.object(
-                project_analysis.project_manager, "analyze_project", return_value={}
-            ),
-            patch.object(
-                project_analysis.project_manager,
-                "generate_project_summary",
-                return_value="Project summary",
-            ),
-        ):
-
-            # Create mock context
-            mock_context = AsyncMock()
-            mock_tool_ctx = AsyncMock()
-
-            # Mock permission check
-            project_analysis.permission_manager.is_path_allowed = MagicMock(
-                return_value=True
-            )
-
-            with patch(
-                "mcp_claude_code.tools.project.analysis.create_tool_context",
-                return_value=mock_tool_ctx,
-            ):
-                # Call the project_analyze_tool
-                result = await tools["project_analyze_tool"](
-                    "/test/project/dir", mock_context
-                )
-
-                # Verify result
-                assert result == "Project summary"
-                mock_tool_ctx.info.assert_called()
+# ProjectAnalysis class and tests have been removed as part of removing project_analyze_tool

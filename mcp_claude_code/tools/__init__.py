@@ -16,8 +16,7 @@ from mcp_claude_code.tools.common.context import DocumentContext
 from mcp_claude_code.tools.common.permissions import PermissionManager
 from mcp_claude_code.tools.common.thinking import ThinkingTool
 from mcp_claude_code.tools.filesystem.file_operations import FileOperations
-from mcp_claude_code.tools.project.analysis import (ProjectAnalysis,
-                                                    ProjectManager)
+from mcp_claude_code.tools.project.analysis import ProjectManager
 from mcp_claude_code.tools.shell.command_executor import CommandExecutor
 
 
@@ -45,9 +44,7 @@ def register_all_tools(mcp_server: FastMCP,
     cmd_exec = CommandExecutor(permission_manager)
     cmd_exec.register_tools(mcp_server)
     
-    # Initialize and register project analysis tools
-    proj_analysis = ProjectAnalysis(project_manager, project_analyzer, permission_manager)
-    proj_analysis.register_tools(mcp_server)
+    # Project analysis tools have been removed
     
     # Initialize and register thinking tool
     thinking_tool = ThinkingTool()

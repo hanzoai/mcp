@@ -8,8 +8,7 @@ from mcp_claude_code.tools import register_all_tools
 from mcp_claude_code.tools.common.context import DocumentContext
 from mcp_claude_code.tools.common.permissions import PermissionManager
 from mcp_claude_code.tools.common.validation import validate_parameter, validate_path_parameter
-from mcp_claude_code.tools.project.analysis import (ProjectAnalyzer,
-                                                    ProjectManager)
+from mcp_claude_code.tools.project.analysis import ProjectManager
 from mcp_claude_code.tools.shell.command_executor import CommandExecutor
 
 
@@ -42,12 +41,9 @@ class ClaudeCodeServer:
             verbose=False,  # Set to True for debugging
         )
 
-        # Initialize project analyzer
-        self.project_analyzer = ProjectAnalyzer(self.command_executor)
-
         # Initialize project manager
         self.project_manager = ProjectManager(
-            self.document_context, self.permission_manager, self.project_analyzer
+            self.document_context, self.permission_manager, self.command_executor
         )
 
         # Add allowed paths
@@ -62,7 +58,7 @@ class ClaudeCodeServer:
             document_context=self.document_context,
             permission_manager=self.permission_manager,
             project_manager=self.project_manager,
-            project_analyzer=self.project_analyzer,
+            project_analyzer=None,
         )
 
     def run(self, transport: str = "stdio", allowed_paths: list[str] | None = None):
