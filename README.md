@@ -17,180 +17,27 @@ This project provides an MCP server that implements Claude Code-like functionali
 
 ## Tools Implemented
 
-| Tool                       | Description                                                                                   | Permission Required |
-| -------------------------- | --------------------------------------------------------------------------------------------- | ------------------- |
-| `read_files`               | Read one or multiple files with encoding detection                                            | No                  |
-| `write_file`               | Create or overwrite files                                                                     | Yes                 |
-| `edit_file`                | Make line-based edits to text files                                                           | Yes                 |
-| `directory_tree`           | Get a recursive tree view of directories                                                      | No                  |
-| `get_file_info`            | Get metadata about a file or directory                                                        | No                  |
-| `search_content`           | Search for patterns in file contents                                                          | No                  |
-| `content_replace`          | Replace patterns in file contents                                                             | Yes                 |
-| `run_command`              | Execute shell commands (also used for directory creation, file moving, and directory listing) | Yes                 |
-| `run_script`               | Execute scripts with specified interpreters                                                   | Yes                 |
-| `script_tool`              | Execute scripts in specific programming languages                                             | Yes                 |
-| `project_analyze_tool`     | Analyze project structure and dependencies                                                    | No                  |
+| Tool                   | Description                                                                                   | Permission Required |
+| ---------------------- | --------------------------------------------------------------------------------------------- | ------------------- |
+| `read_files`           | Read one or multiple files with encoding detection                                            | No                  |
+| `write_file`           | Create or overwrite files                                                                     | Yes                 |
+| `edit_file`            | Make line-based edits to text files                                                           | Yes                 |
+| `directory_tree`       | Get a recursive tree view of directories                                                      | No                  |
+| `get_file_info`        | Get metadata about a file or directory                                                        | No                  |
+| `search_content`       | Search for patterns in file contents                                                          | No                  |
+| `content_replace`      | Replace patterns in file contents                                                             | Yes                 |
+| `run_command`          | Execute shell commands (also used for directory creation, file moving, and directory listing) | Yes                 |
+| `run_script`           | Execute scripts with specified interpreters                                                   | Yes                 |
+| `script_tool`          | Execute scripts in specific programming languages                                             | Yes                 |
+| `project_analyze_tool` | Analyze project structure and dependencies                                                    | No                  |
 
 ## Getting Started
-
-### Installation
-
-The project requires Python 3.13 or newer.
-
-#### Option 1: Install from PyPI (Recommended)
-
-##### Use UVX (Zero-Install Method)
-
-[UVX](https://github.com/astral-sh/uv) is a modern Python package runner that lets you run Python packages without installing them permanently. This is the simplest way to use `claudecode`:
-
-```bash
-# Install UV if you don't have it
-# macOS/Linux
-curl -LsSf https://astral.sh/uv/install.sh | sh
-
-# Windows PowerShell
-irm https://astral.sh/uv/install.ps1 -UseBasicParsing | iex
-
-# Run mcp-claude-code directly (no installation needed)
-uvx run mcp-claude-code --allow-path /path/to/your/project
-```
-
-With this approach, you don't need to install anything - UVX will handle dependencies for you automatically.
-
-When configuring Claude Desktop, you'll use UVX to run the package:
-
-```json
-{
-  "mcpServers": {
-    "claude-code": {
-      "command": "uvx",
-      "args": [
-        "run",
-        "mcp-claude-code",
-        "--allow-path",
-        "/path/to/your/project"
-      ]
-    }
-  }
-}
-```
-
-##### For Command-Line Accessibility: Install with pipx
-
-[pipx](https://pypa.github.io/pipx/) is designed for installing Python applications globally while keeping their dependencies isolated. This is ideal for command-line tools like `claudecode`.
-
-```bash
-# Install pipx if you don't have it
-# macOS
-brew install pipx
-pipx ensurepath
-
-# Linux
-python -m pip install --user pipx
-pipx ensurepath
-
-# Windows
-python -m pip install --user pipx
-
-# Then install mcp-claude-code
-pipx install mcp-claude-code
-```
-
-With this method, the `claudecode` command will be available globally in your terminal, which is required for Claude Desktop integration.
-
-##### Alternative: Install with pip
-
-You can also use pip, but you'll need to ensure the command is globally accessible:
-
-```bash
-# Global installation (may require admin permissions)
-pip install mcp-claude-code
-
-# Or user installation (preferred if you don't have admin access)
-pip install --user mcp-claude-code
-```
-
-If using `--user`, make sure your user binary directory is in your PATH.
-
-##### For development in a virtual environment
-
-If you're just developing with the package or don't need the global command:
-
-```bash
-python -m venv .venv
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate
-pip install mcp-claude-code
-```
-
-Note: When using a virtual environment, you'll need to:
-- Either activate the environment before running Claude Desktop
-- Or specify the full path to the `claudecode` executable in your Claude Desktop configuration
-
-To install optional extras:
-
-```bash
-pipx install "mcp-claude-code[performance]"
-# Or with pip
-pip install "mcp-claude-code[performance]"
-```
-
-#### Option 2: Install from Source
-
-If you prefer to install from source:
-
-```bash
-# Clone the repository
-git clone https://github.com/SDGLBL/mcp-claude-code.git
-cd mcp-claude-code
-
-# Create a virtual environment first
-python -m venv .venv
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate
-
-# Install using make
-make install
-```
-
-The Makefile will automatically detect if you have `uv` installed and use it; otherwise, it will fall back to `pip`.
-
-If you encounter an error about no virtual environment found:
-
-```
-error: No virtual environment found; run `uv venv` to create an environment, or pass `--system` to install into a non-virtual environment
-```
-
-Make sure to create and activate a virtual environment before running `make install`.
-
-#### For Development
-
-If you're developing or contributing to the project, you can install additional dependencies:
-
-```bash
-make install-dev  # Install development dependencies
-make install-test  # Install testing dependencies
-```
-
-### Testing
-
-The project includes a comprehensive test suite. To run the tests:
-
-```bash
-# Run all tests
-make test
-
-# Run tests with coverage report
-make test-cov
-```
-
-The Makefile will automatically create and use a virtual environment (.venv) if one doesn't exist. It's designed to work on both Unix-based systems (macOS, Linux) and Windows environments.
 
 ### Usage
 
 #### Configuring Claude Desktop
 
-After installing mcp-claude-code, configure Claude Desktop to use this server by adding it to your Claude Desktop config file:
-
-##### When running with UVX (recommended):
+You can run it with `uvx run mcp-claude-code` without installation. Configure Claude Desktop to use this server by adding the following to your Claude Desktop configuration file:
 
 ```json
 {
@@ -208,70 +55,20 @@ After installing mcp-claude-code, configure Claude Desktop to use this server by
 }
 ```
 
-##### When installed with pipx or pip (globally accessible):
-
-```json
-{
-  "mcpServers": {
-    "claude-code": {
-      "command": "claudecode",
-      "args": [
-        "--allow-path",
-        "/path/to/your/project"
-      ]
-    }
-  }
-}
-```
-
-##### When installed in a virtual environment:
-
-You'll need to provide the full path to the claudecode command:
-
-```json
-{
-  "mcpServers": {
-    "claude-code": {
-      "command": "/path/to/your/venv/bin/claudecode",
-      "args": [
-        "--allow-path",
-        "/path/to/your/project"
-      ]
-    }
-  }
-}
-```
-
-##### When installed from source:
-
-```json
-{
-  "mcpServers": {
-    "claude-code": {
-      "command": "python",
-      "args": [
-        "-m",
-        "mcp_claude_code.server",
-        "--allow-path",
-        "/path/to/your/project"
-      ]
-    }
-  }
-}
-```
-
-Make sure to replace `/path/to/your/project` with the actual path to the project you want Claude to have access to.
+Make sure to replace `/path/to/your/project` with the actual path to the project you want Claude to access.
 
 #### Advanced Configuration Options
 
-You can customize the server with additional options:
+You can customize the server using other options:你
 
 ```json
 {
   "mcpServers": {
     "claude-code": {
-      "command": "claudecode",  // or full path if in a virtual environment
+      "command": "uvx",
       "args": [
+        "run",
+        "mcp-claude-code",
         "--allow-path",
         "/path/to/project",
         "--name",
