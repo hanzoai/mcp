@@ -37,30 +37,35 @@ async def test_think_with_valid_thought():
     tool_ctx = MagicMock()
     tool_ctx.info = AsyncMock()
     tool_ctx.set_tool_info = MagicMock()
-    
+
     # Patch the create_tool_context function
-    with patch("mcp_claude_code.tools.common.thinking.create_tool_context", return_value=tool_ctx):
+    with patch(
+        "mcp_claude_code.tools.common.thinking.create_tool_context",
+        return_value=tool_ctx,
+    ):
         from mcp_claude_code.tools.common.thinking import ThinkingTool
+
         thinking_tool = ThinkingTool()
-        
+
         # Register tool and get the registered function
         server = MagicMock()
         registered_func = None
-        
+
         def tool_decorator():
             def decorator(func):
                 nonlocal registered_func
                 registered_func = func
                 return func
+
             return decorator
-        
+
         server.tool = tool_decorator
         thinking_tool.register_tools(server)
-        
+
         # Test the registered function
         thought = "I should check if the file exists before trying to read it."
         result = await registered_func(thought=thought, ctx=ctx)
-        
+
         # Check that the function behaved correctly
         tool_ctx.set_tool_info.assert_called_once_with("think")
         tool_ctx.info.assert_called_once_with("Thinking process recorded")
@@ -76,34 +81,39 @@ async def test_think_with_empty_thought():
     tool_ctx = MagicMock()
     tool_ctx.error = AsyncMock()
     tool_ctx.set_tool_info = MagicMock()
-    
+
     # Patch the create_tool_context function
-    with patch("mcp_claude_code.tools.common.thinking.create_tool_context", return_value=tool_ctx):
+    with patch(
+        "mcp_claude_code.tools.common.thinking.create_tool_context",
+        return_value=tool_ctx,
+    ):
         from mcp_claude_code.tools.common.thinking import ThinkingTool
+
         thinking_tool = ThinkingTool()
-        
+
         # Register tool and get the registered function
         server = MagicMock()
         registered_func = None
-        
+
         def tool_decorator():
             def decorator(func):
                 nonlocal registered_func
                 registered_func = func
                 return func
+
             return decorator
-        
+
         server.tool = tool_decorator
         thinking_tool.register_tools(server)
-        
+
         # Test with None thought
         result_none = await registered_func(thought=None, ctx=ctx)
         assert "Error" in result_none
-        
+
         # Test with empty string thought
         result_empty = await registered_func(thought="", ctx=ctx)
         assert "Error" in result_empty
-        
+
         # Test with whitespace-only thought
         result_whitespace = await registered_func(thought="   ", ctx=ctx)
         assert "Error" in result_whitespace

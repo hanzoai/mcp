@@ -12,9 +12,11 @@ if TYPE_CHECKING:
     from mcp_claude_code.tools.common.permissions import PermissionManager
     from mcp_claude_code.tools.shell.command_executor import CommandExecutor
 
-from mcp_claude_code.tools.project.analysis import (ProjectAnalysis,
-                                                    ProjectAnalyzer,
-                                                    ProjectManager)
+from mcp_claude_code.tools.project.analysis import (
+    ProjectAnalysis,
+    ProjectAnalyzer,
+    ProjectManager,
+)
 
 
 class TestProjectAnalyzer:
@@ -432,7 +434,6 @@ class TestProjectAnalysis:
                 return_value="Project summary",
             ),
         ):
-
             # Create mock context
             mock_context = AsyncMock()
             mock_tool_ctx = AsyncMock()

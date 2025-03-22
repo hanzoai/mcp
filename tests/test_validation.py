@@ -1,8 +1,10 @@
 """Tests for parameter validation in MCP Claude Code tools."""
 
-from mcp_claude_code.tools.common.validation import (validate_parameter,
-                                                     validate_parameters,
-                                                     validate_path_parameter)
+from mcp_claude_code.tools.common.validation import (
+    validate_parameter,
+    validate_parameters,
+    validate_path_parameter,
+)
 
 
 def test_validate_parameter_with_none():

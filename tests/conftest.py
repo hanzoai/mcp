@@ -24,10 +24,10 @@ def test_file(temp_dir):
     """Create a test file in the temporary directory."""
     test_file_path = Path(temp_dir) / "test_file.txt"
     test_content = "This is a test file content.\nWith multiple lines.\n"
-    
+
     with open(test_file_path, "w") as f:
         f.write(test_content)
-    
+
     return str(test_file_path)
 
 
@@ -36,25 +36,25 @@ def test_project_dir(temp_dir):
     """Create a simple test project structure."""
     project_dir = Path(temp_dir) / "test_project"
     project_dir.mkdir()
-    
+
     # Create Python files
     py_dir = project_dir / "src" / "module"
     py_dir.mkdir(parents=True)
-    
+
     with open(py_dir / "__init__.py", "w") as f:
         f.write("# Module init\n")
-    
+
     with open(py_dir / "main.py", "w") as f:
         f.write("import os\n\ndef main():\n    print('Hello, world!')\n")
-    
+
     # Create requirements.txt
     with open(project_dir / "requirements.txt", "w") as f:
         f.write("pytest==7.3.1\nmcp>=1.3.0\nhttpx>=0.27\n")
-    
+
     # Create README
     with open(project_dir / "README.md", "w") as f:
         f.write("# Test Project\n\nThis is a test project for testing.\n")
-    
+
     return str(project_dir)
 
 
@@ -103,8 +103,10 @@ def project_analyzer(command_executor):
     """Create a project analyzer for testing."""
     return ProjectAnalyzer(command_executor)
 
+
 @pytest.fixture
 def project_manager(document_context, permission_manager, project_analyzer):
     """Create a project manager for testing."""
     from mcp_claude_code.tools.project.analysis import ProjectManager
+
     return ProjectManager(document_context, permission_manager, project_analyzer)

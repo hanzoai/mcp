@@ -5,8 +5,10 @@ from pathlib import Path
 
 import pytest
 
-from mcp_claude_code.tools.common.permissions import (PermissibleOperation,
-                                                      PermissionManager)
+from mcp_claude_code.tools.common.permissions import (
+    PermissibleOperation,
+    PermissionManager,
+)
 
 
 class TestPermissionManager:

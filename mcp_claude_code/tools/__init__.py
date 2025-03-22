@@ -16,18 +16,19 @@ from mcp_claude_code.tools.common.context import DocumentContext
 from mcp_claude_code.tools.common.permissions import PermissionManager
 from mcp_claude_code.tools.common.thinking import ThinkingTool
 from mcp_claude_code.tools.filesystem.file_operations import FileOperations
-from mcp_claude_code.tools.project.analysis import (ProjectAnalysis,
-                                                    ProjectManager)
+from mcp_claude_code.tools.project.analysis import ProjectAnalysis, ProjectManager
 from mcp_claude_code.tools.shell.command_executor import CommandExecutor
 
 
-def register_all_tools(mcp_server: FastMCP,
-                      document_context: DocumentContext,
-                      permission_manager: PermissionManager,
-                      project_manager: ProjectManager,
-                      project_analyzer: Any) -> None:
+def register_all_tools(
+    mcp_server: FastMCP,
+    document_context: DocumentContext,
+    permission_manager: PermissionManager,
+    project_manager: ProjectManager,
+    project_analyzer: Any,
+) -> None:
     """Register all Claude Code tools with the MCP server.
-    
+
     Args:
         mcp_server: The FastMCP server instance
         document_context: Document context for tracking file contents
@@ -40,15 +41,17 @@ def register_all_tools(mcp_server: FastMCP,
     # Now includes all filesystem functionality (navigation + file operations)
     file_ops = FileOperations(document_context, permission_manager)
     file_ops.register_tools(mcp_server)
-    
+
     # Initialize and register command execution tools
     cmd_exec = CommandExecutor(permission_manager)
     cmd_exec.register_tools(mcp_server)
-    
+
     # Initialize and register project analysis tools
-    proj_analysis = ProjectAnalysis(project_manager, project_analyzer, permission_manager)
+    proj_analysis = ProjectAnalysis(
+        project_manager, project_analyzer, permission_manager
+    )
     proj_analysis.register_tools(mcp_server)
-    
+
     # Initialize and register thinking tool
     thinking_tool = ThinkingTool()
     thinking_tool.register_tools(mcp_server)

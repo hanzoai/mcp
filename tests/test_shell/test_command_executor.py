@@ -9,8 +9,7 @@ import pytest
 if TYPE_CHECKING:
     from mcp_claude_code.tools.common.permissions import PermissionManager
 
-from mcp_claude_code.tools.shell.command_executor import (CommandExecutor,
-                                                          CommandResult)
+from mcp_claude_code.tools.shell.command_executor import CommandExecutor, CommandResult
 
 
 class TestCommandResult:

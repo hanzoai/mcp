@@ -10,8 +10,7 @@ from typing import Any, Callable, final
 from mcp.server.fastmcp import Context as MCPContext
 from mcp.server.fastmcp import FastMCP
 
-from mcp_claude_code.tools.common.context import (DocumentContext,
-                                                  create_tool_context)
+from mcp_claude_code.tools.common.context import DocumentContext, create_tool_context
 from mcp_claude_code.tools.common.permissions import PermissionManager
 from mcp_claude_code.tools.common.validation import validate_path_parameter
 from mcp_claude_code.tools.shell.command_executor import CommandExecutor
@@ -647,25 +646,25 @@ class ProjectManager:
         result["project_type"] = self.detect_project_type()
 
         # Analyze structure
-        structure: dict[str, Any] = (
-            await self.project_analyzer.analyze_project_structure(self.project_root)
-        )
+        structure: dict[
+            str, Any
+        ] = await self.project_analyzer.analyze_project_structure(self.project_root)
         result["structure"] = structure
 
         # Analyze dependencies based on project type
         if "Python" in result["languages"]:
-            python_deps: dict[str, Any] = (
-                await self.project_analyzer.analyze_python_dependencies(
-                    self.project_root
-                )
+            python_deps: dict[
+                str, Any
+            ] = await self.project_analyzer.analyze_python_dependencies(
+                self.project_root
             )
             result["python_dependencies"] = python_deps
 
         if "JavaScript" in result["languages"] or "TypeScript" in result["languages"]:
-            js_deps: dict[str, Any] = (
-                await self.project_analyzer.analyze_javascript_dependencies(
-                    self.project_root
-                )
+            js_deps: dict[
+                str, Any
+            ] = await self.project_analyzer.analyze_javascript_dependencies(
+                self.project_root
             )
             result["javascript_dependencies"] = js_deps
 
