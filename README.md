@@ -90,10 +90,13 @@ To get the best experience with Claude Code, you need to add the provided system
 Follow these steps:
 
 1. Locate the system prompt file in this repository at `doc/system_prompt`
-2. Open your Claude Desktop client settings
-3. Navigate to the system prompt configuration section
-4. Copy the contents of `system_prompt` into your project instructions
-5. Replace `{{project_path}}` with the actual absolute path to your project
+2. Open your Claude Desktop client
+3. Create a new project or open an existing one
+4. Navigate to the "Project instructions" section in the Claude Desktop sidebar
+5. Copy the contents of `doc/system_prompt` and paste it into the "Project instructions" section
+6. Replace `{project_path}` with the actual absolute path to your project
+
+**Important:** The system prompt must be placed in the "Project instructions" section of the Claude project to ensure optimal performance. Do not place it in other areas of the interface.
 
 The system prompt provides Claude with:
 
