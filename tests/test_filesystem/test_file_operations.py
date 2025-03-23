@@ -737,4 +737,377 @@ class TestFileOperations:
             assert "Error: Access denied" in result
             tool_ctx.error.assert_called()
 
-    # Add more tests for remaining functionality...
+    @pytest.mark.asyncio
+    async def test_search_content_file_path(
+        self,
+        file_operations: FileOperations,
+        setup_allowed_path: str,
+        mcp_context: MagicMock,
+    ):
+        """Test search_content with a file path (not directory)."""
+        # Create a test file with searchable content
+        test_file_path = os.path.join(setup_allowed_path, "search_test.txt")
+        with open(test_file_path, "w") as f:
+            f.write("This is line one with searchable content.\n")
+            f.write("This is line two with other content.\n")
+            f.write("This is line three with searchable pattern.\n")
+
+        # Mock context calls
+        tool_ctx = AsyncMock()
+        with patch(
+            "mcp_claude_code.tools.filesystem.file_operations.create_tool_context",
+            return_value=tool_ctx,
+        ):
+            # Extract the search_content function
+            mock_server = MagicMock()
+            tools = {}
+
+            def mock_decorator():
+                def decorator(func):
+                    tools[func.__name__] = func
+                    return func
+
+                return decorator
+
+            mock_server.tool = mock_decorator
+            file_operations.register_tools(mock_server)
+
+            # Ensure the path is allowed
+            file_operations.permission_manager.add_allowed_path(test_file_path)
+            
+            # Use the search_content function with a file path
+            result = await tools["search_content"](mcp_context, "searchable", test_file_path, "*")
+
+            # Verify result
+            assert "line one with searchable content" in result
+            assert "line three with searchable pattern" in result
+            assert "line two with other content" not in result
+            assert test_file_path in result
+            tool_ctx.info.assert_called()
+    
+    @pytest.mark.asyncio
+    async def test_search_content_file_pattern_mismatch(
+        self,
+        file_operations: FileOperations,
+        setup_allowed_path: str,
+        mcp_context: MagicMock,
+    ):
+        """Test search_content with a file path that doesn't match the file pattern."""
+        # Create a test file
+        test_file_path = os.path.join(setup_allowed_path, "test_text.txt")
+        with open(test_file_path, "w") as f:
+            f.write("This file should not be searched.\n")
+
+        # Mock context calls
+        tool_ctx = AsyncMock()
+        with patch(
+            "mcp_claude_code.tools.filesystem.file_operations.create_tool_context",
+            return_value=tool_ctx,
+        ):
+            # Extract the search_content function
+            mock_server = MagicMock()
+            tools = {}
+
+            def mock_decorator():
+                def decorator(func):
+                    tools[func.__name__] = func
+                    return func
+
+                return decorator
+
+            mock_server.tool = mock_decorator
+            file_operations.register_tools(mock_server)
+
+            # Ensure the path is allowed
+            file_operations.permission_manager.add_allowed_path(test_file_path)
+            
+            # Use the search_content function with a non-matching file pattern
+            result = await tools["search_content"](mcp_context, "pattern", test_file_path, "*.py")
+
+            # Verify result
+            assert "File does not match pattern '*.py'" in result
+            tool_ctx.info.assert_called()
+    
+    @pytest.mark.asyncio
+    async def test_content_replace_file_path(
+        self,
+        file_operations: FileOperations,
+        setup_allowed_path: str,
+        mcp_context: MagicMock,
+    ):
+        """Test content_replace with a file path (not directory)."""
+        # Create a test file with content to replace
+        test_file_path = os.path.join(setup_allowed_path, "replace_test.txt")
+        with open(test_file_path, "w") as f:
+            f.write("This is old content that needs to be replaced.\n")
+            f.write("This line should stay the same.\n")
+            f.write("More old content here that will be replaced.\n")
+
+        # Mock context calls
+        tool_ctx = AsyncMock()
+        with patch(
+            "mcp_claude_code.tools.filesystem.file_operations.create_tool_context",
+            return_value=tool_ctx,
+        ):
+            # Extract the content_replace function
+            mock_server = MagicMock()
+            tools = {}
+
+            def mock_decorator():
+                def decorator(func):
+                    tools[func.__name__] = func
+                    return func
+
+                return decorator
+
+            mock_server.tool = mock_decorator
+            file_operations.register_tools(mock_server)
+
+            # Ensure the path is allowed
+            file_operations.permission_manager.add_allowed_path(test_file_path)
+            
+            # Use the content_replace function with a file path
+            result = await tools["content_replace"](mcp_context, "old content", "new content", test_file_path, "*", False)
+
+            # Verify result
+            assert "Made 2 replacements of 'old content'" in result
+            assert test_file_path in result
+            tool_ctx.info.assert_called()
+
+            # Verify the file was modified
+            with open(test_file_path, "r") as f:
+                content = f.read()
+                assert "This is new content that needs to be replaced." in content
+                assert "This line should stay the same." in content
+                assert "More new content here that will be replaced." in content
+    
+    @pytest.mark.asyncio
+    async def test_content_replace_dry_run(
+        self,
+        file_operations: FileOperations,
+        setup_allowed_path: str,
+        mcp_context: MagicMock,
+    ):
+        """Test content_replace with dry_run=True on a file path."""
+        # Create a test file with content that would be replaced
+        test_file_path = os.path.join(setup_allowed_path, "dry_run_test.txt")
+        original_content = (
+            "This would be replaced in a non-dry run.\n"
+            "This line would stay the same.\n"
+            "More content that would be replaced.\n"
+        )
+        with open(test_file_path, "w") as f:
+            f.write(original_content)
+
+        # Mock context calls
+        tool_ctx = AsyncMock()
+        with patch(
+            "mcp_claude_code.tools.filesystem.file_operations.create_tool_context",
+            return_value=tool_ctx,
+        ):
+            # Extract the content_replace function
+            mock_server = MagicMock()
+            tools = {}
+
+            def mock_decorator():
+                def decorator(func):
+                    tools[func.__name__] = func
+                    return func
+
+                return decorator
+
+            mock_server.tool = mock_decorator
+            file_operations.register_tools(mock_server)
+
+            # Ensure the path is allowed
+            file_operations.permission_manager.add_allowed_path(test_file_path)
+            
+            # Use the content_replace function with dry_run=True
+            result = await tools["content_replace"](mcp_context, "would be replaced", "will be changed", test_file_path, "*", True)
+
+            # Verify result shows what would be changed
+            assert "Dry run: 2 replacements of 'would be replaced'" in result
+            assert test_file_path in result
+            tool_ctx.info.assert_called()
+
+            # Verify the file was NOT modified
+            with open(test_file_path, "r") as f:
+                content = f.read()
+                assert content == original_content
+    
+    @pytest.mark.asyncio
+    async def test_search_content_directory_path(
+        self,
+        file_operations: FileOperations,
+        setup_allowed_path: str,
+        mcp_context: MagicMock,
+    ):
+        """Test search_content with a directory path."""
+        # Create a test directory with multiple files
+        test_dir = os.path.join(setup_allowed_path, "search_dir")
+        os.makedirs(test_dir, exist_ok=True)
+        
+        # Create files with searchable content
+        with open(os.path.join(test_dir, "file1.txt"), "w") as f:
+            f.write("This is file1 with findable content.\n")
+            
+        with open(os.path.join(test_dir, "file2.py"), "w") as f:
+            f.write("# This is file2 with findable content\n")
+            f.write("def test_function():\n")
+            f.write("    return 'Not findable'\n")
+            
+        # Create a subdirectory with more files
+        subdir = os.path.join(test_dir, "subdir")
+        os.makedirs(subdir, exist_ok=True)
+        
+        with open(os.path.join(subdir, "file3.txt"), "w") as f:
+            f.write("This is file3 with different content.\n")
+
+        # Mock context calls
+        tool_ctx = AsyncMock()
+        with patch(
+            "mcp_claude_code.tools.filesystem.file_operations.create_tool_context",
+            return_value=tool_ctx,
+        ):
+            # Extract the search_content function
+            mock_server = MagicMock()
+            tools = {}
+
+            def mock_decorator():
+                def decorator(func):
+                    tools[func.__name__] = func
+                    return func
+
+                return decorator
+
+            mock_server.tool = mock_decorator
+            file_operations.register_tools(mock_server)
+
+            # Ensure the path is allowed
+            file_operations.permission_manager.add_allowed_path(test_dir)
+            
+            # Test searching in all files
+            result = await tools["search_content"](mcp_context, "findable", test_dir, "*")
+
+            # Verify result contains matches from both files
+            assert "file1 with findable content" in result
+            assert "file2 with findable content" in result
+            assert "different content" not in result
+            tool_ctx.info.assert_called()
+            
+            # Reset mock
+            tool_ctx.reset_mock()
+            
+            # Test searching with a file pattern
+            result2 = await tools["search_content"](mcp_context, "findable", test_dir, "*.py")
+            
+            # Verify result only contains matches from Python files
+            assert "file1 with findable content" not in result2
+            assert "file2 with findable content" in result2
+            tool_ctx.info.assert_called()
+    
+    @pytest.mark.asyncio
+    async def test_content_replace_directory_path(
+        self,
+        file_operations: FileOperations,
+        setup_allowed_path: str,
+        mcp_context: MagicMock,
+    ):
+        """Test content_replace with a directory path."""
+        # Create a test directory with multiple files
+        test_dir = os.path.join(setup_allowed_path, "replace_dir")
+        os.makedirs(test_dir, exist_ok=True)
+        
+        # Create files with replaceable content
+        with open(os.path.join(test_dir, "file1.txt"), "w") as f:
+            f.write("This is file1 with replaceable text.\n")
+            f.write("Another line in file1.\n")
+            
+        with open(os.path.join(test_dir, "file2.py"), "w") as f:
+            f.write("# This is file2 with replaceable text\n")
+            f.write("def example():\n")
+            f.write("    return 'No replaceable text here'\n")
+            
+        # Create a subdirectory with more files
+        subdir = os.path.join(test_dir, "subdir")
+        os.makedirs(subdir, exist_ok=True)
+        
+        with open(os.path.join(subdir, "file3.txt"), "w") as f:
+            f.write("This is file3 with replaceable text.\n")
+
+        # Mock context calls
+        tool_ctx = AsyncMock()
+        with patch(
+            "mcp_claude_code.tools.filesystem.file_operations.create_tool_context",
+            return_value=tool_ctx,
+        ):
+            # Extract the content_replace function
+            mock_server = MagicMock()
+            tools = {}
+
+            def mock_decorator():
+                def decorator(func):
+                    tools[func.__name__] = func
+                    return func
+
+                return decorator
+
+            mock_server.tool = mock_decorator
+            file_operations.register_tools(mock_server)
+
+            # Ensure the path is allowed
+            file_operations.permission_manager.add_allowed_path(test_dir)
+            
+            # Test replacing in all files
+            result = await tools["content_replace"](mcp_context, "replaceable text", "updated content", test_dir, "*", False)
+
+            # Verify result shows replacements were made
+            assert "Made 4 replacements of 'replaceable text'" in result
+            assert test_dir in result
+            tool_ctx.info.assert_called()
+            
+            # Verify files were modified
+            with open(os.path.join(test_dir, "file1.txt"), "r") as f:
+                content = f.read()
+                assert "This is file1 with updated content." in content
+                
+            with open(os.path.join(test_dir, "file2.py"), "r") as f:
+                content = f.read()
+                assert "# This is file2 with updated content" in content
+                
+            with open(os.path.join(subdir, "file3.txt"), "r") as f:
+                content = f.read()
+                assert "This is file3 with updated content." in content
+            
+            # Reset mock
+            tool_ctx.reset_mock()
+            
+            # Test replacing with a file pattern
+            # First, reset the files
+            with open(os.path.join(test_dir, "file1.txt"), "w") as f:
+                f.write("This is file1 with replaceable text.\n")
+                f.write("Another line in file1.\n")
+                
+            with open(os.path.join(test_dir, "file2.py"), "w") as f:
+                f.write("# This is file2 with replaceable text\n")
+                f.write("def example():\n")
+                f.write("    return 'No replaceable text here'\n")
+                
+            with open(os.path.join(subdir, "file3.txt"), "w") as f:
+                f.write("This is file3 with replaceable text.\n")
+            
+            # Now test with file pattern
+            result2 = await tools["content_replace"](mcp_context, "replaceable text", "updated content", test_dir, "*.py", False)
+            
+            # Verify only Python files were modified
+            with open(os.path.join(test_dir, "file1.txt"), "r") as f:
+                content = f.read()
+                assert "This is file1 with replaceable text." in content  # Unchanged
+                
+            with open(os.path.join(test_dir, "file2.py"), "r") as f:
+                content = f.read()
+                assert "# This is file2 with updated content" in content  # Changed
+                
+            with open(os.path.join(subdir, "file3.txt"), "r") as f:
+                content = f.read()
+                assert "This is file3 with replaceable text." in content  # Unchanged

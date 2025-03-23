@@ -667,7 +667,7 @@ class FileOperations:
 
             Args:
                 pattern: Text pattern to search for
-                path: Absolute directory to search in
+                path: Absolute directory or file to search in
                 file_pattern: File pattern to match (e.g., "*.py" for Python files)
 
             Returns:
@@ -706,49 +706,63 @@ class FileOperations:
                 )
 
             try:
-                dir_path = Path(path)
+                input_path = Path(path)
 
-                if not dir_path.exists():
+                if not input_path.exists():
                     await tool_ctx.error(f"Path does not exist: {path}")
                     return f"Error: Path does not exist: {path}"
-
-                if not dir_path.is_dir():
-                    await tool_ctx.error(f"Path is not a directory: {path}")
-                    return f"Error: Path is not a directory: {path}"
 
                 # Find matching files
                 matching_files: list[Path] = []
 
-                # Recursive function to find files
-                async def find_files(current_path: Path) -> None:
-                    # Skip if not allowed
-                    if not self.permission_manager.is_path_allowed(str(current_path)):
-                        return
+                # Process based on whether path is a file or directory
+                if input_path.is_file():
+                    # Single file search
+                    if file_pattern == "*" or input_path.match(file_pattern):
+                        matching_files.append(input_path)
+                        await tool_ctx.info(f"Searching single file: {path}")
+                    else:
+                        await tool_ctx.info(f"File does not match pattern '{file_pattern}': {path}")
+                        return f"File does not match pattern '{file_pattern}': {path}"
+                elif input_path.is_dir():
+                    # Directory search - recursive function to find files
+                    async def find_files(current_path: Path) -> None:
+                        # Skip if not allowed
+                        if not self.permission_manager.is_path_allowed(str(current_path)):
+                            return
 
-                    try:
-                        for entry in current_path.iterdir():
-                            # Skip if not allowed
-                            if not self.permission_manager.is_path_allowed(str(entry)):
-                                continue
+                        try:
+                            for entry in current_path.iterdir():
+                                # Skip if not allowed
+                                if not self.permission_manager.is_path_allowed(str(entry)):
+                                    continue
 
-                            if entry.is_file():
-                                # Check if file matches pattern
-                                if file_pattern == "*" or entry.match(file_pattern):
-                                    matching_files.append(entry)
-                            elif entry.is_dir():
-                                # Recurse into directory
-                                await find_files(entry)
-                    except Exception as e:
-                        await tool_ctx.warning(
-                            f"Error accessing {current_path}: {str(e)}"
-                        )
+                                if entry.is_file():
+                                    # Check if file matches pattern
+                                    if file_pattern == "*" or entry.match(file_pattern):
+                                        matching_files.append(entry)
+                                elif entry.is_dir():
+                                    # Recurse into directory
+                                    await find_files(entry)
+                        except Exception as e:
+                            await tool_ctx.warning(
+                                f"Error accessing {current_path}: {str(e)}"
+                            )
 
-                # Find all matching files
-                await find_files(dir_path)
+                    # Find all matching files in directory
+                    await tool_ctx.info(f"Searching directory: {path}")
+                    await find_files(input_path)
+                else:
+                    # This shouldn't happen since we already checked for existence
+                    await tool_ctx.error(f"Path is neither a file nor a directory: {path}")
+                    return f"Error: Path is neither a file nor a directory: {path}"
 
                 # Report progress
                 total_files = len(matching_files)
-                await tool_ctx.info(f"Searching through {total_files} files")
+                if input_path.is_file():
+                    await tool_ctx.info(f"Searching file: {path}")
+                else:
+                    await tool_ctx.info(f"Searching through {total_files} files in directory")
 
                 # Search through files
                 results: list[str] = []
@@ -779,10 +793,13 @@ class FileOperations:
                 await tool_ctx.report_progress(total_files, total_files)
 
                 if not results:
-                    return f"No matches found for pattern '{pattern}' in files matching '{file_pattern}' in {path}"
+                    if input_path.is_file():
+                        return f"No matches found for pattern '{pattern}' in file: {path}"
+                    else:
+                        return f"No matches found for pattern '{pattern}' in files matching '{file_pattern}' in directory: {path}"
 
                 await tool_ctx.info(
-                    f"Found {matches_found} matches in {files_processed} files"
+                    f"Found {matches_found} matches in {files_processed} file{'s' if files_processed != 1 else ''}"
                 )
                 return (
                     f"Found {matches_found} matches in {files_processed} files:\n\n"
@@ -812,7 +829,7 @@ class FileOperations:
             Args:
                 pattern: Text pattern to search for
                 replacement: Text to replace with
-                path: Absolute directory to search in
+                path: Absolute directory or file to search in
                 file_pattern: File pattern to match (e.g., "*.py" for Python files)
                 dry_run: Preview changes without applying them (default: False)
 
@@ -863,45 +880,56 @@ class FileOperations:
             )
 
             try:
-                dir_path = Path(path)
+                input_path = Path(path)
 
-                if not dir_path.exists():
+                if not input_path.exists():
                     await tool_ctx.error(f"Path does not exist: {path}")
                     return f"Error: Path does not exist: {path}"
-
-                if not dir_path.is_dir():
-                    await tool_ctx.error(f"Path is not a directory: {path}")
-                    return f"Error: Path is not a directory: {path}"
 
                 # Find matching files
                 matching_files: list[Path] = []
 
-                # Recursive function to find files
-                async def find_files(current_path: Path) -> None:
-                    # Skip if not allowed
-                    if not self.permission_manager.is_path_allowed(str(current_path)):
-                        return
+                # Process based on whether path is a file or directory
+                if input_path.is_file():
+                    # Single file search
+                    if file_pattern == "*" or input_path.match(file_pattern):
+                        matching_files.append(input_path)
+                        await tool_ctx.info(f"Searching single file: {path}")
+                    else:
+                        await tool_ctx.info(f"File does not match pattern '{file_pattern}': {path}")
+                        return f"File does not match pattern '{file_pattern}': {path}"
+                elif input_path.is_dir():
+                    # Directory search - recursive function to find files
+                    async def find_files(current_path: Path) -> None:
+                        # Skip if not allowed
+                        if not self.permission_manager.is_path_allowed(str(current_path)):
+                            return
 
-                    try:
-                        for entry in current_path.iterdir():
-                            # Skip if not allowed
-                            if not self.permission_manager.is_path_allowed(str(entry)):
-                                continue
+                        try:
+                            for entry in current_path.iterdir():
+                                # Skip if not allowed
+                                if not self.permission_manager.is_path_allowed(str(entry)):
+                                    continue
 
-                            if entry.is_file():
-                                # Check if file matches pattern
-                                if file_pattern == "*" or entry.match(file_pattern):
-                                    matching_files.append(entry)
-                            elif entry.is_dir():
-                                # Recurse into directory
-                                await find_files(entry)
-                    except Exception as e:
-                        await tool_ctx.warning(
-                            f"Error accessing {current_path}: {str(e)}"
-                        )
+                                if entry.is_file():
+                                    # Check if file matches pattern
+                                    if file_pattern == "*" or entry.match(file_pattern):
+                                        matching_files.append(entry)
+                                elif entry.is_dir():
+                                    # Recurse into directory
+                                    await find_files(entry)
+                        except Exception as e:
+                            await tool_ctx.warning(
+                                f"Error accessing {current_path}: {str(e)}"
+                            )
 
-                # Find all matching files
-                await find_files(dir_path)
+                    # Find all matching files in directory
+                    await tool_ctx.info(f"Searching directory: {path}")
+                    await find_files(input_path)
+                else:
+                    # This shouldn't happen since we already checked for existence
+                    await tool_ctx.error(f"Path is neither a file nor a directory: {path}")
+                    return f"Error: Path is neither a file nor a directory: {path}"
 
                 # Report progress
                 total_files = len(matching_files)
