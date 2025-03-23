@@ -5,6 +5,19 @@ All notable changes to the MCP Claude Code project will be documented in this fi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.14] - 2025-03-23
+
+### Added
+- Enhanced `directory_tree` tool with depth limits and filtering capabilities
+- Added parameter `depth` to control traversal depth (default: 3, 0 or -1 for unlimited)
+- Added parameter `include_filtered` to optionally include commonly filtered directories
+- Added statistics summary to directory tree output
+
+### Changed
+- Improved directory tree output format from JSON to more readable indented text
+- Added filtering for common development directories (.git, node_modules, etc.)
+- Enhanced directory tree structure to show skipped directories with reason
+
 ## [0.1.13] - 2025-03-23
 
 ### Changed
