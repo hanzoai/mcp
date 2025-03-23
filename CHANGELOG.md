@@ -5,6 +5,18 @@ All notable changes to the MCP Claude Code project will be documented in this fi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.16] - 2025-03-23
+
+### Added
+- Added Jupyter notebook support with `read_notebook` and `edit_notebook` tools
+- Implemented reading of notebook cells with their outputs (text, error messages, etc.)
+- Added capabilities for editing, inserting, and deleting cells in Jupyter notebooks
+- Added comprehensive test suite for the notebook operations
+
+### Changed
+- Updated tools registration to include the new Jupyter notebook tools
+- Enhanced README.md with Jupyter notebook functionality documentation
+
 ## [0.1.15] - 2025-03-23
 
 ### Added

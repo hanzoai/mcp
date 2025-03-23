@@ -16,6 +16,7 @@ from mcp_claude_code.tools.common.context import DocumentContext
 from mcp_claude_code.tools.common.permissions import PermissionManager
 from mcp_claude_code.tools.common.thinking import ThinkingTool
 from mcp_claude_code.tools.filesystem.file_operations import FileOperations
+from mcp_claude_code.tools.jupyter.notebook_operations import JupyterNotebookTools
 from mcp_claude_code.tools.project.analysis import ProjectAnalysis, ProjectManager
 from mcp_claude_code.tools.shell.command_executor import CommandExecutor
 
@@ -51,6 +52,10 @@ def register_all_tools(
         project_manager, project_analyzer, permission_manager
     )
     proj_analysis.register_tools(mcp_server)
+
+    # Initialize and register Jupyter notebook tools
+    jupyter_tools = JupyterNotebookTools(document_context, permission_manager)
+    jupyter_tools.register_tools(mcp_server)
 
     # Initialize and register thinking tool
     thinking_tool = ThinkingTool()
