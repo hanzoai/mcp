@@ -55,3 +55,4 @@ reportAny = false
 reportRedeclaration = false
 reportMissingTypeArgument = false
 reportExplicitAny = false
+reportUnusedFunction = false
