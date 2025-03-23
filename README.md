@@ -19,19 +19,20 @@ This project provides an MCP server that implements Claude Code-like functionali
 
 ## Tools Implemented
 
-| Tool                   | Description                                                                                   | Permission Required |
-| ---------------------- | --------------------------------------------------------------------------------------------- | ------------------- |
-| `read_files`           | Read one or multiple files with encoding detection                                            | No                  |
-| `write_file`           | Create or overwrite files                                                                     | Yes                 |
-| `edit_file`            | Make line-based edits to text files                                                           | Yes                 |
-| `directory_tree`       | Get a recursive tree view of directories                                                      | No                  |
-| `get_file_info`        | Get metadata about a file or directory                                                        | No                  |
-| `search_content`       | Search for patterns in file contents                                                          | No                  |
-| `content_replace`      | Replace patterns in file contents                                                             | Yes                 |
-| `run_command`          | Execute shell commands (also used for directory creation, file moving, and directory listing) | Yes                 |
-| `run_script`           | Execute scripts with specified interpreters                                                   | Yes                 |
-| `script_tool`          | Execute scripts in specific programming languages                                             | Yes                 |
-| `project_analyze_tool` | Analyze project structure and dependencies                                                    | No                  |
+| Tool                   | Description                                                                                   |
+| ---------------------- | --------------------------------------------------------------------------------------------- |
+| `read_files`           | Read one or multiple files with encoding detection                                            |
+| `write_file`           | Create or overwrite files                                                                     |
+| `edit_file`            | Make line-based edits to text files                                                           |
+| `directory_tree`       | Get a recursive tree view of directories                                                      |
+| `get_file_info`        | Get metadata about a file or directory                                                        |
+| `search_content`       | Search for patterns in file contents                                                          |
+| `content_replace`      | Replace patterns in file contents                                                             |
+| `run_command`          | Execute shell commands (also used for directory creation, file moving, and directory listing) |
+| `run_script`           | Execute scripts with specified interpreters                                                   |
+| `script_tool`          | Execute scripts in specific programming languages                                             |
+| `project_analyze_tool` | Analyze project structure and dependencies                                                    |
+| `think`                | Structured space for complex reasoning and analysis without making changes                    |
 
 ## Getting Started
 
