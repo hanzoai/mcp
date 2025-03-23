@@ -445,7 +445,8 @@ class FileOperations:
                 FILTERED_DIRECTORIES = {
                     ".git", "node_modules", ".venv", "venv", 
                     "__pycache__", ".pytest_cache", ".idea", 
-                    ".vs", ".vscode", "dist", "build", "target"
+                    ".vs", ".vscode", "dist", "build", "target",
+                    ".ruff_cache",".llm-context"
                 }
                 
                 # Log filtering settings
