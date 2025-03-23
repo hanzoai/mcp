@@ -63,7 +63,7 @@ Make sure to replace `/path/to/your/project` with the actual path to the project
 
 #### Advanced Configuration Options
 
-You can customize the server using other options:你
+You can customize the server using other options:
 
 ```json
 {
