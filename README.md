@@ -6,6 +6,8 @@ An implementation of Claude Code capabilities using the Model Context Protocol (
 
 This project provides an MCP server that implements Claude Code-like functionality, allowing Claude to directly execute instructions for modifying and improving project files. By leveraging the Model Context Protocol, this implementation enables seamless integration with various MCP clients including Claude Desktop.
 
+![example](./doc/example.gif)
+
 ## Features
 
 - **Code Understanding**: Analyze and understand codebases through file access and pattern searching
@@ -90,10 +92,11 @@ To get the best experience with Claude Code, you need to add the provided system
 Follow these steps:
 
 1. Locate the system prompt file in this repository at `doc/system_prompt`
-2. Open your Claude Desktop client settings
-3. Navigate to the system prompt configuration section
-4. Copy the contents of `system_prompt` into your project instructions
-5. Replace `{{project_path}}` with the actual absolute path to your project
+2. Open your Claude Desktop client
+3. Create a new project or open an existing one
+4. Navigate to the "Project instructions" section in the Claude Desktop sidebar
+5. Copy the contents of `doc/system_prompt` and paste it into the "Project instructions" section
+6. Replace `{project_path}` with the actual absolute path to your project
 
 The system prompt provides Claude with:
 
