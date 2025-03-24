@@ -448,7 +448,7 @@ class TestFileOperations:
             # Verify result
             assert "Error: Parameter 'paths' is required" in result
             tool_ctx.error.assert_called()
-    
+
     @pytest.mark.asyncio
     async def test_directory_tree_simple(
         self,
@@ -460,21 +460,21 @@ class TestFileOperations:
         # Create a test directory structure
         test_dir = os.path.join(setup_allowed_path, "test_dir")
         os.makedirs(test_dir, exist_ok=True)
-        
+
         # Create some files
         with open(os.path.join(test_dir, "file1.txt"), "w") as f:
             f.write("File 1 content")
-            
+
         with open(os.path.join(test_dir, "file2.txt"), "w") as f:
             f.write("File 2 content")
-            
+
         # Create a subdirectory
         subdir = os.path.join(test_dir, "subdir")
         os.makedirs(subdir, exist_ok=True)
-        
+
         with open(os.path.join(subdir, "subfile.txt"), "w") as f:
             f.write("Subfile content")
-            
+
         # Mock context calls
         tool_ctx = AsyncMock()
         with patch(
@@ -504,13 +504,13 @@ class TestFileOperations:
             assert "subdir/" in result
             assert "subfile.txt" in result
             assert "Directory Stats:" in result
-            
+
             # Verify the output is not JSON
             with pytest.raises(json.JSONDecodeError):
                 json.loads(result)
-                
+
             tool_ctx.info.assert_called()
-            
+
     @pytest.mark.asyncio
     async def test_directory_tree_depth_limited(
         self,
@@ -522,25 +522,25 @@ class TestFileOperations:
         # Create a test directory structure with multiple levels
         test_dir = os.path.join(setup_allowed_path, "test_deep_dir")
         os.makedirs(test_dir, exist_ok=True)
-        
+
         # Create level 1
         level1 = os.path.join(test_dir, "level1")
         os.makedirs(level1, exist_ok=True)
         with open(os.path.join(level1, "file1.txt"), "w") as f:
             f.write("Level 1 file")
-        
+
         # Create level 2
         level2 = os.path.join(level1, "level2")
         os.makedirs(level2, exist_ok=True)
         with open(os.path.join(level2, "file2.txt"), "w") as f:
             f.write("Level 2 file")
-            
+
         # Create level 3
         level3 = os.path.join(level2, "level3")
         os.makedirs(level3, exist_ok=True)
         with open(os.path.join(level3, "file3.txt"), "w") as f:
             f.write("Level 3 file")
-        
+
         # Mock context calls
         tool_ctx = AsyncMock()
         with patch(
@@ -569,7 +569,7 @@ class TestFileOperations:
             assert "file1.txt" not in result  # This is at level 2
             assert "level2/ [skipped - depth-limit]" in result
             assert "skipped due to depth limit" in result
-            
+
             # Test with deeper depth
             result2 = await tools["directory_tree"](test_dir, mcp_context, 2, False)
             assert "level1/" in result2
@@ -581,7 +581,7 @@ class TestFileOperations:
             assert "level2/" in result2
             # We don't care about file2.txt for this test, as it depends on directory implementation
             assert "file3.txt" not in result2  # This is at level 4
-            
+
             # Test with unlimited depth
             result3 = await tools["directory_tree"](test_dir, mcp_context, 0, False)
             assert "level1/" in result3
@@ -591,7 +591,7 @@ class TestFileOperations:
             assert "file2.txt" in result3
             assert "file3.txt" in result3
             assert "[skipped - depth-limit]" not in result3
-    
+
     @pytest.mark.asyncio
     async def test_directory_tree_filtered_dirs(
         self,
@@ -603,33 +603,33 @@ class TestFileOperations:
         # Create a test directory structure with filtered directories
         test_dir = os.path.join(setup_allowed_path, "test_filtered_dir")
         os.makedirs(test_dir, exist_ok=True)
-        
+
         # Create a normal directory
         normal_dir = os.path.join(test_dir, "normal_dir")
         os.makedirs(normal_dir, exist_ok=True)
-        
+
         # Create filtered directories
         git_dir = os.path.join(test_dir, ".git")
         node_modules = os.path.join(test_dir, "node_modules")
         venv_dir = os.path.join(test_dir, "venv")
-        
+
         os.makedirs(git_dir, exist_ok=True)
         os.makedirs(node_modules, exist_ok=True)
         os.makedirs(venv_dir, exist_ok=True)
-        
+
         # Add some files to each
         with open(os.path.join(normal_dir, "normal.txt"), "w") as f:
             f.write("Normal file")
-            
+
         with open(os.path.join(git_dir, "HEAD"), "w") as f:
             f.write("Git HEAD file")
-            
+
         with open(os.path.join(node_modules, "package.json"), "w") as f:
             f.write("Package JSON")
-            
+
         with open(os.path.join(venv_dir, "pyvenv.cfg"), "w") as f:
             f.write("Python venv config")
-        
+
         # Mock context calls
         tool_ctx = AsyncMock()
         with patch(
@@ -652,54 +652,67 @@ class TestFileOperations:
 
             # Test with default filtering (filtered dirs should be marked but not traversed)
             result = await tools["directory_tree"](test_dir, mcp_context)
-            
+
             assert "normal_dir/" in result
             assert "normal.txt" in result
             # Check that filtered directories are marked as skipped
             # (We don't care about the exact order, just that they are marked correctly)
             # Since the test environment might be configured differently, let's just check
             # that at least one filtered directory is marked as skipped
-            assert "[skipped - filtered-directory]" in result, "At least one filtered directory should be marked as skipped"
-            
+            assert (
+                "[skipped - filtered-directory]" in result
+            ), "At least one filtered directory should be marked as skipped"
+
             # Directory structure is printed in test logs if there are failures
-            
+
             # HEAD file should not be visible because .git is filtered
             assert "HEAD" not in result
             assert "package.json" not in result
             assert "pyvenv.cfg" not in result
-            
+
             # Test with include_filtered=True
-            result2 = await tools["directory_tree"](test_dir, mcp_context, include_filtered=True)
-            
+            result2 = await tools["directory_tree"](
+                test_dir, mcp_context, include_filtered=True
+            )
+
             assert "normal_dir/" in result2
             assert "normal.txt" in result2
-            
+
             # Filtered directories should now be included - at least one of them
             # should be visible and not marked as skipped
             has_filtered_dir = False
             if ".git/" in result2 and "[skipped - filtered-directory]" not in result2:
                 has_filtered_dir = True
-            elif "node_modules/" in result2 and "[skipped - filtered-directory]" not in result2:
+            elif (
+                "node_modules/" in result2
+                and "[skipped - filtered-directory]" not in result2
+            ):
                 has_filtered_dir = True
             elif "venv/" in result2 and "[skipped - filtered-directory]" not in result2:
                 has_filtered_dir = True
-                
+
             assert has_filtered_dir, "At least one filtered directory should be included when include_filtered=True"
-            
+
             # At least one file in a previously filtered directory should now be visible
             has_filtered_file = False
-            if "HEAD" in result2 or "package.json" in result2 or "pyvenv.cfg" in result2:
+            if (
+                "HEAD" in result2
+                or "package.json" in result2
+                or "pyvenv.cfg" in result2
+            ):
                 has_filtered_file = True
-                
-            assert has_filtered_file, "At least one file from a filtered directory should be visible"
-            
+
+            assert (
+                has_filtered_file
+            ), "At least one file from a filtered directory should be visible"
+
             # Test direct access to filtered directory
             result3 = await tools["directory_tree"](git_dir, mcp_context)
-            
+
             # When directly accessing a filtered directory, it should be traversed
             assert "HEAD" in result3
             assert "[skipped - filtered-directory]" not in result3
-            
+
     @pytest.mark.asyncio
     async def test_directory_tree_not_allowed(
         self,
@@ -709,7 +722,7 @@ class TestFileOperations:
         """Test directory tree with a path that is not allowed."""
         # Path outside of allowed paths
         path = "/not/allowed/directory"
-        
+
         # Mock context calls
         tool_ctx = AsyncMock()
         with patch(
@@ -774,9 +787,11 @@ class TestFileOperations:
 
             # Ensure the path is allowed
             file_operations.permission_manager.add_allowed_path(test_file_path)
-            
+
             # Use the search_content function with a file path
-            result = await tools["search_content"](mcp_context, "searchable", test_file_path, "*")
+            result = await tools["search_content"](
+                mcp_context, "searchable", test_file_path, "*"
+            )
 
             # Verify result
             assert "line one with searchable content" in result
@@ -784,7 +799,7 @@ class TestFileOperations:
             assert "line two with other content" not in result
             assert test_file_path in result
             tool_ctx.info.assert_called()
-    
+
     @pytest.mark.asyncio
     async def test_search_content_file_pattern_mismatch(
         self,
@@ -820,14 +835,16 @@ class TestFileOperations:
 
             # Ensure the path is allowed
             file_operations.permission_manager.add_allowed_path(test_file_path)
-            
+
             # Use the search_content function with a non-matching file pattern
-            result = await tools["search_content"](mcp_context, "pattern", test_file_path, "*.py")
+            result = await tools["search_content"](
+                mcp_context, "pattern", test_file_path, "*.py"
+            )
 
             # Verify result
             assert "File does not match pattern '*.py'" in result
             tool_ctx.info.assert_called()
-    
+
     @pytest.mark.asyncio
     async def test_content_replace_file_path(
         self,
@@ -865,9 +882,11 @@ class TestFileOperations:
 
             # Ensure the path is allowed
             file_operations.permission_manager.add_allowed_path(test_file_path)
-            
+
             # Use the content_replace function with a file path
-            result = await tools["content_replace"](mcp_context, "old content", "new content", test_file_path, "*", False)
+            result = await tools["content_replace"](
+                mcp_context, "old content", "new content", test_file_path, "*", False
+            )
 
             # Verify result
             assert "Made 2 replacements of 'old content'" in result
@@ -880,7 +899,7 @@ class TestFileOperations:
                 assert "This is new content that needs to be replaced." in content
                 assert "This line should stay the same." in content
                 assert "More new content here that will be replaced." in content
-    
+
     @pytest.mark.asyncio
     async def test_content_replace_dry_run(
         self,
@@ -921,9 +940,16 @@ class TestFileOperations:
 
             # Ensure the path is allowed
             file_operations.permission_manager.add_allowed_path(test_file_path)
-            
+
             # Use the content_replace function with dry_run=True
-            result = await tools["content_replace"](mcp_context, "would be replaced", "will be changed", test_file_path, "*", True)
+            result = await tools["content_replace"](
+                mcp_context,
+                "would be replaced",
+                "will be changed",
+                test_file_path,
+                "*",
+                True,
+            )
 
             # Verify result shows what would be changed
             assert "Dry run: 2 replacements of 'would be replaced'" in result
@@ -934,7 +960,7 @@ class TestFileOperations:
             with open(test_file_path, "r") as f:
                 content = f.read()
                 assert content == original_content
-    
+
     @pytest.mark.asyncio
     async def test_search_content_directory_path(
         self,
@@ -946,20 +972,20 @@ class TestFileOperations:
         # Create a test directory with multiple files
         test_dir = os.path.join(setup_allowed_path, "search_dir")
         os.makedirs(test_dir, exist_ok=True)
-        
+
         # Create files with searchable content
         with open(os.path.join(test_dir, "file1.txt"), "w") as f:
             f.write("This is file1 with findable content.\n")
-            
+
         with open(os.path.join(test_dir, "file2.py"), "w") as f:
             f.write("# This is file2 with findable content\n")
             f.write("def test_function():\n")
             f.write("    return 'Not findable'\n")
-            
+
         # Create a subdirectory with more files
         subdir = os.path.join(test_dir, "subdir")
         os.makedirs(subdir, exist_ok=True)
-        
+
         with open(os.path.join(subdir, "file3.txt"), "w") as f:
             f.write("This is file3 with different content.\n")
 
@@ -985,27 +1011,31 @@ class TestFileOperations:
 
             # Ensure the path is allowed
             file_operations.permission_manager.add_allowed_path(test_dir)
-            
+
             # Test searching in all files
-            result = await tools["search_content"](mcp_context, "findable", test_dir, "*")
+            result = await tools["search_content"](
+                mcp_context, "findable", test_dir, "*"
+            )
 
             # Verify result contains matches from both files
             assert "file1 with findable content" in result
             assert "file2 with findable content" in result
             assert "different content" not in result
             tool_ctx.info.assert_called()
-            
+
             # Reset mock
             tool_ctx.reset_mock()
-            
+
             # Test searching with a file pattern
-            result2 = await tools["search_content"](mcp_context, "findable", test_dir, "*.py")
-            
+            result2 = await tools["search_content"](
+                mcp_context, "findable", test_dir, "*.py"
+            )
+
             # Verify result only contains matches from Python files
             assert "file1 with findable content" not in result2
             assert "file2 with findable content" in result2
             tool_ctx.info.assert_called()
-    
+
     @pytest.mark.asyncio
     async def test_content_replace_directory_path(
         self,
@@ -1017,21 +1047,21 @@ class TestFileOperations:
         # Create a test directory with multiple files
         test_dir = os.path.join(setup_allowed_path, "replace_dir")
         os.makedirs(test_dir, exist_ok=True)
-        
+
         # Create files with replaceable content
         with open(os.path.join(test_dir, "file1.txt"), "w") as f:
             f.write("This is file1 with replaceable text.\n")
             f.write("Another line in file1.\n")
-            
+
         with open(os.path.join(test_dir, "file2.py"), "w") as f:
             f.write("# This is file2 with replaceable text\n")
             f.write("def example():\n")
             f.write("    return 'No replaceable text here'\n")
-            
+
         # Create a subdirectory with more files
         subdir = os.path.join(test_dir, "subdir")
         os.makedirs(subdir, exist_ok=True)
-        
+
         with open(os.path.join(subdir, "file3.txt"), "w") as f:
             f.write("This is file3 with replaceable text.\n")
 
@@ -1057,57 +1087,66 @@ class TestFileOperations:
 
             # Ensure the path is allowed
             file_operations.permission_manager.add_allowed_path(test_dir)
-            
+
             # Test replacing in all files
-            result = await tools["content_replace"](mcp_context, "replaceable text", "updated content", test_dir, "*", False)
+            result = await tools["content_replace"](
+                mcp_context, "replaceable text", "updated content", test_dir, "*", False
+            )
 
             # Verify result shows replacements were made
             assert "Made 4 replacements of 'replaceable text'" in result
             assert test_dir in result
             tool_ctx.info.assert_called()
-            
+
             # Verify files were modified
             with open(os.path.join(test_dir, "file1.txt"), "r") as f:
                 content = f.read()
                 assert "This is file1 with updated content." in content
-                
+
             with open(os.path.join(test_dir, "file2.py"), "r") as f:
                 content = f.read()
                 assert "# This is file2 with updated content" in content
-                
+
             with open(os.path.join(subdir, "file3.txt"), "r") as f:
                 content = f.read()
                 assert "This is file3 with updated content." in content
-            
+
             # Reset mock
             tool_ctx.reset_mock()
-            
+
             # Test replacing with a file pattern
             # First, reset the files
             with open(os.path.join(test_dir, "file1.txt"), "w") as f:
                 f.write("This is file1 with replaceable text.\n")
                 f.write("Another line in file1.\n")
-                
+
             with open(os.path.join(test_dir, "file2.py"), "w") as f:
                 f.write("# This is file2 with replaceable text\n")
                 f.write("def example():\n")
                 f.write("    return 'No replaceable text here'\n")
-                
+
             with open(os.path.join(subdir, "file3.txt"), "w") as f:
                 f.write("This is file3 with replaceable text.\n")
-            
+
             # Now test with file pattern
-            result2 = await tools["content_replace"](mcp_context, "replaceable text", "updated content", test_dir, "*.py", False)
-            
+            result2 = await tools["content_replace"](
+                mcp_context,
+                "replaceable text",
+                "updated content",
+                test_dir,
+                "*.py",
+                False,
+            )
+
             # Verify only Python files were modified
             with open(os.path.join(test_dir, "file1.txt"), "r") as f:
                 content = f.read()
                 assert "This is file1 with replaceable text." in content  # Unchanged
-                
+
             with open(os.path.join(test_dir, "file2.py"), "r") as f:
                 content = f.read()
                 assert "# This is file2 with updated content" in content  # Changed
-                
+
             with open(os.path.join(subdir, "file3.txt"), "r") as f:
                 content = f.read()
                 assert "This is file3 with replaceable text." in content  # Unchanged

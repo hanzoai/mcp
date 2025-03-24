@@ -393,7 +393,9 @@ class FileOperations:
 
         # Directory tree tool
         @mcp_server.tool()
-        async def directory_tree(path: str, ctx: MCPContext, depth: int = 3, include_filtered: bool = False) -> str:
+        async def directory_tree(
+            path: str, ctx: MCPContext, depth: int = 3, include_filtered: bool = False
+        ) -> str:
             """Get a recursive tree view of files and directories with customizable depth and filtering.
 
             Returns a structured view of the directory tree with files and subdirectories.
@@ -419,7 +421,9 @@ class FileOperations:
                 await tool_ctx.error(path_validation.error_message)
                 return f"Error: {path_validation.error_message}"
 
-            await tool_ctx.info(f"Getting directory tree: {path} (depth: {depth}, include_filtered: {include_filtered})")
+            await tool_ctx.info(
+                f"Getting directory tree: {path} (depth: {depth}, include_filtered: {include_filtered})"
+            )
 
             # Check if path is allowed
             if not self.permission_manager.is_path_allowed(path):
@@ -443,34 +447,50 @@ class FileOperations:
 
                 # Define filtered directories
                 FILTERED_DIRECTORIES = {
-                    ".git", "node_modules", ".venv", "venv", 
-                    "__pycache__", ".pytest_cache", ".idea", 
-                    ".vs", ".vscode", "dist", "build", "target"
+                    ".git",
+                    "node_modules",
+                    ".venv",
+                    "venv",
+                    "__pycache__",
+                    ".pytest_cache",
+                    ".idea",
+                    ".vs",
+                    ".vscode",
+                    "dist",
+                    "build",
+                    "target",
                 }
-                
+
                 # Log filtering settings
-                await tool_ctx.info(f"Directory tree filtering: include_filtered={include_filtered}")
-                
+                await tool_ctx.info(
+                    f"Directory tree filtering: include_filtered={include_filtered}"
+                )
+
                 # Check if a directory should be filtered
                 def should_filter(current_path: Path) -> bool:
                     # Don't filter if it's the explicitly requested path
                     if str(current_path.absolute()) == str(dir_path.absolute()):
                         # Don't filter explicitly requested paths
                         return False
-                        
+
                     # Filter based on directory name if filtering is enabled
-                    return current_path.name in FILTERED_DIRECTORIES and not include_filtered
-                
+                    return (
+                        current_path.name in FILTERED_DIRECTORIES
+                        and not include_filtered
+                    )
+
                 # Track stats for summary
                 stats = {
                     "directories": 0,
                     "files": 0,
                     "skipped_depth": 0,
-                    "skipped_filtered": 0
+                    "skipped_filtered": 0,
                 }
 
                 # Build the tree recursively
-                async def build_tree(current_path: Path, current_depth: int = 0) -> list[dict[str, Any]]:
+                async def build_tree(
+                    current_path: Path, current_depth: int = 0
+                ) -> list[dict[str, Any]]:
                     result: list[dict[str, Any]] = []
 
                     # Skip processing if path isn't allowed
@@ -479,8 +499,11 @@ class FileOperations:
 
                     try:
                         # Sort entries: directories first, then files alphabetically
-                        entries = sorted(current_path.iterdir(), key=lambda x: (not x.is_dir(), x.name))
-                        
+                        entries = sorted(
+                            current_path.iterdir(),
+                            key=lambda x: (not x.is_dir(), x.name),
+                        )
+
                         for entry in entries:
                             # Skip entries that aren't allowed
                             if not self.permission_manager.is_path_allowed(str(entry)):
@@ -508,18 +531,17 @@ class FileOperations:
                                     continue
 
                                 # Process children recursively with depth increment
-                                entry_data["children"] = await build_tree(entry, current_depth + 1)
+                                entry_data["children"] = await build_tree(
+                                    entry, current_depth + 1
+                                )
                                 result.append(entry_data)
                             else:
                                 # Files should be at the same level check as directories
                                 if depth <= 0 or current_depth < depth:
                                     stats["files"] += 1
                                     # Add file entry
-                                    result.append({
-                                        "name": entry.name,
-                                        "type": "file"
-                                    })
-                                
+                                    result.append({"name": entry.name, "type": "file"})
+
                     except Exception as e:
                         await tool_ctx.warning(
                             f"Error processing {current_path}: {str(e)}"
@@ -528,45 +550,51 @@ class FileOperations:
                     return result
 
                 # Format the tree as a simple indented structure
-                def format_tree(tree_data: list[dict[str, Any]], level: int = 0) -> list[str]:
+                def format_tree(
+                    tree_data: list[dict[str, Any]], level: int = 0
+                ) -> list[str]:
                     lines = []
-                    
+
                     for item in tree_data:
                         # Indentation based on level
                         indent = "  " * level
-                        
+
                         # Format based on type
                         if item["type"] == "directory":
                             if "skipped" in item:
-                                lines.append(f"{indent}{item['name']}/ [skipped - {item['skipped']}]")
+                                lines.append(
+                                    f"{indent}{item['name']}/ [skipped - {item['skipped']}]"
+                                )
                             else:
                                 lines.append(f"{indent}{item['name']}/")
                                 # Add children with increased indentation if present
                                 if "children" in item:
-                                    lines.extend(format_tree(item["children"], level + 1))
+                                    lines.extend(
+                                        format_tree(item["children"], level + 1)
+                                    )
                         else:
                             # File
                             lines.append(f"{indent}{item['name']}")
-                            
+
                     return lines
 
                 # Build tree starting from the requested directory
                 tree_data = await build_tree(dir_path)
-                
+
                 # Format as simple text
                 formatted_output = "\n".join(format_tree(tree_data))
-                
+
                 # Add stats summary
                 summary = (
                     f"\nDirectory Stats: {stats['directories']} directories, {stats['files']} files "
                     f"({stats['skipped_depth']} skipped due to depth limit, "
                     f"{stats['skipped_filtered']} filtered directories skipped)"
                 )
-                
+
                 await tool_ctx.info(
                     f"Generated directory tree for {path} (depth: {depth}, include_filtered: {include_filtered})"
                 )
-                
+
                 return formatted_output + summary
             except Exception as e:
                 await tool_ctx.error(f"Error generating directory tree: {str(e)}")
@@ -722,19 +750,25 @@ class FileOperations:
                         matching_files.append(input_path)
                         await tool_ctx.info(f"Searching single file: {path}")
                     else:
-                        await tool_ctx.info(f"File does not match pattern '{file_pattern}': {path}")
+                        await tool_ctx.info(
+                            f"File does not match pattern '{file_pattern}': {path}"
+                        )
                         return f"File does not match pattern '{file_pattern}': {path}"
                 elif input_path.is_dir():
                     # Directory search - recursive function to find files
                     async def find_files(current_path: Path) -> None:
                         # Skip if not allowed
-                        if not self.permission_manager.is_path_allowed(str(current_path)):
+                        if not self.permission_manager.is_path_allowed(
+                            str(current_path)
+                        ):
                             return
 
                         try:
                             for entry in current_path.iterdir():
                                 # Skip if not allowed
-                                if not self.permission_manager.is_path_allowed(str(entry)):
+                                if not self.permission_manager.is_path_allowed(
+                                    str(entry)
+                                ):
                                     continue
 
                                 if entry.is_file():
@@ -754,7 +788,9 @@ class FileOperations:
                     await find_files(input_path)
                 else:
                     # This shouldn't happen since we already checked for existence
-                    await tool_ctx.error(f"Path is neither a file nor a directory: {path}")
+                    await tool_ctx.error(
+                        f"Path is neither a file nor a directory: {path}"
+                    )
                     return f"Error: Path is neither a file nor a directory: {path}"
 
                 # Report progress
@@ -762,7 +798,9 @@ class FileOperations:
                 if input_path.is_file():
                     await tool_ctx.info(f"Searching file: {path}")
                 else:
-                    await tool_ctx.info(f"Searching through {total_files} files in directory")
+                    await tool_ctx.info(
+                        f"Searching through {total_files} files in directory"
+                    )
 
                 # Search through files
                 results: list[str] = []
@@ -794,7 +832,9 @@ class FileOperations:
 
                 if not results:
                     if input_path.is_file():
-                        return f"No matches found for pattern '{pattern}' in file: {path}"
+                        return (
+                            f"No matches found for pattern '{pattern}' in file: {path}"
+                        )
                     else:
                         return f"No matches found for pattern '{pattern}' in files matching '{file_pattern}' in directory: {path}"
 
@@ -896,19 +936,25 @@ class FileOperations:
                         matching_files.append(input_path)
                         await tool_ctx.info(f"Searching single file: {path}")
                     else:
-                        await tool_ctx.info(f"File does not match pattern '{file_pattern}': {path}")
+                        await tool_ctx.info(
+                            f"File does not match pattern '{file_pattern}': {path}"
+                        )
                         return f"File does not match pattern '{file_pattern}': {path}"
                 elif input_path.is_dir():
                     # Directory search - recursive function to find files
                     async def find_files(current_path: Path) -> None:
                         # Skip if not allowed
-                        if not self.permission_manager.is_path_allowed(str(current_path)):
+                        if not self.permission_manager.is_path_allowed(
+                            str(current_path)
+                        ):
                             return
 
                         try:
                             for entry in current_path.iterdir():
                                 # Skip if not allowed
-                                if not self.permission_manager.is_path_allowed(str(entry)):
+                                if not self.permission_manager.is_path_allowed(
+                                    str(entry)
+                                ):
                                     continue
 
                                 if entry.is_file():
@@ -928,7 +974,9 @@ class FileOperations:
                     await find_files(input_path)
                 else:
                     # This shouldn't happen since we already checked for existence
-                    await tool_ctx.error(f"Path is neither a file nor a directory: {path}")
+                    await tool_ctx.error(
+                        f"Path is neither a file nor a directory: {path}"
+                    )
                     return f"Error: Path is neither a file nor a directory: {path}"
 
                 # Report progress
