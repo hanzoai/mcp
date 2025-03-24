@@ -8,11 +8,11 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 if TYPE_CHECKING:
-    from dev_mcp.tools.common.context import DocumentContext
-    from dev_mcp.tools.common.permissions import PermissionManager
-    from dev_mcp.tools.shell.command_executor import CommandExecutor
+    from hanzo_mcp.tools.common.context import DocumentContext
+    from hanzo_mcp.tools.common.permissions import PermissionManager
+    from hanzo_mcp.tools.shell.command_executor import CommandExecutor
 
-from dev_mcp.tools.project.analysis import (
+from hanzo_mcp.tools.project.analysis import (
     ProjectAnalysis,
     ProjectAnalyzer,
     ProjectManager,

@@ -1,23 +1,23 @@
-"""MCP server implementing Hanzo Dev capabilities."""
+"""MCP server for accessing Hanzo APIs and Platform capabilities."""
 
 from typing import Literal, cast, final
 
 from mcp.server.fastmcp import FastMCP
 
-from dev_mcp.tools import register_all_tools
-from dev_mcp.tools.common.context import DocumentContext
-from dev_mcp.tools.common.permissions import PermissionManager
-from dev_mcp.tools.project.analysis import ProjectAnalyzer, ProjectManager
-from dev_mcp.tools.shell.command_executor import CommandExecutor
+from hanzo_mcp.tools import register_all_tools
+from hanzo_mcp.tools.common.context import DocumentContext
+from hanzo_mcp.tools.common.permissions import PermissionManager
+from hanzo_mcp.tools.project.analysis import ProjectAnalyzer, ProjectManager
+from hanzo_mcp.tools.shell.command_executor import CommandExecutor
 
 
 @final
 class HanzoDevServer:
-    """MCP server implementing Hanzo Dev capabilities."""
+    """MCP server for accessing Hanzo APIs and Platform capabilities."""
 
     def __init__(
         self,
-        name: str = "hanzo-dev",
+        name: str = "hanzo",
         allowed_paths: list[str] | None = None,
         mcp_instance: FastMCP | None = None,
     ):
@@ -82,17 +82,17 @@ class HanzoDevServer:
 
 
 def main():
-    """Run the Hanzo Dev MCP server."""
+    """Run the Hanzo MCP server."""
     import argparse
 
     parser = argparse.ArgumentParser(
-        description="MCP server implementing Hanzo Dev capabilities"
+        description="MCP server for accessing Hanzo APIs and Platform capabilities"
     )
 
     _ = parser.add_argument(
         "--name",
-        default="hanzo-dev",
-        help="Name of the MCP server (default: hanzo-dev)",
+        default="hanzo",
+        help="Name of the MCP server (default: hanzo)",
     )
 
     _ = parser.add_argument(

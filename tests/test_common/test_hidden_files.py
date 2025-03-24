@@ -4,7 +4,7 @@ import os
 from pathlib import Path
 
 
-from dev_mcp.tools.common.permissions import PermissionManager
+from hanzo_mcp.tools.common.permissions import PermissionManager
 
 
 class TestHiddenFilePermissions:

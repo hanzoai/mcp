@@ -8,10 +8,10 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 if TYPE_CHECKING:
-    from dev_mcp.tools.common.context import DocumentContext
-    from dev_mcp.tools.common.permissions import PermissionManager
+    from hanzo_mcp.tools.common.context import DocumentContext
+    from hanzo_mcp.tools.common.permissions import PermissionManager
 
-from dev_mcp.tools.jupyter.notebook_operations import JupyterNotebookTools
+from hanzo_mcp.tools.jupyter.notebook_operations import JupyterNotebookTools
 
 
 class TestJupyterNotebookTools:

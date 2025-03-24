@@ -5,7 +5,7 @@ from typing import Tuple
 
 import pytest
 
-from dev_mcp.server import HanzoDevServer
+from hanzo_mcp.server import HanzoDevServer
 
 
 class TestHanzoDevServer:
@@ -43,7 +43,7 @@ class TestHanzoDevServer:
 
         with (
             patch("mcp.server.fastmcp.FastMCP") as mock_fastmcp,
-            patch("dev_mcp.tools.register_all_tools") as mock_register,
+            patch("hanzo_mcp.tools.register_all_tools") as mock_register,
         ):
             # Create mock fastmcp
             mock_mcp = MagicMock()
@@ -61,7 +61,7 @@ class TestHanzoDevServer:
             server.document_context = doc_context
 
             # Manually call register_all_tools
-            from dev_mcp.tools import register_all_tools
+            from hanzo_mcp.tools import register_all_tools
 
             register_all_tools(
                 mock_mcp,
@@ -145,7 +145,7 @@ def test_main() -> None:
     """Test the main function."""
     with (
         patch("argparse.ArgumentParser.parse_args") as mock_parse_args,
-        patch("dev_mcp.server.HanzoDevServer") as mock_server_class,
+        patch("hanzo_mcp.server.HanzoDevServer") as mock_server_class,
     ):
         # Mock parsed arguments
         mock_args = MagicMock()
@@ -159,7 +159,7 @@ def test_main() -> None:
         mock_server_class.return_value = mock_server
 
         # Call main
-        from dev_mcp.server import main
+        from hanzo_mcp.server import main
 
         main()
 

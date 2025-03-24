@@ -10,10 +10,10 @@ from typing import Any, Callable, final
 from mcp.server.fastmcp import Context as MCPContext
 from mcp.server.fastmcp import FastMCP
 
-from dev_mcp.tools.common.context import DocumentContext, create_tool_context
-from dev_mcp.tools.common.permissions import PermissionManager
-from dev_mcp.tools.common.validation import validate_path_parameter
-from dev_mcp.tools.shell.command_executor import CommandExecutor
+from hanzo_mcp.tools.common.context import DocumentContext, create_tool_context
+from hanzo_mcp.tools.common.permissions import PermissionManager
+from hanzo_mcp.tools.common.validation import validate_path_parameter
+from hanzo_mcp.tools.shell.command_executor import CommandExecutor
 
 
 @final
