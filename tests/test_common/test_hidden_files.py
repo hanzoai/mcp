@@ -27,16 +27,16 @@ class TestHiddenFilePermissions:
 
         # Test paths with the fixed implementation
         # The workflow example and gitignore files should be allowed
-        assert manager.is_path_allowed(problem_path), (
-            "Should allow .github-workflow-example.yml"
-        )
+        assert manager.is_path_allowed(
+            problem_path
+        ), "Should allow .github-workflow-example.yml"
         assert manager.is_path_allowed(gitignore_file), "Should allow .gitignore"
         assert manager.is_path_allowed(git_related_file), "Should allow git-tutorial.md"
 
         # Since .git is now allowed by default, this should also be allowed
-        assert manager.is_path_allowed(actual_github_dir), (
-            "Should allow actual .github directory"
-        )
+        assert manager.is_path_allowed(
+            actual_github_dir
+        ), "Should allow actual .github directory"
 
     def test_various_hidden_files(self, temp_dir: str):
         """Test a variety of hidden files and paths to ensure correct behavior."""
@@ -93,15 +93,15 @@ class TestHiddenFilePermissions:
 
         # Test full component paths (should be excluded)
         for path in full_component_paths:
-            assert not manager.is_path_allowed(path), (
-                f"Should exclude full component: {path}"
-            )
+            assert not manager.is_path_allowed(
+                path
+            ), f"Should exclude full component: {path}"
 
         # Test partial component paths (should be allowed)
         for path in partial_component_paths:
-            assert manager.is_path_allowed(path), (
-                f"Should allow partial component: {path}"
-            )
+            assert manager.is_path_allowed(
+                path
+            ), f"Should allow partial component: {path}"
 
     def test_wildcard_patterns(self, temp_dir: str):
         """Test that wildcard patterns work correctly."""
@@ -127,9 +127,9 @@ class TestHiddenFilePermissions:
 
         # Test wildcard matching paths (should be excluded)
         for path in wildcard_matches:
-            assert not manager.is_path_allowed(path), (
-                f"Should exclude wildcard match: {path}"
-            )
+            assert not manager.is_path_allowed(
+                path
+            ), f"Should exclude wildcard match: {path}"
 
         # Test non-matching paths (should be allowed)
         for path in wildcard_non_matches:
