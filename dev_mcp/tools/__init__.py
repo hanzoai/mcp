@@ -1,6 +1,6 @@
-"""Tools package for MCP Claude Code.
+"""Tools package for Hanzo Dev MCP.
 
-This package contains all the tools for the MCP Claude Code server.
+This package contains all the tools for the Hanzo Dev MCP server.
 It provides a unified interface for registering all tools with an MCP server.
 
 This includes a "think" tool implementation based on Anthropic's research showing
@@ -28,7 +28,7 @@ def register_all_tools(
     project_manager: ProjectManager,
     project_analyzer: Any,
 ) -> None:
-    """Register all Claude Code tools with the MCP server.
+    """Register all Hanzo Dev tools with the MCP server.
 
     Args:
         mcp_server: The FastMCP server instance

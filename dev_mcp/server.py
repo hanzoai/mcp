@@ -1,4 +1,4 @@
-"""MCP server implementing Claude Code capabilities."""
+"""MCP server implementing Hanzo Dev capabilities."""
 
 from typing import Literal, cast, final
 
@@ -13,15 +13,15 @@ from dev_mcp.tools.shell.command_executor import CommandExecutor
 
 @final
 class HanzoDevServer:
-    """MCP server implementing Claude Code capabilities."""
+    """MCP server implementing Hanzo Dev capabilities."""
 
     def __init__(
         self,
-        name: str = "claude-code",
+        name: str = "hanzo-dev",
         allowed_paths: list[str] | None = None,
         mcp_instance: FastMCP | None = None,
     ):
-        """Initialize the Claude Code server.
+        """Initialize the Hanzo Dev server.
 
         Args:
             name: The name of the server
@@ -82,17 +82,17 @@ class HanzoDevServer:
 
 
 def main():
-    """Run the Claude Code MCP server."""
+    """Run the Hanzo Dev MCP server."""
     import argparse
 
     parser = argparse.ArgumentParser(
-        description="MCP server implementing Claude Code capabilities"
+        description="MCP server implementing Hanzo Dev capabilities"
     )
 
     _ = parser.add_argument(
         "--name",
-        default="claude-code",
-        help="Name of the MCP server (default: claude-code)",
+        default="hanzo-dev",
+        help="Name of the MCP server (default: hanzo-dev)",
     )
 
     _ = parser.add_argument(

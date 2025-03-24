@@ -1,4 +1,4 @@
-"""Project analysis tools for MCP Claude Code.
+"""Project analysis tools for Hanzo Dev MCP.
 
 This module provides tools for analyzing project structure and dependencies.
 """
@@ -795,7 +795,7 @@ class ProjectManager:
 
 @final
 class ProjectAnalysis:
-    """Project analysis tools for MCP Claude Code."""
+    """Project analysis tools for Hanzo Dev MCP."""
 
     def __init__(
         self,

@@ -1,4 +1,4 @@
-"""Enhanced Context for MCP Claude Code tools.
+"""Enhanced Context for Hanzo Dev MCP tools.
 
 This module provides an enhanced Context class that wraps the MCP Context
 and adds additional functionality specific to Claude Code tools.
@@ -17,7 +17,7 @@ from mcp.server.lowlevel.helper_types import ReadResourceContents
 
 @final
 class ToolContext:
-    """Enhanced context for MCP Claude Code tools.
+    """Enhanced context for Hanzo Dev MCP tools.
 
     This class wraps the MCP Context and adds additional functionality
     for tracking tool execution, progress reporting, and resource access.
