@@ -52,7 +52,7 @@ You can run it with `uvx run mcp-hanzo-dev` without installation. Configure Clau
       "command": "uvx",
       "args": [
         "--from",
-        "mcp-hanzo-dev",
+        "hanzo-dev-mcp",
         "dev-mcp",
         "--allow-path",
         "/path/to/your/project"
@@ -75,7 +75,7 @@ You can customize the server using other options:
       "command": "uvx",
       "args": [
         "--from",
-        "mcp-hanzo-dev",
+        "hanzo-dev-mcp",
         "dev-mcp",
         "--allow-path",
         "/path/to/project",
