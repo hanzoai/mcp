@@ -5,6 +5,7 @@ including reading, writing, editing files, directory operations, and searching.
 All operations are secured through permission validation and path checking.
 """
 
+import re
 import time
 from difflib import unified_diff
 from pathlib import Path
@@ -778,7 +779,7 @@ class FileOperations:
                     try:
                         with open(file_path, "r", encoding="utf-8") as f:
                             for line_num, line in enumerate(f, 1):
-                                if pattern in line:
+                                if re.search(pattern, line):
                                     results.append(
                                         f"{file_path}:{line_num}: {line.rstrip()}"
                                     )
