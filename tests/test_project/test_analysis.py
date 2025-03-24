@@ -444,7 +444,7 @@ class TestProjectAnalysis:
             )
 
             with patch(
-                "dev_mcp.tools.project.analysis.create_tool_context",
+                "hanzo_mcp.tools.project.analysis.create_tool_context",
                 return_value=mock_tool_ctx,
             ):
                 # Call the project_analyze_tool

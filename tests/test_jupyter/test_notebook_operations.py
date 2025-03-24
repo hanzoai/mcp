@@ -145,7 +145,7 @@ class TestJupyterNotebookTools:
         # Mock context calls
         tool_ctx = AsyncMock()
         with patch(
-            "dev_mcp.tools.jupyter.notebook_operations.create_tool_context",
+            "hanzo_mcp.tools.jupyter.notebook_operations.create_tool_context",
             return_value=tool_ctx,
         ):
             # Extract the read_notebook function
@@ -184,7 +184,7 @@ class TestJupyterNotebookTools:
         # Mock context calls
         tool_ctx = AsyncMock()
         with patch(
-            "dev_mcp.tools.jupyter.notebook_operations.create_tool_context",
+            "hanzo_mcp.tools.jupyter.notebook_operations.create_tool_context",
             return_value=tool_ctx,
         ):
             # Extract the read_notebook function
@@ -224,7 +224,7 @@ class TestJupyterNotebookTools:
         # Mock context calls
         tool_ctx = AsyncMock()
         with patch(
-            "dev_mcp.tools.jupyter.notebook_operations.create_tool_context",
+            "hanzo_mcp.tools.jupyter.notebook_operations.create_tool_context",
             return_value=tool_ctx,
         ):
             # Extract the read_notebook function
@@ -262,7 +262,7 @@ class TestJupyterNotebookTools:
         # Mock context calls
         tool_ctx = AsyncMock()
         with patch(
-            "dev_mcp.tools.jupyter.notebook_operations.create_tool_context",
+            "hanzo_mcp.tools.jupyter.notebook_operations.create_tool_context",
             return_value=tool_ctx,
         ):
             # Extract the read_notebook function
@@ -302,7 +302,7 @@ class TestJupyterNotebookTools:
         # Mock context calls
         tool_ctx = AsyncMock()
         with patch(
-            "dev_mcp.tools.jupyter.notebook_operations.create_tool_context",
+            "hanzo_mcp.tools.jupyter.notebook_operations.create_tool_context",
             return_value=tool_ctx,
         ):
             # Extract the read_notebook function
@@ -339,7 +339,7 @@ class TestJupyterNotebookTools:
         # Mock context calls
         tool_ctx = AsyncMock()
         with patch(
-            "dev_mcp.tools.jupyter.notebook_operations.create_tool_context",
+            "hanzo_mcp.tools.jupyter.notebook_operations.create_tool_context",
             return_value=tool_ctx,
         ):
             # Extract the edit_notebook function
@@ -388,7 +388,7 @@ class TestJupyterNotebookTools:
         # Mock context calls
         tool_ctx = AsyncMock()
         with patch(
-            "dev_mcp.tools.jupyter.notebook_operations.create_tool_context",
+            "hanzo_mcp.tools.jupyter.notebook_operations.create_tool_context",
             return_value=tool_ctx,
         ):
             # Extract the edit_notebook function
@@ -444,7 +444,7 @@ class TestJupyterNotebookTools:
         # Mock context calls
         tool_ctx = AsyncMock()
         with patch(
-            "dev_mcp.tools.jupyter.notebook_operations.create_tool_context",
+            "hanzo_mcp.tools.jupyter.notebook_operations.create_tool_context",
             return_value=tool_ctx,
         ):
             # Extract the edit_notebook function
@@ -495,7 +495,7 @@ class TestJupyterNotebookTools:
         # Mock context calls
         tool_ctx = AsyncMock()
         with patch(
-            "dev_mcp.tools.jupyter.notebook_operations.create_tool_context",
+            "hanzo_mcp.tools.jupyter.notebook_operations.create_tool_context",
             return_value=tool_ctx,
         ):
             # Extract the edit_notebook function
@@ -543,7 +543,7 @@ class TestJupyterNotebookTools:
         # Mock context calls
         tool_ctx = AsyncMock()
         with patch(
-            "dev_mcp.tools.jupyter.notebook_operations.create_tool_context",
+            "hanzo_mcp.tools.jupyter.notebook_operations.create_tool_context",
             return_value=tool_ctx,
         ):
             # Extract the edit_notebook function
@@ -591,7 +591,7 @@ class TestJupyterNotebookTools:
         # Mock context calls
         tool_ctx = AsyncMock()
         with patch(
-            "dev_mcp.tools.jupyter.notebook_operations.create_tool_context",
+            "hanzo_mcp.tools.jupyter.notebook_operations.create_tool_context",
             return_value=tool_ctx,
         ):
             # Extract the edit_notebook function
@@ -628,7 +628,7 @@ class TestJupyterNotebookTools:
         # Mock context calls
         tool_ctx = AsyncMock()
         with patch(
-            "dev_mcp.tools.jupyter.notebook_operations.create_tool_context",
+            "hanzo_mcp.tools.jupyter.notebook_operations.create_tool_context",
             return_value=tool_ctx,
         ):
             # Extract the edit_notebook function
@@ -672,7 +672,7 @@ class TestJupyterNotebookTools:
         # Mock context calls
         tool_ctx = AsyncMock()
         with patch(
-            "dev_mcp.tools.jupyter.notebook_operations.create_tool_context",
+            "hanzo_mcp.tools.jupyter.notebook_operations.create_tool_context",
             return_value=tool_ctx,
         ):
             # Extract the edit_notebook function
@@ -711,7 +711,7 @@ class TestJupyterNotebookTools:
         # Mock context calls
         tool_ctx = AsyncMock()
         with patch(
-            "dev_mcp.tools.jupyter.notebook_operations.create_tool_context",
+            "hanzo_mcp.tools.jupyter.notebook_operations.create_tool_context",
             return_value=tool_ctx,
         ):
             # Extract the edit_notebook function
