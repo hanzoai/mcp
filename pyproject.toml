@@ -9,7 +9,7 @@ description = "MCP server for accessing Hanzo APIs and Platform capabilities"
 readme = "README.md"
 requires-python = ">=3.12"
 license = { text = "MIT" }
-authors = [{ name = "Hanzo Dev", email = "dev@hanzo.ai" }]
+authors = [{ name = "Hanzo", email = "dev@hanzo.ai" }]
 classifiers = [
   "Programming Language :: Python :: 3",
   "License :: OSI Approved :: MIT License",

@@ -1,4 +1,4 @@
-"""Jupyter notebook tools for Hanzo Dev MCP.
+"""Jupyter notebook tools for Hanzo MCP.
 
 This module provides tools for reading and editing Jupyter notebooks (.ipynb files).
 """

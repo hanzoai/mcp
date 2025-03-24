@@ -7,11 +7,11 @@ import sys
 from pathlib import Path
 from typing import Any, cast
 
-from hanzo_mcp.server import HanzoDevServer
+from hanzo_mcp.server import HanzoMCPServer
 
 
 def main() -> None:
-    """Run the CLI for the Hanzo Dev MCP server."""
+    """Run the CLI for the Hanzo MCP server."""
     parser = argparse.ArgumentParser(
         description="MCP server for accessing Hanzo APIs and Platform capabilities"
     )
@@ -70,7 +70,7 @@ def main() -> None:
         allowed_paths.append(project_dir)
 
     # Run the server
-    server = HanzoDevServer(name=name, allowed_paths=allowed_paths)
+    server = HanzoMCPServer(name=name, allowed_paths=allowed_paths)
     # Transport will be automatically cast to Literal['stdio', 'sse'] by the server
     server.run(transport=transport)
 

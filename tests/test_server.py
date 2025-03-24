@@ -5,28 +5,28 @@ from typing import Tuple
 
 import pytest
 
-from hanzo_mcp.server import HanzoDevServer
+from hanzo_mcp.server import HanzoMCPServer
 
 
-class TestHanzoDevServer:
-    """Test the HanzoDevServer class."""
+class TestHanzoMCPServer:
+    """Test the HanzoMCPServer class."""
 
     @pytest.fixture
-    def server(self) -> Tuple[HanzoDevServer, MagicMock]:
-        """Create a HanzoDevServer instance for testing."""
+    def server(self) -> Tuple[HanzoMCPServer, MagicMock]:
+        """Create a HanzoMCPServer instance for testing."""
         with patch("mcp.server.fastmcp.FastMCP") as mock_fastmcp:
             # Create a mock FastMCP instance
             mock_mcp = MagicMock()
             mock_fastmcp.return_value = mock_mcp
 
             # Create the server with the mock MCP
-            server = HanzoDevServer(name="test-server", mcp_instance=mock_mcp)
+            server = HanzoMCPServer(name="test-server", mcp_instance=mock_mcp)
 
             # Return both the server and the mock MCP
             yield server, mock_mcp
 
-    def test_initialization(self, server: Tuple[HanzoDevServer, MagicMock]) -> None:
-        """Test initializing HanzoDevServer."""
+    def test_initialization(self, server: Tuple[HanzoMCPServer, MagicMock]) -> None:
+        """Test initializing HanzoMCPServer."""
         server_instance, mock_mcp = server
 
         # Verify components were initialized
@@ -54,7 +54,7 @@ class TestHanzoDevServer:
             doc_context = MagicMock()
 
             # Create the server
-            server = HanzoDevServer(name="test-server", mcp_instance=mock_mcp)
+            server = HanzoMCPServer(name="test-server", mcp_instance=mock_mcp)
 
             # Inject our mocks
             server.permission_manager = perm_manager
@@ -89,7 +89,7 @@ class TestHanzoDevServer:
             mock_register.assert_called_once()
 
     @pytest.mark.skip(reason="Cannot run stdio server in a test environment")
-    def test_run(self, server: Tuple[HanzoDevServer, MagicMock]) -> None:
+    def test_run(self, server: Tuple[HanzoMCPServer, MagicMock]) -> None:
         """Test running the server."""
         server_instance, mock_mcp = server
 
@@ -111,7 +111,7 @@ class TestHanzoDevServer:
 
     @pytest.mark.skip(reason="Cannot run stdio server in a test environment")
     def test_run_with_allowed_paths(
-        self, server: Tuple[HanzoDevServer, MagicMock]
+        self, server: Tuple[HanzoMCPServer, MagicMock]
     ) -> None:
         """Test running the server with additional allowed paths."""
         server_instance, mock_mcp = server
@@ -145,7 +145,7 @@ def test_main() -> None:
     """Test the main function."""
     with (
         patch("argparse.ArgumentParser.parse_args") as mock_parse_args,
-        patch("hanzo_mcp.server.HanzoDevServer") as mock_server_class,
+        patch("hanzo_mcp.server.HanzoMCPServer") as mock_server_class,
     ):
         # Mock parsed arguments
         mock_args = MagicMock()

@@ -1,1 +1,1 @@
-"""Tests package for Hanzo Dev MCP."""
+"""Tests package for Hanzo MCP."""

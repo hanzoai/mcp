@@ -1,4 +1,4 @@
-"""Filesystem operations tools for Hanzo Dev MCP.
+"""Filesystem operations tools for Hanzo MCP.
 
 This module provides comprehensive tools for interacting with the filesystem,
 including reading, writing, editing files, directory operations, and searching.
@@ -20,7 +20,7 @@ from hanzo_mcp.tools.common.validation import validate_path_parameter
 
 @final
 class FileOperations:
-    """File and filesystem operations tools for Hanzo Dev MCP."""
+    """File and filesystem operations tools for Hanzo MCP."""
 
     def __init__(
         self, document_context: DocumentContext, permission_manager: PermissionManager

@@ -1,1 +1,1 @@
-"""Common utilities for Hanzo Dev MCP tools."""
+"""Common utilities for Hanzo MCP tools."""
