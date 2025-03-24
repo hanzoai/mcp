@@ -5,6 +5,17 @@ All notable changes to the MCP Claude Code project will be documented in this fi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.17] - 2025-03-24
+
+### Enhanced
+- Enhanced `search_content` tool to use regular expression pattern matching instead of simple substring matching
+- Added comprehensive test suite for regex search functionality
+- Improved code search capabilities with pattern matching support
+
+### Changed
+- Modified search implementation to use `re.search()` instead of the `in` operator
+- Maintained backward compatibility with existing string search patterns
+
 ## [0.1.16] - 2025-03-23
 
 ### Added
