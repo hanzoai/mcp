@@ -1,6 +1,6 @@
-"""Tools package for Hanzo Dev MCP.
+"""Tools package for Hanzo MCP.
 
-This package contains all the tools for the Hanzo Dev MCP server.
+This package contains all the tools for the Hanzo MCP server.
 It provides a unified interface for registering all tools with an MCP server.
 
 This includes a "think" tool implementation based on Anthropic's research showing
@@ -12,13 +12,13 @@ from typing import Any
 
 from mcp.server.fastmcp import FastMCP
 
-from dev_mcp.tools.common.context import DocumentContext
-from dev_mcp.tools.common.permissions import PermissionManager
-from dev_mcp.tools.common.thinking import ThinkingTool
-from dev_mcp.tools.filesystem.file_operations import FileOperations
-from dev_mcp.tools.jupyter.notebook_operations import JupyterNotebookTools
-from dev_mcp.tools.project.analysis import ProjectAnalysis, ProjectManager
-from dev_mcp.tools.shell.command_executor import CommandExecutor
+from hanzo_mcp.tools.common.context import DocumentContext
+from hanzo_mcp.tools.common.permissions import PermissionManager
+from hanzo_mcp.tools.common.thinking import ThinkingTool
+from hanzo_mcp.tools.filesystem.file_operations import FileOperations
+from hanzo_mcp.tools.jupyter.notebook_operations import JupyterNotebookTools
+from hanzo_mcp.tools.project.analysis import ProjectAnalysis, ProjectManager
+from hanzo_mcp.tools.shell.command_executor import CommandExecutor
 
 
 def register_all_tools(
@@ -28,7 +28,7 @@ def register_all_tools(
     project_manager: ProjectManager,
     project_analyzer: Any,
 ) -> None:
-    """Register all Hanzo Dev tools with the MCP server.
+    """Register all Hanzo MCP tools with the MCP server.
 
     Args:
         mcp_server: The FastMCP server instance

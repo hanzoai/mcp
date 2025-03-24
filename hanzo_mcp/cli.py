@@ -1,4 +1,4 @@
-"""Command-line interface for the Hanzo Dev MCP server."""
+"""Command-line interface for the Hanzo MCP server."""
 
 import argparse
 import json
@@ -7,13 +7,13 @@ import sys
 from pathlib import Path
 from typing import Any, cast
 
-from dev_mcp.server import HanzoDevServer
+from hanzo_mcp.server import HanzoDevServer
 
 
 def main() -> None:
     """Run the CLI for the Hanzo Dev MCP server."""
     parser = argparse.ArgumentParser(
-        description="MCP server implementing Hanzo Dev capabilities"
+        description="MCP server for accessing Hanzo APIs and Platform capabilities"
     )
 
     _ = parser.add_argument(
@@ -25,8 +25,8 @@ def main() -> None:
 
     _ = parser.add_argument(
         "--name",
-        default="hanzo-dev",
-        help="Name of the MCP server (default: hanzo-dev)",
+        default="hanzo",
+        help="Name of the MCP server (default: hanzo)",
     )
 
     _ = parser.add_argument(
@@ -76,7 +76,7 @@ def main() -> None:
 
 
 def install_claude_desktop_config(
-    name: str = "hanzo-dev", allowed_paths: list[str] | None = None
+    name: str = "hanzo", allowed_paths: list[str] | None = None
 ) -> None:
     """Install the server configuration in Claude Desktop.
 
@@ -103,7 +103,7 @@ def install_claude_desktop_config(
     script_path: Path = Path(sys.executable)
 
     # Create args array
-    args: list[str] = ["-m", "dev_mcp.cli"]
+    args: list[str] = ["-m", "hanzo_mcp.cli"]
 
     # Add allowed paths if specified
     if allowed_paths:

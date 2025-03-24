@@ -1,10 +1,10 @@
 # Hanzo MCP
 
-Hanzo AI + Hanzo Dev capabilities via the Model Context Protocol (MCP).
+Hanzo AI + Platform capabilities via the Model Context Protocol (MCP).
 
 ## Overview
 
-This project provides an MCP server that provides access to Hanzo APIs + Platform as well as Hanzo Dev functionality, allowing LLMs directly execute instructions for modifying and improving project files. By leveraging the Model Context Protocol, this implementation enables seamless integration with various MCP clients including Claude Desktop.
+This project provides an MCP server that enables access to Hanzo APIs and Platform capabilities, as well as providing development tools for managing and improving projects. By leveraging the Model Context Protocol, this server enables seamless integration with various MCP clients including Claude Desktop, allowing LLMs to directly access Hanzo's platform functionality.
 
 ![example](./doc/example.gif)
 
@@ -43,17 +43,17 @@ This project provides an MCP server that provides access to Hanzo APIs + Platfor
 
 #### Configuring Claude Desktop
 
-You can run it with `uvx run mcp-hanzo-dev` without installation. Configure Claude Desktop to use this server by adding the following to your Claude Desktop configuration file:
+You can run it with `uvx run hanzo-mcp` without installation. Configure Claude Desktop to use this server by adding the following to your Claude Desktop configuration file:
 
 ```json
 {
   "mcpServers": {
-    "hanzo-dev": {
+    "hanzo": {
       "command": "uvx",
       "args": [
         "--from",
-        "hanzo-dev-mcp",
-        "dev-mcp",
+        "hanzo-mcp",
+        "hanzo-mcp",
         "--allow-path",
         "/path/to/your/project"
       ]
@@ -71,16 +71,16 @@ You can customize the server using other options:
 ```json
 {
   "mcpServers": {
-    "hanzo-dev": {
+    "hanzo": {
       "command": "uvx",
       "args": [
         "--from",
-        "hanzo-dev-mcp",
-        "dev-mcp",
+        "hanzo-mcp",
+        "hanzo-mcp",
         "--allow-path",
         "/path/to/project",
         "--name",
-        "custom-hanzo-dev",
+        "custom-hanzo",
         "--transport",
         "stdio"
       ]
@@ -91,7 +91,7 @@ You can customize the server using other options:
 
 ### Configuring Claude Desktop System Prompt
 
-To get the best experience with Hanzo Dev, you need to add the provided system prompt to your Claude Desktop client. This system prompt guides Claude through a structured workflow for code modifications and project management.
+To get the best experience with Hanzo MCP, you need to add the provided system prompt to your Claude Desktop client. This system prompt guides Claude through a structured workflow for interacting with Hanzo platform services and managing project files.
 
 Follow these steps:
 

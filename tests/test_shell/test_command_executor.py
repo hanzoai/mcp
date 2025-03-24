@@ -7,9 +7,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 if TYPE_CHECKING:
-    from dev_mcp.tools.common.permissions import PermissionManager
+    from hanzo_mcp.tools.common.permissions import PermissionManager
 
-from dev_mcp.tools.shell.command_executor import CommandExecutor, CommandResult
+from hanzo_mcp.tools.shell.command_executor import CommandExecutor, CommandResult
 
 
 class TestCommandResult:

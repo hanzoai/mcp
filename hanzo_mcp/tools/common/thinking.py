@@ -1,4 +1,4 @@
-"""Thinking tool for Hanzo Dev MCP.
+"""Thinking tool for Hanzo MCP.
 
 This module provides a tool for Claude to engage in structured thinking
 when performing complex multi-step operations or reasoning through policies.
@@ -10,12 +10,12 @@ from typing import final
 from mcp.server.fastmcp import Context as MCPContext
 from mcp.server.fastmcp import FastMCP
 
-from dev_mcp.tools.common.context import create_tool_context
+from hanzo_mcp.tools.common.context import create_tool_context
 
 
 @final
 class ThinkingTool:
-    """Think tool for Hanzo Dev MCP.
+    """Think tool for Hanzo MCP.
 
     This class provides a "think" tool that enables Claude to engage in more structured
     thinking when processing complex information or making multi-step decisions.

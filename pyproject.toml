@@ -3,9 +3,9 @@ requires = ["setuptools>=61.0.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "hanzo-dev-mcp"
+name = "hanzo-mcp"
 version = "0.1.19"
-description = "MCP implementation of Hanzo Dev capabilities"
+description = "MCP server for accessing Hanzo APIs and Platform capabilities"
 readme = "README.md"
 requires-python = ">=3.13"
 license = { text = "MIT" }
@@ -29,14 +29,14 @@ test = [
 performance = ["ujson>=5.7.0", "orjson>=3.9.0"]
 
 [project.scripts]
-hanzo-dev-mcp = "dev_mcp.cli:main"
+hanzo-mcp = "hanzo_mcp.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["dev_mcp*"]
+include = ["hanzo_mcp*"]
 
 [tool.basedpyright]
-include = ["dev_mcp"]
+include = ["hanzo_mcp"]
 exclude = [
   "**/node_modules",
   "**/__pycache__",

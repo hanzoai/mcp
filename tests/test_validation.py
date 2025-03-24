@@ -1,6 +1,6 @@
 """Tests for parameter validation in Hanzo Dev MCP tools."""
 
-from dev_mcp.tools.common.validation import (
+from hanzo_mcp.tools.common.validation import (
     validate_parameter,
     validate_parameters,
     validate_path_parameter,
