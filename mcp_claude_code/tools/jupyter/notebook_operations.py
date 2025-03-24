@@ -195,6 +195,7 @@ class JupyterNotebookTools:
                 self.document_context.add_document(path, content)
 
                 # Process notebook cells
+                # Get notebook language
                 language = notebook.get("metadata", {}).get("language_info", {}).get("name", "python")
                 cells = notebook.get("cells", [])
                 processed_cells = []
@@ -435,7 +436,8 @@ class JupyterNotebookTools:
                         await tool_ctx.error(f"Cell number {cell_number} is out of bounds (max: {len(cells) - 1})")
                         return f"Error: Cell number {cell_number} is out of bounds (max: {len(cells) - 1})"
 
-                language = notebook.get("metadata", {}).get("language_info", {}).get("name", "python")
+                # Get notebook language (needed for context but not directly used in this block)
+                _ = notebook.get("metadata", {}).get("language_info", {}).get("name", "python")
 
                 # Perform the requested operation
                 if edit_mode == "replace":

@@ -1096,8 +1096,8 @@ class TestFileOperations:
             with open(os.path.join(subdir, "file3.txt"), "w") as f:
                 f.write("This is file3 with replaceable text.\n")
             
-            # Now test with file pattern
-            result2 = await tools["content_replace"](mcp_context, "replaceable text", "updated content", test_dir, "*.py", False)
+            # Now test with file pattern - execute the replacement with Python files only
+            await tools["content_replace"](mcp_context, "replaceable text", "updated content", test_dir, "*.py", False)
             
             # Verify only Python files were modified
             with open(os.path.join(test_dir, "file1.txt"), "r") as f:
