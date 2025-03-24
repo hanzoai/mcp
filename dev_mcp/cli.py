@@ -1,4 +1,4 @@
-"""Command-line interface for the MCP Claude Code server."""
+"""Command-line interface for the Hanzo Dev MCP server."""
 
 import argparse
 import json
@@ -11,9 +11,9 @@ from dev_mcp.server import HanzoDevServer
 
 
 def main() -> None:
-    """Run the CLI for the MCP Claude Code server."""
+    """Run the CLI for the Hanzo Dev MCP server."""
     parser = argparse.ArgumentParser(
-        description="MCP server implementing Claude Code capabilities"
+        description="MCP server implementing Hanzo Dev capabilities"
     )
 
     _ = parser.add_argument(
@@ -25,8 +25,8 @@ def main() -> None:
 
     _ = parser.add_argument(
         "--name",
-        default="claude-code",
-        help="Name of the MCP server (default: claude-code)",
+        default="hanzo-dev",
+        help="Name of the MCP server (default: hanzo-dev)",
     )
 
     _ = parser.add_argument(
@@ -76,7 +76,7 @@ def main() -> None:
 
 
 def install_claude_desktop_config(
-    name: str = "claude-code", allowed_paths: list[str] | None = None
+    name: str = "hanzo-dev", allowed_paths: list[str] | None = None
 ) -> None:
     """Install the server configuration in Claude Desktop.
 
