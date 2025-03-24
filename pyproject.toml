@@ -31,9 +31,15 @@ performance = ["ujson>=5.7.0", "orjson>=3.9.0"]
 [project.scripts]
 hanzo-mcp = "hanzo_mcp.cli:main"
 
+[tool.setuptools]
+zip-safe = true
+
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["hanzo_mcp*"]
+
+[tool.bdist_wheel]
+universal = true
 
 [tool.basedpyright]
 include = ["hanzo_mcp"]

@@ -44,10 +44,27 @@ jobs:
       - name: Install build dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install build
+          python -m pip install build wheel
 
       - name: Build distributions
-        run: python -m build
+        run: |
+          # Build a pure Python wheel
+          python -m build --wheel --no-isolation --config-setting=--python-tag=py3 --config-setting=--py-limited-api=cp38
+          # Also build an sdist
+          python -m build --sdist --no-isolation
+
+      - name: Verify wheel platform tag
+        run: |
+          echo "Checking wheel file platform tag..."
+          ls -la dist/
+          WHEEL_FILE=$(find dist -name "*.whl")
+          echo "Wheel file: $WHEEL_FILE"
+          if [[ "$WHEEL_FILE" == *"none-any"* ]]; then
+            echo "✅ Platform tag is correctly set as 'none-any'"
+          else
+            echo "❌ Platform tag is not 'none-any'"
+            exit 1
+          fi
 
       - name: Upload distribution artifacts
         uses: actions/upload-artifact@v4
@@ -99,7 +116,7 @@ jobs:
           # Save to file
           if [ -z "$NOTES" ]; then
             echo "No release notes found for version $VERSION or extraction failed."
-            echo "**Release $VERSION**\n\nPlease check the [CHANGELOG.md](https://github.com/hanzoai/dev-mcp/blob/main/CHANGELOG.md) for more details." > release_notes.md
+            echo "**Release $VERSION**\n\nPlease check the [CHANGELOG.md](https://github.com/hanzoai/mcp/blob/main/CHANGELOG.md) for more details." > release_notes.md
           else
             echo "$NOTES" > release_notes.md
             echo "Successfully extracted release notes for version $VERSION"
@@ -113,7 +130,7 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ steps.tag.outputs.tag }}
-          name: Hanzo Dev MCP ${{ steps.tag.outputs.tag }}
+          name: Hanzo MCP ${{ steps.tag.outputs.tag }}
           body_path: release_notes.md
           files: dist/*
         env:
