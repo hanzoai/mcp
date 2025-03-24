@@ -11,7 +11,7 @@ import asyncio
 import fnmatch
 from difflib import unified_diff
 from pathlib import Path
-from typing import Any, final, List, Set
+from typing import Any, final
 
 from mcp.server.fastmcp import Context as MCPContext
 from mcp.server.fastmcp import FastMCP
@@ -717,7 +717,7 @@ class FileOperations:
                     return f"Error: Path does not exist: {path}"
 
                 # Find matching files using optimized file finding
-                matching_files: List[Path] = []
+                matching_files: list[Path] = []
 
                 # Process based on whether path is a file or directory
                 if input_path.is_file():
@@ -733,7 +733,7 @@ class FileOperations:
                     await tool_ctx.info(f"Finding files in directory: {path}")
                     
                     # Keep track of allowed paths for filtering
-                    allowed_paths: Set[str] = set()
+                    allowed_paths: set[str] = set()
                     
                     # Collect all allowed paths first for faster filtering
                     for entry in input_path.rglob("*"):
@@ -761,8 +761,8 @@ class FileOperations:
                 else:
                     await tool_ctx.info(f"Searching through {total_files} files in directory")
 
-                # Set up for parallel processing
-                results: List[str] = []
+                # set up for parallel processing
+                results: list[str] = []
                 files_processed = 0
                 matches_found = 0
                 batch_size = 20  # Process files in batches to avoid overwhelming the system
@@ -772,9 +772,9 @@ class FileOperations:
                 semaphore = asyncio.Semaphore(10)
                 
                 # Create an async function to search a single file
-                async def search_file(file_path: Path) -> List[str]:
+                async def search_file(file_path: Path) -> list[str]:
                     nonlocal files_processed, matches_found
-                    file_results: List[str] = []
+                    file_results: list[str] = []
                     
                     try:
                         async with semaphore:  # Limit concurrent operations
@@ -926,7 +926,7 @@ class FileOperations:
                     await tool_ctx.info(f"Finding files in directory: {path}")
                     
                     # Keep track of allowed paths for filtering
-                    allowed_paths: Set[str] = set()
+                    allowed_paths: set[str] = set()
                     
                     # Collect all allowed paths first for faster filtering
                     for entry in input_path.rglob("*"):
