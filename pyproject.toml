@@ -7,7 +7,7 @@ name = "hanzo-mcp"
 version = "0.1.22"
 description = "MCP server for accessing Hanzo APIs and Platform capabilities"
 readme = "README.md"
-requires-python = ">=3.13"
+requires-python = ">=3.12"
 license = { text = "MIT" }
 authors = [{ name = "Hanzo Dev", email = "dev@hanzo.ai" }]
 classifiers = [
@@ -49,7 +49,7 @@ exclude = [
   "src/experimental",
   "src/typestubs",
 ]
-pythonVersion = "3.13"
+pythonVersion = "3.12"
 reportUnknownVariableType = false
 reportUnknownMemberType = false
 reportUnknownParameterType = false
