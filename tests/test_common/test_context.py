@@ -7,7 +7,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from mcp_claude_code.tools.common.context import (
+from dev_mcp.tools.common.context import (
     DocumentContext,
     ToolContext,
     create_tool_context,

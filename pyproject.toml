@@ -3,13 +3,13 @@ requires = ["setuptools>=61.0.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "mcp-claude-code"
+name = "hanzo-dev-mcp"
 version = "0.1.16"
-description = "MCP implementation of Claude Code capabilities"
+description = "MCP implementation of Hanzo Dev capabilities"
 readme = "README.md"
 requires-python = ">=3.13"
 license = { text = "MIT" }
-authors = [{ name = "SDGLBL", email = "sdglbl.me@gmail.com" }]
+authors = [{ name = "Hanzo Dev", email = "dev@hanzo.ai" }]
 classifiers = [
   "Programming Language :: Python :: 3",
   "License :: OSI Approved :: MIT License",
@@ -29,15 +29,14 @@ test = [
 performance = ["ujson>=5.7.0", "orjson>=3.9.0"]
 
 [project.scripts]
-claudecode = "mcp_claude_code.cli:main"
+dev_mcp = "dev_mcp.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["mcp_claude_code*"]
-
+include = ["dev_mcp*"]
 
 [tool.basedpyright]
-include = ["mcp_claude_code"]
+include = ["dev_mcp"]
 exclude = [
   "**/node_modules",
   "**/__pycache__",

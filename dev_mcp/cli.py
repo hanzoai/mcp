@@ -7,7 +7,7 @@ import sys
 from pathlib import Path
 from typing import Any, cast
 
-from mcp_claude_code.server import ClaudeCodeServer
+from dev_mcp.server import HanzoDevServer
 
 
 def main() -> None:
@@ -70,7 +70,7 @@ def main() -> None:
         allowed_paths.append(project_dir)
 
     # Run the server
-    server = ClaudeCodeServer(name=name, allowed_paths=allowed_paths)
+    server = HanzoDevServer(name=name, allowed_paths=allowed_paths)
     # Transport will be automatically cast to Literal['stdio', 'sse'] by the server
     server.run(transport=transport)
 
@@ -103,7 +103,7 @@ def install_claude_desktop_config(
     script_path: Path = Path(sys.executable)
 
     # Create args array
-    args: list[str] = ["-m", "mcp_claude_code.cli"]
+    args: list[str] = ["-m", "dev_mcp.cli"]
 
     # Add allowed paths if specified
     if allowed_paths:

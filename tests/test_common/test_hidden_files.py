@@ -4,7 +4,7 @@ import os
 from pathlib import Path
 
 
-from mcp_claude_code.tools.common.permissions import PermissionManager
+from dev_mcp.tools.common.permissions import PermissionManager
 
 
 class TestHiddenFilePermissions:

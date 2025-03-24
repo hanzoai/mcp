@@ -16,8 +16,8 @@ from typing import final
 from mcp.server.fastmcp import Context as MCPContext
 from mcp.server.fastmcp import FastMCP
 
-from mcp_claude_code.tools.common.context import create_tool_context
-from mcp_claude_code.tools.common.permissions import PermissionManager
+from dev_mcp.tools.common.context import create_tool_context
+from dev_mcp.tools.common.permissions import PermissionManager
 
 
 @final

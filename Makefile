@@ -34,7 +34,7 @@ else
 endif
 
 # Project paths
-SRC_DIR = mcp_claude_code
+SRC_DIR = dev_mcp
 TEST_DIR = tests
 
 # Create virtual environment

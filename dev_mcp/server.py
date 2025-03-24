@@ -4,15 +4,15 @@ from typing import Literal, cast, final
 
 from mcp.server.fastmcp import FastMCP
 
-from mcp_claude_code.tools import register_all_tools
-from mcp_claude_code.tools.common.context import DocumentContext
-from mcp_claude_code.tools.common.permissions import PermissionManager
-from mcp_claude_code.tools.project.analysis import ProjectAnalyzer, ProjectManager
-from mcp_claude_code.tools.shell.command_executor import CommandExecutor
+from dev_mcp.tools import register_all_tools
+from dev_mcp.tools.common.context import DocumentContext
+from dev_mcp.tools.common.permissions import PermissionManager
+from dev_mcp.tools.project.analysis import ProjectAnalyzer, ProjectManager
+from dev_mcp.tools.shell.command_executor import CommandExecutor
 
 
 @final
-class ClaudeCodeServer:
+class HanzoDevServer:
     """MCP server implementing Claude Code capabilities."""
 
     def __init__(
@@ -117,7 +117,7 @@ def main():
     allowed_paths: list[str] | None = args.allowed_paths
 
     # Create and run the server
-    server = ClaudeCodeServer(name=name, allowed_paths=allowed_paths)
+    server = HanzoDevServer(name=name, allowed_paths=allowed_paths)
     server.run(transport=transport, allowed_paths=allowed_paths or [])
 
 
