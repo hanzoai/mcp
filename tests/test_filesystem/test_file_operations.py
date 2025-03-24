@@ -71,7 +71,7 @@ class TestFileOperations:
         # Mock context calls
         tool_ctx = AsyncMock()
         with patch(
-            "dev_mcp.tools.filesystem.file_operations.create_tool_context",
+            "hanzo_mcp.tools.filesystem.file_operations.create_tool_context",
             return_value=tool_ctx,
         ):
             # Extract the read_files function directly
@@ -106,7 +106,7 @@ class TestFileOperations:
         # Mock context calls
         tool_ctx = AsyncMock()
         with patch(
-            "dev_mcp.tools.filesystem.file_operations.create_tool_context",
+            "hanzo_mcp.tools.filesystem.file_operations.create_tool_context",
             return_value=tool_ctx,
         ):
             # Extract the read_files function
@@ -147,7 +147,7 @@ class TestFileOperations:
         # Mock context calls
         tool_ctx = AsyncMock()
         with patch(
-            "dev_mcp.tools.filesystem.file_operations.create_tool_context",
+            "hanzo_mcp.tools.filesystem.file_operations.create_tool_context",
             return_value=tool_ctx,
         ):
             # Extract the write_file function
@@ -198,7 +198,7 @@ class TestFileOperations:
         # Mock context calls
         tool_ctx = AsyncMock()
         with patch(
-            "dev_mcp.tools.filesystem.file_operations.create_tool_context",
+            "hanzo_mcp.tools.filesystem.file_operations.create_tool_context",
             return_value=tool_ctx,
         ):
             # Extract the edit_file function
@@ -247,7 +247,7 @@ class TestFileOperations:
         # Mock context calls
         tool_ctx = AsyncMock()
         with patch(
-            "dev_mcp.tools.filesystem.file_operations.create_tool_context",
+            "hanzo_mcp.tools.filesystem.file_operations.create_tool_context",
             return_value=tool_ctx,
         ):
             # Extract the edit_file function
@@ -294,7 +294,7 @@ class TestFileOperations:
         # Mock context calls
         tool_ctx = AsyncMock()
         with patch(
-            "dev_mcp.tools.filesystem.file_operations.create_tool_context",
+            "hanzo_mcp.tools.filesystem.file_operations.create_tool_context",
             return_value=tool_ctx,
         ):
             # Extract the edit_file function
@@ -341,7 +341,7 @@ class TestFileOperations:
         # Mock context calls
         tool_ctx = AsyncMock()
         with patch(
-            "dev_mcp.tools.filesystem.file_operations.create_tool_context",
+            "hanzo_mcp.tools.filesystem.file_operations.create_tool_context",
             return_value=tool_ctx,
         ):
             # Extract the edit_file function
@@ -389,7 +389,7 @@ class TestFileOperations:
         # Mock context calls
         tool_ctx = AsyncMock()
         with patch(
-            "dev_mcp.tools.filesystem.file_operations.create_tool_context",
+            "hanzo_mcp.tools.filesystem.file_operations.create_tool_context",
             return_value=tool_ctx,
         ):
             # Extract the read_files function
@@ -425,7 +425,7 @@ class TestFileOperations:
         # Mock context calls
         tool_ctx = AsyncMock()
         with patch(
-            "dev_mcp.tools.filesystem.file_operations.create_tool_context",
+            "hanzo_mcp.tools.filesystem.file_operations.create_tool_context",
             return_value=tool_ctx,
         ):
             # Extract the read_files function
@@ -478,7 +478,7 @@ class TestFileOperations:
         # Mock context calls
         tool_ctx = AsyncMock()
         with patch(
-            "dev_mcp.tools.filesystem.file_operations.create_tool_context",
+            "hanzo_mcp.tools.filesystem.file_operations.create_tool_context",
             return_value=tool_ctx,
         ):
             # Extract the directory_tree function
@@ -544,7 +544,7 @@ class TestFileOperations:
         # Mock context calls
         tool_ctx = AsyncMock()
         with patch(
-            "dev_mcp.tools.filesystem.file_operations.create_tool_context",
+            "hanzo_mcp.tools.filesystem.file_operations.create_tool_context",
             return_value=tool_ctx,
         ):
             # Extract the directory_tree function
@@ -633,7 +633,7 @@ class TestFileOperations:
         # Mock context calls
         tool_ctx = AsyncMock()
         with patch(
-            "dev_mcp.tools.filesystem.file_operations.create_tool_context",
+            "hanzo_mcp.tools.filesystem.file_operations.create_tool_context",
             return_value=tool_ctx,
         ):
             # Extract the directory_tree function
@@ -726,7 +726,7 @@ class TestFileOperations:
         # Mock context calls
         tool_ctx = AsyncMock()
         with patch(
-            "dev_mcp.tools.filesystem.file_operations.create_tool_context",
+            "hanzo_mcp.tools.filesystem.file_operations.create_tool_context",
             return_value=tool_ctx,
         ):
             # Extract the directory_tree function
@@ -768,7 +768,7 @@ class TestFileOperations:
         # Mock context calls
         tool_ctx = AsyncMock()
         with patch(
-            "dev_mcp.tools.filesystem.file_operations.create_tool_context",
+            "hanzo_mcp.tools.filesystem.file_operations.create_tool_context",
             return_value=tool_ctx,
         ):
             # Extract the search_content function
@@ -816,7 +816,7 @@ class TestFileOperations:
         # Mock context calls
         tool_ctx = AsyncMock()
         with patch(
-            "dev_mcp.tools.filesystem.file_operations.create_tool_context",
+            "hanzo_mcp.tools.filesystem.file_operations.create_tool_context",
             return_value=tool_ctx,
         ):
             # Extract the search_content function
@@ -863,7 +863,7 @@ class TestFileOperations:
         # Mock context calls
         tool_ctx = AsyncMock()
         with patch(
-            "dev_mcp.tools.filesystem.file_operations.create_tool_context",
+            "hanzo_mcp.tools.filesystem.file_operations.create_tool_context",
             return_value=tool_ctx,
         ):
             # Extract the content_replace function
@@ -921,7 +921,7 @@ class TestFileOperations:
         # Mock context calls
         tool_ctx = AsyncMock()
         with patch(
-            "dev_mcp.tools.filesystem.file_operations.create_tool_context",
+            "hanzo_mcp.tools.filesystem.file_operations.create_tool_context",
             return_value=tool_ctx,
         ):
             # Extract the content_replace function
@@ -992,7 +992,7 @@ class TestFileOperations:
         # Mock context calls
         tool_ctx = AsyncMock()
         with patch(
-            "dev_mcp.tools.filesystem.file_operations.create_tool_context",
+            "hanzo_mcp.tools.filesystem.file_operations.create_tool_context",
             return_value=tool_ctx,
         ):
             # Extract the search_content function
@@ -1068,7 +1068,7 @@ class TestFileOperations:
         # Mock context calls
         tool_ctx = AsyncMock()
         with patch(
-            "dev_mcp.tools.filesystem.file_operations.create_tool_context",
+            "hanzo_mcp.tools.filesystem.file_operations.create_tool_context",
             return_value=tool_ctx,
         ):
             # Extract the content_replace function

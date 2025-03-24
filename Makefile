@@ -34,7 +34,7 @@ else
 endif
 
 # Project paths
-SRC_DIR = dev_mcp
+SRC_DIR = hanzo_mcp
 TEST_DIR = tests
 
 # Create virtual environment

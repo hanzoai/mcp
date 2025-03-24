@@ -40,7 +40,7 @@ async def test_think_with_valid_thought():
 
     # Patch the create_tool_context function
     with patch(
-        "dev_mcp.tools.common.thinking.create_tool_context",
+        "hanzo_mcp.tools.common.thinking.create_tool_context",
         return_value=tool_ctx,
     ):
         from hanzo_mcp.tools.common.thinking import ThinkingTool
@@ -84,7 +84,7 @@ async def test_think_with_empty_thought():
 
     # Patch the create_tool_context function
     with patch(
-        "dev_mcp.tools.common.thinking.create_tool_context",
+        "hanzo_mcp.tools.common.thinking.create_tool_context",
         return_value=tool_ctx,
     ):
         from hanzo_mcp.tools.common.thinking import ThinkingTool

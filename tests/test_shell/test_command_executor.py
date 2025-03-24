@@ -319,7 +319,7 @@ class TestCommandExecutor:
             mock_tool_ctx = AsyncMock()
 
             with patch(
-                "dev_mcp.tools.shell.command_executor.create_tool_context",
+                "hanzo_mcp.tools.shell.command_executor.create_tool_context",
                 return_value=mock_tool_ctx,
             ):
                 # Call the run_command tool
