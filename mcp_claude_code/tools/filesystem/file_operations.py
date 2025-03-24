@@ -7,9 +7,11 @@ All operations are secured through permission validation and path checking.
 
 import re
 import time
+import asyncio
+import fnmatch
 from difflib import unified_diff
 from pathlib import Path
-from typing import Any, final
+from typing import Any, final, List, Set
 
 from mcp.server.fastmcp import Context as MCPContext
 from mcp.server.fastmcp import FastMCP
@@ -714,46 +716,39 @@ class FileOperations:
                     await tool_ctx.error(f"Path does not exist: {path}")
                     return f"Error: Path does not exist: {path}"
 
-                # Find matching files
-                matching_files: list[Path] = []
+                # Find matching files using optimized file finding
+                matching_files: List[Path] = []
 
                 # Process based on whether path is a file or directory
                 if input_path.is_file():
                     # Single file search
-                    if file_pattern == "*" or input_path.match(file_pattern):
+                    if file_pattern == "*" or fnmatch.fnmatch(input_path.name, file_pattern):
                         matching_files.append(input_path)
                         await tool_ctx.info(f"Searching single file: {path}")
                     else:
                         await tool_ctx.info(f"File does not match pattern '{file_pattern}': {path}")
                         return f"File does not match pattern '{file_pattern}': {path}"
                 elif input_path.is_dir():
-                    # Directory search - recursive function to find files
-                    async def find_files(current_path: Path) -> None:
-                        # Skip if not allowed
-                        if not self.permission_manager.is_path_allowed(str(current_path)):
-                            return
-
-                        try:
-                            for entry in current_path.iterdir():
-                                # Skip if not allowed
-                                if not self.permission_manager.is_path_allowed(str(entry)):
-                                    continue
-
-                                if entry.is_file():
-                                    # Check if file matches pattern
-                                    if file_pattern == "*" or entry.match(file_pattern):
-                                        matching_files.append(entry)
-                                elif entry.is_dir():
-                                    # Recurse into directory
-                                    await find_files(entry)
-                        except Exception as e:
-                            await tool_ctx.warning(
-                                f"Error accessing {current_path}: {str(e)}"
-                            )
-
-                    # Find all matching files in directory
-                    await tool_ctx.info(f"Searching directory: {path}")
-                    await find_files(input_path)
+                    # Directory search - optimized file finding
+                    await tool_ctx.info(f"Finding files in directory: {path}")
+                    
+                    # Keep track of allowed paths for filtering
+                    allowed_paths: Set[str] = set()
+                    
+                    # Collect all allowed paths first for faster filtering
+                    for entry in input_path.rglob("*"):
+                        entry_path = str(entry)
+                        if self.permission_manager.is_path_allowed(entry_path):
+                            allowed_paths.add(entry_path)
+                    
+                    # Find matching files efficiently
+                    for entry in input_path.rglob("*"):
+                        entry_path = str(entry)
+                        if entry_path in allowed_paths and entry.is_file():
+                            if file_pattern == "*" or fnmatch.fnmatch(entry.name, file_pattern):
+                                matching_files.append(entry)
+                    
+                    await tool_ctx.info(f"Found {len(matching_files)} matching files")
                 else:
                     # This shouldn't happen since we already checked for existence
                     await tool_ctx.error(f"Path is neither a file nor a directory: {path}")
@@ -766,30 +761,56 @@ class FileOperations:
                 else:
                     await tool_ctx.info(f"Searching through {total_files} files in directory")
 
-                # Search through files
-                results: list[str] = []
+                # Set up for parallel processing
+                results: List[str] = []
                 files_processed = 0
                 matches_found = 0
-
-                for i, file_path in enumerate(matching_files):
-                    # Report progress every 10 files
-                    if i % 10 == 0:
-                        await tool_ctx.report_progress(i, total_files)
-
+                batch_size = 20  # Process files in batches to avoid overwhelming the system
+                
+                # Use a semaphore to limit concurrent file operations
+                # Adjust the value based on system resources
+                semaphore = asyncio.Semaphore(10)
+                
+                # Create an async function to search a single file
+                async def search_file(file_path: Path) -> List[str]:
+                    nonlocal files_processed, matches_found
+                    file_results: List[str] = []
+                    
                     try:
-                        with open(file_path, "r", encoding="utf-8") as f:
-                            for line_num, line in enumerate(f, 1):
-                                if re.search(pattern, line):
-                                    results.append(
-                                        f"{file_path}:{line_num}: {line.rstrip()}"
-                                    )
-                                    matches_found += 1
-                        files_processed += 1
-                    except UnicodeDecodeError:
-                        # Skip binary files
-                        continue
+                        async with semaphore:  # Limit concurrent operations
+                            try:
+                                with open(file_path, "r", encoding="utf-8") as f:
+                                    for line_num, line in enumerate(f, 1):
+                                        if re.search(pattern, line):
+                                            file_results.append(
+                                                f"{file_path}:{line_num}: {line.rstrip()}"
+                                            )
+                                            matches_found += 1
+                                files_processed += 1
+                            except UnicodeDecodeError:
+                                # Skip binary files
+                                files_processed += 1
+                            except Exception as e:
+                                await tool_ctx.warning(f"Error reading {file_path}: {str(e)}")
                     except Exception as e:
-                        await tool_ctx.warning(f"Error reading {file_path}: {str(e)}")
+                        await tool_ctx.warning(f"Error processing {file_path}: {str(e)}")
+                        
+                    return file_results
+
+                # Process files in parallel batches
+                for i in range(0, len(matching_files), batch_size):
+                    batch = matching_files[i:i+batch_size]
+                    batch_tasks = [search_file(file_path) for file_path in batch]
+                    
+                    # Report progress
+                    await tool_ctx.report_progress(i, total_files)
+                    
+                    # Wait for the batch to complete
+                    batch_results = await asyncio.gather(*batch_tasks)
+                    
+                    # Flatten and collect results
+                    for file_result in batch_results:
+                        results.extend(file_result)
 
                 # Final progress report
                 await tool_ctx.report_progress(total_files, total_files)
@@ -894,40 +915,33 @@ class FileOperations:
                 # Process based on whether path is a file or directory
                 if input_path.is_file():
                     # Single file search
-                    if file_pattern == "*" or input_path.match(file_pattern):
+                    if file_pattern == "*" or fnmatch.fnmatch(input_path.name, file_pattern):
                         matching_files.append(input_path)
                         await tool_ctx.info(f"Searching single file: {path}")
                     else:
                         await tool_ctx.info(f"File does not match pattern '{file_pattern}': {path}")
                         return f"File does not match pattern '{file_pattern}': {path}"
                 elif input_path.is_dir():
-                    # Directory search - recursive function to find files
-                    async def find_files(current_path: Path) -> None:
-                        # Skip if not allowed
-                        if not self.permission_manager.is_path_allowed(str(current_path)):
-                            return
-
-                        try:
-                            for entry in current_path.iterdir():
-                                # Skip if not allowed
-                                if not self.permission_manager.is_path_allowed(str(entry)):
-                                    continue
-
-                                if entry.is_file():
-                                    # Check if file matches pattern
-                                    if file_pattern == "*" or entry.match(file_pattern):
-                                        matching_files.append(entry)
-                                elif entry.is_dir():
-                                    # Recurse into directory
-                                    await find_files(entry)
-                        except Exception as e:
-                            await tool_ctx.warning(
-                                f"Error accessing {current_path}: {str(e)}"
-                            )
-
-                    # Find all matching files in directory
-                    await tool_ctx.info(f"Searching directory: {path}")
-                    await find_files(input_path)
+                    # Directory search - optimized file finding
+                    await tool_ctx.info(f"Finding files in directory: {path}")
+                    
+                    # Keep track of allowed paths for filtering
+                    allowed_paths: Set[str] = set()
+                    
+                    # Collect all allowed paths first for faster filtering
+                    for entry in input_path.rglob("*"):
+                        entry_path = str(entry)
+                        if self.permission_manager.is_path_allowed(entry_path):
+                            allowed_paths.add(entry_path)
+                    
+                    # Find matching files efficiently
+                    for entry in input_path.rglob("*"):
+                        entry_path = str(entry)
+                        if entry_path in allowed_paths and entry.is_file():
+                            if file_pattern == "*" or fnmatch.fnmatch(entry.name, file_pattern):
+                                matching_files.append(entry)
+                    
+                    await tool_ctx.info(f"Found {len(matching_files)} matching files")
                 else:
                     # This shouldn't happen since we already checked for existence
                     await tool_ctx.error(f"Path is neither a file nor a directory: {path}")
