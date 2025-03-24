@@ -113,7 +113,7 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ steps.tag.outputs.tag }}
-          name: MCP Claude Code ${{ steps.tag.outputs.tag }}
+          name: Hanzo Dev MCP ${{ steps.tag.outputs.tag }}
           body_path: release_notes.md
           files: dist/*
         env:
