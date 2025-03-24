@@ -1,10 +1,10 @@
-# Hanzo Dev MCP
+# Hanzo MCP
 
-An implementation of Hanzo Dev capabilities using the Model Context Protocol (MCP).
+Hanzo AI + Hanzo Dev capabilities via the Model Context Protocol (MCP).
 
 ## Overview
 
-This project provides an MCP server that implements Hanzo Dev functionality, allowing LLMs directly execute instructions for modifying and improving project files. By leveraging the Model Context Protocol, this implementation enables seamless integration with various MCP clients including Claude Desktop.
+This project provides an MCP server that provides access to Hanzo APIs + Platform as well as Hanzo Dev functionality, allowing LLMs directly execute instructions for modifying and improving project files. By leveraging the Model Context Protocol, this implementation enables seamless integration with various MCP clients including Claude Desktop.
 
 ![example](./doc/example.gif)
 
