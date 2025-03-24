@@ -12,7 +12,7 @@ from hanzo_mcp.tools.shell.command_executor import CommandExecutor
 
 
 @final
-class HanzoDevServer:
+class HanzoMCPServer:
     """MCP server for accessing Hanzo APIs and Platform capabilities."""
 
     def __init__(
@@ -21,7 +21,7 @@ class HanzoDevServer:
         allowed_paths: list[str] | None = None,
         mcp_instance: FastMCP | None = None,
     ):
-        """Initialize the Hanzo Dev server.
+        """Initialize the Hanzo server.
 
         Args:
             name: The name of the server
@@ -117,7 +117,7 @@ def main():
     allowed_paths: list[str] | None = args.allowed_paths
 
     # Create and run the server
-    server = HanzoDevServer(name=name, allowed_paths=allowed_paths)
+    server = HanzoMCPServer(name=name, allowed_paths=allowed_paths)
     server.run(transport=transport, allowed_paths=allowed_paths or [])
 
 

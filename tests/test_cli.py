@@ -18,7 +18,7 @@ class TestCLI:
         """Test the main function running the server."""
         with (
             patch("argparse.ArgumentParser.parse_args") as mock_parse_args,
-            patch("hanzo_mcp.cli.HanzoDevServer") as mock_server_class,
+            patch("hanzo_mcp.cli.HanzoMCPServer") as mock_server_class,
         ):
             # Mock parsed arguments
             mock_args = MagicMock()
@@ -67,7 +67,7 @@ class TestCLI:
         """Test the main function without specified allowed paths."""
         with (
             patch("argparse.ArgumentParser.parse_args") as mock_parse_args,
-            patch("hanzo_mcp.cli.HanzoDevServer") as mock_server_class,
+            patch("hanzo_mcp.cli.HanzoMCPServer") as mock_server_class,
             patch("os.getcwd", return_value="/current/dir"),
         ):
             # Mock parsed arguments

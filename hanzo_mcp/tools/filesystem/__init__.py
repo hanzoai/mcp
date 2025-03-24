@@ -1,4 +1,4 @@
-"""Filesystem tools for Hanzo Dev MCP.
+"""Filesystem tools for Hanzo MCP.
 
 This module provides comprehensive tools for interacting with the filesystem,
 including reading, writing, editing files, directory operations, and searching.

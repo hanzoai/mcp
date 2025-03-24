@@ -1,4 +1,4 @@
-"""Command executor tools for Hanzo Dev MCP.
+"""Command executor tools for Hanzo MCP.
 
 This module provides tools for executing shell commands and scripts with
 comprehensive error handling, permissions checking, and progress tracking.
@@ -86,7 +86,7 @@ class CommandResult:
 
 @final
 class CommandExecutor:
-    """Command executor tools for Hanzo Dev MCP.
+    """Command executor tools for Hanzo MCP.
 
     This class provides tools for executing shell commands and scripts with
     comprehensive error handling, permissions checking, and progress tracking.

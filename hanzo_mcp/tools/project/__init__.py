@@ -1,1 +1,1 @@
-"""Project analysis and management tools for Hanzo Dev MCP."""
+"""Project analysis and management tools for Hanzo MCP."""

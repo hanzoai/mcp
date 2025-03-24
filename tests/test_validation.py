@@ -1,4 +1,4 @@
-"""Tests for parameter validation in Hanzo Dev MCP tools."""
+"""Tests for parameter validation in Hanzo MCP tools."""
 
 from hanzo_mcp.tools.common.validation import (
     validate_parameter,
