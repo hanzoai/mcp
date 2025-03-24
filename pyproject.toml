@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "hanzo-mcp"
-version = "0.1.19"
+version = "0.1.21"
 description = "MCP server for accessing Hanzo APIs and Platform capabilities"
 readme = "README.md"
 requires-python = ">=3.13"
