@@ -8,10 +8,10 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 if TYPE_CHECKING:
-    from mcp_claude_code.tools.common.context import DocumentContext
-    from mcp_claude_code.tools.common.permissions import PermissionManager
+    from dev_mcp.tools.common.context import DocumentContext
+    from dev_mcp.tools.common.permissions import PermissionManager
 
-from mcp_claude_code.tools.filesystem.file_operations import FileOperations
+from dev_mcp.tools.filesystem.file_operations import FileOperations
 
 
 class TestFileOperations:
@@ -71,7 +71,7 @@ class TestFileOperations:
         # Mock context calls
         tool_ctx = AsyncMock()
         with patch(
-            "mcp_claude_code.tools.filesystem.file_operations.create_tool_context",
+            "dev_mcp.tools.filesystem.file_operations.create_tool_context",
             return_value=tool_ctx,
         ):
             # Extract the read_files function directly
@@ -106,7 +106,7 @@ class TestFileOperations:
         # Mock context calls
         tool_ctx = AsyncMock()
         with patch(
-            "mcp_claude_code.tools.filesystem.file_operations.create_tool_context",
+            "dev_mcp.tools.filesystem.file_operations.create_tool_context",
             return_value=tool_ctx,
         ):
             # Extract the read_files function
@@ -147,7 +147,7 @@ class TestFileOperations:
         # Mock context calls
         tool_ctx = AsyncMock()
         with patch(
-            "mcp_claude_code.tools.filesystem.file_operations.create_tool_context",
+            "dev_mcp.tools.filesystem.file_operations.create_tool_context",
             return_value=tool_ctx,
         ):
             # Extract the write_file function
@@ -198,7 +198,7 @@ class TestFileOperations:
         # Mock context calls
         tool_ctx = AsyncMock()
         with patch(
-            "mcp_claude_code.tools.filesystem.file_operations.create_tool_context",
+            "dev_mcp.tools.filesystem.file_operations.create_tool_context",
             return_value=tool_ctx,
         ):
             # Extract the edit_file function
@@ -247,7 +247,7 @@ class TestFileOperations:
         # Mock context calls
         tool_ctx = AsyncMock()
         with patch(
-            "mcp_claude_code.tools.filesystem.file_operations.create_tool_context",
+            "dev_mcp.tools.filesystem.file_operations.create_tool_context",
             return_value=tool_ctx,
         ):
             # Extract the edit_file function
@@ -294,7 +294,7 @@ class TestFileOperations:
         # Mock context calls
         tool_ctx = AsyncMock()
         with patch(
-            "mcp_claude_code.tools.filesystem.file_operations.create_tool_context",
+            "dev_mcp.tools.filesystem.file_operations.create_tool_context",
             return_value=tool_ctx,
         ):
             # Extract the edit_file function
@@ -341,7 +341,7 @@ class TestFileOperations:
         # Mock context calls
         tool_ctx = AsyncMock()
         with patch(
-            "mcp_claude_code.tools.filesystem.file_operations.create_tool_context",
+            "dev_mcp.tools.filesystem.file_operations.create_tool_context",
             return_value=tool_ctx,
         ):
             # Extract the edit_file function
@@ -389,7 +389,7 @@ class TestFileOperations:
         # Mock context calls
         tool_ctx = AsyncMock()
         with patch(
-            "mcp_claude_code.tools.filesystem.file_operations.create_tool_context",
+            "dev_mcp.tools.filesystem.file_operations.create_tool_context",
             return_value=tool_ctx,
         ):
             # Extract the read_files function
@@ -425,7 +425,7 @@ class TestFileOperations:
         # Mock context calls
         tool_ctx = AsyncMock()
         with patch(
-            "mcp_claude_code.tools.filesystem.file_operations.create_tool_context",
+            "dev_mcp.tools.filesystem.file_operations.create_tool_context",
             return_value=tool_ctx,
         ):
             # Extract the read_files function
@@ -478,7 +478,7 @@ class TestFileOperations:
         # Mock context calls
         tool_ctx = AsyncMock()
         with patch(
-            "mcp_claude_code.tools.filesystem.file_operations.create_tool_context",
+            "dev_mcp.tools.filesystem.file_operations.create_tool_context",
             return_value=tool_ctx,
         ):
             # Extract the directory_tree function
@@ -544,7 +544,7 @@ class TestFileOperations:
         # Mock context calls
         tool_ctx = AsyncMock()
         with patch(
-            "mcp_claude_code.tools.filesystem.file_operations.create_tool_context",
+            "dev_mcp.tools.filesystem.file_operations.create_tool_context",
             return_value=tool_ctx,
         ):
             # Extract the directory_tree function
@@ -633,7 +633,7 @@ class TestFileOperations:
         # Mock context calls
         tool_ctx = AsyncMock()
         with patch(
-            "mcp_claude_code.tools.filesystem.file_operations.create_tool_context",
+            "dev_mcp.tools.filesystem.file_operations.create_tool_context",
             return_value=tool_ctx,
         ):
             # Extract the directory_tree function
@@ -713,7 +713,7 @@ class TestFileOperations:
         # Mock context calls
         tool_ctx = AsyncMock()
         with patch(
-            "mcp_claude_code.tools.filesystem.file_operations.create_tool_context",
+            "dev_mcp.tools.filesystem.file_operations.create_tool_context",
             return_value=tool_ctx,
         ):
             # Extract the directory_tree function
@@ -755,7 +755,7 @@ class TestFileOperations:
         # Mock context calls
         tool_ctx = AsyncMock()
         with patch(
-            "mcp_claude_code.tools.filesystem.file_operations.create_tool_context",
+            "dev_mcp.tools.filesystem.file_operations.create_tool_context",
             return_value=tool_ctx,
         ):
             # Extract the search_content function
@@ -801,7 +801,7 @@ class TestFileOperations:
         # Mock context calls
         tool_ctx = AsyncMock()
         with patch(
-            "mcp_claude_code.tools.filesystem.file_operations.create_tool_context",
+            "dev_mcp.tools.filesystem.file_operations.create_tool_context",
             return_value=tool_ctx,
         ):
             # Extract the search_content function
@@ -846,7 +846,7 @@ class TestFileOperations:
         # Mock context calls
         tool_ctx = AsyncMock()
         with patch(
-            "mcp_claude_code.tools.filesystem.file_operations.create_tool_context",
+            "dev_mcp.tools.filesystem.file_operations.create_tool_context",
             return_value=tool_ctx,
         ):
             # Extract the content_replace function
@@ -902,7 +902,7 @@ class TestFileOperations:
         # Mock context calls
         tool_ctx = AsyncMock()
         with patch(
-            "mcp_claude_code.tools.filesystem.file_operations.create_tool_context",
+            "dev_mcp.tools.filesystem.file_operations.create_tool_context",
             return_value=tool_ctx,
         ):
             # Extract the content_replace function
@@ -966,7 +966,7 @@ class TestFileOperations:
         # Mock context calls
         tool_ctx = AsyncMock()
         with patch(
-            "mcp_claude_code.tools.filesystem.file_operations.create_tool_context",
+            "dev_mcp.tools.filesystem.file_operations.create_tool_context",
             return_value=tool_ctx,
         ):
             # Extract the search_content function
@@ -1038,7 +1038,7 @@ class TestFileOperations:
         # Mock context calls
         tool_ctx = AsyncMock()
         with patch(
-            "mcp_claude_code.tools.filesystem.file_operations.create_tool_context",
+            "dev_mcp.tools.filesystem.file_operations.create_tool_context",
             return_value=tool_ctx,
         ):
             # Extract the content_replace function

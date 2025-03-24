@@ -12,13 +12,13 @@ from typing import Any
 
 from mcp.server.fastmcp import FastMCP
 
-from mcp_claude_code.tools.common.context import DocumentContext
-from mcp_claude_code.tools.common.permissions import PermissionManager
-from mcp_claude_code.tools.common.thinking import ThinkingTool
-from mcp_claude_code.tools.filesystem.file_operations import FileOperations
-from mcp_claude_code.tools.jupyter.notebook_operations import JupyterNotebookTools
-from mcp_claude_code.tools.project.analysis import ProjectAnalysis, ProjectManager
-from mcp_claude_code.tools.shell.command_executor import CommandExecutor
+from dev_mcp.tools.common.context import DocumentContext
+from dev_mcp.tools.common.permissions import PermissionManager
+from dev_mcp.tools.common.thinking import ThinkingTool
+from dev_mcp.tools.filesystem.file_operations import FileOperations
+from dev_mcp.tools.jupyter.notebook_operations import JupyterNotebookTools
+from dev_mcp.tools.project.analysis import ProjectAnalysis, ProjectManager
+from dev_mcp.tools.shell.command_executor import CommandExecutor
 
 
 def register_all_tools(

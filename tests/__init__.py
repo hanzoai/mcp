@@ -1,1 +1,1 @@
-"""Tests package for MCP Claude Code."""
+"""Tests package for Hanzo Dev MCP."""

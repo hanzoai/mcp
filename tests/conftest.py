@@ -6,10 +6,10 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from mcp_claude_code.tools.common.context import DocumentContext, ToolContext
-from mcp_claude_code.tools.common.permissions import PermissionManager
-from mcp_claude_code.tools.project.analysis import ProjectAnalyzer
-from mcp_claude_code.tools.shell.command_executor import CommandExecutor
+from dev_mcp.tools.common.context import DocumentContext, ToolContext
+from dev_mcp.tools.common.permissions import PermissionManager
+from dev_mcp.tools.project.analysis import ProjectAnalyzer
+from dev_mcp.tools.shell.command_executor import CommandExecutor
 
 
 @pytest.fixture
@@ -107,6 +107,6 @@ def project_analyzer(command_executor):
 @pytest.fixture
 def project_manager(document_context, permission_manager, project_analyzer):
     """Create a project manager for testing."""
-    from mcp_claude_code.tools.project.analysis import ProjectManager
+    from dev_mcp.tools.project.analysis import ProjectManager
 
     return ProjectManager(document_context, permission_manager, project_analyzer)

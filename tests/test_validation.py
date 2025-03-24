@@ -1,6 +1,6 @@
 """Tests for parameter validation in MCP Claude Code tools."""
 
-from mcp_claude_code.tools.common.validation import (
+from dev_mcp.tools.common.validation import (
     validate_parameter,
     validate_parameters,
     validate_path_parameter,

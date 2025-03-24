@@ -3,6 +3,6 @@
 This module provides tools for reading and editing Jupyter notebooks (.ipynb files).
 """
 
-from mcp_claude_code.tools.jupyter.notebook_operations import JupyterNotebookTools
+from dev_mcp.tools.jupyter.notebook_operations import JupyterNotebookTools
 
 __all__ = ["JupyterNotebookTools"]
