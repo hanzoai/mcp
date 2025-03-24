@@ -1,4 +1,4 @@
-"""Test fixtures for the MCP Claude Code project."""
+"""Test fixtures for the Hanzo Dev MCP project."""
 
 import tempfile
 from pathlib import Path

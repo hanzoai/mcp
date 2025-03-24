@@ -1,4 +1,4 @@
-"""Filesystem operations tools for MCP Claude Code.
+"""Filesystem operations tools for Hanzo Dev MCP.
 
 This module provides comprehensive tools for interacting with the filesystem,
 including reading, writing, editing files, directory operations, and searching.
@@ -20,7 +20,7 @@ from dev_mcp.tools.common.validation import validate_path_parameter
 
 @final
 class FileOperations:
-    """File and filesystem operations tools for MCP Claude Code."""
+    """File and filesystem operations tools for Hanzo Dev MCP."""
 
     def __init__(
         self, document_context: DocumentContext, permission_manager: PermissionManager

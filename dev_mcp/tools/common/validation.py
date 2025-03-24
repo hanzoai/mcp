@@ -1,4 +1,4 @@
-"""Parameter validation utilities for MCP Claude Code tools.
+"""Parameter validation utilities for Hanzo Dev MCP tools.
 
 This module provides utilities for validating parameters in tool functions.
 """

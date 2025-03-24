@@ -1,1 +1,1 @@
-"""Common utilities for MCP Claude Code tools."""
+"""Common utilities for Hanzo Dev MCP tools."""

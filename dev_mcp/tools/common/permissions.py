@@ -1,4 +1,4 @@
-"""Permission system for the MCP Claude Code server."""
+"""Permission system for the Hanzo Dev MCP server."""
 
 import json
 import os

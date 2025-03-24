@@ -1,4 +1,4 @@
-"""Jupyter notebook operations tools for MCP Claude Code.
+"""Jupyter notebook operations tools for Hanzo Dev MCP.
 
 This module provides tools for reading and editing Jupyter notebook (.ipynb) files.
 It supports reading notebook cells with their outputs and modifying notebook contents.

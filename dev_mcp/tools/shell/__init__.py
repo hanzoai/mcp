@@ -1,1 +1,1 @@
-"""Shell and command execution tools for MCP Claude Code."""
+"""Shell and command execution tools for Hanzo Dev MCP."""

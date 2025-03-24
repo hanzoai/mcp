@@ -1,1 +1,1 @@
-"""Project analysis and management tools for MCP Claude Code."""
+"""Project analysis and management tools for Hanzo Dev MCP."""

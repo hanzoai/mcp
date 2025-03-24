@@ -1,4 +1,4 @@
-"""Filesystem tools for MCP Claude Code.
+"""Filesystem tools for Hanzo Dev MCP.
 
 This module provides comprehensive tools for interacting with the filesystem,
 including reading, writing, editing files, directory operations, and searching.
