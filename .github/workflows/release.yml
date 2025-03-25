@@ -44,14 +44,14 @@ jobs:
       - name: Install build dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install build wheel
+          python -m pip install build wheel setuptools>=61.0.0
 
       - name: Build distributions
         run: |
           # Build a pure Python wheel
-          python -m build --wheel --no-isolation --config-setting=--python-tag=py3 --config-setting=--py-limited-api=cp38
+          python -m build --wheel --config-setting=--python-tag=py3 --config-setting=--py-limited-api=cp38
           # Also build an sdist
-          python -m build --sdist --no-isolation
+          python -m build --sdist
 
       - name: Verify wheel platform tag
         run: |
