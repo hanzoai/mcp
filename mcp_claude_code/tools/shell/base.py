@@ -6,6 +6,7 @@ including command execution, script running, and process management.
 
 from abc import ABC, abstractmethod
 from typing import Any, final
+from typing_extensions import override
 
 from mcp.server.fastmcp import Context as MCPContext
 from mcp.server.fastmcp import FastMCP
@@ -116,7 +117,7 @@ class ShellBaseTool(BaseTool, ABC):
         """
         pass
         
-    @override
+    @override 
     def register(self, mcp_server: FastMCP) -> None:
         """Register this shell tool with the MCP server.
         
