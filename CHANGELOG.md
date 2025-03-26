@@ -5,6 +5,14 @@ All notable changes to the Hanzo MCP project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.27] - 2025-03-25
+
+### Added
+- External MCP server support with proxy capabilities
+- iTerm2 MCP server integration with terminal-specific tools
+- Configuration system for external MCP servers
+- Command-line options for enabling/disabling external servers
+
 ## [0.1.26] - 2025-03-25
 
 ### Added

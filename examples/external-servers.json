@@ -1,0 +1,1 @@
+{\n  \"servers\": [\n    {\n      \"name\": \"iterm2\",\n      \"command\": \"iterm2-mcp\",\n      \"args\": [],\n      \"enabled\": true,\n      \"description\": \"iTerm2 MCP server for terminal integration\"\n    }\n  ]\n}

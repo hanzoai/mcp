@@ -50,6 +50,18 @@ def main() -> None:
         default=True,
         help="Enable enhanced thinking using external LLM (default: enabled)",
     )
+    
+    _ = parser.add_argument(
+        "--external-servers",
+        action="store_true",
+        default=True,
+        help="Enable external MCP servers (default: enabled)",
+    )
+    
+    _ = parser.add_argument(
+        "--external-servers-config",
+        help="Path to external MCP servers configuration file",
+    )
 
     _ = parser.add_argument(
         "--project-dir", dest="project_dir", help="Set the project directory to analyze"
@@ -87,9 +99,17 @@ def main() -> None:
     # Set LLM provider configuration
     os.environ["HANZO_MCP_LLM_PROVIDER"] = args.llm_provider
     os.environ["HANZO_MCP_ENHANCED_THINKING"] = str(args.enhanced_thinking).lower()
+    
+    # Set external servers configuration
+    if args.external_servers_config:
+        os.environ["HANZO_MCP_EXTERNAL_SERVERS_CONFIG"] = args.external_servers_config
 
     # Run the server
-    server = HanzoMCPServer(name=name, allowed_paths=allowed_paths)
+    server = HanzoMCPServer(
+        name=name, 
+        allowed_paths=allowed_paths,
+        enable_external_servers=args.external_servers
+    )
     # Transport will be automatically cast to Literal['stdio', 'sse'] by the server
     server.run(transport=transport)
 
