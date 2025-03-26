@@ -36,6 +36,21 @@ def main() -> None:
         help="Add an allowed path (can be specified multiple times)",
     )
 
+    # LLM Provider configuration
+    _ = parser.add_argument(
+        "--llm-provider",
+        choices=["auto", "hanzo", "openai", "anthropic"],
+        default="auto",
+        help="LLM provider to use for enhanced thinking (default: auto)",
+    )
+    
+    _ = parser.add_argument(
+        "--enhanced-thinking",
+        action="store_true",
+        default=True,
+        help="Enable enhanced thinking using external LLM (default: enabled)",
+    )
+
     _ = parser.add_argument(
         "--project-dir", dest="project_dir", help="Set the project directory to analyze"
     )
@@ -68,6 +83,10 @@ def main() -> None:
     # If project directory is specified, add it to allowed paths
     if project_dir and project_dir not in allowed_paths:
         allowed_paths.append(project_dir)
+        
+    # Set LLM provider configuration
+    os.environ["HANZO_MCP_LLM_PROVIDER"] = args.llm_provider
+    os.environ["HANZO_MCP_ENHANCED_THINKING"] = str(args.enhanced_thinking).lower()
 
     # Run the server
     server = HanzoMCPServer(name=name, allowed_paths=allowed_paths)
