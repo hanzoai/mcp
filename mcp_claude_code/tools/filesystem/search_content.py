@@ -248,10 +248,10 @@ line number references. Only searches within allowed directories."""
                     return f"No matches found for pattern '{pattern}' in files matching '{file_pattern}' in directory: {path}"
 
             await tool_ctx.info(
-                f"Found {matches_found} matches in {files_processed} file{'s' if files_processed != 1 else ''}"
+                f"Found {matches_found} matches in {files_processed} file{'s' if files_processed > 1 else ''}"
             )
             return (
-                f"Found {matches_found} matches in {files_processed} files:\n\n"
+                f"Found {matches_found} matches in {files_processed} file{'s' if files_processed > 1 else ''}:\n\n"
                 + "\n".join(results)
             )
         except Exception as e:
