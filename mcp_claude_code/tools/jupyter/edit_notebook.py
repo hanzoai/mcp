@@ -115,8 +115,13 @@ In delete mode, the specified cell is removed."""
         cell_type = params.get("cell_type")
         edit_mode = params.get("edit_mode", "replace")
         
-        # Validate path parameter
-        path_validation = self.validate_path(path)
+        # Validate path parameter - ensure it's not None and convert to string
+        if path is None:
+            await tool_ctx.error("Path parameter is required")
+            return "Error: Path parameter is required"
+        
+        path_str = str(path)
+        path_validation = self.validate_path(path_str)
         if path_validation.is_error:
             await tool_ctx.error(path_validation.error_message)
             return f"Error: {path_validation.error_message}"
@@ -141,30 +146,30 @@ In delete mode, the specified cell is removed."""
             await tool_ctx.error("New source is required for replace or insert operations")
             return "Error: New source is required for replace or insert operations"
 
-        await tool_ctx.info(f"Editing notebook: {path} (cell: {cell_number}, mode: {edit_mode})")
+        await tool_ctx.info(f"Editing notebook: {path_str} (cell: {cell_number}, mode: {edit_mode})")
 
         # Check if path is allowed
-        if not self.is_path_allowed(path):
+        if not self.is_path_allowed(path_str):
             await tool_ctx.error(
-                f"Access denied - path outside allowed directories: {path}"
+                f"Access denied - path outside allowed directories: {path_str}"
             )
-            return f"Error: Access denied - path outside allowed directories: {path}"
+            return f"Error: Access denied - path outside allowed directories: {path_str}"
 
         try:
-            file_path = Path(path)
+            file_path = Path(path_str)
 
             if not file_path.exists():
-                await tool_ctx.error(f"File does not exist: {path}")
-                return f"Error: File does not exist: {path}"
+                await tool_ctx.error(f"File does not exist: {path_str}")
+                return f"Error: File does not exist: {path_str}"
 
             if not file_path.is_file():
-                await tool_ctx.error(f"Path is not a file: {path}")
-                return f"Error: Path is not a file: {path}"
+                await tool_ctx.error(f"Path is not a file: {path_str}")
+                return f"Error: Path is not a file: {path_str}"
 
             # Check file extension
             if file_path.suffix.lower() != ".ipynb":
-                await tool_ctx.error(f"File is not a Jupyter notebook: {path}")
-                return f"Error: File is not a Jupyter notebook: {path}"
+                await tool_ctx.error(f"File is not a Jupyter notebook: {path_str}")
+                return f"Error: File is not a Jupyter notebook: {path_str}"
 
             # Read and parse the notebook
             try:
@@ -172,11 +177,11 @@ In delete mode, the specified cell is removed."""
                     content = f.read()
                     notebook = json.loads(content)
             except json.JSONDecodeError:
-                await tool_ctx.error(f"Invalid notebook format: {path}")
-                return f"Error: Invalid notebook format: {path}"
+                await tool_ctx.error(f"Invalid notebook format: {path_str}")
+                return f"Error: Invalid notebook format: {path_str}"
             except UnicodeDecodeError:
-                await tool_ctx.error(f"Cannot read notebook file: {path}")
-                return f"Error: Cannot read notebook file: {path}"
+                await tool_ctx.error(f"Cannot read notebook file: {path_str}")
+                return f"Error: Cannot read notebook file: {path_str}"
 
             # Check cell_number is valid
             cells = notebook.get("cells", [])
@@ -201,8 +206,10 @@ In delete mode, the specified cell is removed."""
                 # Store previous contents for reporting
                 old_type = target_cell.get("cell_type", "code")
                 old_source = target_cell.get("source", "")
+                
+                # Fix for old_source which might be a list of strings
                 if isinstance(old_source, list):
-                    old_source = "".join(old_source)
+                    old_source = "".join([str(item) for item in old_source])
                 
                 # Update source
                 target_cell["source"] = new_source
@@ -259,10 +266,10 @@ In delete mode, the specified cell is removed."""
 
             # Update document context
             updated_content = json.dumps(notebook, indent=1)
-            self.document_context.update_document(path, updated_content)
+            self.document_context.update_document(path_str, updated_content)
 
-            await tool_ctx.info(f"Successfully edited notebook: {path} - {change_description}")
-            return f"Successfully edited notebook: {path} - {change_description}"
+            await tool_ctx.info(f"Successfully edited notebook: {path_str} - {change_description}")
+            return f"Successfully edited notebook: {path_str} - {change_description}"
         except Exception as e:
             await tool_ctx.error(f"Error editing notebook: {str(e)}")
             return f"Error editing notebook: {str(e)}"
