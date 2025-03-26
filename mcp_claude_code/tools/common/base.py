@@ -65,8 +65,12 @@ class BaseTool(ABC):
             
             # Add each parameter description
             for param_name, param_info in properties.items():
-                # Get the title if available, otherwise use the parameter name
-                title = param_info.get("title", param_name)
+                # Get the title if available, otherwise use the parameter name and capitalize it
+                if "title" in param_info:
+                    title = param_info["title"]
+                else:
+                    # Convert snake_case to Title Case
+                    title = " ".join(word.capitalize() for word in param_name.split("_"))
                 
                 # Check if the parameter is required
                 required = param_name in self.required
@@ -119,6 +123,19 @@ class BaseTool(ABC):
             
         Returns:
             Tool execution result as a string
+        """
+        pass
+        
+    @abstractmethod
+    def register(self, mcp_server: FastMCP) -> None:
+        """Register this tool with the MCP server.
+        
+        This method must be implemented by each tool class to create a wrapper function
+        with explicitly defined parameters that calls this tool's call method.
+        The wrapper function is then registered with the MCP server.
+        
+        Args:
+            mcp_server: The FastMCP server instance
         """
         pass
 
@@ -184,13 +201,8 @@ class ToolRegistry:
             mcp_server: The FastMCP server instance
             tool: The tool to register
         """
-        # Create a wrapper function that will be registered with MCP
-        @mcp_server.tool(name=tool.name, description=tool.mcp_description)
-        async def tool_wrapper(**kwargs: Any) -> str:
-            # Extract context from kwargs
-            ctx = kwargs.pop("ctx")
-            # Call the actual tool implementation
-            return await tool.call(ctx=ctx, **kwargs)
+        # Use the tool's register method which handles all the details
+        tool.register(mcp_server)
             
     @staticmethod
     def register_tools(mcp_server: FastMCP, tools: list[BaseTool]) -> None:
