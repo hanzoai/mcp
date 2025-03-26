@@ -84,7 +84,7 @@ print(json.dumps(result))
 
         # Execute script
         result = await self.command_executor.execute_script_from_file(
-            script=script, language="python", cwd=project_dir, timeout=30.0
+            script=script, language="python", cwd=project_dir, timeout=600.0
         )
         code, stdout, stderr = result.return_code, result.stdout, result.stderr
 
@@ -204,7 +204,7 @@ try {
 
         # Execute script
         result = await self.command_executor.execute_script_from_file(
-            script=script, language="javascript", cwd=project_dir, timeout=30.0
+            script=script, language="javascript", cwd=project_dir, timeout=600.0
         )
         code, stdout, stderr = result.return_code, result.stdout, result.stderr
 
@@ -286,7 +286,7 @@ print(json.dumps(result))
 
         # Execute script
         result = await self.command_executor.execute_script_from_file(
-            script=script, language="python", cwd=project_dir, timeout=30.0
+            script=script, language="python", cwd=project_dir, timeout=600.0
         )
         code, stdout, stderr = result.return_code, result.stdout, result.stderr
 

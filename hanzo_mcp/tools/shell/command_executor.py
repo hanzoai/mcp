@@ -193,7 +193,7 @@ class CommandExecutor:
         command: str,
         cwd: str | None = None,
         env: dict[str, str] | None = None,
-        timeout: float | None = 60.0,
+        timeout: float | None = 600.0,
         use_login_shell: bool = True,
     ) -> CommandResult:
         """Execute a shell command with safety checks.
@@ -320,7 +320,7 @@ class CommandExecutor:
         interpreter: str = "bash",
         cwd: str | None = None,
         env: dict[str, str] | None = None,
-        timeout: float | None = 60.0,
+        timeout: float | None = 600.0,
         use_login_shell: bool = True,
     ) -> CommandResult:
         """Execute a script with the specified interpreter.
@@ -368,7 +368,7 @@ class CommandExecutor:
         script: str,
         cwd: str | None = None,
         env: dict[str, str] | None = None,
-        timeout: float | None = 60.0,
+        timeout: float | None = 600.0,
         use_login_shell: bool = True,
     ) -> CommandResult:
         """Execute a script by passing it to stdin of the interpreter.
@@ -458,7 +458,7 @@ class CommandExecutor:
         script: str,
         cwd: str | None = None,
         env: dict[str, str] | None = None,
-        timeout: float | None = 60.0,
+        timeout: float | None = 600.0,
     ) -> CommandResult:
         """Special handler for Fish shell scripts.
 
@@ -533,7 +533,7 @@ class CommandExecutor:
         language: str,
         cwd: str | None = None,
         env: dict[str, str] | None = None,
-        timeout: float | None = 60.0,
+        timeout: float | None = 600.0,
         args: list[str] | None = None,
         use_login_shell: bool = True,
     ) -> CommandResult:
@@ -773,7 +773,7 @@ class CommandExecutor:
 
             # Execute the command
             result: CommandResult = await self.execute_command(
-                command, cwd=cwd, timeout=30.0, use_login_shell=use_login_shell
+                command, cwd=cwd, timeout=600.0, use_login_shell=use_login_shell
             )
 
             # Report result
@@ -869,7 +869,7 @@ class CommandExecutor:
                 script=script,
                 interpreter=interpreter,
                 cwd=cwd,  # cwd is now a required parameter
-                timeout=30.0,
+                timeout=600.0,
                 use_login_shell=use_login_shell,
             )
 
@@ -974,7 +974,7 @@ class CommandExecutor:
                 script=script,
                 language=language,
                 cwd=cwd,  # cwd is now a required parameter
-                timeout=30.0,
+                timeout=600.0,
                 args=args,
                 use_login_shell=use_login_shell,
             )
