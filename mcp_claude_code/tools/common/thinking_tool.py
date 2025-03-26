@@ -3,7 +3,7 @@
 This module provides the ThinkingTool for Claude to engage in structured thinking.
 """
 
-from typing import Any, List, cast, final
+from typing import Any, final, override
 
 from mcp.server.fastmcp import Context as MCPContext
 
@@ -16,6 +16,7 @@ class ThinkingTool(BaseTool):
     """Tool for Claude to engage in structured thinking."""
     
     @property
+    @override
     def name(self) -> str:
         """Get the tool name.
         
@@ -25,6 +26,7 @@ class ThinkingTool(BaseTool):
         return "think"
         
     @property
+    @override
     def description(self) -> str:
         """Get the tool description.
         
@@ -36,6 +38,7 @@ class ThinkingTool(BaseTool):
 It will not obtain new information or make any changes to the repository, but just log the thought. Use it when complex reasoning or brainstorming is needed. For example, if you explore the repo and discover the source of a bug, call this tool to brainstorm several unique ways of fixing the bug, and assess which change(s) are likely to be simplest and most effective. Alternatively, if you receive some test results, call this tool to brainstorm ways to fix the failing tests."""
         
     @property
+    @override
     def parameters(self) -> dict[str, Any]:
         """Get the parameter specifications for the tool.
         
@@ -55,6 +58,7 @@ It will not obtain new information or make any changes to the repository, but ju
         }
         
     @property
+    @override
     def required(self) -> list[str]:
         """Get the list of required parameter names.
         
@@ -67,6 +71,7 @@ It will not obtain new information or make any changes to the repository, but ju
         """Initialize the thinking tool."""
         pass
         
+    @override
     async def call(self, ctx: MCPContext, **params: Any) -> str:
         """Execute the tool with the given parameters.
         
@@ -78,7 +83,7 @@ It will not obtain new information or make any changes to the repository, but ju
             Tool result
         """
         tool_ctx = create_tool_context(ctx)
-        await tool_ctx.set_tool_info(self.name)
+        tool_ctx.set_tool_info(self.name)
         
         # Extract parameters
         thought = params.get("thought")

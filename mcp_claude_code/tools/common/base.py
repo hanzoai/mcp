@@ -44,6 +44,52 @@ class BaseTool(ABC):
         pass
         
     @property
+    def mcp_description(self) -> str:
+        """Get the complete tool description for MCP.
+        
+        This method combines the tool description with parameter descriptions.
+        
+        Returns:
+            Complete tool description including parameter details
+        """
+        # Start with the base description
+        desc = self.description.strip()
+        
+        # Add parameter descriptions section if there are parameters
+        if self.parameters and "properties" in self.parameters:
+            # Add Args section header
+            desc += "\n\nArgs:"
+            
+            # Get the properties dictionary
+            properties = self.parameters["properties"]
+            
+            # Add each parameter description
+            for param_name, param_info in properties.items():
+                # Get the title if available, otherwise use the parameter name
+                title = param_info.get("title", param_name)
+                
+                # Check if the parameter is required
+                required = param_name in self.required
+                required_text = "" if required else " (optional)"
+                
+                # Add the parameter description line
+                desc += f"\n    {param_name}: {title}{required_text}"
+        
+        # Add Returns section
+        desc += "\n\nReturns:\n    "
+        
+        # Add a generic return description based on the tool's purpose
+        # This could be enhanced with more specific return descriptions
+        if "read" in self.name or "get" in self.name or "search" in self.name:
+            desc += f"{self.name.replace('_', ' ').capitalize()} results"
+        elif "write" in self.name or "edit" in self.name or "create" in self.name:
+            desc += "Result of the operation"
+        else:
+            desc += "Tool execution results"
+            
+        return desc
+        
+    @property
     @abstractmethod
     def parameters(self) -> dict[str, Any]:
         """Get the parameter specifications for the tool.
@@ -139,7 +185,7 @@ class ToolRegistry:
             tool: The tool to register
         """
         # Create a wrapper function that will be registered with MCP
-        @mcp_server.tool(name=tool.name, description=tool.description)
+        @mcp_server.tool(name=tool.name, description=tool.mcp_description)
         async def tool_wrapper(**kwargs: Any) -> str:
             # Extract context from kwargs
             ctx = kwargs.pop("ctx")

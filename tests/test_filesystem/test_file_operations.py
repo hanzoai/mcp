@@ -13,7 +13,6 @@ if TYPE_CHECKING:
     from mcp_claude_code.tools.common.context import DocumentContext
     from mcp_claude_code.tools.common.permissions import PermissionManager
 
-from mcp_claude_code.tools.filesystem.base import FilesystemBaseTool
 from mcp_claude_code.tools.filesystem.read_files import ReadFilesTool
 from mcp_claude_code.tools.filesystem.write_file import WriteFileTool
 from mcp_claude_code.tools.filesystem.edit_file import EditFileTool
@@ -987,7 +986,7 @@ class TestContentReplaceTool:
                 "mcp_claude_code.tools.common.context.create_tool_context",
                 return_value=tool_ctx,
             ):
-                result2 = await content_replace_tool.call(
+                await content_replace_tool.call(
                     mcp_context, 
                     pattern="replaceable text", 
                     replacement="updated content", 

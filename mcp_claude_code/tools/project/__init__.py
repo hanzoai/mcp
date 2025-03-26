@@ -23,8 +23,8 @@ __all__ = [
 
 
 def get_project_tools(
-    permission_manager: PermissionManager,
     document_context: DocumentContext,
+    permission_manager: PermissionManager,
     command_executor: CommandExecutor,
 ) -> list[BaseTool]:
     """Create instances of all project tools.
@@ -60,5 +60,5 @@ def register_project_tools(
         document_context: Document context for tracking file contents
         command_executor: Command executor for running analysis scripts
     """
-    tools = get_project_tools(permission_manager, document_context, command_executor)
+    tools = get_project_tools(document_context, permission_manager, command_executor)
     ToolRegistry.register_tools(mcp_server, tools)

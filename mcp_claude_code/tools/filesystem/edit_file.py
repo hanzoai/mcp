@@ -65,11 +65,12 @@ Only works within allowed directories."""
                     "type": "array"
                 },
                 "dry_run": {
+                    "default": False,
                     "title": "Dry Run",
                     "type": "boolean"
                 }
             },
-            "required": ["path", "edits", "dry_run"],
+            "required": ["path", "edits"],
             "title": "edit_fileArguments",
             "type": "object"
         }
@@ -82,7 +83,7 @@ Only works within allowed directories."""
         Returns:
             List of required parameter names
         """
-        return ["path", "edits", "dry_run"]
+        return ["path", "edits"]
         
     @override
     async def call(self, ctx: MCPContext, **params: Any) -> str:

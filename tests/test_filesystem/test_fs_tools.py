@@ -1,7 +1,7 @@
 """Tests for the refactored filesystem tools."""
 
 import os
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -14,10 +14,6 @@ from mcp_claude_code.tools.filesystem import (
     ReadFilesTool,
     WriteFileTool,
     EditFileTool,
-    DirectoryTreeTool,
-    GetFileInfoTool,
-    SearchContentTool,
-    ContentReplaceTool,
     get_filesystem_tools
 )
 

@@ -30,6 +30,25 @@ __all__ = [
     "register_filesystem_tools",
 ]
 
+def get_read_only_filesystem_tools(
+            document_context: DocumentContext, permission_manager: PermissionManager
+) -> list[BaseTool]:
+    """Create instances of read-only filesystem tools.
+    
+    Args:
+        document_context: Document context for tracking file contents
+        permission_manager: Permission manager for access control
+
+    Returns:
+        List of read-only filesystem tool instances
+    """
+    return [
+        ReadFilesTool(document_context, permission_manager),
+        DirectoryTreeTool(document_context, permission_manager),
+        GetFileInfoTool(document_context, permission_manager),
+        SearchContentTool(document_context, permission_manager),
+    ]
+
 
 def get_filesystem_tools(
     document_context: DocumentContext, permission_manager: PermissionManager

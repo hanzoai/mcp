@@ -20,6 +20,22 @@ __all__ = [
     "register_jupyter_tools",
 ]
 
+def get_read_only_jupyter_tools(
+    document_context: DocumentContext, permission_manager: PermissionManager
+) -> list[BaseTool]:
+    """Create instances of read only Jupyter notebook tools.
+    
+    Args:
+        document_context: Document context for tracking file contents
+        permission_manager: Permission manager for access control
+        
+    Returns:
+        List of Jupyter notebook tool instances
+    """
+    return [
+        ReadNotebookTool(document_context, permission_manager),
+    ]
+
 
 def get_jupyter_tools(
     document_context: DocumentContext, permission_manager: PermissionManager

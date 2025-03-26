@@ -48,7 +48,7 @@ class CommandExecutor:
         self.special_interpreters: Dict[
             str,
             Callable[
-                [str, str, str], Optional[dict[str, str]], Optional[float] | None,
+                [str, str, str], dict[str, str]], Optional[float | None | None,
                 Awaitable[CommandResult],
             ],
         ] = {

@@ -5,15 +5,16 @@ It provides a unified interface for registering all tools with an MCP server.
 
 This includes a "think" tool implementation based on Anthropic's research showing
 improved performance for complex tool-based interactions when Claude has a dedicated
-space for structured thinking.
+space for structured thinking. It also includes an "agent" tool that enables Claude
+to delegate tasks to sub-agents for concurrent execution and specialized processing.
 """
 
 from mcp.server.fastmcp import FastMCP
 
-from mcp_claude_code.tools.common.base import ToolRegistry
+from mcp_claude_code.tools.agent import register_agent_tools
+from mcp_claude_code.tools.common import register_thinking_tool
 from mcp_claude_code.tools.common.context import DocumentContext
 from mcp_claude_code.tools.common.permissions import PermissionManager
-from mcp_claude_code.tools.common.thinking_tool import ThinkingTool
 from mcp_claude_code.tools.filesystem import register_filesystem_tools
 from mcp_claude_code.tools.jupyter import register_jupyter_tools
 from mcp_claude_code.tools.project import register_project_tools
@@ -50,6 +51,8 @@ def register_all_tools(
         CommandExecutor(permission_manager)
     )
 
+    # Register agent tools
+    register_agent_tools(mcp_server, document_context, permission_manager,CommandExecutor(permission_manager))
+    
     # Initialize and register thinking tool
-    thinking_tool = ThinkingTool()
-    ToolRegistry.register_tool(mcp_server, thinking_tool)
+    register_thinking_tool(mcp_server)
