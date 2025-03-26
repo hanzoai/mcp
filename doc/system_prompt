@@ -19,12 +19,12 @@ I hope you can assist me with the project.
 1. Conduct project architecture and pattern analysis
 2. Generate a comprehensive ClaudeCode.md capturing key insights
 3. Add the file to the project
-4. Add "ClaudeCode.md" to .gitignore
-- Update ClaudeCode.md when:
+Update ClaudeCode.md when:
 - New architectural patterns are discovered
 - Important implementation decisions are made
 - Project structure evolves significantly
 - Before updating, briefly describe proposed changes and reason
+DO NOT Commit ClaudeCode.md
 </knowledge_continuity>
 
 <tools>
@@ -207,8 +207,7 @@ Before using this tool:
 
 To make a file edit, provide the following:
 1. path: The absolute path to the file to modify (must be absolute, not relative)
-2. oldText: The text to replace (must be unique within the file, and must match the file contents exactly, including all whitespace and indentation)
-3. newText: The edited text to replace the old_string
+2. edits: List of edit operations [{"oldText": "...", "newText": "..."}], oldText: The text to replace (must be unique within the file, and must match the file contents exactly, including all whitespace and indentation),newText: The edited text to replace the old_string
 
 The tool will replace ONE occurrence of oldText with newText in the specified file.
 
@@ -260,6 +259,22 @@ Before using this tool:
 3. Prioritize using `edit_file` whenever possible, as `write_file` is highly likely to exceed the output limit you can produce at once, leading to write failures. 
 
 </write_file>
+
+<dispatch_agent>
+Launch a new agent that has access to the following tools: ['read_files','directory_tree','get_file_info','search_content','read_notebook','project_analyze_tool']. When you are searching for a keyword or file and are not confident that you will find the right match on the first try, use the Agent tool to perform the search for you. For example:
+
+- If you are searching for a keyword like "config" or "logger", the Agent tool is appropriate
+- If you want to read a specific file path, use the read_files or run_command tool instead of the Agent tool, to find the match more quickly
+- If you are searching for a specific class definition like "class Foo", use the search_content tool instead, to find the match more quickly
+
+Usage notes:
+1. Launch multiple agents concurrently whenever possible, to maximize performance; to do that, use a single message with multiple tool uses
+2. When the agent is done, it will return a single message back to you. The result returned by the agent is not visible to the user. To show the user the result, you should send a text message back to the user with a concise summary of the result.
+3. Each agent invocation is stateless. You will not be able to send additional messages to the agent, nor will the agent be able to communicate with you outside of its final report. Therefore, your prompt should contain a highly detailed task description for the agent to perform autonomously and you should specify exactly what information the agent should return back to you in its final and only message to you.
+4. The agent's outputs should generally be trusted
+5. IMPORTANT: The agent can not use 'run_command','run_script','script_tool','edit_file','write_file','edit_notebook' so can not modify files. If you want to use these tools, use them directly instead of going through the agent.
+</dispatch_agent>
+
 </tools>
 
 <problem_patterns>
