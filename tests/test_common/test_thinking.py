@@ -3,7 +3,8 @@
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from mcp_claude_code.tools.common.thinking import ThinkingTool
+from mcp_claude_code.tools.common.thinking_tool import ThinkingTool
+from mcp_claude_code.tools.common.base import ToolRegistry
 
 
 @pytest.fixture
@@ -23,48 +24,30 @@ def thinking_tool():
 @pytest.mark.asyncio
 async def test_think_tool_registration(mcp_server, thinking_tool):
     """Test that the think tool is registered correctly."""
-    thinking_tool.register_tools(mcp_server)
+    # Test registration using ToolRegistry
+    ToolRegistry.register_tool(mcp_server, thinking_tool)
     # Check if tool was registered
     assert mcp_server.tool.called
 
 
 @pytest.mark.asyncio
-async def test_think_with_valid_thought():
+async def test_think_with_valid_thought(thinking_tool, mcp_context):
     """Test the think tool with a valid thought."""
-    # Create a mock context
-    ctx = MagicMock()
-    ctx.info = AsyncMock()
+    # Mock context calls
     tool_ctx = MagicMock()
     tool_ctx.info = AsyncMock()
-    tool_ctx.set_tool_info = MagicMock()
+    tool_ctx.error = AsyncMock()
+    tool_ctx.set_tool_info = AsyncMock()  # Make sure this is AsyncMock
+    tool_ctx.prepare_tool_context = AsyncMock()
 
     # Patch the create_tool_context function
     with patch(
-        "mcp_claude_code.tools.common.thinking.create_tool_context",
+        "mcp_claude_code.tools.common.thinking_tool.create_tool_context",
         return_value=tool_ctx,
     ):
-        from mcp_claude_code.tools.common.thinking import ThinkingTool
-
-        thinking_tool = ThinkingTool()
-
-        # Register tool and get the registered function
-        server = MagicMock()
-        registered_func = None
-
-        def tool_decorator():
-            def decorator(func):
-                nonlocal registered_func
-                registered_func = func
-                return func
-
-            return decorator
-
-        server.tool = tool_decorator
-        thinking_tool.register_tools(server)
-
-        # Test the registered function
+        # Test the tool's call method directly
         thought = "I should check if the file exists before trying to read it."
-        result = await registered_func(thought=thought, ctx=ctx)
+        result = await thinking_tool.call(ctx=mcp_context, thought=thought)
 
         # Check that the function behaved correctly
         tool_ctx.set_tool_info.assert_called_once_with("think")
@@ -73,47 +56,28 @@ async def test_think_with_valid_thought():
 
 
 @pytest.mark.asyncio
-async def test_think_with_empty_thought():
+async def test_think_with_empty_thought(thinking_tool, mcp_context):
     """Test the think tool with an empty thought."""
-    # Create a mock context
-    ctx = MagicMock()
-    ctx.error = AsyncMock()
+    # Mock context calls
     tool_ctx = MagicMock()
+    tool_ctx.info = AsyncMock()
     tool_ctx.error = AsyncMock()
-    tool_ctx.set_tool_info = MagicMock()
+    tool_ctx.set_tool_info = AsyncMock()  # Make sure this is AsyncMock
+    tool_ctx.prepare_tool_context = AsyncMock()
 
     # Patch the create_tool_context function
     with patch(
-        "mcp_claude_code.tools.common.thinking.create_tool_context",
+        "mcp_claude_code.tools.common.thinking_tool.create_tool_context",
         return_value=tool_ctx,
     ):
-        from mcp_claude_code.tools.common.thinking import ThinkingTool
-
-        thinking_tool = ThinkingTool()
-
-        # Register tool and get the registered function
-        server = MagicMock()
-        registered_func = None
-
-        def tool_decorator():
-            def decorator(func):
-                nonlocal registered_func
-                registered_func = func
-                return func
-
-            return decorator
-
-        server.tool = tool_decorator
-        thinking_tool.register_tools(server)
-
         # Test with None thought
-        result_none = await registered_func(thought=None, ctx=ctx)
+        result_none = await thinking_tool.call(ctx=mcp_context, thought=None)
         assert "Error" in result_none
 
         # Test with empty string thought
-        result_empty = await registered_func(thought="", ctx=ctx)
+        result_empty = await thinking_tool.call(ctx=mcp_context, thought="")
         assert "Error" in result_empty
 
         # Test with whitespace-only thought
-        result_whitespace = await registered_func(thought="   ", ctx=ctx)
+        result_whitespace = await thinking_tool.call(ctx=mcp_context, thought="   ")
         assert "Error" in result_whitespace

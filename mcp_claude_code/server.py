@@ -59,8 +59,6 @@ class ClaudeCodeServer:
             mcp_server=self.mcp,
             document_context=self.document_context,
             permission_manager=self.permission_manager,
-            project_manager=self.project_manager,
-            project_analyzer=self.project_analyzer,
         )
 
     def run(self, transport: str = "stdio", allowed_paths: list[str] | None = None):

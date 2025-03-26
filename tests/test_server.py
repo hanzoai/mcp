@@ -12,7 +12,7 @@ class TestClaudeCodeServer:
     """Test the ClaudeCodeServer class."""
 
     @pytest.fixture
-    def server(self) -> Tuple[ClaudeCodeServer, MagicMock]:
+    def server(self) -> tuple[ClaudeCodeServer, MagicMock]:
         """Create a ClaudeCodeServer instance for testing."""
         with patch("mcp.server.fastmcp.FastMCP") as mock_fastmcp:
             # Create a mock FastMCP instance
@@ -25,7 +25,7 @@ class TestClaudeCodeServer:
             # Return both the server and the mock MCP
             yield server, mock_mcp
 
-    def test_initialization(self, server: Tuple[ClaudeCodeServer, MagicMock]) -> None:
+    def test_initialization(self, server: tuple[ClaudeCodeServer, MagicMock]) -> None:
         """Test initializing ClaudeCodeServer."""
         server_instance, mock_mcp = server
 
@@ -89,7 +89,7 @@ class TestClaudeCodeServer:
             mock_register.assert_called_once()
 
     @pytest.mark.skip(reason="Cannot run stdio server in a test environment")
-    def test_run(self, server: Tuple[ClaudeCodeServer, MagicMock]) -> None:
+    def test_run(self, server: tuple[ClaudeCodeServer, MagicMock]) -> None:
         """Test running the server."""
         server_instance, mock_mcp = server
 
@@ -111,7 +111,7 @@ class TestClaudeCodeServer:
 
     @pytest.mark.skip(reason="Cannot run stdio server in a test environment")
     def test_run_with_allowed_paths(
-        self, server: Tuple[ClaudeCodeServer, MagicMock]
+        self, server: tuple[ClaudeCodeServer, MagicMock]
     ) -> None:
         """Test running the server with additional allowed paths."""
         server_instance, mock_mcp = server

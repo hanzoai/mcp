@@ -813,14 +813,17 @@ class ProjectAnalysis:
         self.project_manager: ProjectManager = project_manager
         self.project_analyzer: ProjectAnalyzer = project_analyzer
         self.permission_manager: PermissionManager = permission_manager
-
+        
+    # Legacy method to keep backwards compatibility with tests
     def register_tools(self, mcp_server: FastMCP) -> None:
         """Register project analysis tools with the MCP server.
+        
+        Legacy method for backwards compatibility with existing tests.
+        New code should use the modular tool classes instead.
 
         Args:
             mcp_server: The FastMCP server instance
         """
-
         # Project analysis tool
         @mcp_server.tool()
         async def project_analyze_tool(project_dir: str, ctx: MCPContext) -> str:
@@ -859,7 +862,7 @@ class ProjectAnalysis:
             await tool_ctx.report_progress(10, 100)
 
             # Analyze project
-            analysis: dict[str, Any] = await self.project_manager.analyze_project()
+            analysis = await self.project_manager.analyze_project()
             if "error" in analysis:
                 await tool_ctx.error(f"Error analyzing project: {analysis['error']}")
                 return f"Error analyzing project: {analysis['error']}"

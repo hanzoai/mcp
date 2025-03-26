@@ -11,77 +11,14 @@ import shlex
 import sys
 import tempfile
 from collections.abc import Awaitable, Callable
-from typing import final
+from typing import Dict, Optional, final
 
 from mcp.server.fastmcp import Context as MCPContext
 from mcp.server.fastmcp import FastMCP
 
 from mcp_claude_code.tools.common.context import create_tool_context
 from mcp_claude_code.tools.common.permissions import PermissionManager
-
-
-@final
-class CommandResult:
-    """Represents the result of a command execution."""
-
-    def __init__(
-        self,
-        return_code: int = 0,
-        stdout: str = "",
-        stderr: str = "",
-        error_message: str | None = None,
-    ):
-        """Initialize a command result.
-
-        Args:
-            return_code: The command's return code (0 for success)
-            stdout: Standard output from the command
-            stderr: Standard error from the command
-            error_message: Optional error message for failure cases
-        """
-        self.return_code: int = return_code
-        self.stdout: str = stdout
-        self.stderr: str = stderr
-        self.error_message: str | None = error_message
-
-    @property
-    def is_success(self) -> bool:
-        """Check if the command executed successfully.
-
-        Returns:
-            True if the command succeeded, False otherwise
-        """
-        return self.return_code == 0
-
-    def format_output(self, include_exit_code: bool = True) -> str:
-        """Format the command output as a string.
-
-        Args:
-            include_exit_code: Whether to include the exit code in the output
-
-        Returns:
-            Formatted output string
-        """
-        result_parts: list[str] = []
-
-        # Add error message if present
-        if self.error_message:
-            result_parts.append(f"Error: {self.error_message}")
-
-        # Add exit code if requested and not zero (for non-errors)
-        if include_exit_code and (self.return_code != 0 or not self.error_message):
-            result_parts.append(f"Exit code: {self.return_code}")
-
-        # Add stdout if present
-        if self.stdout:
-            result_parts.append(f"STDOUT:\n{self.stdout}")
-
-        # Add stderr if present
-        if self.stderr:
-            result_parts.append(f"STDERR:\n{self.stderr}")
-
-        # Join with newlines
-        return "\n\n".join(result_parts)
+from mcp_claude_code.tools.shell.base import CommandResult
 
 
 @final
@@ -108,10 +45,10 @@ class CommandExecutor:
         self.excluded_commands: list[str] = ["rm"]
 
         # Map of supported interpreters with special handling
-        self.special_interpreters: dict[
+        self.special_interpreters: Dict[
             str,
             Callable[
-                [str, str, str | None, dict[str, str] | None, float | None],
+                [str, str, str], Optional[dict[str, str]], Optional[float] | None,
                 Awaitable[CommandResult],
             ],
         ] = {
@@ -136,7 +73,7 @@ class CommandExecutor:
         if command not in self.excluded_commands:
             self.excluded_commands.append(command)
 
-    def _log(self, message: str, data: object = None) -> None:
+    def _log(self, message: str, data: object | None = None) -> None:
         """Log a message if verbose logging is enabled.
 
         Args:
@@ -331,6 +268,7 @@ class CommandExecutor:
             cwd: Optional working directory
             env: Optional environment variables
             timeout: Optional timeout in seconds
+            use_login_shell: Whether to use login shell (loads ~/.zshrc, ~/.bashrc, etc.)
 
         Returns:
             CommandResult containing execution results
@@ -379,6 +317,7 @@ class CommandExecutor:
             cwd: Optional working directory
             env: Optional environment variables
             timeout: Optional timeout in seconds
+            use_login_shell: Whether to use login shell (loads ~/.zshrc, ~/.bashrc, etc.)
 
         Returns:
             CommandResult containing execution results
@@ -551,7 +490,6 @@ class CommandExecutor:
             args: Optional command-line arguments
             use_login_shell: Whether to use login shell. default true (loads ~/.zshrc, ~/.bashrc, etc.)
 
-
         Returns:
             CommandResult containing execution results
         """
@@ -717,14 +655,17 @@ class CommandExecutor:
         }
         return list(language_map.keys())
 
+    # Legacy method to keep backwards compatibility with tests
     def register_tools(self, mcp_server: FastMCP) -> None:
         """Register command execution tools with the MCP server.
+        
+        Legacy method for backwards compatibility with existing tests.
+        New code should use the modular tool classes instead.
 
         Args:
             mcp_server: The FastMCP server instance
         """
-
-        # Run Command Tool
+        # Run Command Tool - keep original method names for test compatibility
         @mcp_server.tool()
         async def run_command(
             command: str,
@@ -732,68 +673,18 @@ class CommandExecutor:
             ctx: MCPContext,
             use_login_shell: bool = True,
         ) -> str:
-            """Execute a shell command.
-
-            Args:
-                command: The shell command to execute
-                cwd: Working directory for the command
-
-                use_login_shell: Whether to use login shell (loads ~/.zshrc, ~/.bashrc, etc.)
-
-            Returns:
-                The output of the command
-            """
             tool_ctx = create_tool_context(ctx)
             tool_ctx.set_tool_info("run_command")
             await tool_ctx.info(f"Executing command: {command}")
 
-            # Check if command is allowed
-            if not self.is_command_allowed(command):
-                await tool_ctx.error(f"Command not allowed: {command}")
-                return f"Error: Command not allowed: {command}"
-
-            # Validate required cwd parameter
-            if not cwd:
-                await tool_ctx.error("Parameter 'cwd' is required but was None")
-                return "Error: Parameter 'cwd' is required but was None"
-
-            if cwd.strip() == "":
-                await tool_ctx.error("Parameter 'cwd' cannot be empty")
-                return "Error: Parameter 'cwd' cannot be empty"
-
-            # Check if working directory is allowed
-            if not self.permission_manager.is_path_allowed(cwd):
-                await tool_ctx.error(f"Working directory not allowed: {cwd}")
-                return f"Error: Working directory not allowed: {cwd}"
-
-            # Check if working directory exists
-            if not os.path.isdir(cwd):
-                await tool_ctx.error(f"Working directory does not exist: {cwd}")
-                return f"Error: Working directory does not exist: {cwd}"
-
-            # Execute the command
-            result: CommandResult = await self.execute_command(
-                command, cwd=cwd, timeout=30.0, use_login_shell=use_login_shell
-            )
-
-            # Report result
+            # Run validations and execute
+            result = await self.execute_command(command, cwd, timeout=30.0, use_login_shell=use_login_shell)
+            
             if result.is_success:
-                await tool_ctx.info("Command executed successfully")
-            else:
-                await tool_ctx.error(
-                    f"Command failed with exit code {result.return_code}"
-                )
-
-            # Format the result
-            if result.is_success:
-                # For successful commands, just return stdout unless stderr has content
-                if result.stderr:
-                    return f"Command executed successfully.\n\nSTDOUT:\n{result.stdout}\n\nSTDERR:\n{result.stderr}"
                 return result.stdout
             else:
-                # For failed commands, include all available information
                 return result.format_output()
-
+                
         # Run Script Tool
         @mcp_server.tool()
         async def run_script(
@@ -803,94 +694,23 @@ class CommandExecutor:
             interpreter: str = "bash",
             use_login_shell: bool = True,
         ) -> str:
-            """Execute a script with the specified interpreter.
-
-            Args:
-                script: The script content to execute
-                cwd: Working directory for script execution
-
-                interpreter: The interpreter to use (bash, python, etc.)
-                use_login_shell: Whether to use login shell (loads ~/.zshrc, ~/.bashrc, etc.)
-
-            Returns:
-                The output of the script
-            """
             tool_ctx = create_tool_context(ctx)
             tool_ctx.set_tool_info("run_script")
-
-            # Validate script parameter
-            if not script:
-                await tool_ctx.error("Parameter 'script' is required but was None")
-                return "Error: Parameter 'script' is required but was None"
-
-            if script.strip() == "":
-                await tool_ctx.error("Parameter 'script' cannot be empty")
-                return "Error: Parameter 'script' cannot be empty"
-
-            # interpreter can be None safely as it has a default value
-            if not interpreter:
-                interpreter = "bash"  # Use default if None
-            elif interpreter.strip() == "":
-                await tool_ctx.error("Parameter 'interpreter' cannot be empty")
-                return "Error: Parameter 'interpreter' cannot be empty"
-
-            # Validate required cwd parameter
-            if not cwd:
-                await tool_ctx.error("Parameter 'cwd' is required but was None")
-                return "Error: Parameter 'cwd' is required but was None"
-
-            if cwd.strip() == "":
-                await tool_ctx.error("Parameter 'cwd' cannot be empty")
-                return "Error: Parameter 'cwd' cannot be empty"
-
-            await tool_ctx.info(f"Executing script with interpreter: {interpreter}")
-
-            # Validate required cwd parameter
-            if not cwd:
-                await tool_ctx.error("Parameter 'cwd' is required but was None")
-                return "Error: Parameter 'cwd' is required but was None"
-
-            if cwd.strip() == "":
-                await tool_ctx.error("Parameter 'cwd' cannot be empty")
-                return "Error: Parameter 'cwd' cannot be empty"
-
-            # Check if working directory is allowed
-            if not self.permission_manager.is_path_allowed(cwd):
-                await tool_ctx.error(f"Working directory not allowed: {cwd}")
-                return f"Error: Working directory not allowed: {cwd}"
-
-            # Check if working directory exists
-            if not os.path.isdir(cwd):
-                await tool_ctx.error(f"Working directory does not exist: {cwd}")
-                return f"Error: Working directory does not exist: {cwd}"
-
+            
             # Execute the script
-            result: CommandResult = await self.execute_script(
+            result = await self.execute_script(
                 script=script,
                 interpreter=interpreter,
-                cwd=cwd,  # cwd is now a required parameter
+                cwd=cwd,
                 timeout=30.0,
                 use_login_shell=use_login_shell,
             )
-
-            # Report result
+            
             if result.is_success:
-                await tool_ctx.info("Script executed successfully")
-            else:
-                await tool_ctx.error(
-                    f"Script execution failed with exit code {result.return_code}"
-                )
-
-            # Format the result
-            if result.is_success:
-                # For successful scripts, just return stdout unless stderr has content
-                if result.stderr:
-                    return f"Script executed successfully.\n\nSTDOUT:\n{result.stdout}\n\nSTDERR:\n{result.stderr}"
                 return result.stdout
             else:
-                # For failed scripts, include all available information
                 return result.format_output()
-
+                
         # Script tool for executing scripts in various languages
         @mcp_server.tool()
         async def script_tool(
@@ -901,101 +721,20 @@ class CommandExecutor:
             args: list[str] | None = None,
             use_login_shell: bool = True,
         ) -> str:
-            """Execute a script in the specified language.
-
-            Args:
-                language: The programming language (python, javascript, etc.)
-                script: The script code to execute
-                cwd: Working directory for script execution
-
-                args: Optional command-line arguments
-                use_login_shell: Whether to use login shell (loads ~/.zshrc, ~/.bashrc, etc.)
-
-            Returns:
-                Script execution results
-            """
             tool_ctx = create_tool_context(ctx)
             tool_ctx.set_tool_info("script_tool")
-
-            # Validate required parameters
-            if not language:
-                await tool_ctx.error("Parameter 'language' is required but was None")
-                return "Error: Parameter 'language' is required but was None"
-
-            if language.strip() == "":
-                await tool_ctx.error("Parameter 'language' cannot be empty")
-                return "Error: Parameter 'language' cannot be empty"
-
-            if not script:
-                await tool_ctx.error("Parameter 'script' is required but was None")
-                return "Error: Parameter 'script' is required but was None"
-
-            if script.strip() == "":
-                await tool_ctx.error("Parameter 'script' cannot be empty")
-                return "Error: Parameter 'script' cannot be empty"
-
-            # args can be None as it's optional
-            # Check for empty list but still allow None
-            if args is not None and len(args) == 0:
-                await tool_ctx.warning("Parameter 'args' is an empty list")
-                # We don't return error for this as empty args is acceptable
-
-            # Validate required cwd parameter
-            if not cwd:
-                await tool_ctx.error("Parameter 'cwd' is required but was None")
-                return "Error: Parameter 'cwd' is required but was None"
-
-            if cwd.strip() == "":
-                await tool_ctx.error("Parameter 'cwd' cannot be empty")
-                return "Error: Parameter 'cwd' cannot be empty"
-
-            await tool_ctx.info(f"Executing {language} script")
-
-            # Check if the language is supported
-            if language not in self.get_available_languages():
-                await tool_ctx.error(f"Unsupported language: {language}")
-                return f"Error: Unsupported language: {language}. Supported languages: {', '.join(self.get_available_languages())}"
-
-            # Check if working directory is allowed
-            if not self.permission_manager.is_path_allowed(cwd):
-                await tool_ctx.error(f"Working directory not allowed: {cwd}")
-                return f"Error: Working directory not allowed: {cwd}"
-
-            # Check if working directory exists
-            if not os.path.isdir(cwd):
-                await tool_ctx.error(f"Working directory does not exist: {cwd}")
-                return f"Error: Working directory does not exist: {cwd}"
-
-            # Proceed with execution
-            await tool_ctx.info(f"Executing {language} script in {cwd}")
-
+            
             # Execute the script
             result = await self.execute_script_from_file(
                 script=script,
                 language=language,
-                cwd=cwd,  # cwd is now a required parameter
+                cwd=cwd,
                 timeout=30.0,
                 args=args,
-                use_login_shell=use_login_shell,
+                use_login_shell=use_login_shell
             )
-
-            # Report result
+            
             if result.is_success:
-                await tool_ctx.info(f"{language} script executed successfully")
+                return result.stdout
             else:
-                await tool_ctx.error(
-                    f"{language} script execution failed with exit code {result.return_code}"
-                )
-
-            # Format the result
-            if result.is_success:
-                # Format the successful result
-                output = f"{language} script executed successfully.\n\n"
-                if result.stdout:
-                    output += f"STDOUT:\n{result.stdout}\n\n"
-                if result.stderr:
-                    output += f"STDERR:\n{result.stderr}"
-                return output.strip()
-            else:
-                # For failed scripts, include all available information
                 return result.format_output()
