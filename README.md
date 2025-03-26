@@ -2,6 +2,10 @@
 
 Hanzo AI + Platform capabilities via the Model Context Protocol (MCP).
 
+<a href="https://glama.ai/mcp/servers/@hanzoai/mcp">
+  <img width="380" height="200" src="https://glama.ai/mcp/servers/@hanzoai/mcp/badge" />
+</a>
+
 ## Overview
 
 This project provides an MCP server that enables access to Hanzo APIs and Platform capabilities, as well as providing development tools for managing and improving projects. By leveraging the Model Context Protocol, this server enables seamless integration with various MCP clients including Claude Desktop, allowing LLMs to directly access Hanzo's platform functionality.
