@@ -5,7 +5,7 @@ This module provides the EditNotebookTool for editing Jupyter notebook files.
 
 import json
 from pathlib import Path
-from typing import Any, final
+from typing import Any, final, override
 
 from mcp.server.fastmcp import Context as MCPContext
 
@@ -17,6 +17,7 @@ class EditNotebookTool(JupyterBaseTool):
     """Tool for editing Jupyter notebook files."""
     
     @property
+    @override 
     def name(self) -> str:
         """Get the tool name.
         
@@ -26,6 +27,7 @@ class EditNotebookTool(JupyterBaseTool):
         return "edit_notebook"
         
     @property
+    @override 
     def description(self) -> str:
         """Get the tool description.
         
@@ -40,6 +42,7 @@ In insert mode, a new cell is added at the specified index.
 In delete mode, the specified cell is removed."""
         
     @property
+    @override 
     def parameters(self) -> dict[str, Any]:
         """Get the parameter specifications for the tool.
         
@@ -49,16 +52,16 @@ In delete mode, the specified cell is removed."""
         return {
             "properties": {
                 "path": {
-                    "title": "Path",
-                    "type": "string"
+                    "type": "string",
+                    "description": "path to the Jupyter notebook file"
                 },
                 "cell_number": {
-                    "title": "Cell Number",
-                    "type": "integer"
+                    "type": "integer",
+                    "description": "index of the cell to edit"
                 },
                 "new_source": {
-                    "title": "New Source",
-                    "type": "string"
+                    "type": "string",
+                    "description": "new source code or markdown content"
                 },
                 "cell_type": {
                     "anyOf": [
@@ -66,13 +69,13 @@ In delete mode, the specified cell is removed."""
                         {"type": "null"}
                     ],
                     "default": None,
-                    "title": "Cell Type"
+                    "description": "type of the new cell (code or markdown)"
                 },
                 "edit_mode": {
                     "default": "replace",
                     "enum": ["replace", "insert", "delete"],
-                    "title": "Edit Mode",
-                    "type": "string"
+                    "type": "string",
+                    "description": "edit mode: replace, insert, or delete"
                 }
             },
             "required": ["path", "cell_number", "new_source"],
@@ -81,6 +84,7 @@ In delete mode, the specified cell is removed."""
         }
         
     @property
+    @override 
     def required(self) -> list[str]:
         """Get the list of required parameter names.
         
@@ -89,6 +93,7 @@ In delete mode, the specified cell is removed."""
         """
         return ["path", "cell_number", "new_source"]
         
+    @override 
     async def call(self, ctx: MCPContext, **params: Any) -> str:
         """Execute the tool with the given parameters.
         
@@ -116,7 +121,7 @@ In delete mode, the specified cell is removed."""
             return f"Error: {path_validation.error_message}"
 
         # Validate cell_number
-        if cell_number < 0:
+        if cell_number is None or cell_number < 0:
             await tool_ctx.error("Cell number must be non-negative")
             return "Error: Cell number must be non-negative"
 

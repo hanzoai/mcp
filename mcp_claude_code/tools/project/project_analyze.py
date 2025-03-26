@@ -3,7 +3,7 @@
 This module provides the ProjectAnalyzeTool for analyzing project structure and dependencies.
 """
 
-from typing import Any, final
+from typing import Any, final, override
 
 from mcp.server.fastmcp import Context as MCPContext
 
@@ -34,6 +34,7 @@ class ProjectAnalyzeTool(ProjectBaseTool):
         self.project_analyzer: ProjectAnalyzer = project_analyzer
         
     @property
+    @override 
     def name(self) -> str:
         """Get the tool name.
         
@@ -43,22 +44,17 @@ class ProjectAnalyzeTool(ProjectBaseTool):
         return "project_analyze_tool"
         
     @property
+    @override 
     def description(self) -> str:
         """Get the tool description.
         
         Returns:
             Tool description
         """
-        return """Analyze a project directory structure and dependencies.
-
-Args:
-    project_dir: Path to the project directory
-
-Returns:
-    Analysis of the project
-"""
+        return """Analyze a project directory structure and dependencies."""
         
     @property
+    @override 
     def parameters(self) -> dict[str, Any]:
         """Get the parameter specifications for the tool.
         
@@ -68,16 +64,16 @@ Returns:
         return {
             "properties": {
                 "project_dir": {
-                    "title": "Project Dir",
-                    "type": "string"
+                    "type": "string",
+                    "description": "path to the project directory to analyze"
                 }
             },
             "required": ["project_dir"],
-            "title": "project_analyze_toolArguments",
             "type": "object"
         }
         
     @property
+    @override 
     def required(self) -> list[str]:
         """Get the list of required parameter names.
         
@@ -86,6 +82,7 @@ Returns:
         """
         return ["project_dir"]
     
+    @override 
     async def prepare_tool_context(self, ctx: MCPContext) -> Any:
         """Create and prepare the tool context.
         
@@ -99,6 +96,7 @@ Returns:
         tool_ctx.set_tool_info(self.name)
         return tool_ctx
         
+    @override 
     async def call(self, ctx: MCPContext, **params: Any) -> str:
         """Execute the tool with the given parameters.
         

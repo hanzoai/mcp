@@ -54,11 +54,10 @@ individual files won't stop the entire operation. Only works within allowed dire
                         {"items": {"type": "string"}, "type": "array"},
                         {"type": "string"}
                     ],
-                    "title": "Paths"
+                    "description": "path to the file or files to read"
                 }
             },
             "required": ["paths"],
-            "title": "read_filesArguments",
             "type": "object"
         }
         

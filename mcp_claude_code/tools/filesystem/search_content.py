@@ -54,16 +54,15 @@ line number references. Only searches within allowed directories."""
         return {
             "properties": {
                 "pattern": {
-                    "title": "Pattern",
-                    "type": "string"
+                    "type": "string",
+                    "description": "text pattern to search for"
                 },
                 "path": {
-                    "title": "Path",
-                    "type": "string"
+                    "type": "string",
+                    "description": "path to the directory or file to search"
                 },
                 "file_pattern": {
                     "default": "*",
-                    "title": "File Pattern",
                     "type": "string"
                 }
             },

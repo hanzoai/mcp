@@ -49,16 +49,15 @@ Handles text content with proper encoding. Only works within allowed directories
         return {
             "properties": {
                 "path": {
-                    "title": "Path",
-                    "type": "string"
+                    "type": "string",
+                    "description": "path to the file to write"
                 },
                 "content": {
-                    "title": "Content",
-                    "type": "string"
+                    "type": "string",
+                    "description": "content to write to the file"
                 }
             },
             "required": ["path", "content"],
-            "title": "write_fileArguments",
             "type": "object"
         }
         

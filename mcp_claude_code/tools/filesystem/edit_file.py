@@ -51,23 +51,33 @@ Only works within allowed directories."""
         return {
             "properties": {
                 "path": {
-                    "title": "Path",
-                    "type": "string"
+                    "type": "string",
+                    "description": "The absolute path to the file to modify (must be absolute, not relative)",
                 },
                 "edits": {
                     "items": {
+                        "properties": {
+                            "oldText": {
+                                "type": "string",
+                                "description": "The text to replace (must be unique within the file, and must match the file contents exactly, including all whitespace and indentation)",
+                                },
+                            "newText": {
+                                "type": "string",
+                                "description": "The edited text to replace the old_string",
+                                },
+                            },
                         "additionalProperties": {
                             "type": "string"
                         },
                         "type": "object"
                     },
-                    "title": "Edits",
+                    "description":"List of edit operations [{\"oldText\": \"...\", \"newText\": \"...\"}]",
                     "type": "array"
                 },
                 "dry_run": {
                     "default": False,
-                    "title": "Dry Run",
-                    "type": "boolean"
+                    "type": "boolean",
+                    "description": "If true, do not write changes to the file"
                 }
             },
             "required": ["path", "edits"],

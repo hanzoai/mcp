@@ -5,7 +5,7 @@ This module provides the ReadNotebookTool for reading Jupyter notebook files.
 
 import json
 from pathlib import Path
-from typing import Any, final
+from typing import Any, final, override
 
 from mcp.server.fastmcp import Context as MCPContext
 
@@ -17,6 +17,7 @@ class ReadNotebookTool(JupyterBaseTool):
     """Tool for reading Jupyter notebook files."""
     
     @property
+    @override 
     def name(self) -> str:
         """Get the tool name.
         
@@ -26,6 +27,7 @@ class ReadNotebookTool(JupyterBaseTool):
         return "read_notebook"
         
     @property
+    @override 
     def description(self) -> str:
         """Get the tool description.
         
@@ -40,6 +42,7 @@ code, text, and visualizations, commonly used for data analysis and
 scientific computing."""
         
     @property
+    @override 
     def parameters(self) -> dict[str, Any]:
         """Get the parameter specifications for the tool.
         
@@ -49,16 +52,16 @@ scientific computing."""
         return {
             "properties": {
                 "path": {
-                    "title": "Path",
-                    "type": "string"
+                    "type": "string",
+                    "description": "path to the Jupyter notebook file"
                 }
             },
             "required": ["path"],
-            "title": "read_notebookArguments",
             "type": "object"
         }
         
     @property
+    @override 
     def required(self) -> list[str]:
         """Get the list of required parameter names.
         
@@ -67,6 +70,7 @@ scientific computing."""
         """
         return ["path"]
         
+    @override 
     async def call(self, ctx: MCPContext, **params: Any) -> str:
         """Execute the tool with the given parameters.
         

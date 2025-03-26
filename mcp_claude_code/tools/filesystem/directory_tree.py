@@ -53,17 +53,20 @@ requested. Only works within allowed directories."""
             "properties": {
                 "path": {
                     "title": "Path",
-                    "type": "string"
+                    "type": "string",
+                    "description":"The path to the directory to view"
                 },
                 "depth": {
                     "default": 3,
                     "title": "Depth",
-                    "type": "integer"
+                    "type": "integer",
+                    "description": "The maximum depth to traverse (0 for unlimited)"
                 },
                 "include_filtered": {
                     "default": False,
                     "title": "Include Filtered",
-                    "type": "boolean"
+                    "type": "boolean",
+                    "description": "Include directories that are normally filtered"
                 }
             },
             "required": ["path"],

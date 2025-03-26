@@ -52,12 +52,11 @@ Only works within allowed directories."""
         return {
             "properties": {
                 "path": {
-                    "title": "Path",
-                    "type": "string"
+                    "type": "string",
+                    "description": "path to the file or directory to inspect"
                 }
             },
             "required": ["path"],
-            "title": "get_file_infoArguments",
             "type": "object"
         }
         
