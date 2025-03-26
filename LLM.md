@@ -15,6 +15,30 @@ Hanzo MCP is a Model Context Protocol server that enables AI models like Claude 
 - **ProjectAnalyzer/ProjectManager**: Analyzes projects, detects languages and frameworks
 - **FileOperations**: Core file system interaction functionality
 - **ThinkingTool**: Structured thinking space for planning without making changes
+- **JupyterNotebookTools**: Tools for working with Jupyter notebooks
+
+### Directory Structure
+```
+hanzo_mcp/
+├── __init__.py
+├── cli.py            # Command-line interface
+├── server.py         # HanzoMCPServer implementation
+└── tools/            # Tool implementations
+    ├── __init__.py   # Tool registration
+    ├── common/       # Shared functionality
+    │   ├── context.py      # Document context
+    │   ├── permissions.py  # Permission system
+    │   ├── thinking.py     # Think tool
+    │   └── validation.py   # Parameter validation
+    ├── filesystem/   # File operations
+    │   └── file_operations.py  # File and directory operations
+    ├── jupyter/      # Notebook operations
+    │   └── notebook_operations.py  # Jupyter notebook tools
+    ├── project/      # Project analysis
+    │   └── analysis.py      # Project structure analysis
+    └── shell/        # Command execution
+        └── command_executor.py  # Enhanced command execution
+```
 
 ### Tool Registration Pattern
 
@@ -67,13 +91,34 @@ Security exclusions include:
 ### Thinking Tool
 - `think`: Structured space for reasoning and planning
 
-## Error Handling
+## Best Practices and Patterns
 
+### Error Handling Pattern
 The error handling pattern includes:
 1. Parameter validation at the beginning of each tool
 2. Consistent error message formatting with descriptive details
 3. Proper exception handling with specific error messaging
 4. Progress tracking and status updates for user feedback
+
+### Permission Checking Pattern
+1. Path normalization using `normalize_path`
+2. Path validation using `permission_manager.is_path_allowed()`
+3. Permission checks before any file system operations
+4. Error handling for permission violations
+
+### Command Execution Pattern
+1. Command validation and sanitization
+2. Working directory checks
+3. Execution with proper environment setup
+4. Output and error capture with timeout handling
+
+## System Requirements
+- Python 3.13+
+- Dependencies:
+  - mcp>=1.3.0
+  - httpx>=0.27.0
+  - uvicorn>=0.23.1
+  - pytest
 
 ## Development Guidelines
 
@@ -106,25 +151,13 @@ When working with the permission system:
 6. Return clear success/failure messages
 7. Include relevant metadata in responses
 
-## Project Structure
+### Using the Think Tool
 
-```
-hanzo_mcp/
-├── __init__.py
-├── cli.py            # Command-line interface
-├── server.py         # HanzoMCPServer implementation
-└── tools/            # Tool implementations
-    ├── __init__.py   # Tool registration
-    ├── common/       # Shared functionality
-    │   ├── context.py      # Document context
-    │   ├── permissions.py  # Permission system
-    │   ├── thinking.py     # Think tool
-    │   └── validation.py   # Parameter validation
-    ├── filesystem/   # File operations
-    ├── jupyter/      # Notebook operations
-    ├── project/      # Project analysis
-    └── shell/        # Command execution
-```
+The Think Tool is designed for structured reasoning and planning:
+- Use it to analyze information without making changes
+- Plan complex multi-step operations
+- Evaluate different approaches
+- Document your thought process
 
 ## Configuration
 
@@ -138,3 +171,6 @@ Key configuration options:
 - `--name`: Name of the MCP server
 - `--transport`: Transport protocol (stdio, sse)
 - `--install`: Install configuration in Claude Desktop
+
+## Change History
+- March 25, 2025: Updated with additional component details and best practices
