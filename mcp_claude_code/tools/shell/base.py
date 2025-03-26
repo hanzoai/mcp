@@ -116,6 +116,7 @@ class ShellBaseTool(BaseTool, ABC):
         """
         pass
         
+    @override
     def register(self, mcp_server: FastMCP) -> None:
         """Register this shell tool with the MCP server.
         
