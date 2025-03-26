@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any, final, override
 
 from mcp.server.fastmcp import Context as MCPContext
+from mcp.server.fastmcp import FastMCP
 
 from mcp_claude_code.tools.jupyter.base import JupyterBaseTool
 
@@ -142,3 +143,19 @@ scientific computing."""
         except Exception as e:
             await tool_ctx.error(f"Error reading notebook: {str(e)}")
             return f"Error reading notebook: {str(e)}"
+            
+    @override
+    def register(self, mcp_server: FastMCP) -> None:
+        """Register this read notebook tool with the MCP server.
+        
+        Creates a wrapper function with explicitly defined parameters that match
+        the tool's parameter schema and registers it with the MCP server.
+        
+        Args:
+            mcp_server: The FastMCP server instance
+        """
+        tool_self = self  # Create a reference to self for use in the closure
+        
+        @mcp_server.tool(name=self.name, description=self.mcp_description)
+        async def read_notebook(path: str, ctx: MCPContext) -> str:
+            return await tool_self.call(ctx, path=path)

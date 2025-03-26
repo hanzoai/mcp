@@ -4,9 +4,10 @@ This module provides the ReadFilesTool for reading the contents of files.
 """
 
 from pathlib import Path
-from typing import Any, final, override
+from typing import Any, final, override, Union, List
 
 from mcp.server.fastmcp import Context as MCPContext
+from mcp.server.fastmcp import FastMCP
 
 from mcp_claude_code.tools.filesystem.base import FilesystemBaseTool
 
@@ -179,3 +180,19 @@ individual files won't stop the entire operation. Only works within allowed dire
 
         # For multiple files or failed single file read, return all results
         return "\n\n---\n\n".join(results)
+        
+    @override
+    def register(self, mcp_server: FastMCP) -> None:
+        """Register this tool with the MCP server.
+        
+        Creates a wrapper function with explicitly defined parameters that match
+        the tool's parameter schema and registers it with the MCP server.
+        
+        Args:
+            mcp_server: The FastMCP server instance
+        """
+        tool_self = self  # Create a reference to self for use in the closure
+        
+        @mcp_server.tool(name=self.name, description=self.mcp_description)
+        async def read_files(ctx: MCPContext, paths: Union[List[str], str]) -> str:
+            return await tool_self.call(ctx, paths=paths)

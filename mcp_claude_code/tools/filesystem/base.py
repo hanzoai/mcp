@@ -6,7 +6,7 @@ error formatting, and shared utilities for file operations.
 
 from abc import ABC
 from pathlib import Path
-from typing import Any 
+from typing import Any
 
 from mcp.server.fastmcp import Context as MCPContext
 

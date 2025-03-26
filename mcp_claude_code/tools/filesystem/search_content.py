@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any, final, override
 
 from mcp.server.fastmcp import Context as MCPContext
+from mcp.server.fastmcp import FastMCP
 
 from mcp_claude_code.tools.filesystem.base import FilesystemBaseTool
 
@@ -256,3 +257,19 @@ line number references. Only searches within allowed directories."""
         except Exception as e:
             await tool_ctx.error(f"Error searching file contents: {str(e)}")
             return f"Error searching file contents: {str(e)}"
+            
+    @override
+    def register(self, mcp_server: FastMCP) -> None:
+        """Register this search content tool with the MCP server.
+        
+        Creates a wrapper function with explicitly defined parameters that match
+        the tool's parameter schema and registers it with the MCP server.
+        
+        Args:
+            mcp_server: The FastMCP server instance
+        """
+        tool_self = self  # Create a reference to self for use in the closure
+        
+        @mcp_server.tool(name=self.name, description=self.mcp_description)
+        async def search_content(ctx: MCPContext, pattern: str, path: str, file_pattern: str = "*") -> str:
+            return await tool_self.call(ctx, pattern=pattern, path=path, file_pattern=file_pattern)

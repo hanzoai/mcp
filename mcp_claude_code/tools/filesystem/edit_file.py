@@ -5,9 +5,10 @@ This module provides the EditFileTool for making line-based edits to text files.
 
 from difflib import unified_diff
 from pathlib import Path
-from typing import Any, final, override
+from typing import Any, final, override, List, Dict
 
 from mcp.server.fastmcp import Context as MCPContext
+from mcp.server.fastmcp import FastMCP
 
 from mcp_claude_code.tools.filesystem.base import FilesystemBaseTool
 
@@ -268,3 +269,19 @@ Only works within allowed directories."""
         except Exception as e:
             await tool_ctx.error(f"Error editing file: {str(e)}")
             return f"Error editing file: {str(e)}"
+            
+    @override
+    def register(self, mcp_server: FastMCP) -> None:
+        """Register this edit file tool with the MCP server.
+        
+        Creates a wrapper function with explicitly defined parameters that match
+        the tool's parameter schema and registers it with the MCP server.
+        
+        Args:
+            mcp_server: The FastMCP server instance
+        """
+        tool_self = self  # Create a reference to self for use in the closure
+        
+        @mcp_server.tool(name=self.name, description=self.mcp_description)
+        async def edit_file(ctx: MCPContext, path: str, edits: List[Dict[str, str]], dry_run: bool = False) -> str:
+            return await tool_self.call(ctx, path=path, edits=edits, dry_run=dry_run)

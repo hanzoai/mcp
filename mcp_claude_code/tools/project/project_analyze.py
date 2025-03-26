@@ -6,6 +6,7 @@ This module provides the ProjectAnalyzeTool for analyzing project structure and 
 from typing import Any, final, override
 
 from mcp.server.fastmcp import Context as MCPContext
+from mcp.server.fastmcp import FastMCP
 
 from mcp_claude_code.tools.common.context import create_tool_context
 from mcp_claude_code.tools.project.analysis import ProjectAnalyzer, ProjectManager
@@ -154,3 +155,19 @@ class ProjectAnalyzeTool(ProjectBaseTool):
         
         await tool_ctx.info("Project analysis complete")
         return summary
+        
+    @override
+    def register(self, mcp_server: FastMCP) -> None:
+        """Register this project analyze tool with the MCP server.
+        
+        Creates a wrapper function with explicitly defined parameters that match
+        the tool's parameter schema and registers it with the MCP server.
+        
+        Args:
+            mcp_server: The FastMCP server instance
+        """
+        tool_self = self  # Create a reference to self for use in the closure
+        
+        @mcp_server.tool(name=self.name, description=self.mcp_description)
+        async def project_analyze_tool(project_dir: str, ctx: MCPContext) -> str:
+            return await tool_self.call(ctx, project_dir=project_dir)

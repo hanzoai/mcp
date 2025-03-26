@@ -4,9 +4,10 @@ This module provides the RunScriptTool for executing scripts with interpreters.
 """
 
 import os
-from typing import Any, final
+from typing import Any, final, override
 
 from mcp.server.fastmcp import Context as MCPContext
+from mcp.server.fastmcp import FastMCP
 
 from mcp_claude_code.tools.common.context import create_tool_context
 from mcp_claude_code.tools.shell.base import ShellBaseTool
@@ -28,6 +29,7 @@ class RunScriptTool(ShellBaseTool):
         self.command_executor: CommandExecutor = command_executor
         
     @property
+    @override
     def name(self) -> str:
         """Get the tool name.
         
@@ -37,6 +39,7 @@ class RunScriptTool(ShellBaseTool):
         return "run_script"
         
     @property
+    @override
     def description(self) -> str:
         """Get the tool description.
         
@@ -57,6 +60,7 @@ Returns:
 """
         
     @property
+    @override
     def parameters(self) -> dict[str, Any]:
         """Get the parameter specifications for the tool.
         
@@ -90,6 +94,7 @@ Returns:
         }
         
     @property
+    @override
     def required(self) -> list[str]:
         """Get the list of required parameter names.
         
@@ -98,6 +103,7 @@ Returns:
         """
         return ["script", "cwd"]
     
+    @override
     async def prepare_tool_context(self, ctx: MCPContext) -> Any:
         """Create and prepare the tool context.
         
@@ -111,6 +117,7 @@ Returns:
         tool_ctx.set_tool_info(self.name)
         return tool_ctx
         
+    @override
     async def call(self, ctx: MCPContext, **params: Any) -> str:
         """Execute the tool with the given parameters.
         
@@ -190,3 +197,19 @@ Returns:
         else:
             # For failed scripts, include all available information
             return result.format_output()
+            
+    @override
+    def register(self, mcp_server: FastMCP) -> None:
+        """Register this run script tool with the MCP server.
+        
+        Creates a wrapper function with explicitly defined parameters that match
+        the tool's parameter schema and registers it with the MCP server.
+        
+        Args:
+            mcp_server: The FastMCP server instance
+        """
+        tool_self = self  # Create a reference to self for use in the closure
+        
+        @mcp_server.tool(name=self.name, description=self.mcp_description)
+        async def run_script(ctx: MCPContext, script: str, cwd: str, interpreter: str = "bash", use_login_shell: bool = True) -> str:
+            return await tool_self.call(ctx, script=script, cwd=cwd, interpreter=interpreter, use_login_shell=use_login_shell)

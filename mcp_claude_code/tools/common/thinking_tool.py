@@ -6,6 +6,7 @@ This module provides the ThinkingTool for Claude to engage in structured thinkin
 from typing import Any, final, override
 
 from mcp.server.fastmcp import Context as MCPContext
+from mcp.server.fastmcp import FastMCP
 
 from mcp_claude_code.tools.common.base import BaseTool
 from mcp_claude_code.tools.common.context import create_tool_context
@@ -104,3 +105,19 @@ It will not obtain new information or make any changes to the repository, but ju
 
         # Return confirmation
         return "I've recorded your thinking process. You can continue with your next action based on this analysis."
+        
+    @override
+    def register(self, mcp_server: FastMCP) -> None:
+        """Register this thinking tool with the MCP server.
+        
+        Creates a wrapper function with explicitly defined parameters that match
+        the tool's parameter schema and registers it with the MCP server.
+        
+        Args:
+            mcp_server: The FastMCP server instance
+        """
+        tool_self = self  # Create a reference to self for use in the closure
+        
+        @mcp_server.tool(name=self.name, description=self.mcp_description)
+        async def think(thought: str, ctx: MCPContext) -> str:
+            return await tool_self.call(ctx, thought=thought)
