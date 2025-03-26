@@ -9,6 +9,7 @@ from hanzo_mcp.tools.common.context import DocumentContext
 from hanzo_mcp.tools.common.permissions import PermissionManager
 from hanzo_mcp.tools.project.analysis import ProjectAnalyzer, ProjectManager
 from hanzo_mcp.tools.shell.command_executor import CommandExecutor
+from hanzo_mcp.external.proxy_tools import ProxyTools
 
 
 @final
@@ -20,6 +21,7 @@ class HanzoMCPServer:
         name: str = "hanzo",
         allowed_paths: list[str] | None = None,
         mcp_instance: FastMCP | None = None,
+        enable_external_servers: bool = True,
     ):
         """Initialize the Hanzo server.
 
@@ -27,6 +29,7 @@ class HanzoMCPServer:
             name: The name of the server
             allowed_paths: list of paths that the server is allowed to access
             mcp_instance: Optional FastMCP instance for testing
+            enable_external_servers: Whether to enable external MCP servers
         """
         self.mcp = mcp_instance if mcp_instance is not None else FastMCP(name)
 
@@ -62,6 +65,11 @@ class HanzoMCPServer:
             project_manager=self.project_manager,
             project_analyzer=self.project_analyzer,
         )
+        
+        # Register external MCP server tools if enabled
+        if enable_external_servers:
+            self.proxy_tools = ProxyTools()
+            self.proxy_tools.register_tools(self.mcp)
 
     def run(self, transport: str = "stdio", allowed_paths: list[str] | None = None):
         """Run the MCP server.
