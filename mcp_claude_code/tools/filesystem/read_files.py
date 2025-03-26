@@ -4,7 +4,7 @@ This module provides the ReadFilesTool for reading the contents of files.
 """
 
 from pathlib import Path
-from typing import Any, final, override, Union, List
+from typing import Any, final, override, Union
 
 from mcp.server.fastmcp import Context as MCPContext
 from mcp.server.fastmcp import FastMCP
@@ -194,5 +194,5 @@ individual files won't stop the entire operation. Only works within allowed dire
         tool_self = self  # Create a reference to self for use in the closure
         
         @mcp_server.tool(name=self.name, description=self.mcp_description)
-        async def read_files(ctx: MCPContext, paths: Union[List[str], str]) -> str:
+        async def read_files(ctx: MCPContext, paths: Union[list[str], str]) -> str:
             return await tool_self.call(ctx, paths=paths)

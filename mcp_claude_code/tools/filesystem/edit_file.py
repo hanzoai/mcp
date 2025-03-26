@@ -5,7 +5,7 @@ This module provides the EditFileTool for making line-based edits to text files.
 
 from difflib import unified_diff
 from pathlib import Path
-from typing import Any, final, override, List, Dict
+from typing import Any, final, override
 
 from mcp.server.fastmcp import Context as MCPContext
 from mcp.server.fastmcp import FastMCP
@@ -283,5 +283,5 @@ Only works within allowed directories."""
         tool_self = self  # Create a reference to self for use in the closure
         
         @mcp_server.tool(name=self.name, description=self.mcp_description)
-        async def edit_file(ctx: MCPContext, path: str, edits: List[Dict[str, str]], dry_run: bool = False) -> str:
+        async def edit_file(ctx: MCPContext, path: str, edits: list[dict[str, str]], dry_run: bool = False) -> str:
             return await tool_self.call(ctx, path=path, edits=edits, dry_run=dry_run)

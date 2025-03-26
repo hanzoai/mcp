@@ -4,7 +4,7 @@ This module provides the ScriptTool for executing scripts in various languages.
 """
 
 import os
-from typing import Any, final, override, List, Optional
+from typing import Any, final, override
 
 from mcp.server.fastmcp import Context as MCPContext
 from mcp.server.fastmcp import FastMCP
@@ -238,7 +238,7 @@ Returns:
         tool_self = self  # Create a reference to self for use in the closure
         
         @mcp_server.tool(name=self.name, description=self.mcp_description)
-        async def script_tool(ctx: MCPContext, language: str, script: str, cwd: str, args: Optional[List[str]] = None, 
+        async def script_tool(ctx: MCPContext, language: str, script: str, cwd: str, args: list[str] | None = None, 
                               use_login_shell: bool = True) -> str:
             return await tool_self.call(ctx, language=language, script=script, cwd=cwd, 
                                         args=args, use_login_shell=use_login_shell)

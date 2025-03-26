@@ -5,7 +5,7 @@ This module provides the EditNotebookTool for editing Jupyter notebook files.
 
 import json
 from pathlib import Path
-from typing import Any, final, override, Optional
+from typing import Any, final, override
 
 from mcp.server.fastmcp import Context as MCPContext
 from mcp.server.fastmcp import FastMCP
@@ -281,7 +281,7 @@ In delete mode, the specified cell is removed."""
         
         @mcp_server.tool(name=self.name, description=self.mcp_description)
         async def edit_notebook(ctx: MCPContext, path: str, cell_number: int, new_source: str, 
-                                cell_type: Optional[str] = None, 
+                                cell_type: str | None = None, 
                                 edit_mode: str = "replace") -> str:
            return await tool_self.call(ctx, path=path, cell_number=cell_number, 
                                        new_source=new_source, cell_type=cell_type,
