@@ -66,9 +66,11 @@ You can customize the agent behavior by specifying the LLM model and token limit
         "--allow-path",
         "/path/to/project",
         "--agent-model",
-        "anthropic/claude-3-sonnet",
+        "openrouter/google/gemini-2.0-flash-001",
         "--agent-max-tokens",
-        "2000"
+        "100000",
+        "--agent-api-key",
+        "your-api-key"
       ]
     }
   }
@@ -82,10 +84,13 @@ The available LLM configuration options are:
 - `--agent-api-key`: Specify the API key for the LLM provider (for development/testing only)
 
 The model name uses the LiteLLM format with provider prefixes. Examples:
+
 - OpenAI models: `openai/gpt-4o`, `openai/gpt-4o-mini`
 - Anthropic models: `anthropic/claude-3-sonnet`, `anthropic/claude-3-opus`
+- Google models: `openrouter/google/gemini-2.0-flash-001` (Recommended)
 
 If you don't specify these options, the agent will use the following environment variables:
+
 - `AGENT_MODEL`: Default model name (falls back to "openai/gpt-4o")
 - `AGENT_PROVIDER`: Default provider prefix
 - `AGENT_MAX_TOKENS`: Maximum tokens for model responses
@@ -112,3 +117,4 @@ The system prompt provides Claude with:
 - Special formatting instructions for mathematical content
 
 This step is crucial as it enables Claude to follow a consistent approach when helping you with code modifications.
+

@@ -5,7 +5,6 @@ enabling concurrent execution of multiple operations and specialized processing.
 """
 
 import json
-import os
 import time
 from collections.abc import Iterable
 from typing import Any, final, override
@@ -25,7 +24,7 @@ from mcp_claude_code.tools.agent.tool_adapter import (
     convert_tools_to_openai_functions,
 )
 from mcp_claude_code.tools.common.base import BaseTool
-from mcp_claude_code.tools.common.context import DocumentContext, create_tool_context
+from mcp_claude_code.tools.common.context import DocumentContext, ToolContext, create_tool_context
 from mcp_claude_code.tools.common.permissions import PermissionManager
 from mcp_claude_code.tools.filesystem import get_read_only_filesystem_tools
 from mcp_claude_code.tools.jupyter import get_read_only_jupyter_tools
@@ -125,50 +124,7 @@ Returns:
         self.available_tools.extend(get_read_only_filesystem_tools(self.document_context, self.permission_manager))
         self.available_tools.extend(get_read_only_jupyter_tools(self.document_context, self.permission_manager))
         self.available_tools.extend(get_project_tools(self.document_context, self.permission_manager,self.command_executor))
-        self.llm_initialized = False  # Initialize to False instead of calling _init_llm_client directly
         
-    def _init_llm_client(self) -> None:
-        """Initialize LiteLLM for API calls.
-
-        Uses provided API key override if available, otherwise checks environment variables.
-        Sets the appropriate environment variables for LiteLLM to use.
-
-        Raises:
-            RuntimeError: If required API key is not set
-        """
-        # Use API key override if provided
-        if self.api_key_override:
-            # If we have a model override, try to determine the provider
-            if self.model_override and '/' in self.model_override:
-                provider = self.model_override.split('/')[0].upper()
-                # Set the appropriate environment variable based on provider
-                env_var_name = f"{provider}_API_KEY"
-                os.environ[env_var_name] = self.api_key_override
-                self.llm_initialized = True
-                return
-            else:
-                # Default to OpenAI if no specific provider is identified
-                os.environ["OPENAI_API_KEY"] = self.api_key_override
-                self.llm_initialized = True
-                return
-        
-        # Fall back to checking environment variables
-        # Check for OpenAI API key (for backward compatibility)
-        openai_api_key = os.environ.get("OPENAI_API_KEY")
-        
-        # Check for Anthropic API key
-        anthropic_api_key = os.environ.get("ANTHROPIC_API_KEY")
-        
-        # Add checks for other providers as needed
-        
-        # Ensure at least one provider API key is available
-        if not openai_api_key and not anthropic_api_key:
-            raise RuntimeError(
-                "At least one LLM provider API key (e.g., OPENAI_API_KEY, ANTHROPIC_API_KEY) must be set to use the agent tool"
-            )
-        
-        # LiteLLM doesn't require explicit initialization as it uses the environment variables directly
-        self.llm_initialized = True
 
     @override
     async def call(self, ctx: MCPContext, **params: Any) -> str:
@@ -192,14 +148,6 @@ Returns:
         if not prompt:
             await tool_ctx.error("Parameter 'prompt' is required but was not provided")
             return "Error: Parameter 'prompt' is required but was not provided"
-
-        # Check if LLM is initialized
-        try:
-            if not self.llm_initialized:
-                self._init_llm_client()
-        except RuntimeError as e:
-            await tool_ctx.error(str(e))
-            return f"Error: {str(e)}"
 
         # Log the start of execution
         await tool_ctx.info(f"Launching agent with prompt: {prompt[:100]}...")
@@ -256,7 +204,7 @@ Returns:
         system_prompt: str,
         available_tools: list[BaseTool],
         openai_tools: list[ChatCompletionToolParam],
-        tool_ctx: Any,
+        tool_ctx: ToolContext,
     ) -> str:
         """Execute agent with tool handling.
 
@@ -269,9 +217,6 @@ Returns:
         Returns:
             Agent execution result
         """
-        if not self.llm_initialized:
-            return "Error: LLM client not initialized"
-            
         # Get model parameters and name
         model = get_default_model(self.model_override)
         params = get_model_parameters(max_tokens=self.max_tokens_override)
@@ -293,14 +238,26 @@ Returns:
             await tool_ctx.info(f"Calling model (iteration {iteration_count})...")
             
             try:
+                # Configure model parameters based on capabilities
+                completion_params = {
+                    "model": model,
+                    "messages": messages,
+                    "tools": openai_tools,
+                    "tool_choice": "auto",
+                    "temperature": params["temperature"],
+                    "timeout": params["timeout"],
+                }
+
+                if self.api_key_override:
+                    completion_params["api_key"] = self.api_key_override
+                
+                # Add max_tokens if provided
+                if params.get("max_tokens"):
+                    completion_params["max_tokens"] = params.get("max_tokens")
+                
+                # Make the model call
                 response = litellm.completion(
-                    model=model,
-                    messages=messages,
-                    tools=openai_tools,
-                    tool_choice="auto",
-                    temperature=params["temperature"],
-                    timeout=params["timeout"],
-                    max_tokens=params.get("max_tokens"),
+                        **completion_params #pyright: ignore
                 )
 
                 if len(response.choices) == 0: #pyright: ignore
@@ -309,11 +266,7 @@ Returns:
                 message = response.choices[0].message #pyright: ignore
 
                 # Add message to conversation history
-                messages.append({ 
-                    "role": "assistant", 
-                    "content": message.content,
-                    "tool_calls": message.tool_calls #pyright: ignore
-                })
+                messages.append(message) #pyright: ignore
 
                 # If no tool calls, we're done
                 if not message.tool_calls:
@@ -349,7 +302,7 @@ Returns:
                         tool_result = f"Error: Tool '{function_name}' not found"
                     else:
                         try:
-                            tool_result = await tool.call(ctx=tool_ctx.ctx, **function_args)
+                            tool_result = await tool.call(ctx=tool_ctx.mcp_context, **function_args)
                         except Exception as e:
                             tool_result = f"Error executing {function_name}: {str(e)}"
                             
@@ -367,6 +320,7 @@ Returns:
                 
             except Exception as e:
                 await tool_ctx.error(f"Error in model call: {str(e)}")
+                await tool_ctx.error(f"Messages: {json.dumps(messages)}")
                 return f"Error in agent execution: {str(e)}"
                 
         # If we've reached the limit, add a warning and get final response

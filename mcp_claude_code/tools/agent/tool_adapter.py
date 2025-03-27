@@ -8,6 +8,7 @@ and outputs for agent execution.
 
 from openai.types import FunctionParameters
 from openai.types.chat import ChatCompletionToolParam
+import litellm
 
 from mcp_claude_code.tools.common.base import BaseTool
 
@@ -58,3 +59,17 @@ def convert_tool_parameters(tool: BaseTool) -> FunctionParameters:
         params["required"] = tool.required
         
     return params
+
+
+
+def supports_parallel_function_calling(model: str) -> bool:
+    """Check if a model supports parallel function calling.
+
+    Args:
+        model: Model identifier in LiteLLM format (e.g., "openai/gpt-4-turbo-preview")
+
+    Returns:
+        True if the model supports parallel function calling, False otherwise
+    """
+    # Use litellm's built-in parallel function calling support check
+    return litellm.supports_parallel_function_calling(model=model)

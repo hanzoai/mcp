@@ -91,55 +91,41 @@ class TestAgentTool:
         assert "prompt" in params["properties"]
         assert params["required"] == ["prompt"]
         
-    def test_init_llm_client_with_override(self, document_context, permission_manager, command_executor):
-        """Test initializing LLM client with API key override."""
+    def test_model_and_api_key_override(self, document_context, permission_manager, command_executor):
+        """Test API key and model override functionality."""
         # Test with antropic model and API key
-        with patch.dict(os.environ, {}, clear=True):
-            agent_tool = AgentTool(
-                document_context=document_context,
-                permission_manager=permission_manager,
-                command_executor=command_executor,
-                model="anthropic/claude-3-sonnet",
-                api_key="test_anthropic_key"
-            )
-            
-            agent_tool._init_llm_client()
-            
-            # Check that the environment variable was set correctly
-            assert os.environ.get("ANTHROPIC_API_KEY") == "test_anthropic_key"
-            assert agent_tool.llm_initialized is True
-            
+        agent_tool = AgentTool(
+            document_context=document_context,
+            permission_manager=permission_manager,
+            command_executor=command_executor,
+            model="anthropic/claude-3-sonnet",
+            api_key="test_anthropic_key"
+        )
+        
+        assert agent_tool.model_override == "anthropic/claude-3-sonnet"
+        assert agent_tool.api_key_override == "test_anthropic_key"
+        
         # Test with openai model and API key
-        with patch.dict(os.environ, {}, clear=True):
-            agent_tool = AgentTool(
-                document_context=document_context,
-                permission_manager=permission_manager,
-                command_executor=command_executor,
-                model="openai/gpt-4o",
-                api_key="test_openai_key"
-            )
-            
-            agent_tool._init_llm_client()
-            
-            # Check that the environment variable was set correctly
-            assert os.environ.get("OPENAI_API_KEY") == "test_openai_key"
-            assert agent_tool.llm_initialized is True
-            
-        # Test with no provider in model name
-        with patch.dict(os.environ, {}, clear=True):
-            agent_tool = AgentTool(
-                document_context=document_context,
-                permission_manager=permission_manager,
-                command_executor=command_executor,
-                model="gpt-4o",
-                api_key="test_default_key"
-            )
-            
-            agent_tool._init_llm_client()
-            
-            # Should default to OpenAI
-            assert os.environ.get("OPENAI_API_KEY") == "test_default_key"
-            assert agent_tool.llm_initialized is True
+        agent_tool = AgentTool(
+            document_context=document_context,
+            permission_manager=permission_manager,
+            command_executor=command_executor,
+            model="openai/gpt-4o",
+            api_key="test_openai_key"
+        )
+        
+        assert agent_tool.model_override == "openai/gpt-4o"
+        assert agent_tool.api_key_override == "test_openai_key"
+        
+        # Test with no model or API key
+        agent_tool = AgentTool(
+            document_context=document_context,
+            permission_manager=permission_manager,
+            command_executor=command_executor
+        )
+        
+        assert agent_tool.model_override is None
+        assert agent_tool.api_key_override is None
         
     @pytest.mark.asyncio
     async def test_call_no_prompt(self, agent_tool, mcp_context):
@@ -158,22 +144,25 @@ class TestAgentTool:
         tool_ctx.error.assert_called_once()
         
     @pytest.mark.asyncio
-    async def test_call_no_api_key(self, agent_tool, mcp_context):
-        """Test agent tool call with no API key."""
+    async def test_call_with_litellm_error(self, agent_tool, mcp_context):
+        """Test agent tool call when litellm raises an error."""
         # Mock the tool context
         tool_ctx = MagicMock()
         tool_ctx.error = AsyncMock()
         tool_ctx.info = AsyncMock()
         tool_ctx.set_tool_info = AsyncMock()
-        tool_ctx.get_tools = AsyncMock()
+        tool_ctx.get_tools = AsyncMock(return_value=[])
         
+        # Mock litellm to raise an error
         with patch("mcp_claude_code.tools.agent.agent_tool.create_tool_context", return_value=tool_ctx):
-            with patch.object(agent_tool, "_init_llm_client", side_effect=RuntimeError("API key error")):
-                result = await agent_tool.call(ctx=mcp_context, prompt="Test prompt")
+            with patch("mcp_claude_code.tools.agent.agent_tool.convert_tools_to_openai_functions", return_value=[]):
+                with patch("mcp_claude_code.tools.agent.agent_tool.get_system_prompt", return_value="System prompt"):
+                    with patch("mcp_claude_code.tools.agent.agent_tool.litellm.completion", side_effect=RuntimeError("API key error")):
+                        result = await agent_tool.call(ctx=mcp_context, prompt="Test prompt")
                 
         # We're just making sure an error is returned, the actual error message may vary in tests
         assert "Error" in result
-        tool_ctx.error.assert_called_once()
+        tool_ctx.error.assert_called()
         
     @pytest.mark.asyncio
     async def test_call_with_valid_prompt(self, agent_tool, mcp_context, mock_tools):
@@ -298,12 +287,13 @@ class TestAgentTool:
         tool_ctx.set_tool_info = AsyncMock()
         tool_ctx.info = AsyncMock()
         tool_ctx.error = AsyncMock()
-        tool_ctx.get_tools = AsyncMock(side_effect=Exception("Test exception"))
+        tool_ctx.get_tools = MagicMock(side_effect=Exception("Test exception"))
         
         # Mock _format_result to return the raw error message
         with patch.object(agent_tool, "_format_result", return_value="Error: Error executing agent: Test exception"):
             with patch("mcp_claude_code.tools.agent.agent_tool.create_tool_context", return_value=tool_ctx):
-                result = await agent_tool.call(ctx=mcp_context, prompt="Test prompt")
+                with patch("mcp_claude_code.tools.agent.agent_tool.get_allowed_agent_tools", side_effect=Exception("Test exception")):
+                    result = await agent_tool.call(ctx=mcp_context, prompt="Test prompt")
                 
         assert "Error" in result
         assert "Test exception" in result
