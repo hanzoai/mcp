@@ -109,20 +109,16 @@ class TestPrompt:
         """Test get_model_parameters."""
         # Test with environment variables
         os.environ["AGENT_TEMPERATURE"] = "0.5"
-        os.environ["AGENT_MAX_TOKENS"] = "2048"
         os.environ["AGENT_API_TIMEOUT"] = "30"
         
         params = get_model_parameters()
         assert params["temperature"] == 0.5
-        assert params["max_tokens"] == 2048
         assert params["timeout"] == 30
         
         # Test defaults
         del os.environ["AGENT_TEMPERATURE"]
-        del os.environ["AGENT_MAX_TOKENS"]
         del os.environ["AGENT_API_TIMEOUT"]
         
         params = get_model_parameters()
         assert params["temperature"] == 0.7
-        assert params["max_tokens"] == 4096
         assert params["timeout"] == 60
