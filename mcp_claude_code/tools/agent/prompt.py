@@ -105,6 +105,5 @@ def get_model_parameters() -> dict[str, Any]:
     """
     return {
         "temperature": float(os.environ.get("AGENT_TEMPERATURE", "0.7")),
-        "max_tokens": int(os.environ.get("AGENT_MAX_TOKENS", "4096")),
         "timeout": int(os.environ.get("AGENT_API_TIMEOUT", "60")),
     }

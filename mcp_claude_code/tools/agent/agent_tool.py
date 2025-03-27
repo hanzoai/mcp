@@ -266,7 +266,6 @@ Returns:
                     tools=openai_tools,
                     tool_choice="auto",
                     temperature=params["temperature"],
-                    max_tokens=params["max_tokens"],
                     timeout=params["timeout"],
                 )
 
@@ -354,7 +353,6 @@ Returns:
                     model=model,
                     messages=messages,
                     temperature=params["temperature"],
-                    max_tokens=params["max_tokens"],
                     timeout=params["timeout"],
                 )
                 
