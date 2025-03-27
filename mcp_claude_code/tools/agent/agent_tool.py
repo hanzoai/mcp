@@ -11,10 +11,6 @@ from collections.abc import Iterable
 from typing import Any, final, override
 
 import litellm
-from litellm.types.utils import (
-    Choices,
-    ModelResponse,
-)
 from mcp.server.fastmcp import Context as MCPContext
 from mcp.server.fastmcp import FastMCP
 from openai.types.chat import ChatCompletionMessageParam, ChatCompletionToolParam
@@ -276,18 +272,10 @@ Returns:
                     timeout=params["timeout"],
                 )
 
-                if type(response) is not ModelResponse:
-                    raise ValueError(f"Invalid response type: {type(response)}")
-
-                if len(response.choices) == 0:
+                if len(response.choices) == 0: #pyright: ignore
                     raise ValueError("No response choices returned")
 
-                choice = response.choices[0]
-
-                if type(choice) is not Choices:
-                    raise ValueError(f"Invalid choice type: {type(choice)}")
-                
-                message = choice.message
+                message = response.choices[0].message #pyright: ignore
 
                 # Add message to conversation history
                 messages.append({ 
@@ -372,7 +360,7 @@ Returns:
                     timeout=params["timeout"],
                 )
                 
-                return final_response.choices[0].message.content or f"Agent reached {limit_type} limit without a response."
+                return final_response.choices[0].message.content or f"Agent reached {limit_type} limit without a response." #pyright: ignore
             except Exception as e:
                 await tool_ctx.error(f"Error in final model call: {str(e)}")
                 return f"Error in final response: {str(e)}"
