@@ -4,14 +4,19 @@ This module implements the AgentTool that allows Claude to delegate tasks to sub
 enabling concurrent execution of multiple operations and specialized processing.
 """
 
-from collections.abc import Iterable
 import json
 import os
 import time
+from collections.abc import Iterable
 from typing import Any, final, override
 
-from mcp.server.fastmcp import Context as MCPContext, FastMCP
-from openai import OpenAI
+import litellm
+from litellm.types.utils import (
+    Choices,
+    ModelResponse,
+)
+from mcp.server.fastmcp import Context as MCPContext
+from mcp.server.fastmcp import FastMCP
 from openai.types.chat import ChatCompletionMessageParam, ChatCompletionToolParam
 
 from mcp_claude_code.tools.agent.prompt import (
@@ -118,20 +123,25 @@ Returns:
         self.available_tools.extend(get_jupyter_tools(self.document_context, self.permission_manager))
         self.available_tools.extend(get_project_tools(self.document_context, self.permission_manager,self.command_executor))
         self.available_tools.extend(get_shell_tools(self.permission_manager))
-        self.client = None  # Initialize to None instead of calling _init_openai_client directly
+        self.llm_initialized = False  # Initialize to False instead of calling _init_llm_client directly
         
-    def _init_openai_client(self) -> None:
-        """Initialize OpenAI client.
+    def _init_llm_client(self) -> None:
+        """Initialize LiteLLM for API calls.
 
         Raises:
-            RuntimeError: If OpenAI API key is not set
+            RuntimeError: If required API key is not set
         """
-        api_key = os.environ.get("OPENAI_API_KEY")
-        if not api_key:
+        # Check for OpenAI API key (for backward compatibility)
+        openai_api_key = os.environ.get("OPENAI_API_KEY")
+        
+        # We'll check for other provider API keys as needed
+        if not openai_api_key:
             raise RuntimeError(
-                "OPENAI_API_KEY environment variable must be set to use the agent tool"
+                "At least one LLM provider API key (e.g., OPENAI_API_KEY) must be set to use the agent tool"
             )
-        self.client = OpenAI(api_key=api_key)
+        
+        # LiteLLM doesn't require explicit initialization as it uses the environment variables directly
+        self.llm_initialized = True
 
     @override
     async def call(self, ctx: MCPContext, **params: Any) -> str:
@@ -156,10 +166,10 @@ Returns:
             await tool_ctx.error("Parameter 'prompt' is required but was not provided")
             return "Error: Parameter 'prompt' is required but was not provided"
 
-        # Check if OpenAI API key is available
+        # Check if LLM is initialized
         try:
-            if not self.client:
-                self._init_openai_client()
+            if not self.llm_initialized:
+                self._init_llm_client()
         except RuntimeError as e:
             await tool_ctx.error(str(e))
             return f"Error: {str(e)}"
@@ -218,7 +228,7 @@ Returns:
         self,
         system_prompt: str,
         available_tools: list[BaseTool],
-        openai_tools: Iterable[ChatCompletionToolParam],
+        openai_tools: list[ChatCompletionToolParam],
         tool_ctx: Any,
     ) -> str:
         """Execute agent with tool handling.
@@ -232,8 +242,8 @@ Returns:
         Returns:
             Agent execution result
         """
-        if not self.client:
-            return "Error: OpenAI client not initialized"
+        if not self.llm_initialized:
+            return "Error: LLM client not initialized"
             
         # Get model parameters and name
         model = get_default_model()
@@ -256,7 +266,7 @@ Returns:
             await tool_ctx.info(f"Calling model (iteration {iteration_count})...")
             
             try:
-                response = self.client.chat.completions.create(
+                response = litellm.completion(
                     model=model,
                     messages=messages,
                     tools=openai_tools,
@@ -265,8 +275,19 @@ Returns:
                     max_tokens=params["max_tokens"],
                     timeout=params["timeout"],
                 )
+
+                if type(response) is not ModelResponse:
+                    raise ValueError(f"Invalid response type: {type(response)}")
+
+                if len(response.choices) == 0:
+                    raise ValueError("No response choices returned")
+
+                choice = response.choices[0]
+
+                if type(choice) is not Choices:
+                    raise ValueError(f"Invalid choice type: {type(choice)}")
                 
-                message = response.choices[0].message
+                message = choice.message
 
                 # Add message to conversation history
                 messages.append({ 
@@ -343,7 +364,7 @@ Returns:
             
             try:
                 # Make a final call to get the result
-                final_response = self.client.chat.completions.create(
+                final_response = litellm.completion(
                     model=model,
                     messages=messages,
                     temperature=params["temperature"],

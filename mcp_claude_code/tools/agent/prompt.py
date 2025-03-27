@@ -77,9 +77,19 @@ def get_default_model() -> str:
     """Get the default model for agent execution.
 
     Returns:
-        Model identifier string
+        Model identifier string with optional provider prefix
     """
-    return os.environ.get("AGENT_MODEL", "gpt-4o")
+    model = os.environ.get("AGENT_MODEL", "gpt-4o")
+    provider = os.environ.get("AGENT_PROVIDER", "openai")
+    
+    # Only add provider prefix if it's not already in the model name
+    if "/" not in model and provider != "openai":
+        return f"{provider}/{model}"
+    elif "/" not in model:
+        return f"openai/{model}"
+    else:
+        # Model already has a provider prefix
+        return model
 
 
 def get_model_parameters() -> dict[str, Any]:

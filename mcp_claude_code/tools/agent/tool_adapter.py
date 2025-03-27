@@ -5,7 +5,6 @@ formats, making MCP tools available to the OpenAI API, and processing tool input
 and outputs for agent execution.
 """
 
-from collections.abc import Iterable
 
 from openai.types import FunctionParameters
 from openai.types.chat import ChatCompletionToolParam
@@ -13,7 +12,7 @@ from openai.types.chat import ChatCompletionToolParam
 from mcp_claude_code.tools.common.base import BaseTool
 
 
-def convert_tools_to_openai_functions(tools: list[BaseTool]) -> Iterable[ChatCompletionToolParam]:
+def convert_tools_to_openai_functions(tools: list[BaseTool]) -> list[ChatCompletionToolParam]:
     """Convert MCP tools to OpenAI function format.
 
     Args:
@@ -22,7 +21,7 @@ def convert_tools_to_openai_functions(tools: list[BaseTool]) -> Iterable[ChatCom
     Returns:
         List of tools formatted for OpenAI API
     """
-    openai_tools:Iterable[ChatCompletionToolParam] = []
+    openai_tools:list[ChatCompletionToolParam] = []
     for tool in tools:
         openai_tool:ChatCompletionToolParam = {
             "type": "function",
