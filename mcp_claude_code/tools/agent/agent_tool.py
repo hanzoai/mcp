@@ -27,10 +27,9 @@ from mcp_claude_code.tools.agent.tool_adapter import (
 from mcp_claude_code.tools.common.base import BaseTool
 from mcp_claude_code.tools.common.context import DocumentContext, create_tool_context
 from mcp_claude_code.tools.common.permissions import PermissionManager
-from mcp_claude_code.tools.filesystem import get_filesystem_tools
-from mcp_claude_code.tools.jupyter import get_jupyter_tools
+from mcp_claude_code.tools.filesystem import get_read_only_filesystem_tools
+from mcp_claude_code.tools.jupyter import get_read_only_jupyter_tools
 from mcp_claude_code.tools.project import get_project_tools
-from mcp_claude_code.tools.shell import get_shell_tools
 from mcp_claude_code.tools.shell.command_executor import CommandExecutor
 
 
@@ -115,10 +114,9 @@ Returns:
         self.permission_manager = permission_manager
         self.command_executor = command_executor
         self.available_tools :list[BaseTool] = []
-        self.available_tools.extend(get_filesystem_tools(self.document_context, self.permission_manager))
-        self.available_tools.extend(get_jupyter_tools(self.document_context, self.permission_manager))
+        self.available_tools.extend(get_read_only_filesystem_tools(self.document_context, self.permission_manager))
+        self.available_tools.extend(get_read_only_jupyter_tools(self.document_context, self.permission_manager))
         self.available_tools.extend(get_project_tools(self.document_context, self.permission_manager,self.command_executor))
-        self.available_tools.extend(get_shell_tools(self.permission_manager))
         self.llm_initialized = False  # Initialize to False instead of calling _init_llm_client directly
         
     def _init_llm_client(self) -> None:
