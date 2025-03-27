@@ -26,6 +26,9 @@ def register_all_tools(
     mcp_server: FastMCP,
     document_context: DocumentContext,
     permission_manager: PermissionManager,
+    agent_model: str | None = None,
+    agent_max_tokens: int | None = None,
+    agent_api_key: str | None = None,
 ) -> None:
     """Register all Claude Code tools with the MCP server.
 
@@ -33,6 +36,9 @@ def register_all_tools(
         mcp_server: The FastMCP server instance
         document_context: Document context for tracking file contents
         permission_manager: Permission manager for access control
+        agent_model: Optional model name for agent tool in LiteLLM format
+        agent_max_tokens: Optional maximum tokens for agent responses
+        agent_api_key: Optional API key for the LLM provider
     """
     # Register all filesystem tools
     register_filesystem_tools(mcp_server, document_context, permission_manager)
@@ -52,7 +58,15 @@ def register_all_tools(
     )
 
     # Register agent tools
-    register_agent_tools(mcp_server, document_context, permission_manager,CommandExecutor(permission_manager))
+    register_agent_tools(
+        mcp_server, 
+        document_context, 
+        permission_manager,
+        CommandExecutor(permission_manager),
+        agent_model=agent_model,
+        agent_max_tokens=agent_max_tokens,
+        agent_api_key=agent_api_key
+    )
     
     # Initialize and register thinking tool
     register_thinking_tool(mcp_server)

@@ -18,6 +18,9 @@ def register_agent_tools(
     document_context: DocumentContext,
     permission_manager: PermissionManager,
     command_executor: CommandExecutor,
+    agent_model: str | None = None,
+    agent_max_tokens: int | None = None,
+    agent_api_key: str | None = None,
 ) -> list[BaseTool]:
     """Register agent tools with the MCP server.
 
@@ -25,12 +28,23 @@ def register_agent_tools(
         mcp_server: The FastMCP server instance
         document_context: Document context for tracking file contents
         permission_manager: Permission manager for access control
+        command_executor: Command executor for running shell commands
+        agent_model: Optional model name for agent tool in LiteLLM format
+        agent_max_tokens: Optional maximum tokens for agent responses
+        agent_api_key: Optional API key for the LLM provider
 
     Returns:
         List of registered tools
     """
     # Create agent tool
-    agent_tool = AgentTool(document_context, permission_manager,command_executor)
+    agent_tool = AgentTool(
+        document_context=document_context, 
+        permission_manager=permission_manager,
+        command_executor=command_executor,
+        model=agent_model,
+        api_key=agent_api_key,
+        max_tokens=agent_max_tokens
+    )
 
     # Register agent tool
     ToolRegistry.register_tool(mcp_server, agent_tool)

@@ -27,6 +27,9 @@ class TestCLI:
             mock_args.allowed_paths = ["/test/path"]
             mock_args.project_dir = "/test/project"
             mock_args.install = False
+            mock_args.agent_model = "anthropic/claude-3-sonnet"
+            mock_args.agent_max_tokens = 2000
+            mock_args.agent_api_key = "test_api_key"
             mock_parse_args.return_value = mock_args
 
             # Mock server instance
@@ -40,7 +43,11 @@ class TestCLI:
             # Project dir should be added to allowed paths
             expected_paths = ["/test/path", "/test/project"]
             mock_server_class.assert_called_once_with(
-                name="test-server", allowed_paths=expected_paths
+                name="test-server", 
+                allowed_paths=expected_paths,
+                agent_model="anthropic/claude-3-sonnet",
+                agent_max_tokens=2000,
+                agent_api_key="test_api_key"
             )
             mock_server.run.assert_called_once_with(transport="stdio")
 
@@ -77,6 +84,9 @@ class TestCLI:
             mock_args.allowed_paths = None
             mock_args.project_dir = None
             mock_args.install = False
+            mock_args.agent_model = None
+            mock_args.agent_max_tokens = None
+            mock_args.agent_api_key = None
             mock_parse_args.return_value = mock_args
 
             # Mock server instance
@@ -88,7 +98,11 @@ class TestCLI:
 
             # Verify server was created with current directory as allowed path
             mock_server_class.assert_called_once_with(
-                name="test-server", allowed_paths=["/current/dir"]
+                name="test-server", 
+                allowed_paths=["/current/dir"],
+                agent_model=None,
+                agent_max_tokens=None,
+                agent_api_key=None
             )
             mock_server.run.assert_called_once_with(transport="stdio")
 

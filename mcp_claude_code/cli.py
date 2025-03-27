@@ -39,6 +39,25 @@ def main() -> None:
     _ = parser.add_argument(
         "--project-dir", dest="project_dir", help="Set the project directory to analyze"
     )
+    
+    _ = parser.add_argument(
+        "--agent-model",
+        dest="agent_model",
+        help="Specify the model name in LiteLLM format (e.g., 'openai/gpt-4o', 'anthropic/claude-3-sonnet')"
+    )
+    
+    _ = parser.add_argument(
+        "--agent-max-tokens",
+        dest="agent_max_tokens",
+        type=int,
+        help="Specify the maximum tokens for agent responses"
+    )
+    
+    _ = parser.add_argument(
+        "--agent-api-key",
+        dest="agent_api_key",
+        help="Specify the API key for the LLM provider (for development/testing only)"
+    )
 
     _ = parser.add_argument(
         "--install",
@@ -53,6 +72,9 @@ def main() -> None:
     install: bool = cast(bool, args.install)
     transport: str = cast(str, args.transport)
     project_dir: str | None = cast(str | None, args.project_dir)
+    agent_model: str | None = cast(str | None, args.agent_model)
+    agent_max_tokens: int | None = cast(int | None, args.agent_max_tokens)
+    agent_api_key: str | None = cast(str | None, args.agent_api_key)
     allowed_paths: list[str] = (
         cast(list[str], args.allowed_paths) if args.allowed_paths else []
     )
@@ -70,7 +92,13 @@ def main() -> None:
         allowed_paths.append(project_dir)
 
     # Run the server
-    server = ClaudeCodeServer(name=name, allowed_paths=allowed_paths)
+    server = ClaudeCodeServer(
+        name=name, 
+        allowed_paths=allowed_paths,
+        agent_model=agent_model,
+        agent_max_tokens=agent_max_tokens,
+        agent_api_key=agent_api_key
+    )
     # Transport will be automatically cast to Literal['stdio', 'sse'] by the server
     server.run(transport=transport)
 

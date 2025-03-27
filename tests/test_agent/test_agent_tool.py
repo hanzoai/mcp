@@ -42,6 +42,19 @@ class TestAgentTool:
             # Set environment variable for test
             os.environ["OPENAI_API_KEY"] = "test_key"
             return AgentTool(document_context, permission_manager, command_executor)
+
+    @pytest.fixture
+    def agent_tool_with_params(self, document_context, permission_manager, command_executor):
+        """Create a test agent tool with custom parameters."""
+        with patch("mcp_claude_code.tools.agent.agent_tool.litellm"):
+            return AgentTool(
+                document_context=document_context, 
+                permission_manager=permission_manager,
+                command_executor=command_executor,
+                model="anthropic/claude-3-sonnet",
+                api_key="test_anthropic_key",
+                max_tokens=2000
+            )
             
     @pytest.fixture
     def mock_tools(self):
@@ -61,12 +74,72 @@ class TestAgentTool:
         assert agent_tool.name == "dispatch_agent"
         assert "Launch a new agent" in agent_tool.description
         assert agent_tool.required == ["prompt"]
+        assert agent_tool.model_override is None
+        assert agent_tool.api_key_override is None
+        assert agent_tool.max_tokens_override is None
+        
+    def test_initialization_with_params(self, agent_tool_with_params):
+        """Test agent tool initialization with custom parameters."""
+        assert agent_tool_with_params.name == "dispatch_agent"
+        assert agent_tool_with_params.model_override == "anthropic/claude-3-sonnet"
+        assert agent_tool_with_params.api_key_override == "test_anthropic_key"
+        assert agent_tool_with_params.max_tokens_override == 2000
         
     def test_parameters(self, agent_tool):
         """Test agent tool parameters."""
         params = agent_tool.parameters
         assert "prompt" in params["properties"]
         assert params["required"] == ["prompt"]
+        
+    def test_init_llm_client_with_override(self, document_context, permission_manager, command_executor):
+        """Test initializing LLM client with API key override."""
+        # Test with antropic model and API key
+        with patch.dict(os.environ, {}, clear=True):
+            agent_tool = AgentTool(
+                document_context=document_context,
+                permission_manager=permission_manager,
+                command_executor=command_executor,
+                model="anthropic/claude-3-sonnet",
+                api_key="test_anthropic_key"
+            )
+            
+            agent_tool._init_llm_client()
+            
+            # Check that the environment variable was set correctly
+            assert os.environ.get("ANTHROPIC_API_KEY") == "test_anthropic_key"
+            assert agent_tool.llm_initialized is True
+            
+        # Test with openai model and API key
+        with patch.dict(os.environ, {}, clear=True):
+            agent_tool = AgentTool(
+                document_context=document_context,
+                permission_manager=permission_manager,
+                command_executor=command_executor,
+                model="openai/gpt-4o",
+                api_key="test_openai_key"
+            )
+            
+            agent_tool._init_llm_client()
+            
+            # Check that the environment variable was set correctly
+            assert os.environ.get("OPENAI_API_KEY") == "test_openai_key"
+            assert agent_tool.llm_initialized is True
+            
+        # Test with no provider in model name
+        with patch.dict(os.environ, {}, clear=True):
+            agent_tool = AgentTool(
+                document_context=document_context,
+                permission_manager=permission_manager,
+                command_executor=command_executor,
+                model="gpt-4o",
+                api_key="test_default_key"
+            )
+            
+            agent_tool._init_llm_client()
+            
+            # Should default to OpenAI
+            assert os.environ.get("OPENAI_API_KEY") == "test_default_key"
+            assert agent_tool.llm_initialized is True
         
     @pytest.mark.asyncio
     async def test_call_no_prompt(self, agent_tool, mcp_context):

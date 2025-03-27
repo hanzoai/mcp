@@ -101,24 +101,50 @@ class TestPrompt:
         os.environ["AGENT_MODEL"] = "test-model-123"
         assert get_default_model() == "test-model-123"
         
+        # Test with model override - explicitly with TEST_MODE to avoid provider prefix
+        os.environ["TEST_MODE"] = "1"
+        assert get_default_model("openai/gpt-4o") == "openai/gpt-4o"
+        assert get_default_model("gpt-4o-mini") == "gpt-4o-mini"  # In test mode, no prefix added
+        assert get_default_model("anthropic/claude-3-sonnet") == "anthropic/claude-3-sonnet"
+        
+        # Test with provider prefixing in non-test mode
+        del os.environ["TEST_MODE"]
+        assert get_default_model("gpt-4") == "openai/gpt-4"
+        
         # Test default
         del os.environ["AGENT_MODEL"]
-        assert get_default_model() == "gpt-4o"
+        assert get_default_model() == "openai/gpt-4o"
         
     def test_get_model_parameters(self):
         """Test get_model_parameters."""
         # Test with environment variables
         os.environ["AGENT_TEMPERATURE"] = "0.5"
         os.environ["AGENT_API_TIMEOUT"] = "30"
+        os.environ["AGENT_MAX_TOKENS"] = "2000"
         
         params = get_model_parameters()
         assert params["temperature"] == 0.5
         assert params["timeout"] == 30
+        assert params["max_tokens"] == 2000
+        
+        # Test with max_tokens override
+        params = get_model_parameters(max_tokens=1500)
+        assert params["temperature"] == 0.5
+        assert params["timeout"] == 30
+        assert params["max_tokens"] == 1500  # Override takes precedence
         
         # Test defaults
         del os.environ["AGENT_TEMPERATURE"]
         del os.environ["AGENT_API_TIMEOUT"]
+        del os.environ["AGENT_MAX_TOKENS"]
         
         params = get_model_parameters()
         assert params["temperature"] == 0.7
         assert params["timeout"] == 60
+        assert "max_tokens" not in params  # Not set when not provided
+        
+        # Test with only max_tokens override
+        params = get_model_parameters(max_tokens=1000)
+        assert params["temperature"] == 0.7
+        assert params["timeout"] == 60
+        assert params["max_tokens"] == 1000

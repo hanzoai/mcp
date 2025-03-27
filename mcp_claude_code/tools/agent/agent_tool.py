@@ -102,17 +102,25 @@ Returns:
         return ["prompt"]
 
     def __init__(
-            self, document_context: DocumentContext, permission_manager: PermissionManager, command_executor: CommandExecutor
+            self, document_context: DocumentContext, permission_manager: PermissionManager, command_executor: CommandExecutor,
+            model: str | None = None, api_key: str | None = None, max_tokens: int | None = None
     ) -> None:
         """Initialize the agent tool.
 
         Args:
             document_context: Document context for tracking file contents
             permission_manager: Permission manager for access control
+            command_executor: Command executor for running shell commands
+            model: Optional model name override in LiteLLM format (e.g., "openai/gpt-4o")
+            api_key: Optional API key for the model provider
+            max_tokens: Optional maximum tokens for model responses
         """
         self.document_context = document_context
         self.permission_manager = permission_manager
         self.command_executor = command_executor
+        self.model_override = model
+        self.api_key_override = api_key
+        self.max_tokens_override = max_tokens
         self.available_tools :list[BaseTool] = []
         self.available_tools.extend(get_read_only_filesystem_tools(self.document_context, self.permission_manager))
         self.available_tools.extend(get_read_only_jupyter_tools(self.document_context, self.permission_manager))
@@ -122,16 +130,41 @@ Returns:
     def _init_llm_client(self) -> None:
         """Initialize LiteLLM for API calls.
 
+        Uses provided API key override if available, otherwise checks environment variables.
+        Sets the appropriate environment variables for LiteLLM to use.
+
         Raises:
             RuntimeError: If required API key is not set
         """
+        # Use API key override if provided
+        if self.api_key_override:
+            # If we have a model override, try to determine the provider
+            if self.model_override and '/' in self.model_override:
+                provider = self.model_override.split('/')[0].upper()
+                # Set the appropriate environment variable based on provider
+                env_var_name = f"{provider}_API_KEY"
+                os.environ[env_var_name] = self.api_key_override
+                self.llm_initialized = True
+                return
+            else:
+                # Default to OpenAI if no specific provider is identified
+                os.environ["OPENAI_API_KEY"] = self.api_key_override
+                self.llm_initialized = True
+                return
+        
+        # Fall back to checking environment variables
         # Check for OpenAI API key (for backward compatibility)
         openai_api_key = os.environ.get("OPENAI_API_KEY")
         
-        # We'll check for other provider API keys as needed
-        if not openai_api_key:
+        # Check for Anthropic API key
+        anthropic_api_key = os.environ.get("ANTHROPIC_API_KEY")
+        
+        # Add checks for other providers as needed
+        
+        # Ensure at least one provider API key is available
+        if not openai_api_key and not anthropic_api_key:
             raise RuntimeError(
-                "At least one LLM provider API key (e.g., OPENAI_API_KEY) must be set to use the agent tool"
+                "At least one LLM provider API key (e.g., OPENAI_API_KEY, ANTHROPIC_API_KEY) must be set to use the agent tool"
             )
         
         # LiteLLM doesn't require explicit initialization as it uses the environment variables directly
@@ -240,8 +273,8 @@ Returns:
             return "Error: LLM client not initialized"
             
         # Get model parameters and name
-        model = get_default_model()
-        params = get_model_parameters()
+        model = get_default_model(self.model_override)
+        params = get_model_parameters(max_tokens=self.max_tokens_override)
         
         # Initialize messages
         messages:Iterable[ChatCompletionMessageParam] = []
@@ -267,6 +300,7 @@ Returns:
                     tool_choice="auto",
                     temperature=params["temperature"],
                     timeout=params["timeout"],
+                    max_tokens=params.get("max_tokens"),
                 )
 
                 if len(response.choices) == 0: #pyright: ignore
@@ -354,6 +388,7 @@ Returns:
                     messages=messages,
                     temperature=params["temperature"],
                     timeout=params["timeout"],
+                    max_tokens=params.get("max_tokens"),
                 )
                 
                 return final_response.choices[0].message.content or f"Agent reached {limit_type} limit without a response." #pyright: ignore

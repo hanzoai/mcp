@@ -20,6 +20,9 @@ class ClaudeCodeServer:
         name: str = "claude-code",
         allowed_paths: list[str] | None = None,
         mcp_instance: FastMCP | None = None,
+        agent_model: str | None = None,
+        agent_max_tokens: int | None = None,
+        agent_api_key: str | None = None,
     ):
         """Initialize the Claude Code server.
 
@@ -27,6 +30,9 @@ class ClaudeCodeServer:
             name: The name of the server
             allowed_paths: list of paths that the server is allowed to access
             mcp_instance: Optional FastMCP instance for testing
+            agent_model: Optional model name for agent tool in LiteLLM format
+            agent_max_tokens: Optional maximum tokens for agent responses
+            agent_api_key: Optional API key for the LLM provider
         """
         self.mcp = mcp_instance if mcp_instance is not None else FastMCP(name)
 
@@ -54,11 +60,19 @@ class ClaudeCodeServer:
                 self.permission_manager.add_allowed_path(path)
                 self.document_context.add_allowed_path(path)
 
+        # Store agent options
+        self.agent_model = agent_model
+        self.agent_max_tokens = agent_max_tokens
+        self.agent_api_key = agent_api_key
+        
         # Register all tools
         register_all_tools(
             mcp_server=self.mcp,
             document_context=self.document_context,
             permission_manager=self.permission_manager,
+            agent_model=self.agent_model,
+            agent_max_tokens=self.agent_max_tokens,
+            agent_api_key=self.agent_api_key,
         )
 
     def run(self, transport: str = "stdio", allowed_paths: list[str] | None = None):

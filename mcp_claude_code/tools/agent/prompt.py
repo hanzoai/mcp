@@ -73,12 +73,30 @@ RESPONSE FORMAT:
     return system_prompt
 
 
-def get_default_model() -> str:
+def get_default_model(model_override: str | None = None) -> str:
     """Get the default model for agent execution.
 
+    Args:
+        model_override: Optional model override string in LiteLLM format (e.g., "openai/gpt-4o")
+
     Returns:
-        Model identifier string with optional provider prefix
+        Model identifier string with provider prefix
     """
+    # Use model override if provided
+    if model_override:
+        # If in testing mode and using a test model, return as-is
+        if model_override.startswith("test-model") or "TEST_MODE" in os.environ:
+            return model_override
+        
+        # If the model already has a provider prefix, return as-is
+        if "/" in model_override:
+            return model_override
+        
+        # Otherwise, add the default provider prefix
+        provider = os.environ.get("AGENT_PROVIDER", "openai")
+        return f"{provider}/{model_override}"
+    
+    # Fall back to environment variables
     model = os.environ.get("AGENT_MODEL", "gpt-4o")
     
     # Special cases for tests
@@ -97,13 +115,24 @@ def get_default_model() -> str:
         return model
 
 
-def get_model_parameters() -> dict[str, Any]:
+def get_model_parameters(max_tokens: int | None = None) -> dict[str, Any]:
     """Get model parameters from environment variables.
+
+    Args:
+        max_tokens: Optional maximum tokens parameter override
 
     Returns:
         Dictionary of model parameters
     """
-    return {
+    params = {
         "temperature": float(os.environ.get("AGENT_TEMPERATURE", "0.7")),
         "timeout": int(os.environ.get("AGENT_API_TIMEOUT", "60")),
     }
+    
+    # Add max_tokens if provided or if set in environment variable
+    if max_tokens is not None:
+        params["max_tokens"] = max_tokens
+    elif os.environ.get("AGENT_MAX_TOKENS"):
+        params["max_tokens"] = int(os.environ.get("AGENT_MAX_TOKENS", "1000"))
+    
+    return params
