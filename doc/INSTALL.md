@@ -50,6 +50,47 @@ You can customize the server using other options:
 }
 ```
 
+#### LLM Model and Token Configuration
+
+You can customize the agent behavior by specifying the LLM model and token limits:
+
+```json
+{
+  "mcpServers": {
+    "claude-code": {
+      "command": "uvx",
+      "args": [
+        "--from",
+        "mcp-claude-code",
+        "claudecode",
+        "--allow-path",
+        "/path/to/project",
+        "--agent-model",
+        "anthropic/claude-3-sonnet",
+        "--agent-max-tokens",
+        "2000"
+      ]
+    }
+  }
+}
+```
+
+The available LLM configuration options are:
+
+- `--agent-model`: Specify the model name in LiteLLM format (e.g., 'openai/gpt-4o', 'anthropic/claude-3-sonnet')
+- `--agent-max-tokens`: Specify the maximum tokens for agent responses
+- `--agent-api-key`: Specify the API key for the LLM provider (for development/testing only)
+
+The model name uses the LiteLLM format with provider prefixes. Examples:
+- OpenAI models: `openai/gpt-4o`, `openai/gpt-4o-mini`
+- Anthropic models: `anthropic/claude-3-sonnet`, `anthropic/claude-3-opus`
+
+If you don't specify these options, the agent will use the following environment variables:
+- `AGENT_MODEL`: Default model name (falls back to "openai/gpt-4o")
+- `AGENT_PROVIDER`: Default provider prefix
+- `AGENT_MAX_TOKENS`: Maximum tokens for model responses
+- `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`: API keys for respective providers
+
 ### Configuring Claude Desktop System Prompt
 
 To get the best experience with Claude Code, you need to add the provided system prompt to your Claude Desktop client. This system prompt guides Claude through a structured workflow for code modifications and project management.
