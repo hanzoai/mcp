@@ -13,7 +13,7 @@ from typing import Any, final
 from mcp.server.fastmcp import Context as MCPContext
 
 from mcp_claude_code.tools.common.base import FileSystemTool
-from mcp_claude_code.tools.common.context import create_tool_context
+from mcp_claude_code.tools.common.context import ToolContext, create_tool_context
 
 
 # Pattern to match ANSI escape sequences
@@ -107,7 +107,7 @@ class JupyterBaseTool(FileSystemTool,ABC):
     parsing, cell extraction, and output formatting.
     """
     
-    def create_tool_context(self, ctx: MCPContext) -> Any:
+    def create_tool_context(self, ctx: MCPContext) -> ToolContext:
         """Create a tool context with the tool name.
         
         Args:
@@ -119,13 +119,13 @@ class JupyterBaseTool(FileSystemTool,ABC):
         tool_ctx = create_tool_context(ctx)
         return tool_ctx
         
-    async def set_tool_context_info(self, tool_ctx: Any) -> None:
+    def set_tool_context_info(self, tool_ctx: ToolContext) -> None:
         """Set the tool info on the context.
         
         Args:
             tool_ctx: Tool context
         """
-        await tool_ctx.set_tool_info(self.name)
+        tool_ctx.set_tool_info(self.name)
         
     async def parse_notebook(self, file_path: Path) -> tuple[dict[str, Any], list[NotebookCellSource]]:
         """Parse a Jupyter notebook file.

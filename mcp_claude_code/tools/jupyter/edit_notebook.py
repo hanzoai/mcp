@@ -106,7 +106,7 @@ In delete mode, the specified cell is removed."""
             Tool result
         """
         tool_ctx = self.create_tool_context(ctx)
-        await self.set_tool_context_info(tool_ctx)
+        self.set_tool_context_info(tool_ctx)
         
         # Extract parameters
         path = params.get("path")

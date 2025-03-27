@@ -84,7 +84,7 @@ individual files won't stop the entire operation. Only works within allowed dire
             Tool result
         """
         tool_ctx = self.create_tool_context(ctx)
-        await self.set_tool_context_info(tool_ctx)
+        self.set_tool_context_info(tool_ctx)
         
         # Extract parameters
         paths = params.get("paths")

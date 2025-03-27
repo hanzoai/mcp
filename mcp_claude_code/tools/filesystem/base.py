@@ -11,7 +11,7 @@ from typing import Any
 from mcp.server.fastmcp import Context as MCPContext
 
 from mcp_claude_code.tools.common.base import FileSystemTool
-from mcp_claude_code.tools.common.context import create_tool_context
+from mcp_claude_code.tools.common.context import ToolContext, create_tool_context
 
 
 class FilesystemBaseTool(FileSystemTool,ABC):
@@ -92,7 +92,7 @@ class FilesystemBaseTool(FileSystemTool,ABC):
             return False, f"{error_prefix}: {message}"
         return True, ""
         
-    def create_tool_context(self, ctx: MCPContext) -> Any:
+    def create_tool_context(self, ctx: MCPContext) -> ToolContext:
         """Create a tool context with the tool name.
         
         Args:
@@ -104,10 +104,10 @@ class FilesystemBaseTool(FileSystemTool,ABC):
         tool_ctx = create_tool_context(ctx)
         return tool_ctx
         
-    async def set_tool_context_info(self, tool_ctx: Any) -> None:
+    def set_tool_context_info(self, tool_ctx: ToolContext) -> None:
         """Set the tool info on the context.
         
         Args:
             tool_ctx: Tool context
         """
-        await tool_ctx.set_tool_info(self.name)
+        tool_ctx.set_tool_info(self.name)

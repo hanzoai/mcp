@@ -83,10 +83,14 @@ scientific computing."""
             Tool result
         """
         tool_ctx = self.create_tool_context(ctx)
-        await self.set_tool_context_info(tool_ctx)
+        self.set_tool_context_info(tool_ctx)
         
         # Extract parameters
         path = params.get("path")
+
+        if not path:
+            await tool_ctx.error("Missing required parameter: path")
+            return "Error: Missing required parameter: path"
         
         # Validate path parameter
         path_validation = self.validate_path(path)
