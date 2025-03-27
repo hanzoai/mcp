@@ -55,7 +55,7 @@ individual files won't stop the entire operation. Only works within allowed dire
                         {"items": {"type": "string"}, "type": "array"},
                         {"type": "string"}
                     ],
-                    "description": "path to the file or files to read"
+                    "description": "absolute path to the file or files to read"
                 }
             },
             "required": ["paths"],
