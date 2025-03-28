@@ -1,5 +1,10 @@
 """Tests for the server module."""
 
+import os
+
+# Set test mode
+os.environ["MCP_TEST_MODE"] = "1"
+
 from unittest.mock import MagicMock, patch
 from typing import Tuple
 
