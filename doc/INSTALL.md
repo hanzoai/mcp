@@ -17,6 +17,12 @@ You can run it with `uvx run mcp-claude-code` without installation. Configure Cl
         "claudecode",
         "--allow-path",
         "/path/to/your/project"
+        "--agent-model",
+        "openrouter/google/gemini-2.0-flash-001",
+        "--agent-max-tokens",
+        "100000",
+        "--agent-api-key",
+        "your-api-key"
       ]
     }
   }
@@ -66,11 +72,11 @@ You can customize the agent behavior by specifying the LLM model and token limit
         "--allow-path",
         "/path/to/project",
         "--agent-model",
-        "openrouter/google/gemini-2.0-flash-001",
+        "{litellm-model-name}",
         "--agent-max-tokens",
         "100000",
         "--agent-api-key",
-        "your-api-key"
+        "{your-api-key}"
       ]
     }
   }
@@ -117,4 +123,3 @@ The system prompt provides Claude with:
 - Special formatting instructions for mathematical content
 
 This step is crucial as it enables Claude to follow a consistent approach when helping you with code modifications.
-
