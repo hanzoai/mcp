@@ -41,6 +41,11 @@ This project provides an MCP server that enables access to Hanzo APIs and Platfo
 | `run_mcp`            | Manage and interact with multiple MCP servers (browser automation, Slack, GitHub, etc.)      |
 | `read_notebook`        | Extract and read source code from all cells in a Jupyter notebook with outputs               |
 | `edit_notebook`        | Edit, insert, or delete cells in a Jupyter notebook                                         |
+| `symbol_find`         | Find symbol definitions in a file or directory                                             |
+| `symbol_references`   | Find references to a symbol in a file or directory                                          |
+| `ast_explore`         | Explore and visualize the AST of a file                                                    |
+| `ast_query`           | Query the AST using tree-sitter query language                                             |
+| `symbolic_search`     | Perform various symbolic search operations (related symbols, patterns, usages, etc.)       |
 | `think`                | Structured space for complex reasoning and analysis without making changes                    |
 
 ## Getting Started
@@ -187,6 +192,83 @@ result = await dev(
 ```
 
 This helps AI assistants like Claude follow your project's coding standards and best practices when generating or modifying code.
+
+## Symbol Tools Support
+
+Hanzo MCP includes advanced symbol analysis tools powered by tree-sitter, which provides powerful code understanding and navigation capabilities.
+
+### Features
+
+- **Symbol Finding**: Locate definitions of variables, functions, classes, methods, and more
+- **Reference Finding**: Discover where symbols are used throughout a codebase
+- **AST Exploration**: Navigate and understand code structure via Abstract Syntax Trees
+- **Symbolic Search**: Find related symbols and patterns across files
+
+### Language Support
+
+The symbol tools support multiple programming languages, including:
+- Python
+- JavaScript/TypeScript
+- Java
+- C/C++
+- Go
+- Ruby
+- Rust
+- And more
+
+### Installation
+
+To use the symbol tools, you need to install the optional dependencies:
+
+```bash
+pip install hanzo-mcp[symbols]
+```
+
+Or include it with all dependencies:
+
+```bash
+pip install hanzo-mcp[all]
+```
+
+### Using the Symbol Tools
+
+Access the symbol tools through the `dev` tool:
+
+```python
+# Find symbols in a file
+result = await dev(
+    ctx,
+    operation="symbol_find",
+    path="/path/to/file.py",
+    symbol_name="MyClass"  # Optional: specific symbol to find
+)
+
+# Find references to a symbol
+result = await dev(
+    ctx,
+    operation="symbol_references",
+    path="/path/to/project",
+    symbol_name="my_function",
+    recursive=True
+)
+
+# Explore AST of a file
+result = await dev(
+    ctx,
+    operation="ast_explore",
+    path="/path/to/file.py",
+    output_format="structure"  # Options: json, text, html, structure
+)
+
+# Perform symbolic search
+result = await dev(
+    ctx,
+    operation="symbolic_search",
+    project_dir="/path/to/project",
+    search_type="related_symbols",
+    symbol_name="MyClass"
+)
+```
 
 ## Sub-MCP Servers Support
 
