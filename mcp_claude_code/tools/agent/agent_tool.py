@@ -305,7 +305,7 @@ Returns:
         
         # Track tool usage for metrics
         tool_usage = {}
-        max_tool_uses = 15  # Safety limit to prevent infinite loops
+        max_tool_uses = 30  # Safety limit to prevent infinite loops
         total_tool_use_count = 0
         iteration_count = 0
         max_iterations = 10  # Add a maximum number of iterations for safety
