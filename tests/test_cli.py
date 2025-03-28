@@ -27,6 +27,10 @@ class TestCLI:
             mock_args.allowed_paths = ["/test/path"]
             mock_args.project_dir = "/test/project"
             mock_args.install = False
+            mock_args.llm_provider = "auto"
+            mock_args.enhanced_thinking = True
+            mock_args.external_servers = True
+            mock_args.external_servers_config = None
             mock_parse_args.return_value = mock_args
 
             # Mock server instance
@@ -40,7 +44,7 @@ class TestCLI:
             # Project dir should be added to allowed paths
             expected_paths = ["/test/path", "/test/project"]
             mock_server_class.assert_called_once_with(
-                name="test-server", allowed_paths=expected_paths
+                name="test-server", allowed_paths=expected_paths, enable_external_servers=True
             )
             mock_server.run.assert_called_once_with(transport="stdio")
 
@@ -77,6 +81,10 @@ class TestCLI:
             mock_args.allowed_paths = None
             mock_args.project_dir = None
             mock_args.install = False
+            mock_args.llm_provider = "auto"
+            mock_args.enhanced_thinking = True
+            mock_args.external_servers = True
+            mock_args.external_servers_config = None
             mock_parse_args.return_value = mock_args
 
             # Mock server instance
@@ -88,7 +96,7 @@ class TestCLI:
 
             # Verify server was created with current directory as allowed path
             mock_server_class.assert_called_once_with(
-                name="test-server", allowed_paths=["/current/dir"]
+                name="test-server", allowed_paths=["/current/dir"], enable_external_servers=True
             )
             mock_server.run.assert_called_once_with(transport="stdio")
 

@@ -9,6 +9,7 @@ from hanzo_mcp.tools.common.context import DocumentContext
 from hanzo_mcp.tools.common.permissions import PermissionManager
 from hanzo_mcp.tools.project.analysis import ProjectAnalyzer, ProjectManager
 from hanzo_mcp.tools.shell.command_executor import CommandExecutor
+from hanzo_mcp.tools.vector.store_manager import VectorStoreManager
 from hanzo_mcp.external.proxy_tools import ProxyTools
 
 
@@ -50,6 +51,11 @@ class HanzoMCPServer:
         self.project_manager = ProjectManager(
             self.document_context, self.permission_manager, self.project_analyzer
         )
+        
+        # Initialize vector store manager
+        self.vector_store_manager = VectorStoreManager(
+            self.document_context, self.permission_manager
+        )
 
         # Add allowed paths
         if allowed_paths:
@@ -64,6 +70,7 @@ class HanzoMCPServer:
             permission_manager=self.permission_manager,
             project_manager=self.project_manager,
             project_analyzer=self.project_analyzer,
+            vector_store_manager=self.vector_store_manager,
         )
         
         # Register external MCP server tools if enabled

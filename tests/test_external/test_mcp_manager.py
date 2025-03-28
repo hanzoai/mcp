@@ -4,7 +4,7 @@ import json
 import os
 import tempfile
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch, MagicMock, ANY
 
 import pytest
 
@@ -50,9 +50,9 @@ class TestExternalMCPServer:
         assert server._process is mock_process
         mock_popen.assert_called_with(
             ["echo", "hello"],
-            stdin=pytest.ANY,
-            stdout=pytest.ANY,
-            stderr=pytest.ANY,
+            stdin=ANY,
+            stdout=ANY,
+            stderr=ANY,
             text=True,
         )
 
@@ -137,6 +137,33 @@ class TestExternalMCPServer:
         mock_process.poll.return_value = 0
         assert server.is_running() is False
 
+    @patch("subprocess.Popen")
+    def test_server_send_request(self, mock_popen):
+        """Test sending a request to the server."""
+        mock_process = MagicMock()
+        mock_process.stdout.readline.return_value = '{"result": "success"}'
+        mock_popen.return_value = mock_process
+
+        server = ExternalMCPServer(
+            name="test",
+            command="python",
+            args=["-m", "json_server"],
+            enabled=True,
+        )
+
+        # Start the server
+        server.start()
+        
+        # Test sending a request to the server
+        test_request = '{"command": "test_command", "args": {"param": "value"}}'
+        response = server.send_request(test_request)
+        
+        # Verify the request was sent and response received
+        assert response == '{"result": "success"}'
+        server._process.stdin.write.assert_called_once_with(test_request + "\n")
+        server._process.stdin.flush.assert_called_once()
+        server._process.stdout.readline.assert_called_once()
+
 
 class TestExternalMCPServerManager:
     """Test suite for ExternalMCPServerManager."""
@@ -216,3 +243,68 @@ class TestExternalMCPServerManager:
         finally:
             # Clean up the temporary file
             Path(temp_file_path).unlink()
+
+    def test_handle_request_functionality(self):
+        """Test handle_request functionality."""
+        # Create a mock server
+        mock_server = MagicMock()
+        mock_server.enabled = True
+        mock_server.send_request.return_value = '{"result": "test_success"}'
+        
+        # Create manager and add the mock server
+        with patch.object(ExternalMCPServerManager, "_load_servers"):
+            manager = ExternalMCPServerManager()
+            manager.servers = {"test_server": mock_server}
+            
+            # Test handling a request for an existing server
+            request = '{"method": "test_method", "params": {}}'
+            response = manager.handle_request("test_server", request)
+            
+            assert response == '{"result": "test_success"}'
+            mock_server.send_request.assert_called_once_with(request)
+            
+            # Test handling a request for a non-existent server
+            response = manager.handle_request("nonexistent", request)
+            assert response is None
+
+    def test_start_stop_all_servers(self):
+        """Test starting and stopping all servers."""
+        # Create mock servers
+        mock_server1 = MagicMock()
+        mock_server1.enabled = True
+        mock_server1.is_running.return_value = True
+        
+        mock_server2 = MagicMock()
+        mock_server2.enabled = True
+        mock_server2.is_running.return_value = False
+        
+        mock_server3 = MagicMock()
+        mock_server3.enabled = False
+        # Important fix: Make sure is_running() returns False for this disabled server
+        mock_server3.is_running.return_value = False
+        
+        # Create manager and add the mock servers
+        with patch.object(ExternalMCPServerManager, "_load_servers"):
+            manager = ExternalMCPServerManager()
+            manager.servers = {
+                "server1": mock_server1,
+                "server2": mock_server2,
+                "server3": mock_server3
+            }
+            
+            # Test starting all servers
+            manager.start_all()
+            
+            # Only enabled servers should be started
+            mock_server1.start.assert_called_once()
+            mock_server2.start.assert_called_once()
+            mock_server3.start.assert_not_called()
+            
+            # Test stopping all servers
+            manager.stop_all()
+            
+            # Only running servers should be stopped
+            mock_server1.stop.assert_called_once()
+            # These are not running, so they shouldn't be stopped
+            mock_server2.stop.assert_not_called()
+            mock_server3.stop.assert_not_called()

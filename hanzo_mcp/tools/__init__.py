@@ -8,7 +8,7 @@ improved performance for complex tool-based interactions when Claude has a dedic
 space for structured thinking.
 """
 
-from typing import Any
+from typing import Any, Optional
 
 from mcp.server.fastmcp import FastMCP
 
@@ -19,6 +19,7 @@ from hanzo_mcp.tools.filesystem.file_operations import FileOperations
 from hanzo_mcp.tools.jupyter.notebook_operations import JupyterNotebookTools
 from hanzo_mcp.tools.project.analysis import ProjectAnalysis, ProjectManager
 from hanzo_mcp.tools.shell.command_executor import CommandExecutor
+from hanzo_mcp.tools.vector.store_manager import VectorStoreManager
 
 
 def register_all_tools(
@@ -27,6 +28,7 @@ def register_all_tools(
     permission_manager: PermissionManager,
     project_manager: ProjectManager,
     project_analyzer: Any,
+    vector_store_manager: Optional[VectorStoreManager] = None,
 ) -> None:
     """Register all Hanzo MCP tools with the MCP server.
 
@@ -60,3 +62,11 @@ def register_all_tools(
     # Initialize and register thinking tool
     thinking_tool = ThinkingTool()
     thinking_tool.register_tools(mcp_server)
+    
+    # Initialize and register vector store tools if needed
+    if vector_store_manager is not None:
+        vector_store_manager.register_tools(mcp_server)
+    else:
+        # Create a new instance if one wasn't provided
+        vector_store = VectorStoreManager(document_context, permission_manager)
+        vector_store.register_tools(mcp_server)
