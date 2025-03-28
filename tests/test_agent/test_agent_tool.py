@@ -90,8 +90,7 @@ class TestAgentTool:
         params = agent_tool.parameters
         assert "prompts" in params["properties"]
         assert "anyOf" in params["properties"]["prompts"]
-        # Check that both string and array types are supported
-        assert any(schema.get("type") == "string" for schema in params["properties"]["prompts"]["anyOf"])
+        # Updated test to check only array type is supported
         assert any(schema.get("type") == "array" for schema in params["properties"]["prompts"]["anyOf"])
         assert params["required"] == ["prompts"]
         
@@ -163,7 +162,8 @@ class TestAgentTool:
                 with patch("mcp_claude_code.tools.agent.agent_tool.get_allowed_agent_tools", return_value=[]):
                     with patch("mcp_claude_code.tools.agent.agent_tool.convert_tools_to_openai_functions", return_value=[]):
                         with patch("mcp_claude_code.tools.agent.agent_tool.get_system_prompt", return_value="System prompt"):
-                            result = await agent_tool.call(ctx=mcp_context, prompts="Test prompt")
+                            # Update the test to use a list instead of a string
+                            result = await agent_tool.call(ctx=mcp_context, prompts=["Test prompt"])
                 
         # We're just making sure an error is returned, the actual error message may vary in tests
         assert "Error" in result
@@ -182,7 +182,8 @@ class TestAgentTool:
         # Mock the _execute_multiple_agents method
         with patch.object(agent_tool, "_execute_multiple_agents", AsyncMock(return_value="Agent result")):
             with patch("mcp_claude_code.tools.agent.agent_tool.create_tool_context", return_value=tool_ctx):
-                result = await agent_tool.call(ctx=mcp_context, prompts="Test prompt")
+                # Update the test to use a list instead of a string
+                result = await agent_tool.call(ctx=mcp_context, prompts=["Test prompt"])
                 
         assert "Agent execution completed" in result
         assert "Agent result" in result
@@ -232,23 +233,6 @@ class TestAgentTool:
         tool_ctx.error.assert_called()
         
     @pytest.mark.asyncio
-    async def test_call_with_empty_string(self, agent_tool, mcp_context):
-        """Test agent tool call with an empty string."""
-        # Mock the tool context
-        tool_ctx = MagicMock()
-        tool_ctx.set_tool_info = AsyncMock()
-        tool_ctx.info = AsyncMock()
-        tool_ctx.error = AsyncMock()
-        
-        with patch("mcp_claude_code.tools.agent.agent_tool.create_tool_context", return_value=tool_ctx):
-            # Test with empty string
-            result = await agent_tool.call(ctx=mcp_context, prompts="")
-            
-        assert "Error" in result
-        assert "Prompt cannot be empty" in result
-        tool_ctx.error.assert_called()
-        
-    @pytest.mark.asyncio
     async def test_call_with_invalid_type(self, agent_tool, mcp_context):
         """Test agent tool call with an invalid parameter type."""
         # Mock the tool context
@@ -262,7 +246,7 @@ class TestAgentTool:
             result = await agent_tool.call(ctx=mcp_context, prompts=123)
             
         assert "Error" in result
-        assert "must be a string or an array of strings" in result
+        assert "Parameter 'prompts' must be an array of strings" in result
         tool_ctx.error.assert_called()
         
     @pytest.mark.asyncio

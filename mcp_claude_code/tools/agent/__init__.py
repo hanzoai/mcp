@@ -7,7 +7,7 @@ enabling concurrent execution of multiple operations and specialized processing.
 from mcp.server.fastmcp import FastMCP
 
 from mcp_claude_code.tools.agent.agent_tool import AgentTool
-from mcp_claude_code.tools.common.base import BaseTool, ToolRegistry
+from mcp_claude_code.tools.common.base import BaseTool 
 from mcp_claude_code.tools.common.context import DocumentContext
 from mcp_claude_code.tools.common.permissions import PermissionManager
 from mcp_claude_code.tools.shell.command_executor import CommandExecutor
