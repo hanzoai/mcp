@@ -1,0 +1,102 @@
+---
+name: Python FastAPI Best Practices
+description: Rules for Python development with FastAPI
+version: 1.0.0
+author: Hanzo MCP
+technologies:
+  - Python
+  - FastAPI
+  - API
+focus:
+  - backend
+  - web development
+  - REST API
+---
+
+# Python FastAPI Development Rules
+
+When generating Python code for FastAPI projects, please adhere to the following guidelines:
+
+## Code Style and Formatting
+
+1. Follow PEP 8 style guide for Python code.
+2. Use 4 spaces for indentation (not tabs).
+3. Keep line length under 88 characters (Black formatter standard).
+4. Use snake_case for variable and function names.
+5. Use CamelCase for class names.
+6. Use UPPER_CASE for constants.
+7. Group imports in the following order:
+   - Standard library imports
+   - Third-party imports
+   - Local application imports
+8. Add appropriate docstrings to functions, classes, and modules.
+
+## FastAPI Specific Guidelines
+
+1. Use type hints consistently for all function parameters and return values.
+2. Implement Pydantic models for request and response schemas.
+3. Organize API routes into logical modules using APIRouter.
+4. Use proper HTTP status codes (e.g., 201 for created resources, 204 for no content).
+5. Implement proper validation for request parameters.
+6. Use path operations appropriately (GET, POST, PUT, DELETE, etc.)
+7. Implement proper error handling using HTTPException.
+
+## Project Structure
+
+1. Follow a modular structure:
+   - app/
+     - api/
+       - endpoints/
+         - users.py
+         - items.py
+     - core/
+       - config.py
+       - security.py
+     - models/
+       - user.py
+       - item.py
+     - schemas/
+       - user.py
+       - item.py
+     - db/
+       - base.py
+       - session.py
+     - main.py
+
+2. Separate business logic from API handlers.
+3. Use a config module for managing environment variables and application settings.
+
+## Database Access
+
+1. Use SQLAlchemy for database ORM.
+2. Implement database migrations with Alembic.
+3. Use dependency injection for database sessions.
+4. Implement repository pattern for database access.
+5. Use async database access where appropriate.
+
+## Authentication and Security
+
+1. Implement proper authentication using OAuth2 with JWT.
+2. Use password hashing for user passwords.
+3. Implement proper role-based access control.
+4. Use HTTPS in production.
+5. Implement CORS protection.
+6. Protect against common security vulnerabilities.
+
+## Testing
+
+1. Write unit tests for business logic.
+2. Write integration tests for API endpoints.
+3. Use pytest for testing.
+4. Implement test fixtures for database and dependencies.
+5. Use mocking where appropriate.
+
+## Performance Considerations
+
+1. Use async/await for I/O-bound operations.
+2. Implement proper caching strategies.
+3. Use connection pooling for database access.
+4. Implement pagination for large data sets.
+5. Use appropriate logging levels.
+
+Following these guidelines will help ensure consistent, maintainable, and performant FastAPI applications.
