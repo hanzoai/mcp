@@ -18,6 +18,14 @@ try:
 except ImportError:
     has_vector_store = False
     VectorStoreManager = None
+
+# Conditional import for tree-sitter manager
+try:
+    from hanzo_mcp.tools.symbols.tree_sitter_manager import TreeSitterManager
+    has_tree_sitter = True
+except ImportError:
+    has_tree_sitter = False
+    TreeSitterManager = None
 from hanzo_mcp.tools.dev_tool import DevTool
 from hanzo_mcp.tools.mcp_orchestrator import MCPOrchestrator
 from hanzo_mcp.tools.llm_file_manager import LLMFileManager
@@ -73,6 +81,17 @@ class HanzoMCPServer:
             )
         else:
             self.vector_store_manager = None
+        
+        # Initialize tree-sitter manager if available
+        if has_tree_sitter:
+            try:
+                self.tree_sitter_manager = TreeSitterManager()
+                print("Tree-sitter initialized successfully")
+            except Exception as e:
+                print(f"Failed to initialize tree-sitter: {e}")
+                self.tree_sitter_manager = None
+        else:
+            self.tree_sitter_manager = None
 
         # Add allowed paths
         if allowed_paths:
@@ -90,12 +109,14 @@ class HanzoMCPServer:
                 project_manager=self.project_manager,
                 project_analyzer=self.project_analyzer,
                 vector_store_manager=self.vector_store_manager,
+                tree_sitter_manager=self.tree_sitter_manager,
             )
         )
         
-        # Initialize MCP orchestrator for managing sub-MCP servers
-        self.mcp_orchestrator = MCPOrchestrator(self.mcp)
-        self.mcp_orchestrator.initialize()
+        # Initialize MCP orchestrator for managing sub-MCP servers (only if not in test mode)
+        if not os.environ.get("MCP_TEST_MODE"):
+            self.mcp_orchestrator = MCPOrchestrator(self.mcp)
+            self.mcp_orchestrator.initialize()
         
         # Register external MCP server tools if enabled
         if enable_external_servers:
@@ -109,7 +130,7 @@ class HanzoMCPServer:
             self.mcp_orchestrator.cleanup()
             
         # Clean up external proxy tools if available
-        if hasattr(self, 'proxy_tools'):
+        if hasattr(self, 'proxy_tools') and hasattr(self.proxy_tools, 'cleanup'):
             self.proxy_tools.cleanup()
     
     def run(self, transport: str = "stdio", allowed_paths: list[str] | None = None):

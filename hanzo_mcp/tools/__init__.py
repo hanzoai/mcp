@@ -23,6 +23,12 @@ try:
 except ImportError:
     VectorStoreManager = None
 
+# Conditional import for tree-sitter manager
+try:
+    from hanzo_mcp.tools.symbols.tree_sitter_manager import TreeSitterManager
+except ImportError:
+    TreeSitterManager = None
+
 
 async def register_all_tools(
     mcp_server: FastMCP,
@@ -31,6 +37,7 @@ async def register_all_tools(
     project_manager: ProjectManager,
     project_analyzer: Any,
     vector_store_manager: Optional[VectorStoreManager] = None,
+    tree_sitter_manager: Optional[TreeSitterManager] = None,
 ) -> None:
     """Register all Hanzo MCP tools with the MCP server.
 
@@ -49,11 +56,12 @@ async def register_all_tools(
         command_executor=project_analyzer.command_executor,
         project_manager=project_manager,
         project_analyzer=project_analyzer,
-        vector_store_manager=vector_store_manager
+        vector_store_manager=vector_store_manager,
+        tree_sitter_manager=tree_sitter_manager
     )
     # Register all dev tools
     await dev_tool.register_tools(mcp_server)
 
     # Initialize and register thinking tool
     thinking_tool = ThinkingTool()
-    await thinking_tool.register_tools(mcp_server)
+    thinking_tool.register_tools(mcp_server)

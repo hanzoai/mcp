@@ -25,6 +25,7 @@ from hanzo_mcp.tools.jupyter.notebook_operations import JupyterNotebookTools
 from hanzo_mcp.tools.cursor_rules import CursorRulesHandler
 from hanzo_mcp.tools.mcp_manager import MCPServerManager
 from hanzo_mcp.tools.llm_file_manager import LLMFileManager
+
 # Conditional import for vector store manager
 try:
     from hanzo_mcp.tools.vector.store_manager import VectorStoreManager
@@ -32,6 +33,20 @@ try:
 except ImportError:
     has_vector_store = False
     VectorStoreManager = None
+    
+# Conditional import for tree-sitter components
+try:
+    from hanzo_mcp.tools.symbols.tree_sitter_manager import TreeSitterManager
+    from hanzo_mcp.tools.symbols.symbol_finder import SymbolFinder
+    from hanzo_mcp.tools.symbols.ast_explorer import ASTExplorer
+    from hanzo_mcp.tools.symbols.symbolic_search import SymbolicSearch
+    has_tree_sitter = True
+except ImportError:
+    has_tree_sitter = False
+    TreeSitterManager = None
+    SymbolFinder = None
+    ASTExplorer = None
+    SymbolicSearch = None
 
 logger = logging.getLogger(__name__)
 
@@ -50,7 +65,8 @@ class DevTool:
         command_executor: CommandExecutor,
         project_manager: ProjectManager,
         project_analyzer: ProjectAnalyzer,
-        vector_store_manager: Optional[VectorStoreManager] = None
+        vector_store_manager: Optional[VectorStoreManager] = None,
+        tree_sitter_manager: Optional[TreeSitterManager] = None
     ):
         """Initialize the dev tool.
         
@@ -73,14 +89,26 @@ class DevTool:
         self.file_ops = FileOperations(document_context, permission_manager)
         self.jupyter_tools = JupyterNotebookTools(document_context, permission_manager)
         
+        # Initialize tree-sitter components if available
+        self.tree_sitter_manager = tree_sitter_manager
+        self.has_tree_sitter = has_tree_sitter
+        
+        if has_tree_sitter and not self.tree_sitter_manager:
+            try:
+                self.tree_sitter_manager = TreeSitterManager()
+                self.symbol_finder = SymbolFinder(self.tree_sitter_manager)
+                self.ast_explorer = ASTExplorer(self.tree_sitter_manager)
+                self.symbolic_search = SymbolicSearch(self.tree_sitter_manager, self.symbol_finder)
+                logger.info("Tree-sitter components initialized successfully")
+            except Exception as e:
+                logger.error(f"Failed to initialize tree-sitter components: {e}")
+                self.has_tree_sitter = False
+        
         # Initialize cursor rules handler
         self.cursor_rules_handler = CursorRulesHandler(permission_manager)
         
         # Initialize MCP server manager
-        self.mcp_manager = MCPServerManager()
-        
-        # Initialize LLM file manager
-        self.llm_file_manager = LLMFileManager(permission_manager)
+        self.mcp_manager = MCPServerManager(auto_load=True)
         
         # Create find-replace script file
         self._setup_find_replace_script()
@@ -222,6 +250,13 @@ cd "$2" && find_replace_recursive "$1"
                 "llm_read": self._llm_read,
                 "llm_update": self._llm_update,
                 "llm_append": self._llm_append,
+                
+                # Symbol operations (if tree-sitter is available)
+                "symbol_find": self._symbol_find,
+                "symbol_references": self._symbol_references,
+                "ast_explore": self._ast_explore,
+                "ast_query": self._ast_query,
+                "symbolic_search": self._symbolic_search,
             }
             
             if operation not in operations:
@@ -1282,3 +1317,452 @@ cd "$2" && find_replace_recursive "$1"
         
         except Exception as e:
             return await tool_ctx.error(f"Error deleting from vector store: {str(e)}")
+    
+    #
+    # Symbol Operations (Tree-sitter based)
+    #
+    
+    async def _symbol_find(
+        self, 
+        tool_ctx: ToolContext, 
+        path: str, 
+        symbol_name: Optional[str] = None,
+        recursive: bool = False,
+        file_pattern: str = "*.*",
+        symbol_type: Optional[str] = None
+    ) -> str:
+        """Find symbols in a file or directory.
+        
+        Args:
+            tool_ctx: Tool context
+            path: Path to the file or directory to search
+            symbol_name: Optional specific symbol name to find
+            recursive: Whether to search recursively (only for directories)
+            file_pattern: File pattern to match (only for directories)
+            symbol_type: Optional type of symbol to restrict search to
+            
+        Returns:
+            Symbol search results
+        """
+        # Check if tree-sitter is available
+        if not self.has_tree_sitter:
+            return await tool_ctx.error(
+                "Tree-sitter is not available. Please install the tree-sitter package."
+            )
+        
+        # Validate parameters
+        validate_parameters(tool_ctx, {"path": path})
+        
+        # Check permissions
+        if not self.permission_manager.is_path_allowed(path):
+            return await tool_ctx.error(f"Path not allowed: {path}")
+        
+        # Check file existence
+        if not os.path.exists(path):
+            return await tool_ctx.error(f"Path does not exist: {path}")
+        
+        await tool_ctx.info(f"Finding symbols in {path}")
+        
+        # Find symbols
+        try:
+            if os.path.isfile(path):
+                # For single file
+                symbols = self.symbol_finder.find_symbol_definitions(path, symbol_name)
+                
+                # Filter by symbol type if specified
+                if symbol_type and symbols:
+                    symbols = [s for s in symbols if s.get("type") == symbol_type]
+                
+                return await tool_ctx.success(
+                    f"Found {len(symbols)} symbols in file: {path}",
+                    {
+                        "path": path,
+                        "symbol_name": symbol_name,
+                        "symbol_type": symbol_type,
+                        "symbols": symbols
+                    }
+                )
+            else:
+                # For directory
+                symbols = self.symbol_finder.find_symbols_in_directory(
+                    path, symbol_name, recursive, file_pattern
+                )
+                
+                # Filter by symbol type if specified
+                if symbol_type and symbols:
+                    symbols = [s for s in symbols if s.get("type") == symbol_type]
+                
+                return await tool_ctx.success(
+                    f"Found {len(symbols)} symbols in directory: {path}",
+                    {
+                        "path": path,
+                        "symbol_name": symbol_name,
+                        "recursive": recursive,
+                        "file_pattern": file_pattern,
+                        "symbol_type": symbol_type,
+                        "symbols": symbols
+                    }
+                )
+        except Exception as e:
+            return await tool_ctx.error(f"Error finding symbols: {str(e)}")
+    
+    async def _symbol_references(
+        self, 
+        tool_ctx: ToolContext, 
+        path: str, 
+        symbol_name: str,
+        recursive: bool = False,
+        file_pattern: str = "*.*"
+    ) -> str:
+        """Find references to a symbol in a file or directory.
+        
+        Args:
+            tool_ctx: Tool context
+            path: Path to the file or directory to search
+            symbol_name: Symbol name to find references for
+            recursive: Whether to search recursively (only for directories)
+            file_pattern: File pattern to match (only for directories)
+            
+        Returns:
+            Symbol reference search results
+        """
+        # Check if tree-sitter is available
+        if not self.has_tree_sitter:
+            return await tool_ctx.error(
+                "Tree-sitter is not available. Please install the tree-sitter package."
+            )
+        
+        # Validate parameters
+        validate_parameters(tool_ctx, {"path": path, "symbol_name": symbol_name})
+        
+        # Check permissions
+        if not self.permission_manager.is_path_allowed(path):
+            return await tool_ctx.error(f"Path not allowed: {path}")
+        
+        # Check file existence
+        if not os.path.exists(path):
+            return await tool_ctx.error(f"Path does not exist: {path}")
+        
+        await tool_ctx.info(f"Finding references to symbol '{symbol_name}' in {path}")
+        
+        # Find references
+        try:
+            if os.path.isfile(path):
+                # For single file
+                references = self.symbol_finder.find_symbol_references(path, symbol_name)
+                
+                return await tool_ctx.success(
+                    f"Found {len(references)} references to '{symbol_name}' in file: {path}",
+                    {
+                        "path": path,
+                        "symbol_name": symbol_name,
+                        "references": references
+                    }
+                )
+            else:
+                # For directory
+                references = self.symbol_finder.find_references_in_directory(
+                    path, symbol_name, recursive, file_pattern
+                )
+                
+                return await tool_ctx.success(
+                    f"Found {len(references)} references to '{symbol_name}' in directory: {path}",
+                    {
+                        "path": path,
+                        "symbol_name": symbol_name,
+                        "recursive": recursive,
+                        "file_pattern": file_pattern,
+                        "references": references
+                    }
+                )
+        except Exception as e:
+            return await tool_ctx.error(f"Error finding symbol references: {str(e)}")
+    
+    async def _ast_explore(
+        self, 
+        tool_ctx: ToolContext, 
+        path: str,
+        simplified: bool = True,
+        output_format: str = "json"
+    ) -> str:
+        """Explore the AST of a file.
+        
+        Args:
+            tool_ctx: Tool context
+            path: Path to the file
+            simplified: Whether to use a simplified AST representation
+            output_format: Output format (json, text, html, or structure)
+            
+        Returns:
+            AST exploration results
+        """
+        # Check if tree-sitter is available
+        if not self.has_tree_sitter:
+            return await tool_ctx.error(
+                "Tree-sitter is not available. Please install the tree-sitter package."
+            )
+        
+        # Validate parameters
+        validate_parameters(tool_ctx, {"path": path})
+        
+        # Check permissions
+        if not self.permission_manager.is_path_allowed(path):
+            return await tool_ctx.error(f"Path not allowed: {path}")
+        
+        # Check file existence
+        if not os.path.isfile(path):
+            return await tool_ctx.error(f"Not a file: {path}")
+        
+        await tool_ctx.info(f"Exploring AST of file: {path}")
+        
+        # Explore AST
+        try:
+            if output_format == "structure":
+                # Get high-level syntax structure
+                result = self.ast_explorer.extract_syntax_structure(path)
+                
+                return await tool_ctx.success(
+                    f"Extracted syntax structure from file: {path}",
+                    result
+                )
+            elif output_format in ["text", "html"]:
+                # Get visualized AST
+                visualization = self.ast_explorer.visualize_ast(path, output_format)
+                
+                return await tool_ctx.success(
+                    f"Generated AST visualization in {output_format} format",
+                    {
+                        "path": path,
+                        "format": output_format,
+                        "visualization": visualization
+                    }
+                )
+            else:  # Default to JSON
+                # Get AST
+                ast = self.ast_explorer.get_ast(path, simplified)
+                
+                if not ast:
+                    return await tool_ctx.error(f"Failed to parse file: {path}")
+                
+                return await tool_ctx.success(
+                    f"Parsed AST for file: {path}",
+                    {
+                        "path": path,
+                        "simplified": simplified,
+                        "ast": ast
+                    }
+                )
+        except Exception as e:
+            return await tool_ctx.error(f"Error exploring AST: {str(e)}")
+    
+    async def _ast_query(
+        self, 
+        tool_ctx: ToolContext, 
+        path: str,
+        query: str
+    ) -> str:
+        """Query the AST of a file using tree-sitter query language.
+        
+        Args:
+            tool_ctx: Tool context
+            path: Path to the file
+            query: Tree-sitter query string
+            
+        Returns:
+            Query results
+        """
+        # Check if tree-sitter is available
+        if not self.has_tree_sitter:
+            return await tool_ctx.error(
+                "Tree-sitter is not available. Please install the tree-sitter package."
+            )
+        
+        # Validate parameters
+        validate_parameters(tool_ctx, {"path": path, "query": query})
+        
+        # Check permissions
+        if not self.permission_manager.is_path_allowed(path):
+            return await tool_ctx.error(f"Path not allowed: {path}")
+        
+        # Check file existence
+        if not os.path.isfile(path):
+            return await tool_ctx.error(f"Not a file: {path}")
+        
+        await tool_ctx.info(f"Querying AST of file: {path}")
+        
+        # Query AST
+        try:
+            matches = self.ast_explorer.query_ast(path, query)
+            
+            return await tool_ctx.success(
+                f"Found {len(matches)} matches for query in file: {path}",
+                {
+                    "path": path,
+                    "query": query,
+                    "matches": matches
+                }
+            )
+        except Exception as e:
+            return await tool_ctx.error(f"Error querying AST: {str(e)}")
+    
+    async def _symbolic_search(
+        self, 
+        tool_ctx: ToolContext, 
+        project_dir: str,
+        search_type: str,
+        **kwargs
+    ) -> str:
+        """Perform symbolic search in a project.
+        
+        Args:
+            tool_ctx: Tool context
+            project_dir: Project directory
+            search_type: Type of search (related_symbols, symbol_pattern, symbol_usages, call_sites, imports)
+            **kwargs: Additional search parameters based on search_type
+            
+        Returns:
+            Search results
+        """
+        # Check if tree-sitter is available
+        if not self.has_tree_sitter:
+            return await tool_ctx.error(
+                "Tree-sitter is not available. Please install the tree-sitter package."
+            )
+        
+        # Validate parameters
+        validate_parameters(tool_ctx, {"project_dir": project_dir, "search_type": search_type})
+        
+        # Check permissions
+        if not self.permission_manager.is_path_allowed(project_dir):
+            return await tool_ctx.error(f"Project directory not allowed: {project_dir}")
+        
+        # Check directory existence
+        if not os.path.isdir(project_dir):
+            return await tool_ctx.error(f"Not a directory: {project_dir}")
+        
+        # Execute search based on type
+        try:
+            if search_type == "related_symbols":
+                # Validate required parameters
+                if "symbol_name" not in kwargs:
+                    return await tool_ctx.error("'symbol_name' parameter is required for related_symbols search")
+                
+                symbol_name = kwargs.get("symbol_name")
+                max_depth = kwargs.get("max_depth", 2)
+                recursive = kwargs.get("recursive", True)
+                file_pattern = kwargs.get("file_pattern", "*.*")
+                
+                await tool_ctx.info(f"Finding symbols related to '{symbol_name}' in project: {project_dir}")
+                
+                result = self.symbolic_search.find_related_symbols(
+                    symbol_name, project_dir, max_depth, recursive, file_pattern
+                )
+                
+                return await tool_ctx.success(
+                    f"Found related symbols for '{symbol_name}' in project: {project_dir}",
+                    result
+                )
+                
+            elif search_type == "symbol_pattern":
+                # Validate required parameters
+                if "pattern" not in kwargs:
+                    return await tool_ctx.error("'pattern' parameter is required for symbol_pattern search")
+                
+                pattern = kwargs.get("pattern")
+                recursive = kwargs.get("recursive", True)
+                file_pattern = kwargs.get("file_pattern", "*.*")
+                symbol_type = kwargs.get("symbol_type")
+                
+                await tool_ctx.info(f"Searching for symbols matching pattern '{pattern}' in project: {project_dir}")
+                
+                result = self.symbolic_search.search_symbol_pattern(
+                    pattern, project_dir, recursive, file_pattern, symbol_type
+                )
+                
+                return await tool_ctx.success(
+                    f"Found {len(result)} symbols matching pattern '{pattern}' in project: {project_dir}",
+                    {
+                        "project_dir": project_dir,
+                        "pattern": pattern,
+                        "symbol_type": symbol_type,
+                        "symbols": result
+                    }
+                )
+                
+            elif search_type == "symbol_usages":
+                # Validate required parameters
+                if "symbol_name" not in kwargs:
+                    return await tool_ctx.error("'symbol_name' parameter is required for symbol_usages search")
+                
+                symbol_name = kwargs.get("symbol_name")
+                recursive = kwargs.get("recursive", True)
+                file_pattern = kwargs.get("file_pattern", "*.*")
+                categorize = kwargs.get("categorize", True)
+                
+                await tool_ctx.info(f"Finding usages of symbol '{symbol_name}' in project: {project_dir}")
+                
+                result = self.symbolic_search.find_symbol_usages(
+                    symbol_name, project_dir, recursive, file_pattern, categorize
+                )
+                
+                return await tool_ctx.success(
+                    f"Found usages of symbol '{symbol_name}' in project: {project_dir}",
+                    result
+                )
+                
+            elif search_type == "call_sites":
+                # Validate required parameters
+                if "function_name" not in kwargs:
+                    return await tool_ctx.error("'function_name' parameter is required for call_sites search")
+                
+                function_name = kwargs.get("function_name")
+                recursive = kwargs.get("recursive", True)
+                file_pattern = kwargs.get("file_pattern", "*.*")
+                
+                await tool_ctx.info(f"Finding call sites for function '{function_name}' in project: {project_dir}")
+                
+                result = self.symbolic_search.find_call_sites(
+                    function_name, project_dir, recursive, file_pattern
+                )
+                
+                return await tool_ctx.success(
+                    f"Found {len(result)} call sites for function '{function_name}' in project: {project_dir}",
+                    {
+                        "project_dir": project_dir,
+                        "function_name": function_name,
+                        "call_sites": result
+                    }
+                )
+                
+            elif search_type == "imports":
+                # Validate required parameters
+                if "symbol_name" not in kwargs:
+                    return await tool_ctx.error("'symbol_name' parameter is required for imports search")
+                
+                symbol_name = kwargs.get("symbol_name")
+                recursive = kwargs.get("recursive", True)
+                file_pattern = kwargs.get("file_pattern", "*.*")
+                
+                await tool_ctx.info(f"Finding imports related to symbol '{symbol_name}' in project: {project_dir}")
+                
+                result = self.symbolic_search.find_imports_for_symbol(
+                    symbol_name, project_dir, recursive, file_pattern
+                )
+                
+                return await tool_ctx.success(
+                    f"Found imports related to symbol '{symbol_name}' in project: {project_dir}",
+                    {
+                        "project_dir": project_dir,
+                        "symbol_name": symbol_name,
+                        "imports": result
+                    }
+                )
+                
+            else:
+                return await tool_ctx.error(
+                    f"Unknown search type: {search_type}. "  
+                    f"Valid types: related_symbols, symbol_pattern, symbol_usages, call_sites, imports"
+                )
+                
+        except Exception as e:
+            return await tool_ctx.error(f"Error performing symbolic search: {str(e)}")
