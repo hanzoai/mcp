@@ -12,6 +12,8 @@ import shutil
 from pathlib import Path
 from typing import Dict, List, Optional, Any, final
 
+from hanzo_mcp.external.config_manager import MCPServerConfig
+
 logger = logging.getLogger(__name__)
 
 @final
@@ -144,6 +146,10 @@ class ExternalMCPServerManager:
 
     def __init__(self):
         """Initialize the external MCP server manager."""
+        # Load configuration
+        self.config = MCPServerConfig()
+        
+        # Initialize servers dictionary
         self.servers: Dict[str, ExternalMCPServer] = {}
         
         # Load servers from configuration
@@ -151,49 +157,37 @@ class ExternalMCPServerManager:
 
     def _load_servers(self) -> None:
         """Load external MCP servers from configuration."""
-        # Look for configuration in standard locations
-        config_paths = [
-            os.path.expanduser("~/.config/hanzo-mcp/external-servers.json"),
-            "/etc/hanzo-mcp/external-servers.json",
-        ]
+        # Load from configuration file
+        config_servers = self.config.get_all_servers()
+        for server_name, server_config in config_servers.items():
+            if not server_config.get("enabled", True):
+                logger.info(f"Server {server_name} is disabled in configuration")
+                continue
+                
+            command = server_config.get("command")
+            if not command:
+                logger.warning(f"No command specified for server {server_name}")
+                continue
+                
+            # Check if command exists
+            if not shutil.which(command):
+                logger.warning(f"Command {command} for server {server_name} not found")
+                continue
+                
+            server = ExternalMCPServer(
+                name=server_name,
+                command=command,
+                args=server_config.get("args", []),
+                enabled=server_config.get("enabled", True),
+                description=server_config.get("description", ""),
+            )
+            
+            self.servers[server_name] = server
+            logger.info(f"Loaded external MCP server from config: {server_name}")
         
-        for path in config_paths:
-            if os.path.exists(path):
-                try:
-                    with open(path, "r") as f:
-                        config = json.load(f)
-                    
-                    for server_config in config.get("servers", []):
-                        name = server_config.get("name")
-                        if not name:
-                            continue
-                            
-                        command = server_config.get("command")
-                        if not command:
-                            continue
-                            
-                        # Check if command exists
-                        if not shutil.which(command):
-                            logger.warning(f"Command {command} for server {name} not found")
-                            continue
-                            
-                        server = ExternalMCPServer(
-                            name=name,
-                            command=command,
-                            args=server_config.get("args", []),
-                            enabled=server_config.get("enabled", True),
-                            description=server_config.get("description", ""),
-                        )
-                        
-                        self.servers[name] = server
-                        logger.info(f"Loaded external MCP server: {name}")
-                        
-                    break
-                except Exception as e:
-                    logger.error(f"Error loading external MCP servers from {path}: {str(e)}")
-        
-        # Add built-in servers if they're not already configured
-        self._add_builtin_servers()
+        # Auto-detect servers if enabled
+        if self.config.get_auto_detect():
+            self._add_builtin_servers()
 
     def _add_builtin_servers(self) -> None:
         """Add built-in servers if they're not already configured."""
@@ -207,7 +201,39 @@ class ExternalMCPServerManager:
                     enabled=True,
                     description="iTerm2 MCP server for terminal integration",
                 )
+                
+                # Add to configuration if not already there
+                if "iterm2" not in self.config.get_all_servers():
+                    self.config.set_server_config("iterm2", {
+                        "command": iterm2_path,
+                        "enabled": True,
+                        "description": "iTerm2 MCP server for terminal integration"
+                    })
+                    self.config.save_config()
+                    
                 logger.info("Added built-in iTerm2 MCP server")
+                
+        # Add Neovim MCP server if available
+        if "neovim" not in self.servers:
+            nvim_path = shutil.which("nvim-mcp")
+            if nvim_path:
+                self.servers["neovim"] = ExternalMCPServer(
+                    name="neovim",
+                    command=nvim_path,
+                    enabled=True,
+                    description="Neovim MCP server for editor integration",
+                )
+                
+                # Add to configuration if not already there
+                if "neovim" not in self.config.get_all_servers():
+                    self.config.set_server_config("neovim", {
+                        "command": nvim_path,
+                        "enabled": True,
+                        "description": "Neovim MCP server for editor integration"
+                    })
+                    self.config.save_config()
+                    
+                logger.info("Added built-in Neovim MCP server")
 
     def get_server(self, name: str) -> Optional[ExternalMCPServer]:
         """Get an external MCP server by name.
