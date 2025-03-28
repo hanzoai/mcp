@@ -448,7 +448,8 @@ Returns:
                 
             except Exception as e:
                 await tool_ctx.error(f"Error in model call: {str(e)}")
-                await tool_ctx.error(f"Messages: {json.dumps(messages)}")
+                # Avoid trying to JSON serialize message objects
+                await tool_ctx.error(f"Message count: {len(messages)}")
                 return f"Error in agent execution: {str(e)}"
                 
         # If we've reached the limit, add a warning and get final response
