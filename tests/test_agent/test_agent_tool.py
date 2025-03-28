@@ -159,10 +159,11 @@ class TestAgentTool:
         
         # Mock litellm to raise an error
         with patch("mcp_claude_code.tools.agent.agent_tool.create_tool_context", return_value=tool_ctx):
-            with patch("mcp_claude_code.tools.agent.agent_tool.convert_tools_to_openai_functions", return_value=[]):
-                with patch("mcp_claude_code.tools.agent.agent_tool.get_system_prompt", return_value="System prompt"):
-                    with patch("mcp_claude_code.tools.agent.agent_tool.litellm.completion", side_effect=RuntimeError("API key error")):
-                        result = await agent_tool.call(ctx=mcp_context, prompt="Test prompt")
+            with patch("mcp_claude_code.tools.agent.agent_tool.litellm.completion", side_effect=RuntimeError("API key error")):
+                with patch("mcp_claude_code.tools.agent.agent_tool.get_allowed_agent_tools", return_value=[]):
+                    with patch("mcp_claude_code.tools.agent.agent_tool.convert_tools_to_openai_functions", return_value=[]):
+                        with patch("mcp_claude_code.tools.agent.agent_tool.get_system_prompt", return_value="System prompt"):
+                            result = await agent_tool.call(ctx=mcp_context, prompts="Test prompt")
                 
         # We're just making sure an error is returned, the actual error message may vary in tests
         assert "Error" in result
@@ -178,8 +179,8 @@ class TestAgentTool:
         tool_ctx.error = AsyncMock()
         tool_ctx.mcp_context = mcp_context
         
-        # Mock the _execute_single_agent method to avoid complex test
-        with patch.object(agent_tool, "_execute_single_agent", AsyncMock(return_value="Agent result")):
+        # Mock the _execute_multiple_agents method
+        with patch.object(agent_tool, "_execute_multiple_agents", AsyncMock(return_value="Agent result")):
             with patch("mcp_claude_code.tools.agent.agent_tool.create_tool_context", return_value=tool_ctx):
                 result = await agent_tool.call(ctx=mcp_context, prompts="Test prompt")
                 
@@ -271,6 +272,7 @@ class TestAgentTool:
         tool_ctx = MagicMock()
         tool_ctx.info = AsyncMock()
         tool_ctx.error = AsyncMock()
+        tool_ctx.mcp_context = mcp_context
         
         # Mock the OpenAI response
         mock_message = MagicMock()
@@ -285,16 +287,15 @@ class TestAgentTool:
         
         # Set test mode and mock litellm
         os.environ["TEST_MODE"] = "1"
-        with patch("mcp_claude_code.tools.agent.agent_tool.litellm.completion", return_value=mock_response):
-            agent_tool.llm_initialized = True  # Set LLM as initialized for the test
-            
+        with patch("mcp_claude_code.tools.agent.agent_tool.litellm.completion", return_value=mock_response):            
             # Execute the method
             result = await agent_tool._execute_agent_with_tools(
-            "System prompt",
-            mock_tools,
-            [],  # openai_tools
-            tool_ctx
-        )
+                "System prompt",
+                "User prompt",
+                mock_tools,
+                [],  # openai_tools
+                tool_ctx
+            )
         
         assert result == "Simple result"
         
@@ -305,7 +306,7 @@ class TestAgentTool:
         tool_ctx = MagicMock()
         tool_ctx.info = AsyncMock()
         tool_ctx.error = AsyncMock()
-        tool_ctx.ctx = mcp_context
+        tool_ctx.mcp_context = mcp_context
         
         # Set up one of the mock tools
         mock_tool = mock_tools[0]
@@ -343,12 +344,11 @@ class TestAgentTool:
         # Set test mode and mock litellm
         os.environ["TEST_MODE"] = "1"
         with patch("mcp_claude_code.tools.agent.agent_tool.litellm.completion", side_effect=[first_response, second_response]):
-            agent_tool.llm_initialized = True  # Set LLM as initialized for the test
-            
             # Mock any complex dictionary or string processing by directly using the expected values in the test
             with patch.object(json, "loads", return_value={"param": "value"}):
-                    result = await agent_tool._execute_agent_with_tools(
+                result = await agent_tool._execute_agent_with_tools(
                     "System prompt",
+                    "User prompt",
                     mock_tools,
                     [{"type": "function", "function": {"name": mock_tool.name}}],  # openai_tools
                     tool_ctx
@@ -356,30 +356,6 @@ class TestAgentTool:
         
         assert result == "Final result"
         mock_tool.call.assert_called_once()
-        
-    @pytest.mark.asyncio
-    async def test_call_with_exception(self, agent_tool, mcp_context):
-        """Test agent tool call with exception."""
-        # Mock the tool context
-        tool_ctx = MagicMock()
-        tool_ctx.set_tool_info = AsyncMock()
-        tool_ctx.info = AsyncMock()
-        tool_ctx.error = AsyncMock()
-        tool_ctx.mcp_context = mcp_context
-        
-        # Mock the call method directly instead of _execute_single_agent
-        
-        async def mock_call(*args, **kwargs):
-            await tool_ctx.error("Error executing agent: Test exception")
-            return "Error: Error executing agent: Test exception"
-        
-        # Apply the mock
-        with patch.object(agent_tool, "call", side_effect=mock_call):
-            result = await agent_tool.call(ctx=mcp_context, prompts="Test prompt")
-        
-        assert "Error" in result
-        assert "Test exception" in result
-        tool_ctx.error.assert_called()
         
     @pytest.mark.asyncio
     async def test_execute_multiple_agents(self, agent_tool, mcp_context, mock_tools):
@@ -395,7 +371,7 @@ class TestAgentTool:
         
         # Mock the necessary dependencies
         with patch("mcp_claude_code.tools.agent.agent_tool.get_allowed_agent_tools", return_value=mock_tools):
-            with patch("mcp_claude_code.tools.agent.agent_tool.get_system_prompt", return_value="System prompt {prompt}"):
+            with patch("mcp_claude_code.tools.agent.agent_tool.get_system_prompt", return_value="System prompt"):
                 with patch("mcp_claude_code.tools.agent.agent_tool.convert_tools_to_openai_functions", return_value=[]):
                     with patch.object(agent_tool, "_execute_agent_with_tools", side_effect=["Result 1", "Result 2"]):
                         import asyncio
@@ -408,6 +384,32 @@ class TestAgentTool:
         assert "Result 1" in result
         assert "Result 2" in result
         assert "---" in result  # Check for the separator
+
+    @pytest.mark.asyncio
+    async def test_execute_multiple_agents_single_prompt(self, agent_tool, mcp_context, mock_tools):
+        """Test the _execute_multiple_agents method with a single prompt."""
+        # Mock the tool context
+        tool_ctx = MagicMock()
+        tool_ctx.info = AsyncMock()
+        tool_ctx.error = AsyncMock()
+        tool_ctx.mcp_context = mcp_context
+        
+        # Create test prompts - just one
+        test_prompts = ["Single task"]
+        
+        # Mock the necessary dependencies
+        with patch("mcp_claude_code.tools.agent.agent_tool.get_allowed_agent_tools", return_value=mock_tools):
+            with patch("mcp_claude_code.tools.agent.agent_tool.get_system_prompt", return_value="System prompt"):
+                with patch("mcp_claude_code.tools.agent.agent_tool.convert_tools_to_openai_functions", return_value=[]):
+                    with patch.object(agent_tool, "_execute_agent_with_tools", AsyncMock(return_value="Single result")):
+                        import asyncio
+                        with patch.object(asyncio, "gather", AsyncMock(return_value=["Single result"])):
+                            result = await agent_tool._execute_multiple_agents(test_prompts, tool_ctx)
+        
+        # Check that the single result is returned directly without agent prefix or separator
+        assert result == "Single result"
+        assert "Agent 1" not in result
+        assert "---" not in result
 
     @pytest.mark.asyncio
     async def test_execute_multiple_agents_with_exceptions(self, agent_tool, mcp_context, mock_tools):
@@ -426,7 +428,7 @@ class TestAgentTool:
         
         # Mock the necessary dependencies
         with patch("mcp_claude_code.tools.agent.agent_tool.get_allowed_agent_tools", return_value=mock_tools):
-            with patch("mcp_claude_code.tools.agent.agent_tool.get_system_prompt", return_value="System prompt {prompt}"):
+            with patch("mcp_claude_code.tools.agent.agent_tool.get_system_prompt", return_value="System prompt"):
                 with patch("mcp_claude_code.tools.agent.agent_tool.convert_tools_to_openai_functions", return_value=[]):
                     with patch.object(agent_tool, "_execute_agent_with_tools", side_effect=[lambda: "Result 1", lambda: "Result 2", lambda: "Result 3"]):
                         import asyncio
