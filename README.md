@@ -93,6 +93,30 @@ You can customize the server using other options:
 }
 ```
 
+#### Using with External MCP Servers
+
+Hanzo MCP can integrate with other MCP servers like iTerm2-MCP or Neovim-MCP. You can enable and manage these servers in several ways:
+
+1. **Using the command line**:
+
+```bash
+# Directly specify MCP server commands
+uvx run hanzo-mcp --allow-path /path/to/project --mcp="npx -y iterm-mcp" --mcp="npx -y @bigcodegen/mcp-neovim-server"
+
+# Or use the management UI
+uvx run hanzo-mcp-servers ui
+```
+
+2. **Using the registry**:
+
+```bash
+# View available servers
+uvx run hanzo-mcp-servers registry search
+
+# Install a server from the registry
+uvx run hanzo-mcp-servers registry install iterm2
+```
+
 ### Configuring Claude Desktop System Prompt
 
 To get the best experience with Hanzo MCP, you need to add the provided system prompt to your Claude Desktop client. This system prompt guides Claude through a structured workflow for interacting with Hanzo platform services and managing project files.
