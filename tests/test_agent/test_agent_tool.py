@@ -53,7 +53,9 @@ class TestAgentTool:
                 command_executor=command_executor,
                 model="anthropic/claude-3-sonnet",
                 api_key="test_anthropic_key",
-                max_tokens=2000
+                max_tokens=2000,
+                max_iterations=40,
+                max_tool_uses=150
             )
             
     @pytest.fixture
@@ -77,6 +79,8 @@ class TestAgentTool:
         assert agent_tool.model_override is None
         assert agent_tool.api_key_override is None
         assert agent_tool.max_tokens_override is None
+        assert agent_tool.max_iterations == 30
+        assert agent_tool.max_tool_uses == 100
         
     def test_initialization_with_params(self, agent_tool_with_params):
         """Test agent tool initialization with custom parameters."""
@@ -84,6 +88,8 @@ class TestAgentTool:
         assert agent_tool_with_params.model_override == "anthropic/claude-3-sonnet"
         assert agent_tool_with_params.api_key_override == "test_anthropic_key"
         assert agent_tool_with_params.max_tokens_override == 2000
+        assert agent_tool_with_params.max_iterations == 40
+        assert agent_tool_with_params.max_tool_uses == 150
         
     def test_parameters(self, agent_tool):
         """Test agent tool parameters."""

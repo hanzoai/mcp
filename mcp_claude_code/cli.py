@@ -58,6 +58,30 @@ def main() -> None:
         dest="agent_api_key",
         help="Specify the API key for the LLM provider (for development/testing only)"
     )
+    
+    _ = parser.add_argument(
+        "--agent-max-iterations",
+        dest="agent_max_iterations",
+        type=int,
+        default=30,
+        help="Maximum number of iterations for agent (default: 30)"
+    )
+    
+    _ = parser.add_argument(
+        "--agent-max-tool-uses",
+        dest="agent_max_tool_uses",
+        type=int,
+        default=100,
+        help="Maximum number of total tool uses for agent (default: 100)"
+    )
+    
+    _ = parser.add_argument(
+        "--enable-agent-tool",
+        dest="enable_agent_tool",
+        action="store_true",
+        default=False,
+        help="Enable the agent tool (disabled by default)"
+    )
 
     _ = parser.add_argument(
         "--install",
@@ -75,6 +99,9 @@ def main() -> None:
     agent_model: str | None = cast(str | None, args.agent_model)
     agent_max_tokens: int | None = cast(int | None, args.agent_max_tokens)
     agent_api_key: str | None = cast(str | None, args.agent_api_key)
+    agent_max_iterations: int = cast(int, args.agent_max_iterations)
+    agent_max_tool_uses: int = cast(int, args.agent_max_tool_uses)
+    enable_agent_tool: bool = cast(bool, args.enable_agent_tool)
     allowed_paths: list[str] = (
         cast(list[str], args.allowed_paths) if args.allowed_paths else []
     )
@@ -97,7 +124,10 @@ def main() -> None:
         allowed_paths=allowed_paths,
         agent_model=agent_model,
         agent_max_tokens=agent_max_tokens,
-        agent_api_key=agent_api_key
+        agent_api_key=agent_api_key,
+        agent_max_iterations=agent_max_iterations,
+        agent_max_tool_uses=agent_max_tool_uses,
+        enable_agent_tool=enable_agent_tool
     )
     # Transport will be automatically cast to Literal['stdio', 'sse'] by the server
     server.run(transport=transport)

@@ -7,7 +7,7 @@ enabling concurrent execution of multiple operations and specialized processing.
 from mcp.server.fastmcp import FastMCP
 
 from mcp_claude_code.tools.agent.agent_tool import AgentTool
-from mcp_claude_code.tools.common.base import BaseTool 
+from mcp_claude_code.tools.common.base import BaseTool, ToolRegistry 
 from mcp_claude_code.tools.common.context import DocumentContext
 from mcp_claude_code.tools.common.permissions import PermissionManager
 from mcp_claude_code.tools.shell.command_executor import CommandExecutor
@@ -21,6 +21,8 @@ def register_agent_tools(
     agent_model: str | None = None,
     agent_max_tokens: int | None = None,
     agent_api_key: str | None = None,
+    agent_max_iterations: int = 30,
+    agent_max_tool_uses: int = 100,
 ) -> list[BaseTool]:
     """Register agent tools with the MCP server.
 
@@ -32,6 +34,8 @@ def register_agent_tools(
         agent_model: Optional model name for agent tool in LiteLLM format
         agent_max_tokens: Optional maximum tokens for agent responses
         agent_api_key: Optional API key for the LLM provider
+        agent_max_iterations: Maximum number of iterations for agent (default: 30)
+        agent_max_tool_uses: Maximum number of total tool uses for agent (default: 100)
 
     Returns:
         List of registered tools
@@ -43,12 +47,14 @@ def register_agent_tools(
         command_executor=command_executor,
         model=agent_model,
         api_key=agent_api_key,
-        max_tokens=agent_max_tokens
+        max_tokens=agent_max_tokens,
+        max_iterations=agent_max_iterations,
+        max_tool_uses=agent_max_tool_uses
     )
 
     # Register agent tool
     # TODO: agent tool is't fully implemented yet
-    # ToolRegistry.register_tool(mcp_server, agent_tool)
+    ToolRegistry.register_tool(mcp_server, agent_tool)
 
     # Return list of registered tools
     return [agent_tool]

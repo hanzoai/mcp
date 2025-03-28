@@ -29,6 +29,9 @@ def register_all_tools(
     agent_model: str | None = None,
     agent_max_tokens: int | None = None,
     agent_api_key: str | None = None,
+    agent_max_iterations: int = 30,
+    agent_max_tool_uses: int = 100,
+    enable_agent_tool: bool = False,
 ) -> None:
     """Register all Claude Code tools with the MCP server.
 
@@ -39,6 +42,9 @@ def register_all_tools(
         agent_model: Optional model name for agent tool in LiteLLM format
         agent_max_tokens: Optional maximum tokens for agent responses
         agent_api_key: Optional API key for the LLM provider
+        agent_max_iterations: Maximum number of iterations for agent (default: 30)
+        agent_max_tool_uses: Maximum number of total tool uses for agent (default: 100)
+        enable_agent_tool: Whether to enable the agent tool (default: False)
     """
     # Register all filesystem tools
     register_filesystem_tools(mcp_server, document_context, permission_manager)
@@ -57,16 +63,19 @@ def register_all_tools(
         CommandExecutor(permission_manager)
     )
 
-    # Register agent tools
-    register_agent_tools(
-        mcp_server, 
-        document_context, 
-        permission_manager,
-        CommandExecutor(permission_manager),
-        agent_model=agent_model,
-        agent_max_tokens=agent_max_tokens,
-        agent_api_key=agent_api_key
-    )
+    # Register agent tools only if enabled
+    if enable_agent_tool:
+        register_agent_tools(
+            mcp_server, 
+            document_context, 
+            permission_manager,
+            CommandExecutor(permission_manager),
+            agent_model=agent_model,
+            agent_max_tokens=agent_max_tokens,
+            agent_api_key=agent_api_key,
+            agent_max_iterations=agent_max_iterations,
+            agent_max_tool_uses=agent_max_tool_uses
+        )
     
     # Initialize and register thinking tool
     register_thinking_tool(mcp_server)

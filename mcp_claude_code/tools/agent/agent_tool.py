@@ -117,7 +117,8 @@ Returns:
 
     def __init__(
             self, document_context: DocumentContext, permission_manager: PermissionManager, command_executor: CommandExecutor,
-            model: str | None = None, api_key: str | None = None, max_tokens: int | None = None
+            model: str | None = None, api_key: str | None = None, max_tokens: int | None = None,
+            max_iterations: int = 30, max_tool_uses: int = 100
     ) -> None:
         """Initialize the agent tool.
 
@@ -128,6 +129,8 @@ Returns:
             model: Optional model name override in LiteLLM format (e.g., "openai/gpt-4o")
             api_key: Optional API key for the model provider
             max_tokens: Optional maximum tokens for model responses
+            max_iterations: Maximum number of iterations for agent (default: 30)
+            max_tool_uses: Maximum number of total tool uses for agent (default: 100)
         """
         self.document_context = document_context
         self.permission_manager = permission_manager
@@ -135,6 +138,8 @@ Returns:
         self.model_override = model
         self.api_key_override = api_key
         self.max_tokens_override = max_tokens
+        self.max_iterations = max_iterations
+        self.max_tool_uses = max_tool_uses
         self.available_tools :list[BaseTool] = []
         self.available_tools.extend(get_read_only_filesystem_tools(self.document_context, self.permission_manager))
         self.available_tools.extend(get_read_only_jupyter_tools(self.document_context, self.permission_manager))
@@ -311,10 +316,10 @@ Returns:
         
         # Track tool usage for metrics
         tool_usage = {}
-        max_tool_uses = 30  # Safety limit to prevent infinite loops
         total_tool_use_count = 0
         iteration_count = 0
-        max_iterations = 10  # Add a maximum number of iterations for safety
+        max_tool_uses = self.max_tool_uses  # Safety limit to prevent infinite loops
+        max_iterations = self.max_iterations  # Add a maximum number of iterations for safety
 
         # Execute until the agent completes or reaches the limit
         while total_tool_use_count < max_tool_uses and iteration_count < max_iterations:

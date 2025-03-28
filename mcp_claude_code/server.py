@@ -23,6 +23,9 @@ class ClaudeCodeServer:
         agent_model: str | None = None,
         agent_max_tokens: int | None = None,
         agent_api_key: str | None = None,
+        agent_max_iterations: int = 30,
+        agent_max_tool_uses: int = 100,
+        enable_agent_tool: bool = False,
     ):
         """Initialize the Claude Code server.
 
@@ -33,6 +36,9 @@ class ClaudeCodeServer:
             agent_model: Optional model name for agent tool in LiteLLM format
             agent_max_tokens: Optional maximum tokens for agent responses
             agent_api_key: Optional API key for the LLM provider
+            agent_max_iterations: Maximum number of iterations for agent (default: 30)
+            agent_max_tool_uses: Maximum number of total tool uses for agent (default: 100)
+            enable_agent_tool: Whether to enable the agent tool (default: False)
         """
         self.mcp = mcp_instance if mcp_instance is not None else FastMCP(name)
 
@@ -64,6 +70,9 @@ class ClaudeCodeServer:
         self.agent_model = agent_model
         self.agent_max_tokens = agent_max_tokens
         self.agent_api_key = agent_api_key
+        self.agent_max_iterations = agent_max_iterations
+        self.agent_max_tool_uses = agent_max_tool_uses
+        self.enable_agent_tool = enable_agent_tool
         
         # Register all tools
         register_all_tools(
@@ -73,6 +82,9 @@ class ClaudeCodeServer:
             agent_model=self.agent_model,
             agent_max_tokens=self.agent_max_tokens,
             agent_api_key=self.agent_api_key,
+            agent_max_iterations=self.agent_max_iterations,
+            agent_max_tool_uses=self.agent_max_tool_uses,
+            enable_agent_tool=self.enable_agent_tool,
         )
 
     def run(self, transport: str = "stdio", allowed_paths: list[str] | None = None):
