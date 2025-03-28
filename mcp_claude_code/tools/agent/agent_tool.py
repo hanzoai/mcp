@@ -64,11 +64,14 @@ This tool creates an agent for delegation of tasks such as multi-step searches, 
 or other operations that benefit from focused processing. The agent works independently with its 
 own context and provides a single response containing the results of its work.
 
+You can launch a single agent with a specific task, or launch multiple agents concurrently 
+for parallel execution of independent tasks, improving performance for complex operations.
+
 Args:
-    prompt: The task for the agent to perform
+    prompt: The task(s) for the agent(s) to perform. Can be a single string or an array of strings for parallel execution.
 
 Returns:
-    Results of the agent's execution
+    Results of the agent's execution(s)
 """
 
     @property
@@ -82,8 +85,20 @@ Returns:
         return {
             "properties": {
                 "prompt": {
-                    "type": "string",
-                    "description": "The task for the agent to perform",
+                    "anyOf": [
+                        {
+                            "type": "string",
+                            "description": "The task for the agent to perform"
+                        },
+                        {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            },
+                            "description": "Multiple tasks for parallel execution by agents"
+                        }
+                    ],
+                    "description": "The task(s) for the agent(s) to perform"
                 }
             },
             "required": ["prompt"],
@@ -149,9 +164,43 @@ Returns:
             await tool_ctx.error("Parameter 'prompt' is required but was not provided")
             return "Error: Parameter 'prompt' is required but was not provided"
 
-        # Log the start of execution
-        await tool_ctx.info(f"Launching agent with prompt: {prompt[:100]}...")
+        # Check if we're running a single agent or multiple agents
+        if isinstance(prompt, list):
+            # Multiple agents (concurrent execution)
+            if not prompt:  # Empty list
+                await tool_ctx.error("At least one prompt must be provided in the array")
+                return "Error: At least one prompt must be provided in the array"
+                
+            # Log the start of execution
+            await tool_ctx.info(f"Launching {len(prompt)} agents in parallel")
+            result = await self._execute_multiple_agents(prompt, tool_ctx)
+        else:
+            # Single agent
+            # Log the start of execution
+            await tool_ctx.info(f"Launching agent with prompt: {prompt[:100]}...")
+            result = await self._execute_single_agent(prompt, tool_ctx)
+            
+        # Calculate execution time
+        execution_time = time.time() - start_time
+        
+        # Format the final result with metrics
+        formatted_result = self._format_result(result, execution_time)
+        
+        # Log completion
+        await tool_ctx.info(f"Agent execution completed in {execution_time:.2f}s")
+        
+        return formatted_result
 
+    async def _execute_single_agent(self, prompt: str, tool_ctx: ToolContext) -> str:
+        """Execute a single agent with the given prompt.
+
+        Args:
+            prompt: The prompt for the agent
+            tool_ctx: Tool context for logging
+
+        Returns:
+            Agent execution result
+        """
         try:
             # Get available tools for the agent
             # The agent has access to the same tools we do, but filtered for safety
@@ -182,22 +231,86 @@ Returns:
                 tool_ctx
             )
             
-            # Calculate execution time
-            execution_time = time.time() - start_time
-            
-            # Format the final result with metrics
-            formatted_result = self._format_result(result, execution_time)
-            
-            # Log completion
-            await tool_ctx.info(f"Agent execution completed in {execution_time:.2f}s")
-            
-            return formatted_result
+            return result
             
         except Exception as e:
             # Log and return any errors
             error_message = f"Error executing agent: {str(e)}"
             await tool_ctx.error(error_message)
             return f"Error: {error_message}"
+            
+    async def _execute_multiple_agents(self, prompts: list[str], tool_ctx: ToolContext) -> str:
+        """Execute multiple agents concurrently with the given prompts.
+
+        Args:
+            prompts: List of prompts for the agents
+            tool_ctx: Tool context for logging
+
+        Returns:
+            Combined agent execution results
+        """
+        # Get available tools for the agents (do this once to avoid redundant work)
+        agent_tools = get_allowed_agent_tools(
+            self.available_tools, 
+            self.permission_manager,
+        )
+        
+        # Convert tools to OpenAI format (do this once to avoid redundant work)
+        openai_tools = convert_tools_to_openai_functions(agent_tools)
+        
+        # Log execution start
+        await tool_ctx.info(f"Starting parallel execution of {len(prompts)} agents")
+        
+        # Create a list to store the tasks
+        tasks = []
+        results = []
+        
+        # Handle exceptions for individual agent executions
+        for i, prompt in enumerate(prompts):
+            try:
+                # Create system prompt for this agent
+                system_prompt = get_system_prompt(
+                    agent_tools,
+                    self.permission_manager,
+                ).format(prompt=prompt)
+                
+                # Execute agent and collect the task
+                await tool_ctx.info(f"Launching agent {i+1}/{len(prompts)}: {prompt[:50]}...")
+                task = self._execute_agent_with_tools(
+                    system_prompt, 
+                    agent_tools, 
+                    openai_tools, 
+                    tool_ctx
+                )
+                tasks.append(task)
+            except Exception as e:
+                # Log and add error result
+                error_message = f"Error preparing agent {i+1}: {str(e)}"
+                await tool_ctx.error(error_message)
+                results.append(f"Agent {i+1} Error: {error_message}")
+        
+        # Execute all pending tasks concurrently
+        if tasks:
+            import asyncio
+            try:
+                # Wait for all tasks to complete
+                completed_results = await asyncio.gather(*tasks, return_exceptions=True)
+                
+                # Process results, handling any exceptions
+                for i, result in enumerate(completed_results):
+                    if isinstance(result, Exception):
+                        results.append(f"Agent {i+1} Error: {str(result)}")
+                    else:
+                        results.append(f"Agent {i+1} Result:\n{result}")
+            except Exception as e:
+                # Handle any unexpected exceptions during gathering
+                error_message = f"Error executing agents concurrently: {str(e)}"
+                await tool_ctx.error(error_message)
+                results.append(f"Error: {error_message}")
+        
+        # Combine results
+        combined_result = "\n\n" + "\n\n---\n\n".join(results)
+        return combined_result
 
     async def _execute_agent_with_tools(
         self,
@@ -357,13 +470,23 @@ Returns:
         """Format agent result with metrics.
 
         Args:
-            result: Raw result from agent
+            result: Raw result from agent(s)
             execution_time: Execution time in seconds
 
         Returns:
             Formatted result with metrics
         """
-        return f"""Agent execution completed in {execution_time:.2f} seconds.
+        # Check if this is a multi-agent result (contains our separator pattern)
+        if "\n\n---\n\n" in result and "Agent " in result:
+            # This is a multi-agent response
+            agent_count = result.count("Agent ")
+            return f"""Multi-agent execution completed in {execution_time:.2f} seconds ({agent_count} agents).
+
+{result}
+"""
+        else:
+            # Single agent response
+            return f"""Agent execution completed in {execution_time:.2f} seconds.
 
 AGENT RESPONSE:
 {result}
@@ -374,5 +497,5 @@ AGENT RESPONSE:
         tool_self = self  # Create a reference to self for use in the closure
         
         @mcp_server.tool(name=self.name, description=self.mcp_description)
-        async def dispatch_agent(ctx: MCPContext, prompt:str) -> str:
-             return await tool_self.call(ctx,prompt=prompt) 
+        async def dispatch_agent(ctx: MCPContext, prompt: str | list[str]) -> str:
+             return await tool_self.call(ctx, prompt=prompt) 

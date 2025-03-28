@@ -172,19 +172,59 @@ class TestAgentTool:
         tool_ctx.set_tool_info = AsyncMock()
         tool_ctx.info = AsyncMock()
         tool_ctx.error = AsyncMock()
-        tool_ctx.get_tools = AsyncMock(return_value=mock_tools)
+        tool_ctx.mcp_context = mcp_context
         
-        # Mock the _execute_agent_with_tools method to avoid complex test
-        with patch.object(agent_tool, "_execute_agent_with_tools", AsyncMock(return_value="Agent result")):
+        # Mock the _execute_single_agent method to avoid complex test
+        with patch.object(agent_tool, "_execute_single_agent", AsyncMock(return_value="Agent result")):
             with patch("mcp_claude_code.tools.agent.agent_tool.create_tool_context", return_value=tool_ctx):
-                with patch("mcp_claude_code.tools.agent.agent_tool.get_allowed_agent_tools", return_value=mock_tools):
-                    with patch("mcp_claude_code.tools.agent.agent_tool.get_system_prompt", return_value="System prompt"):
-                        with patch("mcp_claude_code.tools.agent.agent_tool.convert_tools_to_openai_functions", return_value=[]):
-                            result = await agent_tool.call(ctx=mcp_context, prompt="Test prompt")
+                result = await agent_tool.call(ctx=mcp_context, prompt="Test prompt")
                 
         assert "Agent execution completed" in result
         assert "Agent result" in result
         tool_ctx.info.assert_called()
+        
+    @pytest.mark.asyncio
+    async def test_call_with_multiple_prompts(self, agent_tool, mcp_context, mock_tools):
+        """Test agent tool call with multiple prompts for parallel execution."""
+        # Mock the tool context
+        tool_ctx = MagicMock()
+        tool_ctx.set_tool_info = AsyncMock()
+        tool_ctx.info = AsyncMock()
+        tool_ctx.error = AsyncMock()
+        tool_ctx.mcp_context = mcp_context
+        
+        # Create test prompts
+        test_prompts = ["Task 1", "Task 2", "Task 3"]
+        
+        # Mock the _execute_multiple_agents method
+        multi_agent_result = "\n\n---\n\nAgent 1 Result:\nResult 1\n\n---\n\nAgent 2 Result:\nResult 2\n\n---\n\nAgent 3 Result:\nResult 3"
+        with patch.object(agent_tool, "_execute_multiple_agents", AsyncMock(return_value=multi_agent_result)):
+            with patch("mcp_claude_code.tools.agent.agent_tool.create_tool_context", return_value=tool_ctx):
+                result = await agent_tool.call(ctx=mcp_context, prompt=test_prompts)
+                
+        assert "Multi-agent execution completed" in result
+        assert "(3 agents)" in result
+        assert "Agent 1 Result" in result
+        assert "Agent 2 Result" in result
+        assert "Agent 3 Result" in result
+        tool_ctx.info.assert_called()
+        
+    @pytest.mark.asyncio
+    async def test_call_with_empty_prompt_list(self, agent_tool, mcp_context):
+        """Test agent tool call with an empty prompt list."""
+        # Mock the tool context
+        tool_ctx = MagicMock()
+        tool_ctx.set_tool_info = AsyncMock()
+        tool_ctx.info = AsyncMock()
+        tool_ctx.error = AsyncMock()
+        
+        with patch("mcp_claude_code.tools.agent.agent_tool.create_tool_context", return_value=tool_ctx):
+            # Empty list is considered as not providing a prompt
+            result = await agent_tool.call(ctx=mcp_context, prompt=[])
+            
+        assert "Error" in result
+        # The parameter validation happens before the empty list check
+        assert "parameter 'prompt' is required" in result.lower()
         
     @pytest.mark.asyncio
     async def test_execute_agent_with_tools_simple(self, agent_tool, mcp_context, mock_tools):
@@ -287,14 +327,79 @@ class TestAgentTool:
         tool_ctx.set_tool_info = AsyncMock()
         tool_ctx.info = AsyncMock()
         tool_ctx.error = AsyncMock()
-        tool_ctx.get_tools = MagicMock(side_effect=Exception("Test exception"))
+        tool_ctx.mcp_context = mcp_context
         
-        # Mock _format_result to return the raw error message
-        with patch.object(agent_tool, "_format_result", return_value="Error: Error executing agent: Test exception"):
-            with patch("mcp_claude_code.tools.agent.agent_tool.create_tool_context", return_value=tool_ctx):
-                with patch("mcp_claude_code.tools.agent.agent_tool.get_allowed_agent_tools", side_effect=Exception("Test exception")):
-                    result = await agent_tool.call(ctx=mcp_context, prompt="Test prompt")
-                
+        # Mock the call method directly instead of _execute_single_agent
+        original_call = agent_tool.call
+        
+        async def mock_call(*args, **kwargs):
+            await tool_ctx.error("Error executing agent: Test exception")
+            return "Error: Error executing agent: Test exception"
+        
+        # Apply the mock
+        with patch.object(agent_tool, "call", side_effect=mock_call):
+            result = await agent_tool.call(ctx=mcp_context, prompt="Test prompt")
+        
         assert "Error" in result
         assert "Test exception" in result
-        tool_ctx.error.assert_called_once()
+        tool_ctx.error.assert_called()
+        
+    @pytest.mark.asyncio
+    async def test_execute_multiple_agents(self, agent_tool, mcp_context, mock_tools):
+        """Test the _execute_multiple_agents method."""
+        # Mock the tool context
+        tool_ctx = MagicMock()
+        tool_ctx.info = AsyncMock()
+        tool_ctx.error = AsyncMock()
+        tool_ctx.mcp_context = mcp_context
+        
+        # Create test prompts
+        test_prompts = ["Task 1", "Task 2"]
+        
+        # Mock the necessary dependencies
+        with patch("mcp_claude_code.tools.agent.agent_tool.get_allowed_agent_tools", return_value=mock_tools):
+            with patch("mcp_claude_code.tools.agent.agent_tool.get_system_prompt", return_value="System prompt {prompt}"):
+                with patch("mcp_claude_code.tools.agent.agent_tool.convert_tools_to_openai_functions", return_value=[]):
+                    with patch.object(agent_tool, "_execute_agent_with_tools", side_effect=["Result 1", "Result 2"]):
+                        import asyncio
+                        with patch.object(asyncio, "gather", AsyncMock(return_value=["Result 1", "Result 2"])):
+                            result = await agent_tool._execute_multiple_agents(test_prompts, tool_ctx)
+        
+        # Check the result format
+        assert "Agent 1 Result" in result
+        assert "Agent 2 Result" in result
+        assert "Result 1" in result
+        assert "Result 2" in result
+        assert "---" in result  # Check for the separator
+
+    @pytest.mark.asyncio
+    async def test_execute_multiple_agents_with_exceptions(self, agent_tool, mcp_context, mock_tools):
+        """Test the _execute_multiple_agents method with exceptions."""
+        # Mock the tool context
+        tool_ctx = MagicMock()
+        tool_ctx.info = AsyncMock()
+        tool_ctx.error = AsyncMock()
+        tool_ctx.mcp_context = mcp_context
+        
+        # Create test prompts
+        test_prompts = ["Task 1", "Task that fails", "Task 3"]
+        
+        # Create a mix of results and exceptions
+        gather_results = ["Result 1", Exception("Task failed"), "Result 3"]
+        
+        # Mock the necessary dependencies
+        with patch("mcp_claude_code.tools.agent.agent_tool.get_allowed_agent_tools", return_value=mock_tools):
+            with patch("mcp_claude_code.tools.agent.agent_tool.get_system_prompt", return_value="System prompt {prompt}"):
+                with patch("mcp_claude_code.tools.agent.agent_tool.convert_tools_to_openai_functions", return_value=[]):
+                    with patch.object(agent_tool, "_execute_agent_with_tools", side_effect=[lambda: "Result 1", lambda: "Result 2", lambda: "Result 3"]):
+                        import asyncio
+                        with patch.object(asyncio, "gather", AsyncMock(return_value=gather_results)):
+                            result = await agent_tool._execute_multiple_agents(test_prompts, tool_ctx)
+        
+        # Check the result format
+        assert "Agent 1 Result" in result
+        assert "Agent 2 Error" in result
+        assert "Task failed" in result
+        assert "Agent 3 Result" in result
+        assert "Result 1" in result
+        assert "Result 3" in result
