@@ -5,6 +5,45 @@ All notable changes to the MCP Claude Code project will be documented in this fi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.19] - 2025-03-28
+
+### Added
+- Added Agent Tool for task delegation and concurrent execution
+  - Agent Tool enables Claude to delegate complex tasks to specialized sub-agents that can work in parallel, enhancing performance for complex operations like code search, analysis, and multi-step tasks
+  - Agents use read-only tools to ensure safety while maintaining full access to information retrieval capabilities
+  - Introduced new parameter `--enable-agent-tool` to allow users to control whether the agent tool is registered
+  - Added parameters `--agent-max-iterations` (default: 30) and `--agent-max-tool-uses` (default: 100) to control agent behavior
+  - Implemented multi-agent support to enable concurrent sub-agent execution for improved performance when handling multiple related tasks
+  - Agents return results that are automatically formatted and integrated into Claude's responses
+- Added LiteLLM integration to support various model providers beyond OpenAI
+  - Command line support for specifying the model name, API key, and token limits
+  - Support for Anthropic, OpenAI, Google, and other LLM providers
+  - Simplified configuration through environment variables or command-line arguments
+
+### Enhanced
+- Enhanced system prompt with best practices and dispatch agent usage guidelines
+- Improved agent tool implementation with better parameter validation and error handling
+- Increased max_tool_uses limit from 15 to 30 for improved agent flexibility
+- Optimized agent implementation to avoid redundant checks and improve performance
+
+### Changed
+- Restricted agent tool to use only read-only variants of filesystem tools for security
+- Simplified agent tool implementation to focus on multi-agent operation
+- Refactored system prompt handling and improved user prompt support
+- Updated parameter validation to support both string and array inputs for prompts
+
+### Fixed
+- Fixed JSON serialization error in agent tool error handling
+- Fixed redundant type checks and improved test environment handling
+- Improved path description in read_files schema for better clarity
+- Updated type annotations to use built-in generics syntax
+
+### Documentation
+- Added detailed documentation for the agent tool in INSTALL.md, explaining setup and configuration options
+- Added debugging guide for Model Context Protocol Inspector
+- Updated installation instructions with LLM model and token configuration options
+- Clarified cwd parameter restrictions in shell tool documentation
+
 ## [0.1.18] - 2025-03-24
 
 ### Enhanced
