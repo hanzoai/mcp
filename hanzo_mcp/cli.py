@@ -59,6 +59,13 @@ def main() -> None:
     )
     
     _ = parser.add_argument(
+        "--mcp",
+        action="append",
+        dest="mcp_servers",
+        help="Specify external MCP server command (can be used multiple times)",
+    )
+    
+    _ = parser.add_argument(
         "--external-servers-config",
         help="Path to external MCP servers configuration file",
     )
@@ -103,6 +110,24 @@ def main() -> None:
     # Set external servers configuration
     if args.external_servers_config:
         os.environ["HANZO_MCP_EXTERNAL_SERVERS_CONFIG"] = args.external_servers_config
+    
+    # Process direct MCP server specifications
+    mcp_servers = args.mcp_servers
+    if mcp_servers:
+        # Create temporary config for these servers
+        from hanzo_mcp.external.config_manager import MCPServerConfig
+        config = MCPServerConfig()
+        for i, server_cmd in enumerate(mcp_servers):
+            parts = server_cmd.split()
+            if len(parts) > 0:
+                server_id = f"cli-server-{i+1}"
+                config.set_server_config(server_id, {
+                    "command": parts[0],
+                    "args": parts[1:],
+                    "enabled": True,
+                    "description": f"CLI-specified MCP server: {server_cmd}"
+                })
+        config.save_config()
 
     # Run the server
     server = HanzoMCPServer(
