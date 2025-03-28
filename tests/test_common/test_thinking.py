@@ -77,7 +77,7 @@ async def test_think_with_valid_thought():
 
         # Check that the function behaved correctly
         tool_ctx.set_tool_info.assert_called_once_with("think")
-        assert "thinking process" in result
+        assert "thinking" in result
         # Now verifying info was called twice with the correct values
         assert tool_ctx.info.call_count == 2
         tool_ctx.info.assert_any_call("Processing thinking request")

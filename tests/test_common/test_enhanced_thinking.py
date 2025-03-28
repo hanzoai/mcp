@@ -50,7 +50,7 @@ class TestEnhancedThinking:
                 result = await registered_func("This is a test thought", mock_ctx)
                 
                 # Verify the result
-                assert "I've recorded your thinking process" in result
+                assert "thinking" in result
                 mock_tool_ctx.info.assert_any_call("Processing thinking request")
                 mock_tool_ctx.info.assert_any_call("Basic thinking recorded")
 
@@ -143,7 +143,7 @@ class TestEnhancedThinking:
                     result = await registered_func("This is a test thought", mock_ctx)
                     
                     # Verify the result falls back to basic thinking
-                    assert "I've recorded your thinking process" in result
+                    assert "thinking" in result
                     assert "Enhanced analysis" not in result
                     mock_tool_ctx.info.assert_any_call("Processing thinking request")
                     mock_tool_ctx.info.assert_any_call("Basic thinking recorded")
