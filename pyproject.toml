@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "hanzo-mcp"
-version = "0.1.27"
+version = "0.1.28"
 description = "MCP server for accessing Hanzo APIs and Platform capabilities"
 readme = "README.md"
 requires-python = ">=3.13"
@@ -30,6 +30,7 @@ performance = ["ujson>=5.7.0", "orjson>=3.9.0"]
 
 [project.scripts]
 hanzo-mcp = "hanzo_mcp.cli:main"
+hanzo-mcp-servers = "hanzo_mcp.external.cli:main"
 
 [tool.setuptools]
 zip-safe = true
