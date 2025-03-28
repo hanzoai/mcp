@@ -230,7 +230,7 @@ Returns:
             system_prompt = get_system_prompt(
                 agent_tools,
                 self.permission_manager,
-            ).format(prompt=prompt)
+            )
             
             # Convert tools to OpenAI format
             openai_tools = convert_tools_to_openai_functions(agent_tools)
@@ -241,6 +241,7 @@ Returns:
             # Execute agent with tool handling
             result = await self._execute_agent_with_tools(
                 system_prompt, 
+                prompt,
                 agent_tools, 
                 openai_tools, 
                 tool_ctx
@@ -362,7 +363,7 @@ Returns:
         total_tool_use_count = 0
         iteration_count = 0
         max_iterations = 10  # Add a maximum number of iterations for safety
-        
+
         # Execute until the agent completes or reaches the limit
         while total_tool_use_count < max_tool_uses and iteration_count < max_iterations:
             iteration_count += 1
@@ -408,10 +409,6 @@ Returns:
                 await tool_ctx.info(f"Processing {tool_call_count} tool calls")
                 
                 for tool_call in message.tool_calls:
-                    if total_tool_use_count >= max_tool_uses:
-                        await tool_ctx.info("Reached maximum tool usage limit")
-                        break
-                        
                     total_tool_use_count += 1
                     function_name = tool_call.function.name
                     
