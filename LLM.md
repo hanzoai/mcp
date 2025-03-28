@@ -1,5 +1,7 @@
 # Hanzo MCP Developer Guide
 
+_Updated: March 28, 2025_
+
 ## Project Overview
 
 Hanzo MCP is a Model Context Protocol server that enables AI models like Claude to interact with file systems, execute commands, analyze projects, and manage code in a secure, controlled manner. This document captures the key architectural patterns, implementation details, and development guidelines for the project.
@@ -221,5 +223,34 @@ Key configuration options:
 - `--transport`: Transport protocol (stdio, sse)
 - `--install`: Install configuration in Claude Desktop
 
+## Build System
+
+The project uses a Makefile-based build system with the following features:
+
+### Makefile Targets
+
+- `make help`: Display all available targets with descriptions
+- `make install`: Install the package and dependencies
+- `make test`: Run the test suite
+- `make lint`: Run linters on the codebase
+- `make format`: Format code according to project standards
+- `make clean`: Clean up temporary files and caches
+
+### Docker Support
+
+The Makefile includes Docker integration with the following targets:
+
+- `make docker-build`: Build a Docker image for the project
+- `make docker-push`: Push the built image to a Docker registry
+- `make docker-run`: Run the application in a Docker container
+
+### Environment Setup
+
+- Automatic virtual environment creation and management
+- Cross-platform support (Windows, macOS, Linux)
+- Package manager detection (uv or pip)
+- Colorized output for better readability
+
 ## Change History
+- March 28, 2025: Enhanced Makefile with Docker support and improved output formatting
 - March 25, 2025: Updated with additional component details and best practices
