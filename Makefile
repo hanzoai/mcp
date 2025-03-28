@@ -1,3 +1,7 @@
+# Default target
+all: install test
+	@echo "$(GREEN)All tasks completed.$(RESET)"
+
 .PHONY: all install install-dev install-test reinstall uninstall test test-cov lint format clean venv venv-check help docker-build docker-run docker-push build-package publish check-dependencies check-system check-python check-uv
 
 # ANSI color codes
@@ -172,10 +176,6 @@ venv-check:
 	fi
 
 
-
-# Default target
-all: install test
-	@echo "$(GREEN)All tasks completed.$(RESET)"
 
 ### Build Python package (CLI) distribution
 build-package: install
