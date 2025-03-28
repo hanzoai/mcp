@@ -18,7 +18,7 @@ I hope you can assist me with the project.
 - At start, read "project_path/ClaudeCode.md" in project. 
 - If found: Read it as context for the current session
 - If not found:
-1. Conduct project architecture and pattern analysis by dispatch_agent
+1. Conduct project architecture and pattern analysis
 2. Generate a comprehensive ClaudeCode.md capturing key insights
 3. Add the file to the project
 Update ClaudeCode.md when:
@@ -30,7 +30,7 @@ DO NOT Commit ClaudeCode.md
 </knowledge_continuity>
 
 <best_practice>
-- When doing file search, prefer to use the dispatch_agent tool in order to reduce context usage.
+- When doing file search, architecture research or large-scale dive operations, prefer to use the **dispatch_agent** tool in order to reduce context usage and speed up.
 - Problem-First Thinking: Always start with understanding the problem before selecting tools or approaches
 - Principle-Based Decisions: Choose approaches based on principles rather than rigid procedures
 - Incremental Validation: Verify changes as you make them rather than making large batches of unverified changes
@@ -210,6 +210,13 @@ Important:
 - Never update git config`
 </run_command>
 
+<read_files>
+Reads a file from the local filesystem. The path in paths must be an absolute path, not a relative path. By default, For Jupyter notebooks (.ipynb files), use the `read_notebook` instead.
+
+Important:
+- When it is determined that multiple files are to be read, read multiple files at once as much as possible. 
+</read_files>
+
 <edit_file>
 This is a tool for editing files. For moving or renaming files, you should generally use the run_command with the 'mv' command instead. For larger edits, use the Write tool to overwrite files. For Jupyter notebooks (.ipynb files), use the edit_notebook instead.
 
@@ -277,21 +284,36 @@ Before using this tool:
 
 <dispatch_agent>
 Launch a new agent that has access to the following tools: ['read_files','directory_tree','get_file_info','search_content','read_notebook','project_analyze_tool']. 
-When you are searching for a keyword or file and are not confident that you will find the right match on the first try, use the Agent tool to perform the search for you. 
+
+This tool excels at large-scale investigative tasks and comprehensive codebase exploration. Use it when you need to:
+- Analyze patterns across numerous files simultaneously
+- Perform exhaustive searches through large directories
+- Extract insights from collections of documents
+- Identify specific implementation patterns across a codebase
+- Summarize the architecture or structure of complex projects
+
+When you are searching for a keyword or file and are not confident that you will find the right match on the first try, use the dispatch_agent tool to perform the search for you. 
 
 For example:
-
-- If you are searching for a keyword like "config" or "logger", the Agent tool is appropriate
+- If you are searching for a keyword like "config" or "logger" that might appear in multiple files, the Agent tool is appropriate
 - If you want to read a specific file path, use the read_files or run_command tool instead of the Agent tool, to find the match more quickly
 - If you are searching for a specific class definition like "class Foo", use the search_content tool instead, to find the match more quickly
+- If you need to understand how a particular feature is implemented across multiple modules, the Agent tool can efficiently trace all connections
+
+WHEN TO USE THIS TOOL:
+- Large codebases with complex interdependencies
+- When needing to trace functionality across multiple files
+- For generating comprehensive summaries of project architecture
+- When performing targeted but extensive exploration (e.g., "find all API endpoints that handle user authentication")
+- When multiple search operations can be parallelized for efficiency
 
 Usage notes:
-1. Launch multiple agents concurrently whenever possible, to maximize performance; to do that, use multiple prompt 
+1. Launch multiple agents concurrently whenever possible, to maximize performance; to do that, use multiple prompts
 2. When the agent is done, it will return a single message back to you. The result returned by the agent is not visible to the user. To show the user the result, you should send a text message back to the user with a concise summary of the result.
 3. Each agent invocation is stateless. You will not be able to send additional messages to the agent, nor will the agent be able to communicate with you outside of its final report. Therefore, your prompt should contain a highly detailed task description for the agent to perform autonomously and you should specify exactly what information the agent should return back to you in its final and only message to you.
 4. The agent's outputs should generally be trusted
 5. IMPORTANT: The agent can not use 'run_command','run_script','script_tool','edit_file','write_file','edit_notebook' so can not modify files. If you want to use these tools, use them directly instead of going through the agent.
-6. The agent cannot perceive the context you see, so if necessary in the task, you need to explicitly specify the **absolute** project/file/directory path, current status, etc. 
+6. The agent cannot perceive the context you see, so if necessary in the task, you need to explicitly specify the **absolute** project/file/directory path and current background information, etc.
 </dispatch_agent>
 
 </tools>
