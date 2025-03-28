@@ -65,6 +65,28 @@ Security exclusions include:
 
 ## Implemented Tools
 
+### Symbol Tools (Tree-sitter based)
+- `symbol_find`: Find symbol definitions in a file or directory
+- `symbol_references`: Find references to a symbol in a file or directory
+- `ast_explore`: Explore and visualize the AST of a file
+- `ast_query`: Query the AST using tree-sitter query language
+- `symbolic_search`: Perform various symbolic search operations
+
+The symbol tools are implemented using tree-sitter and provide capabilities for:
+
+1. **Language Support**: Multiple programming languages including Python, JavaScript, TypeScript, Java, C, C++, Go, Ruby, and more
+2. **Symbol Finding**: Locate definitions and references for variables, functions, classes, methods, etc.
+3. **AST Exploration**: Navigate and visualize code structure via Abstract Syntax Trees
+4. **Symbolic Search**: Find related symbols and patterns across files
+
+Key capabilities include:
+
+- **Finding symbols**: Locate definitions of variables, functions, classes, methods, etc.
+- **Finding references**: Identify where symbols are used throughout a codebase
+- **Exploring ASTs**: Visualize and understand code structure
+- **Querying code**: Use tree-sitter query language for pattern matching
+- **Symbolic analysis**: Find related symbols, usage patterns, call sites, etc.
+
 ### Filesystem Tools
 - `read_files`: Read contents of one or multiple files
 - `write_file`: Create or overwrite files
@@ -257,4 +279,5 @@ The Makefile includes Docker integration with the following targets:
 ## Change History
 - March 28, 2025: Enhanced Makefile with uv-based Python management, dependency checking, and improved build system
 - March 28, 2025: Added Docker support and improved output formatting
+- March 28, 2025: Added tree-sitter integration for symbol finding, AST exploration, and symbolic search
 - March 25, 2025: Updated with additional component details and best practices

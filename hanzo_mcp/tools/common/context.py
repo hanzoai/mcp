@@ -35,6 +35,10 @@ class ToolContext:
         self._mcp_context: MCPContext = mcp_context
         self._tool_name: str | None = None
         self._execution_id: str | None = None
+        
+        # For tracking operations and params
+        self.current_operation: str | None = None
+        self.operation_params: dict[str, Any] = {}
 
         # Add to active contexts
         ToolContext._active_contexts.add(self)
@@ -112,6 +116,49 @@ class ToolContext:
             message: The message to log
         """
         await self._mcp_context.error(self._format_message(message))
+        
+    async def success(self, message: str, data: dict[str, Any] | None = None) -> str:
+        """Create a success response with standardized format.
+        
+        Args:
+            message: Success message
+            data: Optional data to include in the response
+            
+        Returns:
+            JSON string response
+        """
+        if data is None:
+            data = {}
+            
+        # Always include the operation name if we have it
+        if self.current_operation and "tool" not in data:
+            data["tool"] = self.current_operation
+            
+        # Add operation params for transparency if needed
+        if self.operation_params and "params" not in data:
+            # Don't include passwords, tokens, or keys
+            filtered_params = {k: v for k, v in self.operation_params.items() 
+                              if not any(sensitive in k.lower() for sensitive in 
+                                      ["password", "token", "key", "secret"])}
+            if filtered_params:
+                data["params"] = filtered_params
+        
+        # For MCP operations, add target information
+        if self.current_operation == "run_mcp" and "subcommand" in self.operation_params:
+            if "subcommand" not in data:
+                data["subcommand"] = self.operation_params["subcommand"]
+            if "server_name" in self.operation_params and self.operation_params["server_name"]:
+                if "target" not in data:
+                    data["target"] = self.operation_params["server_name"]
+            
+        # Create response
+        response = {
+            "status": "success",
+            "message": message,
+            "data": data
+        }
+        
+        return json.dumps(response)
 
     def _format_message(self, message: str) -> str:
         """Format a message with tool information if available.
