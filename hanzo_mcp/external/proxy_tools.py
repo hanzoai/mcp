@@ -58,6 +58,108 @@ class ProxyTools:
         iterm2_server = self.server_manager.get_server("iterm2")
         if iterm2_server:
             self._register_iterm2_tools(mcp_server)
+            
+        # Register Neovim specific tools if available
+        neovim_server = self.server_manager.get_server("neovim")
+        if neovim_server:
+            self._register_neovim_tools(mcp_server)
+            
+        # Register MCP server management tools
+        self._register_server_management_tools(mcp_server)
+
+    def _register_server_management_tools(self, mcp_server: FastMCP) -> None:
+        """Register MCP server management tools with the MCP server.
+
+        Args:
+            mcp_server: The MCP server to register the tools with
+        """
+        @mcp_server.tool()
+        async def enable_external_server(name: str, ctx: MCPContext) -> str:
+            """Enable an external MCP server.
+
+            Args:
+                name: The name of the server to enable
+
+            Returns:
+                The result of the operation
+            """
+            tool_ctx = create_tool_context(ctx)
+            tool_ctx.set_tool_info("enable_external_server")
+
+            await tool_ctx.info(f"Enabling external MCP server: {name}")
+
+            # Access the configuration directly through server_manager
+            if self.server_manager.config.enable_server(name):
+                await tool_ctx.info(f"Server {name} enabled in configuration")
+                
+                # Reload servers to apply the change
+                self.server_manager._load_servers()
+                
+                return f"Server '{name}' has been enabled. It will be available for use in new sessions."
+            else:
+                await tool_ctx.error(f"Failed to enable server {name}")
+                return f"Error: Failed to enable server '{name}'"
+
+        @mcp_server.tool()
+        async def disable_external_server(name: str, ctx: MCPContext) -> str:
+            """Disable an external MCP server.
+
+            Args:
+                name: The name of the server to disable
+
+            Returns:
+                The result of the operation
+            """
+            tool_ctx = create_tool_context(ctx)
+            tool_ctx.set_tool_info("disable_external_server")
+
+            await tool_ctx.info(f"Disabling external MCP server: {name}")
+
+            # Check if the server exists
+            server = self.server_manager.get_server(name)
+            if not server:
+                await tool_ctx.error(f"Server {name} not found")
+                return f"Error: Server '{name}' not found"
+
+            # Access the configuration directly through server_manager
+            if self.server_manager.config.disable_server(name):
+                await tool_ctx.info(f"Server {name} disabled in configuration")
+                
+                # Stop the server if it's running
+                if server.is_running():
+                    server.stop()
+                
+                # Remove from the servers dictionary
+                if name in self.server_manager.servers:
+                    del self.server_manager.servers[name]
+                
+                return f"Server '{name}' has been disabled and will not be available in future sessions."
+            else:
+                await tool_ctx.error(f"Failed to disable server {name}")
+                return f"Error: Failed to disable server '{name}'"
+
+        @mcp_server.tool()
+        async def set_auto_detect(enabled: bool, ctx: MCPContext) -> str:
+            """Set whether to auto-detect external MCP servers.
+
+            Args:
+                enabled: Whether to enable auto-detection
+
+            Returns:
+                The result of the operation
+            """
+            tool_ctx = create_tool_context(ctx)
+            tool_ctx.set_tool_info("set_auto_detect")
+
+            await tool_ctx.info(f"Setting auto-detect to {enabled}")
+
+            # Access the configuration directly through server_manager
+            if self.server_manager.config.set_auto_detect(enabled):
+                await tool_ctx.info(f"Auto-detect set to {enabled}")
+                return f"Auto-detection of external MCP servers has been {'enabled' if enabled else 'disabled'}."
+            else:
+                await tool_ctx.error(f"Failed to set auto-detect to {enabled}")
+                return f"Error: Failed to set auto-detect to {enabled}"
 
     def _register_iterm2_tools(self, mcp_server: FastMCP) -> None:
         """Register iTerm2 specific tools with the MCP server.
@@ -155,3 +257,91 @@ class ProxyTools:
             except Exception as e:
                 await tool_ctx.error(f"Failed to parse response from iTerm2 MCP server: {str(e)}")
                 return f"Error: Failed to parse response from iTerm2 MCP server: {str(e)}"
+
+    def _register_neovim_tools(self, mcp_server: FastMCP) -> None:
+        """Register Neovim specific tools with the MCP server.
+
+        Args:
+            mcp_server: The MCP server to register the tools with
+        """
+        @mcp_server.tool()
+        async def nvim_open_file(filepath: str, ctx: MCPContext) -> str:
+            """Open a file in Neovim.
+
+            Args:
+                filepath: Path to the file to open
+
+            Returns:
+                The result of the operation
+            """
+            tool_ctx = create_tool_context(ctx)
+            tool_ctx.set_tool_info("nvim_open_file")
+
+            await tool_ctx.info(f"Opening file in Neovim: {filepath}")
+
+            server = self.server_manager.get_server("neovim")
+            if not server:
+                await tool_ctx.error("Neovim MCP server is not available")
+                return "Error: Neovim MCP server is not available"
+
+            # Format the request as a tool invocation
+            request = json.dumps({
+                "type": "function",
+                "name": "open_file",
+                "arguments": {
+                    "filepath": filepath
+                }
+            })
+
+            response = server.send_request(request)
+            if not response:
+                await tool_ctx.error("Failed to communicate with Neovim MCP server")
+                return "Error: Failed to communicate with Neovim MCP server"
+
+            try:
+                response_data = json.loads(response)
+                return response_data.get("result", "File opened successfully in Neovim")
+            except Exception as e:
+                await tool_ctx.error(f"Failed to parse response from Neovim MCP server: {str(e)}")
+                return f"Error: Failed to parse response from Neovim MCP server: {str(e)}"
+
+        @mcp_server.tool()
+        async def nvim_execute_command(command: str, ctx: MCPContext) -> str:
+            """Execute a command in Neovim.
+
+            Args:
+                command: The Vim command to execute (e.g., "w", "q", "wq")
+
+            Returns:
+                The result of the operation
+            """
+            tool_ctx = create_tool_context(ctx)
+            tool_ctx.set_tool_info("nvim_execute_command")
+
+            await tool_ctx.info(f"Executing command in Neovim: {command}")
+
+            server = self.server_manager.get_server("neovim")
+            if not server:
+                await tool_ctx.error("Neovim MCP server is not available")
+                return "Error: Neovim MCP server is not available"
+
+            # Format the request as a tool invocation
+            request = json.dumps({
+                "type": "function",
+                "name": "execute_command",
+                "arguments": {
+                    "command": command
+                }
+            })
+
+            response = server.send_request(request)
+            if not response:
+                await tool_ctx.error("Failed to communicate with Neovim MCP server")
+                return "Error: Failed to communicate with Neovim MCP server"
+
+            try:
+                response_data = json.loads(response)
+                return response_data.get("result", f"Command '{command}' executed successfully in Neovim")
+            except Exception as e:
+                await tool_ctx.error(f"Failed to parse response from Neovim MCP server: {str(e)}")
+                return f"Error: Failed to parse response from Neovim MCP server: {str(e)}"
