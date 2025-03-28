@@ -72,8 +72,8 @@ class TestAgentTool:
     def test_initialization(self, agent_tool):
         """Test agent tool initialization."""
         assert agent_tool.name == "dispatch_agent"
-        assert "Launch a new agent" in agent_tool.description
-        assert agent_tool.required == ["prompt"]
+        assert "Launch one or more agents" in agent_tool.description
+        assert agent_tool.required == ["prompts"]
         assert agent_tool.model_override is None
         assert agent_tool.api_key_override is None
         assert agent_tool.max_tokens_override is None
@@ -88,8 +88,12 @@ class TestAgentTool:
     def test_parameters(self, agent_tool):
         """Test agent tool parameters."""
         params = agent_tool.parameters
-        assert "prompt" in params["properties"]
-        assert params["required"] == ["prompt"]
+        assert "prompts" in params["properties"]
+        assert "anyOf" in params["properties"]["prompts"]
+        # Check that both string and array types are supported
+        assert any(schema.get("type") == "string" for schema in params["properties"]["prompts"]["anyOf"])
+        assert any(schema.get("type") == "array" for schema in params["properties"]["prompts"]["anyOf"])
+        assert params["required"] == ["prompts"]
         
     def test_model_and_api_key_override(self, document_context, permission_manager, command_executor):
         """Test API key and model override functionality."""
@@ -140,7 +144,7 @@ class TestAgentTool:
             result = await agent_tool.call(ctx=mcp_context)
             
         assert "Error" in result
-        assert "prompt" in result
+        assert "prompts" in result
         tool_ctx.error.assert_called_once()
         
     @pytest.mark.asyncio
@@ -165,8 +169,8 @@ class TestAgentTool:
         tool_ctx.error.assert_called()
         
     @pytest.mark.asyncio
-    async def test_call_with_valid_prompt(self, agent_tool, mcp_context, mock_tools):
-        """Test agent tool call with valid prompt."""
+    async def test_call_with_valid_prompt_string(self, agent_tool, mcp_context, mock_tools):
+        """Test agent tool call with valid prompt as string."""
         # Mock the tool context
         tool_ctx = MagicMock()
         tool_ctx.set_tool_info = AsyncMock()
@@ -177,7 +181,7 @@ class TestAgentTool:
         # Mock the _execute_single_agent method to avoid complex test
         with patch.object(agent_tool, "_execute_single_agent", AsyncMock(return_value="Agent result")):
             with patch("mcp_claude_code.tools.agent.agent_tool.create_tool_context", return_value=tool_ctx):
-                result = await agent_tool.call(ctx=mcp_context, prompt="Test prompt")
+                result = await agent_tool.call(ctx=mcp_context, prompts="Test prompt")
                 
         assert "Agent execution completed" in result
         assert "Agent result" in result
@@ -200,7 +204,7 @@ class TestAgentTool:
         multi_agent_result = "\n\n---\n\nAgent 1 Result:\nResult 1\n\n---\n\nAgent 2 Result:\nResult 2\n\n---\n\nAgent 3 Result:\nResult 3"
         with patch.object(agent_tool, "_execute_multiple_agents", AsyncMock(return_value=multi_agent_result)):
             with patch("mcp_claude_code.tools.agent.agent_tool.create_tool_context", return_value=tool_ctx):
-                result = await agent_tool.call(ctx=mcp_context, prompt=test_prompts)
+                result = await agent_tool.call(ctx=mcp_context, prompts=test_prompts)
                 
         assert "Multi-agent execution completed" in result
         assert "(3 agents)" in result
@@ -219,12 +223,46 @@ class TestAgentTool:
         tool_ctx.error = AsyncMock()
         
         with patch("mcp_claude_code.tools.agent.agent_tool.create_tool_context", return_value=tool_ctx):
-            # Empty list is considered as not providing a prompt
-            result = await agent_tool.call(ctx=mcp_context, prompt=[])
+            # Test with empty list
+            result = await agent_tool.call(ctx=mcp_context, prompts=[])
             
         assert "Error" in result
-        # The parameter validation happens before the empty list check
-        assert "parameter 'prompt' is required" in result.lower()
+        assert "At least one prompt must be provided" in result
+        tool_ctx.error.assert_called()
+        
+    @pytest.mark.asyncio
+    async def test_call_with_empty_string(self, agent_tool, mcp_context):
+        """Test agent tool call with an empty string."""
+        # Mock the tool context
+        tool_ctx = MagicMock()
+        tool_ctx.set_tool_info = AsyncMock()
+        tool_ctx.info = AsyncMock()
+        tool_ctx.error = AsyncMock()
+        
+        with patch("mcp_claude_code.tools.agent.agent_tool.create_tool_context", return_value=tool_ctx):
+            # Test with empty string
+            result = await agent_tool.call(ctx=mcp_context, prompts="")
+            
+        assert "Error" in result
+        assert "Prompt cannot be empty" in result
+        tool_ctx.error.assert_called()
+        
+    @pytest.mark.asyncio
+    async def test_call_with_invalid_type(self, agent_tool, mcp_context):
+        """Test agent tool call with an invalid parameter type."""
+        # Mock the tool context
+        tool_ctx = MagicMock()
+        tool_ctx.set_tool_info = AsyncMock()
+        tool_ctx.info = AsyncMock()
+        tool_ctx.error = AsyncMock()
+        
+        with patch("mcp_claude_code.tools.agent.agent_tool.create_tool_context", return_value=tool_ctx):
+            # Test with invalid type (number)
+            result = await agent_tool.call(ctx=mcp_context, prompts=123)
+            
+        assert "Error" in result
+        assert "must be a string or an array of strings" in result
+        tool_ctx.error.assert_called()
         
     @pytest.mark.asyncio
     async def test_execute_agent_with_tools_simple(self, agent_tool, mcp_context, mock_tools):
@@ -330,7 +368,6 @@ class TestAgentTool:
         tool_ctx.mcp_context = mcp_context
         
         # Mock the call method directly instead of _execute_single_agent
-        original_call = agent_tool.call
         
         async def mock_call(*args, **kwargs):
             await tool_ctx.error("Error executing agent: Test exception")
@@ -338,7 +375,7 @@ class TestAgentTool:
         
         # Apply the mock
         with patch.object(agent_tool, "call", side_effect=mock_call):
-            result = await agent_tool.call(ctx=mcp_context, prompt="Test prompt")
+            result = await agent_tool.call(ctx=mcp_context, prompts="Test prompt")
         
         assert "Error" in result
         assert "Test exception" in result

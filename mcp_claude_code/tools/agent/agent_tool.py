@@ -58,20 +58,20 @@ class AgentTool(BaseTool):
         Returns:
             Tool description
         """
-        return """Launch a new agent that can perform tasks using read-only tools.
+        return """Launch one or more agents that can perform tasks using read-only tools.
 
-This tool creates an agent for delegation of tasks such as multi-step searches, complex analyses, 
-or other operations that benefit from focused processing. The agent works independently with its 
-own context and provides a single response containing the results of its work.
+This tool creates agents for delegation of tasks such as multi-step searches, complex analyses, 
+or other operations that benefit from focused processing. Multiple agents can work concurrently 
+on independent tasks, improving performance for complex operations.
 
-You can launch a single agent with a specific task, or launch multiple agents concurrently 
-for parallel execution of independent tasks, improving performance for complex operations.
+Each agent works with its own context and provides a response containing the results of its work.
+Results from all agents are combined in the final response.
 
 Args:
-    prompt: The task(s) for the agent(s) to perform. Can be a single string or an array of strings for parallel execution.
+    prompts: A list of task descriptions, where each item launches an independent agent.
 
 Returns:
-    Results of the agent's execution(s)
+    Combined results from all agent executions
 """
 
     @property
@@ -84,24 +84,24 @@ Returns:
         """
         return {
             "properties": {
-                "prompt": {
+                "prompts": {
                     "anyOf": [
                         {
                             "type": "string",
-                            "description": "The task for the agent to perform"
+                            "description": "Single task for an agent to perform"
                         },
                         {
                             "type": "array",
                             "items": {
                                 "type": "string"
                             },
-                            "description": "Multiple tasks for parallel execution by agents"
+                            "description": "List of tasks for agents to perform concurrently"
                         }
                     ],
-                    "description": "The task(s) for the agent(s) to perform"
+                    "description": "Task(s) for agent(s) to perform"
                 }
             },
-            "required": ["prompt"],
+            "required": ["prompts"],
             "type": "object",
         }
 
@@ -113,7 +113,7 @@ Returns:
         Returns:
             List of required parameter names
         """
-        return ["prompt"]
+        return ["prompts"]
 
     def __init__(
             self, document_context: DocumentContext, permission_manager: PermissionManager, command_executor: CommandExecutor,
@@ -159,26 +159,41 @@ Returns:
         tool_ctx.set_tool_info(self.name)
 
         # Extract parameters
-        prompt = params.get("prompt")
-        if not prompt:
-            await tool_ctx.error("Parameter 'prompt' is required but was not provided")
-            return "Error: Parameter 'prompt' is required but was not provided"
+        prompts = params.get("prompts")
+        if prompts is None:
+            await tool_ctx.error("Parameter 'prompts' is required but was not provided")
+            return "Error: Parameter 'prompts' is required but was not provided"
 
-        # Check if we're running a single agent or multiple agents
-        if isinstance(prompt, list):
-            # Multiple agents (concurrent execution)
-            if not prompt:  # Empty list
+        # Validate prompts parameter
+        if isinstance(prompts, str):
+            # Handle single string case
+            if not prompts.strip():  # Empty string
+                await tool_ctx.error("Prompt cannot be empty")
+                return "Error: Prompt cannot be empty"
+            prompts = [prompts]  # Convert to list for uniform handling
+        elif isinstance(prompts, list):
+            # Handle list case
+            if not prompts:  # Empty list
                 await tool_ctx.error("At least one prompt must be provided in the array")
                 return "Error: At least one prompt must be provided in the array"
-                
-            # Log the start of execution
-            await tool_ctx.info(f"Launching {len(prompt)} agents in parallel")
-            result = await self._execute_multiple_agents(prompt, tool_ctx)
+            # Check for empty strings in the list
+            if any(not isinstance(p, str) or not p.strip() for p in prompts):
+                await tool_ctx.error("All prompts must be non-empty strings")
+                return "Error: All prompts must be non-empty strings"
         else:
-            # Single agent
-            # Log the start of execution
-            await tool_ctx.info(f"Launching agent with prompt: {prompt[:100]}...")
-            result = await self._execute_single_agent(prompt, tool_ctx)
+            # Invalid type
+            await tool_ctx.error("Parameter 'prompts' must be a string or an array of strings")
+            return "Error: Parameter 'prompts' must be a string or an array of strings"
+                
+        # Decide execution strategy based on number of prompts
+        if len(prompts) == 1:
+            # Single agent case
+            await tool_ctx.info(f"Launching agent with prompt: {prompts[0][:100]}...")
+            result = await self._execute_single_agent(prompts[0], tool_ctx)
+        else:
+            # Multiple agents case
+            await tool_ctx.info(f"Launching {len(prompts)} agents in parallel")
+            result = await self._execute_multiple_agents(prompts, tool_ctx)
             
         # Calculate execution time
         execution_time = time.time() - start_time
@@ -497,5 +512,5 @@ AGENT RESPONSE:
         tool_self = self  # Create a reference to self for use in the closure
         
         @mcp_server.tool(name=self.name, description=self.mcp_description)
-        async def dispatch_agent(ctx: MCPContext, prompt: str | list[str]) -> str:
-             return await tool_self.call(ctx, prompt=prompt) 
+        async def dispatch_agent(ctx: MCPContext, prompts: str | list[str]) -> str:
+             return await tool_self.call(ctx, prompts=prompts) 
