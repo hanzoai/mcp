@@ -47,11 +47,12 @@ async def test_think_with_valid_thought():
     tool_ctx.info = AsyncMock()
     tool_ctx.set_tool_info = MagicMock()
 
-    # Patch the create_tool_context function
+    # Patch the create_tool_context function and disable RETURN_TO_CLAUDE
     with patch(
         "hanzo_mcp.tools.common.thinking.create_tool_context",
         return_value=tool_ctx,
-    ):
+    ), patch.dict("os.environ", {"HANZO_RETURN_TO_CLAUDE": "false"}):
+
         from hanzo_mcp.tools.common.thinking import ThinkingTool
 
         thinking_tool = ThinkingTool()
@@ -77,7 +78,7 @@ async def test_think_with_valid_thought():
 
         # Check that the function behaved correctly
         tool_ctx.set_tool_info.assert_called_once_with("think")
-        assert "thinking" in result
+        assert "thinking" in result or "I've recorded your thinking process" in result
         # Now verifying info was called twice with the correct values
         assert tool_ctx.info.call_count == 2
         tool_ctx.info.assert_any_call("Processing thinking request")
@@ -94,11 +95,12 @@ async def test_think_with_empty_thought():
     tool_ctx.error = AsyncMock()
     tool_ctx.set_tool_info = MagicMock()
 
-    # Patch the create_tool_context function
+    # Patch the create_tool_context function and disable RETURN_TO_CLAUDE
     with patch(
         "hanzo_mcp.tools.common.thinking.create_tool_context",
         return_value=tool_ctx,
-    ):
+    ), patch.dict("os.environ", {"HANZO_RETURN_TO_CLAUDE": "false"}):
+
         from hanzo_mcp.tools.common.thinking import ThinkingTool
 
         thinking_tool = ThinkingTool()
