@@ -103,9 +103,15 @@ class VectorStoreManager:
         self.document_context = document_context
         self.permission_manager = permission_manager
         self._clients: Dict[str, chromadb.Client] = {}
-        self._embedding_function = embedding_functions.SentenceTransformerEmbeddingFunction(
-            model_name="all-MiniLM-L6-v2"
-        )
+        
+        # Try to initialize the embedding function
+        try:
+            self._embedding_function = embedding_functions.SentenceTransformerEmbeddingFunction(
+                model_name="all-MiniLM-L6-v2"
+            )
+        except Exception as e:
+            logger.warning(f"Failed to initialize sentence transformer: {e}")
+            self._embedding_function = None
 
     def _get_persistent_path(self, project_dir: str) -> str:
         """Get the persistent path for a project's vector db.
@@ -159,6 +165,10 @@ class VectorStoreManager:
         Returns:
             ChromaDB collection
         """
+        # Check if embedding function is available
+        if self._embedding_function is None:
+            raise ValueError("Sentence transformer is not available. Please install sentence-transformers.")
+
         client = self._get_client(project_dir)
         try:
             return client.get_collection(
