@@ -246,11 +246,15 @@ The Makefile includes Docker integration with the following targets:
 
 ### Environment Setup
 
-- Automatic virtual environment creation and management
-- Cross-platform support (Windows, macOS, Linux)
-- Package manager detection (uv or pip)
+- Automatic Python installation using uv if needed
+- Virtual environment creation and management with version checking
+- Cross-platform support (Windows, macOS, Linux, WSL)
+- Package manager detection and automatic fallback (uv with pip fallback)
+- System and dependency detection
+- Comprehensive error handling and diagnostics
 - Colorized output for better readability
 
 ## Change History
-- March 28, 2025: Enhanced Makefile with Docker support and improved output formatting
+- March 28, 2025: Enhanced Makefile with uv-based Python management, dependency checking, and improved build system
+- March 28, 2025: Added Docker support and improved output formatting
 - March 25, 2025: Updated with additional component details and best practices
