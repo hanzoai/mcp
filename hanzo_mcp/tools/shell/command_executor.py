@@ -231,6 +231,13 @@ class CommandExecutor:
 
         # Set up environment
         command_env: dict[str, str] = os.environ.copy()
+        
+        # Ensure Homebrew path is included
+        if "PATH" in command_env:
+            homebrew_path = "/opt/homebrew/bin"
+            if homebrew_path not in command_env["PATH"]:
+                command_env["PATH"] = f"{homebrew_path}:{command_env['PATH']}"
+        
         if env:
             command_env.update(env)
 
@@ -385,6 +392,13 @@ class CommandExecutor:
         """
         # Set up environment
         command_env: dict[str, str] = os.environ.copy()
+        
+        # Ensure Homebrew path is included
+        if "PATH" in command_env:
+            homebrew_path = "/opt/homebrew/bin"
+            if homebrew_path not in command_env["PATH"]:
+                command_env["PATH"] = f"{homebrew_path}:{command_env['PATH']}"
+        
         if env:
             command_env.update(env)
 
@@ -479,6 +493,13 @@ class CommandExecutor:
 
         # Set up environment
         command_env: dict[str, str] = os.environ.copy()
+        
+        # Ensure Homebrew path is included
+        if "PATH" in command_env:
+            homebrew_path = "/opt/homebrew/bin"
+            if homebrew_path not in command_env["PATH"]:
+                command_env["PATH"] = f"{homebrew_path}:{command_env['PATH']}"
+        
         if env:
             command_env.update(env)
 
@@ -609,6 +630,13 @@ class CommandExecutor:
 
         # Set up environment
         command_env: dict[str, str] = os.environ.copy()
+        
+        # Ensure Homebrew path is included
+        if "PATH" in command_env:
+            homebrew_path = "/opt/homebrew/bin"
+            if homebrew_path not in command_env["PATH"]:
+                command_env["PATH"] = f"{homebrew_path}:{command_env['PATH']}"
+        
         if env:
             command_env.update(env)
 

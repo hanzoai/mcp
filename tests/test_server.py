@@ -14,7 +14,10 @@ class TestHanzoMCPServer:
     @pytest.fixture
     def server(self) -> Tuple[HanzoMCPServer, MagicMock]:
         """Create a HanzoMCPServer instance for testing."""
-        with patch("mcp.server.fastmcp.FastMCP") as mock_fastmcp:
+        # Mock SentenceTransformerEmbeddingFunction to avoid requiring sentence-transformers package
+        embedding_function_mock = MagicMock()
+        with patch("mcp.server.fastmcp.FastMCP") as mock_fastmcp, \
+             patch("chromadb.utils.embedding_functions.SentenceTransformerEmbeddingFunction", return_value=embedding_function_mock):
             # Create a mock FastMCP instance
             mock_mcp = MagicMock()
             mock_fastmcp.return_value = mock_mcp
@@ -41,9 +44,12 @@ class TestHanzoMCPServer:
         """Test initializing with allowed paths."""
         allowed_paths = ["/test/path1", "/test/path2"]
 
+        # Mock SentenceTransformerEmbeddingFunction to avoid requiring sentence-transformers package
+        embedding_function_mock = MagicMock()
         with (
             patch("mcp.server.fastmcp.FastMCP") as mock_fastmcp,
             patch("hanzo_mcp.tools.register_all_tools") as mock_register,
+            patch("chromadb.utils.embedding_functions.SentenceTransformerEmbeddingFunction", return_value=embedding_function_mock),
         ):
             # Create mock fastmcp
             mock_mcp = MagicMock()

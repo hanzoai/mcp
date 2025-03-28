@@ -15,7 +15,7 @@ classifiers = [
   "License :: OSI Approved :: MIT License",
   "Operating System :: OS Independent",
 ]
-dependencies = ["mcp>=1.3.0", "httpx>=0.27.0", "uvicorn>=0.23.1", "mcp", "pytest", "logging"]
+dependencies = ["mcp>=1.3.0", "httpx>=0.27.0", "uvicorn>=0.23.1", "mcp", "pytest", "logging", "chromadb>=0.4.18", "sentence-transformers>=2.2.2", "python-docx>=0.8.11", "PyPDF2>=3.0.0", "pillow>=10.0.0"]
 
 [project.optional-dependencies]
 dev = ["pytest>=7.0.0", "pytest-cov>=4.1.0", "ruff>=0.1.0", "black>=23.3.0"]

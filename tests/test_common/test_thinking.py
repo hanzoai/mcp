@@ -10,7 +10,16 @@ from hanzo_mcp.tools.common.thinking import ThinkingTool
 def mcp_server():
     """Create a mock MCP server."""
     server = MagicMock()
-    server.tool = MagicMock(return_value=lambda func: func)
+    # Setup a proper tool decorator mock
+    registered_func = None
+    def tool_decorator():
+        def decorator(func):
+            nonlocal registered_func
+            server.registered_func = func
+            return func
+        return decorator
+    
+    server.tool = tool_decorator
     return server
 
 
@@ -25,7 +34,7 @@ async def test_think_tool_registration(mcp_server, thinking_tool):
     """Test that the think tool is registered correctly."""
     thinking_tool.register_tools(mcp_server)
     # Check if tool was registered
-    assert mcp_server.tool.called
+    assert hasattr(mcp_server, 'registered_func')
 
 
 @pytest.mark.asyncio
@@ -68,8 +77,11 @@ async def test_think_with_valid_thought():
 
         # Check that the function behaved correctly
         tool_ctx.set_tool_info.assert_called_once_with("think")
-        tool_ctx.info.assert_called_once_with("Thinking process recorded")
         assert "I've recorded your thinking process" in result
+        # Now verifying info was called twice with the correct values
+        assert tool_ctx.info.call_count == 2
+        tool_ctx.info.assert_any_call("Processing thinking request")
+        tool_ctx.info.assert_any_call("Basic thinking recorded")
 
 
 @pytest.mark.asyncio

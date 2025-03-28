@@ -28,12 +28,26 @@ class TestEnhancedThinking:
             with patch("hanzo_mcp.tools.common.thinking.create_tool_context", return_value=mock_tool_ctx):
                 # Call the think function
                 mock_mcp_server = MagicMock()
-                # Get the think function
-                thinking_tool.register_tools(mock_mcp_server)
-                think_func = mock_mcp_server.tool.call_args[0][0]
                 
-                # Call the think function
-                result = await think_func("This is a test thought", mock_ctx)
+                # Setup a proper tool decorator mock
+                registered_func = None
+                def tool_decorator():
+                    def decorator(func):
+                        nonlocal registered_func
+                        registered_func = func
+                        return func
+                    return decorator
+                
+                mock_mcp_server.tool = tool_decorator
+                
+                # Register tools and get the registered function
+                thinking_tool.register_tools(mock_mcp_server)
+                
+                # Verify function was registered
+                assert registered_func is not None
+                
+                # Call the registered function
+                result = await registered_func("This is a test thought", mock_ctx)
                 
                 # Verify the result
                 assert "I've recorded your thinking process" in result
@@ -61,13 +75,26 @@ class TestEnhancedThinking:
                 
                 # Mock the create_tool_context function
                 with patch("hanzo_mcp.tools.common.thinking.create_tool_context", return_value=mock_tool_ctx):
-                    # Call the think function
-                    mock_mcp_server = MagicMock()
-                    thinking_tool.register_tools(mock_mcp_server)
-                    think_func = mock_mcp_server.tool.call_args[0][0]
+                    # Setup a proper tool decorator mock
+                    registered_func = None
+                    def tool_decorator():
+                        def decorator(func):
+                            nonlocal registered_func
+                            registered_func = func
+                            return func
+                        return decorator
                     
-                    # Call the think function
-                    result = await think_func("This is a test thought", mock_ctx)
+                    mock_mcp_server = MagicMock()
+                    mock_mcp_server.tool = tool_decorator
+                    
+                    # Register tools and get the registered function
+                    thinking_tool.register_tools(mock_mcp_server)
+                    
+                    # Verify function was registered
+                    assert registered_func is not None
+                    
+                    # Call the registered function
+                    result = await registered_func("This is a test thought", mock_ctx)
                     
                     # Verify the result
                     assert "Enhanced analysis" in result
@@ -94,13 +121,26 @@ class TestEnhancedThinking:
                 
                 # Mock the create_tool_context function
                 with patch("hanzo_mcp.tools.common.thinking.create_tool_context", return_value=mock_tool_ctx):
-                    # Call the think function
-                    mock_mcp_server = MagicMock()
-                    thinking_tool.register_tools(mock_mcp_server)
-                    think_func = mock_mcp_server.tool.call_args[0][0]
+                    # Setup a proper tool decorator mock
+                    registered_func = None
+                    def tool_decorator():
+                        def decorator(func):
+                            nonlocal registered_func
+                            registered_func = func
+                            return func
+                        return decorator
                     
-                    # Call the think function
-                    result = await think_func("This is a test thought", mock_ctx)
+                    mock_mcp_server = MagicMock()
+                    mock_mcp_server.tool = tool_decorator
+                    
+                    # Register tools and get the registered function
+                    thinking_tool.register_tools(mock_mcp_server)
+                    
+                    # Verify function was registered
+                    assert registered_func is not None
+                    
+                    # Call the registered function
+                    result = await registered_func("This is a test thought", mock_ctx)
                     
                     # Verify the result falls back to basic thinking
                     assert "I've recorded your thinking process" in result

@@ -91,6 +91,55 @@ Security exclusions include:
 ### Thinking Tool
 - `think`: Structured space for reasoning and planning
 
+### Vector Store Tools
+- `vector_index`: Index files or directories for semantic search
+- `vector_search`: Search indexed content with semantic and full-text filtering
+- `vector_delete`: Remove documents from the vector store
+- `vector_list`: List indexed documents
+- `git_ingest`: Ingest and index entire git repositories
+
+## Vector Search Implementation
+
+The vector search functionality is implemented using ChromaDB and provides the following capabilities:
+
+### Vector Store Architecture
+
+1. **Persistent Storage**: Vector embeddings are stored persistently in a local database at `~/.hanzo/vector_db/{project_hash}` for each indexed project
+2. **Multiple Modalities**: Support for indexing and searching:
+   - Text files and source code (with syntax highlighting)
+   - Document files (PDF, DOCX, etc.)
+   - Image files (when available)
+3. **Full-Text Search**: Combined vector similarity search with full-text filtering
+4. **Metadata Filtering**: Filter search results by file types, paths, and custom metadata
+
+### Search Patterns
+
+Full-text search is implemented using Chroma's document filtering capabilities:
+
+```python
+# Example with full-text filtering
+collection.query(
+    query_texts=["find important functions"],
+    where_document={"$contains": "def process_data"}
+)
+
+# Example with metadata filtering
+collection.query(
+    query_texts=["authorization code"],
+    where={"file_extension": ".py"},
+    where_document={"$contains": "auth"}
+)
+```
+
+### Git Repository Indexing
+
+The `git_ingest` tool enables seamless indexing of entire git repositories:
+
+1. Clones the repository to a temporary directory
+2. Indexes all files based on configurable filters
+3. Extracts metadata like branch, commit hash, and dates
+4. Cleans up temporary files after indexing
+
 ## Best Practices and Patterns
 
 ### Error Handling Pattern
