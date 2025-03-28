@@ -17,14 +17,15 @@ class TestToolContext:
         mcp_context = MagicMock()
         return ToolContext(mcp_context)
 
-    def test_operation_tracking(self, tool_ctx):
+    @pytest.mark.asyncio
+    async def test_operation_tracking(self, tool_ctx):
         """Test tracking operations and parameters."""
         # Set operation tracking values
         tool_ctx.current_operation = "read"
         tool_ctx.operation_params = {"paths": "/path/to/file.txt"}
         
         # Test success response
-        result = tool_ctx.success("Successfully read file", {
+        result = await tool_ctx.success("Successfully read file", {
             "content": "File content here",
             "path": "/path/to/file.txt"
         })
@@ -42,7 +43,8 @@ class TestToolContext:
         # Verify the params are included
         assert response["data"]["params"]["paths"] == "/path/to/file.txt"
     
-    def test_mcp_operation_tracking(self, tool_ctx):
+    @pytest.mark.asyncio
+    async def test_mcp_operation_tracking(self, tool_ctx):
         """Test tracking MCP operations with subcommands and targets."""
         # Set operation tracking values for an MCP operation
         tool_ctx.current_operation = "run_mcp"
@@ -52,7 +54,7 @@ class TestToolContext:
         }
         
         # Test success response
-        result = tool_ctx.success("Successfully started MCP server", {
+        result = await tool_ctx.success("Successfully started MCP server", {
             "pid": 12345
         })
         
@@ -67,7 +69,8 @@ class TestToolContext:
         assert response["data"]["target"] == "browser-use"
         assert response["data"]["pid"] == 12345
     
-    def test_sensitive_param_filtering(self, tool_ctx):
+    @pytest.mark.asyncio
+    async def test_sensitive_param_filtering(self, tool_ctx):
         """Test filtering of sensitive parameters."""
         # Set operation with sensitive parameters
         tool_ctx.current_operation = "connect"
@@ -80,7 +83,7 @@ class TestToolContext:
         }
         
         # Test success response
-        result = tool_ctx.success("Successfully connected")
+        result = await tool_ctx.success("Successfully connected")
         
         # Parse the result as JSON
         response = json.loads(result)
