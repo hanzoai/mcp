@@ -1,0 +1,95 @@
+---
+name: TypeScript Next.js with Tailwind CSS
+description: Rules for TypeScript development with Next.js and Tailwind CSS
+version: 1.0.0
+author: Hanzo MCP
+technologies:
+  - TypeScript
+  - Next.js
+  - React
+  - Tailwind CSS
+focus:
+  - frontend
+  - web development
+  - UI
+---
+
+# TypeScript Next.js with Tailwind CSS Development Rules
+
+When generating TypeScript code for Next.js projects using Tailwind CSS, please adhere to the following guidelines:
+
+## TypeScript Code Style
+
+1. Use TypeScript's strict mode.
+2. Define explicit types for all variables, parameters, and return values.
+3. Use interfaces for object shapes, especially for component props.
+4. Create reusable types in separate type definition files.
+5. Use type guards when necessary to narrow types.
+6. Avoid using `any` type; prefer `unknown` if type is uncertain.
+7. Use union types for values that can be of multiple types.
+8. Utilize generics for reusable components and functions.
+9. Use readonly modifier for arrays and properties that shouldn't be modified.
+
+## Next.js with TypeScript
+
+1. Implement proper typing for Next.js components and API routes.
+2. Use GetServerSideProps, GetStaticProps, and GetStaticPaths with proper typing.
+3. Implement strong typing for API responses.
+4. Use React.FC<Props> for functional components with defined prop interfaces.
+5. Implement proper error boundaries with type safety.
+6. Use typed hooks (useState<T>, useReducer<R, A>, etc.)
+
+## Tailwind CSS Guidelines
+
+1. Use utility classes directly in components for styling.
+2. Apply responsive design using Tailwind's responsive prefixes (sm:, md:, lg:, etc.)
+3. Create consistent UI components using composition of Tailwind utilities.
+4. Extend the Tailwind theme in tailwind.config.js for project-specific design tokens.
+5. Use @apply directives sparingly, primarily for repeated patterns.
+6. Organize classes in a consistent order (layout -> sizing -> spacing -> typography -> visual)
+7. Use Tailwind's dark mode utility for dark mode support.
+
+## Component Structure
+
+1. Use functional components with hooks.
+2. Organize component files in a logical directory structure.
+3. Create reusable UI components in a dedicated components directory.
+4. Implement UI component composition for complex interfaces.
+5. Use proper typings for event handlers.
+
+## State Management
+
+1. Use React Context API with TypeScript for global state.
+2. Implement strongly typed reducers using discriminated unions for actions.
+3. Use Zustand or Redux with proper TypeScript integration for complex state.
+4. Utilize React Query for data fetching with strong typing.
+
+## Form Handling
+
+1. Use React Hook Form with TypeScript for form validation.
+2. Implement Zod schemas for form validation rules.
+3. Create proper types for form values and validation errors.
+
+## Project Structure
+
+1. Organize code by feature/domain when possible.
+2. Keep related files close to each other.
+3. Create separate directories for types, utils, hooks, and components.
+4. Use barrel exports (index.ts files) for cleaner imports.
+
+## Performance Optimization
+
+1. Use React.memo for expensive components.
+2. Implement proper dependency arrays for hooks.
+3. Use dynamic imports for code-splitting.
+4. Apply proper caching strategies.
+5. Use useMemo and useCallback with proper typing.
+
+## Accessibility
+
+1. Use semantic HTML elements.
+2. Implement ARIA attributes where necessary.
+3. Ensure keyboard navigation works properly.
+4. Maintain sufficient color contrast.
+
+Following these guidelines will help ensure consistent, maintainable, and performant TypeScript Next.js applications with Tailwind CSS styling.

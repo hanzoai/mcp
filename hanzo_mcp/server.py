@@ -2,6 +2,8 @@
 
 from typing import Literal, cast, final
 
+import os
+
 from mcp.server.fastmcp import FastMCP
 
 from hanzo_mcp.tools import register_all_tools
@@ -9,7 +11,16 @@ from hanzo_mcp.tools.common.context import DocumentContext
 from hanzo_mcp.tools.common.permissions import PermissionManager
 from hanzo_mcp.tools.project.analysis import ProjectAnalyzer, ProjectManager
 from hanzo_mcp.tools.shell.command_executor import CommandExecutor
-from hanzo_mcp.tools.vector.store_manager import VectorStoreManager
+# Conditional import for vector store manager
+try:
+    from hanzo_mcp.tools.vector.store_manager import VectorStoreManager
+    has_vector_store = True
+except ImportError:
+    has_vector_store = False
+    VectorStoreManager = None
+from hanzo_mcp.tools.dev_tool import DevTool
+from hanzo_mcp.tools.mcp_orchestrator import MCPOrchestrator
+from hanzo_mcp.tools.llm_file_manager import LLMFileManager
 from hanzo_mcp.external.proxy_tools import ProxyTools
 
 
@@ -37,6 +48,9 @@ class HanzoMCPServer:
         # Initialize context, permissions, and command executor
         self.document_context = DocumentContext()
         self.permission_manager = PermissionManager()
+        
+        # Initialize LLM.md file manager
+        self.llm_file_manager = LLMFileManager(self.permission_manager)
 
         # Initialize command executor
         self.command_executor = CommandExecutor(
@@ -52,10 +66,13 @@ class HanzoMCPServer:
             self.document_context, self.permission_manager, self.project_analyzer
         )
         
-        # Initialize vector store manager
-        self.vector_store_manager = VectorStoreManager(
-            self.document_context, self.permission_manager
-        )
+        # Initialize vector store manager if available
+        if has_vector_store:
+            self.vector_store_manager = VectorStoreManager(
+                self.document_context, self.permission_manager
+            )
+        else:
+            self.vector_store_manager = None
 
         # Add allowed paths
         if allowed_paths:
@@ -63,21 +80,38 @@ class HanzoMCPServer:
                 self.permission_manager.add_allowed_path(path)
                 self.document_context.add_allowed_path(path)
 
-        # Register all tools
-        register_all_tools(
-            mcp_server=self.mcp,
-            document_context=self.document_context,
-            permission_manager=self.permission_manager,
-            project_manager=self.project_manager,
-            project_analyzer=self.project_analyzer,
-            vector_store_manager=self.vector_store_manager,
+        # Register all tools asynchronously
+        import asyncio
+        asyncio.run(
+            register_all_tools(
+                mcp_server=self.mcp,
+                document_context=self.document_context,
+                permission_manager=self.permission_manager,
+                project_manager=self.project_manager,
+                project_analyzer=self.project_analyzer,
+                vector_store_manager=self.vector_store_manager,
+            )
         )
+        
+        # Initialize MCP orchestrator for managing sub-MCP servers
+        self.mcp_orchestrator = MCPOrchestrator(self.mcp)
+        self.mcp_orchestrator.initialize()
         
         # Register external MCP server tools if enabled
         if enable_external_servers:
             self.proxy_tools = ProxyTools()
             self.proxy_tools.register_tools(self.mcp)
 
+    def cleanup(self):
+        """Clean up resources before shutdown."""
+        # Clean up MCP orchestrator if available
+        if hasattr(self, 'mcp_orchestrator'):
+            self.mcp_orchestrator.cleanup()
+            
+        # Clean up external proxy tools if available
+        if hasattr(self, 'proxy_tools'):
+            self.proxy_tools.cleanup()
+    
     def run(self, transport: str = "stdio", allowed_paths: list[str] | None = None):
         """Run the MCP server.
 
@@ -90,6 +124,18 @@ class HanzoMCPServer:
         for path in allowed_paths_list:
             self.permission_manager.add_allowed_path(path)
             self.document_context.add_allowed_path(path)
+            
+        # Initialize LLM.md for each allowed path that is a directory
+        for path in allowed_paths_list:
+            if os.path.isdir(path):
+                success, content, created = self.llm_file_manager.initialize_for_project(path)
+                if success:
+                    if created:
+                        print(f"Created new LLM.md file in {path}")
+                    else:
+                        print(f"Loaded existing LLM.md file from {path}")
+                else:
+                    print(f"Warning: Failed to initialize LLM.md for {path}: {content}")
 
         # Run the server
         transport_type = cast(Literal["stdio", "sse"], transport)
