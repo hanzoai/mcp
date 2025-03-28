@@ -20,7 +20,7 @@ class TestMCPServerManager:
             config_path = os.path.join(temp_dir, "mcp_servers.json")
             
             # Create a manager with a test config path
-            manager = MCPServerManager()
+            manager = MCPServerManager(auto_load=False)
             manager.config_path = config_path
             
             # Return the manager

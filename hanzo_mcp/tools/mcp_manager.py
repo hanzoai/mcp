@@ -185,13 +185,18 @@ class MCPServer:
 class MCPServerManager:
     """Manages MCP servers for the Hanzo MCP server."""
     
-    def __init__(self):
-        """Initialize the MCP server manager."""
+    def __init__(self, auto_load: bool = True):
+        """Initialize the MCP server manager.
+        
+        Args:
+            auto_load: Whether to automatically load servers from config
+        """
         self.servers: Dict[str, MCPServer] = {}
         self.config_path = os.path.join(
             os.path.expanduser("~"), ".config", "hanzo", "mcp_servers.json"
         )
-        self._load_config()
+        if auto_load:
+            self._load_config()
         
     def _load_config(self):
         """Load the MCP servers configuration."""

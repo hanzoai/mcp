@@ -139,7 +139,7 @@ class ThinkingTool:
         
         return None
 
-    async def register_tools(self, mcp_server: FastMCP) -> None:
+    def register_tools(self, mcp_server: FastMCP) -> None:
         """Register thinking tools with the MCP server.
 
         Args:
