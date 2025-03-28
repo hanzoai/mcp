@@ -50,7 +50,7 @@ class RunCommandTool(ShellBaseTool):
 
 Args:
     command: The shell command to execute
-    cwd: Working directory for the command
+    cwd: Working directory for the command. MUST be a subdirectory of one of the allowed paths, not a parent directory. Specify the most specific path possible.
 
     use_login_shell: Whether to use login shell (loads ~/.zshrc, ~/.bashrc, etc.)
 

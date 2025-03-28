@@ -50,7 +50,7 @@ class RunScriptTool(ShellBaseTool):
 
 Args:
     script: The script content to execute
-    cwd: Working directory for script execution
+    cwd: Working directory for script execution. MUST be a subdirectory of one of the allowed paths, not a parent directory. Specify the most specific path possible.
 
     interpreter: The interpreter to use (bash, python, etc.)
     use_login_shell: Whether to use login shell (loads ~/.zshrc, ~/.bashrc, etc.)

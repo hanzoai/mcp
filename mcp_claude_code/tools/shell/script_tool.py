@@ -51,7 +51,7 @@ class ScriptTool(ShellBaseTool):
 Args:
     language: The programming language (python, javascript, etc.)
     script: The script code to execute
-    cwd: Working directory for script execution
+    cwd: Working directory for script execution. MUST be a subdirectory of one of the allowed paths, not a parent directory. Specify the most specific path possible.
 
     args: Optional command-line arguments
     use_login_shell: Whether to use login shell (loads ~/.zshrc, ~/.bashrc, etc.)
