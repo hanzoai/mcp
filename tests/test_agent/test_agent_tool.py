@@ -246,7 +246,7 @@ class TestAgentTool:
             result = await agent_tool.call(ctx=mcp_context, prompts=123)
             
         assert "Error" in result
-        assert "Parameter 'prompts' must be an array of strings" in result
+        assert "Parameter 'prompts' must be a string or an array of strings" in result
         tool_ctx.error.assert_called()
         
     @pytest.mark.asyncio

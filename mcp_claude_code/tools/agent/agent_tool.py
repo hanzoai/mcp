@@ -92,6 +92,10 @@ Returns:
                                 "type": "string"
                             },
                             "description": "List of tasks for agents to perform concurrently"
+                        },
+                        {
+                            "type": "string",
+                            "description": "Single task for the agent to perform"
                         }
                     ],
                     "description": "Task(s) for agent(s) to perform"
@@ -160,10 +164,12 @@ Returns:
             await tool_ctx.error("Parameter 'prompts' is required but was not provided")
             return "Error: Parameter 'prompts' is required but was not provided"
 
-        # Check if prompts is an array
-        if not isinstance(prompts, list):
-            await tool_ctx.error("Parameter 'prompts' must be an array of strings")
-            return "Error: Parameter 'prompts' must be an array of strings"
+        if not isinstance(prompts, list) and not isinstance(prompts, str):
+            await tool_ctx.error("Parameter 'prompts' must be a string or an array of strings")
+            return "Error: Parameter 'prompts' must be a string or an array of strings"
+
+        if isinstance(prompts, str):
+            prompts = [prompts]
 
         if not prompts:  # Empty list
             await tool_ctx.error("At least one prompt must be provided in the array")
@@ -459,5 +465,5 @@ AGENT RESPONSE:
         tool_self = self  # Create a reference to self for use in the closure
         
         @mcp_server.tool(name=self.name, description=self.mcp_description)
-        async def dispatch_agent(ctx: MCPContext, prompts: list[str]) -> str:
+        async def dispatch_agent(ctx: MCPContext, prompts: list[str] | str) -> str:
              return await tool_self.call(ctx, prompts=prompts)
