@@ -16,8 +16,11 @@ class TestEnhancedThinking:
     @pytest.mark.asyncio
     async def test_thinking_tool_basic(self):
         """Test basic functionality of the thinking tool without enhancement."""
-        # Disable enhanced thinking
-        with patch.dict(os.environ, {"HANZO_MCP_ENHANCED_THINKING": "false"}):
+                # Disable enhanced thinking and return to Claude
+        with patch.dict(os.environ, {
+            "HANZO_MCP_ENHANCED_THINKING": "false",
+            "HANZO_RETURN_TO_CLAUDE": "false"
+        }):
             thinking_tool = ThinkingTool()
             
             # Create mock context
@@ -50,17 +53,18 @@ class TestEnhancedThinking:
                 result = await registered_func("This is a test thought", mock_ctx)
                 
                 # Verify the result
-                assert "thinking" in result
+                assert "I've recorded your thinking process" in result
                 mock_tool_ctx.info.assert_any_call("Processing thinking request")
                 mock_tool_ctx.info.assert_any_call("Basic thinking recorded")
 
     @pytest.mark.asyncio
     async def test_thinking_tool_enhanced(self):
         """Test enhanced functionality of the thinking tool."""
-        # Enable enhanced thinking
+        # Enable enhanced thinking, disable return to Claude
         with patch.dict(os.environ, {
             "HANZO_MCP_ENHANCED_THINKING": "true",
-            "HANZO_MCP_THINKING_ENABLED": "true"
+            "HANZO_MCP_THINKING_ENABLED": "true",
+            "HANZO_RETURN_TO_CLAUDE": "false"
         }):
             thinking_tool = ThinkingTool()
             
@@ -104,10 +108,11 @@ class TestEnhancedThinking:
     @pytest.mark.asyncio
     async def test_thinking_tool_enhancement_failure(self):
         """Test thinking tool fallback when enhancement fails."""
-        # Enable enhanced thinking
+        # Enable enhanced thinking, disable return to Claude
         with patch.dict(os.environ, {
             "HANZO_MCP_ENHANCED_THINKING": "true",
-            "HANZO_MCP_THINKING_ENABLED": "true"
+            "HANZO_MCP_THINKING_ENABLED": "true",
+            "HANZO_RETURN_TO_CLAUDE": "false"
         }):
             thinking_tool = ThinkingTool()
             
@@ -143,7 +148,7 @@ class TestEnhancedThinking:
                     result = await registered_func("This is a test thought", mock_ctx)
                     
                     # Verify the result falls back to basic thinking
-                    assert "thinking" in result
+                    assert "I've recorded your thinking process" in result
                     assert "Enhanced analysis" not in result
                     mock_tool_ctx.info.assert_any_call("Processing thinking request")
                     mock_tool_ctx.info.assert_any_call("Basic thinking recorded")
