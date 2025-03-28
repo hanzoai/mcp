@@ -60,9 +60,6 @@ GUIDELINES:
 3. Your response is returned directly to the main assistant, not the user
 4. Be concise and focus on the specific task assigned
 
-TASK INSTRUCTIONS:
-{{prompt}}
-
 RESPONSE FORMAT:
 - Begin with a summary of findings
 - Include relevant details and context

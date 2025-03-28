@@ -287,12 +287,13 @@ Returns:
                 system_prompt = get_system_prompt(
                     agent_tools,
                     self.permission_manager,
-                ).format(prompt=prompt)
+                )
                 
                 # Execute agent and collect the task
                 await tool_ctx.info(f"Launching agent {i+1}/{len(prompts)}: {prompt[:50]}...")
                 task = self._execute_agent_with_tools(
                     system_prompt, 
+                    prompt,
                     agent_tools, 
                     openai_tools, 
                     tool_ctx
@@ -330,6 +331,7 @@ Returns:
     async def _execute_agent_with_tools(
         self,
         system_prompt: str,
+        user_prompt:str,
         available_tools: list[BaseTool],
         openai_tools: list[ChatCompletionToolParam],
         tool_ctx: ToolContext,
@@ -352,6 +354,7 @@ Returns:
         # Initialize messages
         messages:Iterable[ChatCompletionMessageParam] = []
         messages.append({"role": "system", "content": system_prompt})
+        messages.append({"role": "user", "content": user_prompt})
         
         # Track tool usage for metrics
         tool_usage = {}
