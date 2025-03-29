@@ -42,6 +42,7 @@ def _import_image_processor():
 import chromadb
 from chromadb.config import Settings
 from chromadb.utils import embedding_functions
+from hanzo_mcp.tools.vector.embedding_functions import get_best_available_embedding_function
 from hanzo_mcp.tools.common.context import ToolContext, create_tool_context
 from mcp.server.fastmcp import FastMCP
 from mcp.types import Tool
@@ -105,13 +106,26 @@ class VectorStoreManager:
         self._clients: Dict[str, chromadb.Client] = {}
         
         # Try to initialize the embedding function
-        try:
-            self._embedding_function = embedding_functions.SentenceTransformerEmbeddingFunction(
-                model_name="all-MiniLM-L6-v2"
-            )
-        except Exception as e:
-            logger.warning(f"Failed to initialize sentence transformer: {e}")
-            self._embedding_function = None
+        # First, check for API-based embedding functions
+        self._embedding_function = get_best_available_embedding_function()
+        
+        # If no API-based embedding function is available, try SentenceTransformer if installed
+        if self._embedding_function is None:
+            try:
+                logger.info("No API-based embedding functions found. Attempting to use SentenceTransformer.")
+                # Check if sentence-transformers is installed
+                try:
+                    import sentence_transformers
+                    self._embedding_function = embedding_functions.SentenceTransformerEmbeddingFunction(
+                        model_name="all-MiniLM-L6-v2"
+                    )
+                    logger.info("Successfully initialized SentenceTransformer embedding function.")
+                except ImportError:
+                    logger.warning("sentence-transformers package is not installed.")
+                    self._embedding_function = None
+            except Exception as e:
+                logger.warning(f"Failed to initialize sentence transformer: {e}")
+                self._embedding_function = None
 
     def _get_persistent_path(self, project_dir: str) -> str:
         """Get the persistent path for a project's vector db.
@@ -167,7 +181,7 @@ class VectorStoreManager:
         """
         # Check if embedding function is available
         if self._embedding_function is None:
-            raise ValueError("Sentence transformer is not available. Please install sentence-transformers.")
+            raise ValueError("No embedding functions are available. Please set an API key for VoyageAI, OpenAI, or Anthropic, or install the sentence-transformers package.")
 
         client = self._get_client(project_dir)
         try:

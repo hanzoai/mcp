@@ -21,6 +21,7 @@ This project provides an MCP server that enables access to Hanzo APIs and Platfo
 - **Code Discovery**: Find relevant files and code patterns across your project
 - **Project Analysis**: Understand project structure, dependencies, and frameworks
 - **Jupyter Notebook Support**: Read and edit Jupyter notebooks with full cell and output handling
+- **Vector Search**: Semantic search of your codebase with multiple embedding provider options
 
 ## Tools Implemented
 
@@ -46,6 +47,10 @@ This project provides an MCP server that enables access to Hanzo APIs and Platfo
 | `ast_explore`         | Explore and visualize the AST of a file                                                    |
 | `ast_query`           | Query the AST using tree-sitter query language                                             |
 | `symbolic_search`     | Perform various symbolic search operations (related symbols, patterns, usages, etc.)       |
+| `vector_index`         | Index files or directories in the vector store for semantic search                           |
+| `vector_search`        | Search the vector store with semantic search capabilities                                     |
+| `vector_delete`        | Delete documents from the vector store                                                        |
+| `vector_list`          | List indexed documents in the vector store                                                    |
 | `think`                | Structured space for complex reasoning and analysis without making changes                    |
 
 ## Getting Started
@@ -301,8 +306,8 @@ result = await dev(ctx, operation="run_mcp", subcommand="info", server_name="bro
 
 # Add a custom MCP server
 result = await dev(
-    ctx, 
-    operation="run_mcp", 
+    ctx,
+    operation="run_mcp",
     subcommand="add",
     name="custom-server",
     command="uvx",
@@ -337,7 +342,8 @@ Or install just what you need:
 ```bash
 pip install hanzo-mcp[subservers]  # Just sub-server support
 pip install hanzo-mcp[rules]       # Just rules support
-pip install hanzo-mcp[vector]      # Just vector store support
+pip install hanzo-mcp[vector]            # Vector store with API-based embeddings (VoyageAI, OpenAI, Anthropic)
+pip install hanzo-mcp[vector,sentencetransformer]  # Vector store with local embedding support
 ```
 
 ### Command-Line Usage
@@ -405,10 +411,10 @@ async def main():
             }
         }
     )
-    
+
     # Start sub-MCP servers
     await meta_server.start()
-    
+
     # Run the server
     meta_server.run()
 
@@ -435,6 +441,67 @@ To contribute to this project:
 3. Commit your changes (`git commit -m 'Add some amazing feature'`)
 4. Push to the branch (`git push origin feature/amazing-feature`)
 5. Open a Pull Request
+
+## Vector Store Embedding Options
+
+Hanzo MCP includes a powerful vector store for semantic code search based on ChromaDB. It supports multiple embedding providers that can be enabled by setting the appropriate environment variables:
+
+### Available Embedding Providers
+
+1. **VoyageAI** (Recommended)
+   - Models: `voyage-large-2`
+   - Environment Variables: `VOYAGE_API_KEY` or `CHROMA_VOYAGE_API_KEY`
+   - Install: `pip install voyageai`
+
+2. **OpenAI**
+   - Models: `text-embedding-3-small`, `text-embedding-3-large`
+   - Environment Variables: `OPENAI_API_KEY` or `CHROMA_OPENAI_API_KEY`
+   - Install: `pip install openai`
+
+3. **Anthropic**
+   - Models: `claude-3-embedding-1`
+   - Environment Variables: `ANTHROPIC_API_KEY` or `CHROMA_ANTHROPIC_API_KEY`
+   - Install: `pip install anthropic`
+
+4. **SentenceTransformer** (Optional, No API Key Required)
+   - Models: `all-MiniLM-L6-v2`
+   - No environment variable required
+   - Install: `pip install hanzo-mcp[vector,sentencetransformer]`
+
+### Embedding Provider Configuration
+
+Hanzo MCP supports multiple embedding providers for vector search that can be configured with environment variables:
+
+1. The default installation (`pip install hanzo-mcp[vector]`) includes support for API-based embedding providers but requires you to set at least one of these environment variables:
+   - `VOYAGE_API_KEY` or `CHROMA_VOYAGE_API_KEY` for VoyageAI (recommended)
+   - `OPENAI_API_KEY` or `CHROMA_OPENAI_API_KEY` for OpenAI
+   - `ANTHROPIC_API_KEY` or `CHROMA_ANTHROPIC_API_KEY` for Anthropic
+
+2. For local embedding support without API keys, install with: `pip install hanzo-mcp[vector,sentencetransformer]`
+
+The system will automatically select the best available embedding provider based on what's available. If neither API keys nor sentence_transformers are available, vector operations will fail with a clear error message.
+
+### Using Vector Search
+
+```python
+# Index a directory for vector search
+result = await dev(
+    ctx,
+    operation="vector_index",
+    path="/path/to/project",
+    recursive=True,
+    file_pattern="*.py"  # Optional: only index Python files
+)
+
+# Perform semantic search
+result = await dev(
+    ctx,
+    operation="vector_search",
+    query_text="How does authentication work?",
+    project_dir="/path/to/project",
+    n_results=5  # Return top 5 results
+)
+```
 
 ## License
 

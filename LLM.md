@@ -135,6 +135,11 @@ The vector search functionality is implemented using ChromaDB and provides the f
    - Image files (when available)
 3. **Full-Text Search**: Combined vector similarity search with full-text filtering
 4. **Metadata Filtering**: Filter search results by file types, paths, and custom metadata
+5. **Multiple Embedding Providers**: Support for various embedding models:
+   - VoyageAI (voyage-large-2)
+   - OpenAI (text-embedding-3-small, text-embedding-3-large)
+   - Anthropic (claude-3-embedding-1)
+   - SentenceTransformer (local, all-MiniLM-L6-v2)
 
 ### Search Patterns
 
@@ -276,7 +281,46 @@ The Makefile includes Docker integration with the following targets:
 - Comprehensive error handling and diagnostics
 - Colorized output for better readability
 
+## Embedding Providers
+
+The vector search system includes a pluggable architecture for embedding providers with automatic selection based on environment variables:
+
+### Available Providers
+
+1. **VoyageAI** (High Priority)
+   - Models: voyage-large-2
+   - Environment Variables: VOYAGE_API_KEY or CHROMA_VOYAGE_API_KEY
+   - Implemented in: `VoyageAIEmbeddingFunction`
+
+2. **OpenAI** (Medium Priority)
+   - Models: text-embedding-3-small (default), text-embedding-3-large
+   - Environment Variables: OPENAI_API_KEY or CHROMA_OPENAI_API_KEY
+   - Implemented in: `OpenAIEmbeddingFunction`
+
+3. **Anthropic** (Low Priority)
+   - Models: claude-3-embedding-1
+   - Environment Variables: ANTHROPIC_API_KEY or CHROMA_ANTHROPIC_API_KEY
+   - Implemented in: `AnthropicEmbeddingFunction`
+
+4. **SentenceTransformer** (Optional Fallback, No API Key Required)
+   - Models: all-MiniLM-L6-v2
+   - No environment variable required
+   - Requires the optional `sentence-transformers` package
+   - Implemented in: `SentenceTransformerEmbeddingFunction` (ChromaDB built-in)
+
+### Selection Logic
+
+The system includes a `get_best_available_embedding_function()` helper that selects the best available embedding provider in this priority order:
+
+1. VoyageAI (if VOYAGE_API_KEY or CHROMA_VOYAGE_API_KEY is set)
+2. OpenAI (if OPENAI_API_KEY or CHROMA_OPENAI_API_KEY is set)
+3. Anthropic (if ANTHROPIC_API_KEY or CHROMA_ANTHROPIC_API_KEY is set)
+4. SentenceTransformer (optional fallback if no API keys are set and sentence-transformers is installed)
+
+In `VectorStoreManager.__init__()`, the system attempts to initialize these embedding functions in order and falls back to the next option if initialization fails.
+
 ## Change History
+- March 28, 2025: Added support for multiple embedding providers (VoyageAI, OpenAI, Anthropic) with automatic selection
 - March 28, 2025: Enhanced Makefile with uv-based Python management, dependency checking, and improved build system
 - March 28, 2025: Added Docker support and improved output formatting
 - March 28, 2025: Added tree-sitter integration for symbol finding, AST exploration, and symbolic search
