@@ -88,7 +88,8 @@ class TestMCPServerManager:
         assert info["description"] == "Test server"
         assert not info["running"]
     
-    def test_remove_server(self, manager):
+    @pytest.mark.asyncio
+    async def test_remove_server(self, manager):
         """Test removing a server."""
         # Add a server
         manager.add_server(
@@ -102,7 +103,7 @@ class TestMCPServerManager:
         assert "test-server" in manager.servers
         
         # Remove the server
-        result = manager.remove_server("test-server", save=True)
+        result = await manager.remove_server("test-server", save=True)
         
         # Verify the result
         assert result
@@ -110,7 +111,8 @@ class TestMCPServerManager:
         # Verify the server was removed
         assert "test-server" not in manager.servers
     
-    def test_start_stop_server(self, manager):
+    @pytest.mark.asyncio
+    async def test_start_stop_server(self, manager):
         """Test starting and stopping a server."""
         # Mock the subprocess.Popen method
         with patch("subprocess.Popen") as mock_popen:
@@ -128,7 +130,7 @@ class TestMCPServerManager:
             )
             
             # Start the server
-            result = manager.start_server("test-server")
+            result = await manager.start_server("test-server")
             
             # Verify the result
             assert result["success"]
@@ -140,7 +142,7 @@ class TestMCPServerManager:
             
             # Stop the server
             with patch("os.kill") as mock_kill:
-                result = manager.stop_server("test-server")
+                result = await manager.stop_server("test-server")
                 
                 # Verify the result
                 assert result["success"]

@@ -364,7 +364,7 @@ class MCPServerManager:
             
         return True
     
-    def remove_server(self, name: str, save: bool = True) -> bool:
+    async def remove_server(self, name: str, save: bool = True) -> bool:
         """Remove an MCP server.
         
         Args:
@@ -379,7 +379,7 @@ class MCPServerManager:
             
         # Stop the server if it's running
         if self.servers[name].running:
-            self.stop_server(name)
+            await self.stop_server(name)
             
         # Remove the server
         del self.servers[name]
@@ -405,7 +405,7 @@ class MCPServerManager:
             
         return server.running
     
-    def start_server(self, name: str) -> Dict[str, Any]:
+    async def start_server(self, name: str) -> Dict[str, Any]:
         """Start an MCP server.
         
         Args:
@@ -454,7 +454,7 @@ class MCPServerManager:
             server.last_error = str(e)
             return {"success": False, "error": f"Error starting server: {str(e)}"}
     
-    def stop_server(self, name: str) -> Dict[str, Any]:
+    async def stop_server(self, name: str) -> Dict[str, Any]:
         """Stop an MCP server.
         
         Args:
@@ -507,7 +507,7 @@ class MCPServerManager:
             server.last_error = str(e)
             return {"success": False, "error": f"Error stopping server: {str(e)}"}
     
-    def start_all_servers(self) -> Dict[str, Dict[str, Any]]:
+    async def start_all_servers(self) -> Dict[str, Dict[str, Any]]:
         """Start all configured MCP servers.
         
         Returns:
@@ -516,11 +516,11 @@ class MCPServerManager:
         results = {}
         
         for name in self.servers:
-            results[name] = self.start_server(name)
+            results[name] = await self.start_server(name)
             
         return results
     
-    def stop_all_servers(self) -> Dict[str, Dict[str, Any]]:
+    async def stop_all_servers(self) -> Dict[str, Dict[str, Any]]:
         """Stop all running MCP servers.
         
         Returns:
@@ -530,7 +530,7 @@ class MCPServerManager:
         
         for name, server in self.servers.items():
             if server.running:
-                results[name] = self.stop_server(name)
+                results[name] = await self.stop_server(name)
                 
         return results
     

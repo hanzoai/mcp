@@ -17,6 +17,7 @@ from hanzo_mcp.tools.common.permissions import PermissionManager
 from hanzo_mcp.tools.common.thinking import ThinkingTool
 from hanzo_mcp.tools.dev_tool import DevTool
 from hanzo_mcp.tools.project.analysis import ProjectManager
+from hanzo_mcp.tools.browser_use import BrowserUseInterface, browser_use
 # Conditional import for vector store manager
 try:
     from hanzo_mcp.tools.vector.store_manager import VectorStoreManager

@@ -202,7 +202,8 @@ def test_mcp_manager_add_server(mock_mcp_manager):
         mock_save_config.assert_not_called()
 
 
-def test_mcp_manager_remove_server(mock_mcp_manager, mock_mcp_server):
+@pytest.mark.asyncio
+async def test_mcp_manager_remove_server(mock_mcp_manager, mock_mcp_server):
     """Test removing a server."""
     with patch.object(mock_mcp_manager, "save_config") as mock_save_config:
         # Test with a running server
@@ -216,7 +217,7 @@ def test_mcp_manager_remove_server(mock_mcp_manager, mock_mcp_server):
             initial_servers = mock_mcp_manager.servers.copy()
             
             # Remove the server
-            result = mock_mcp_manager.remove_server(
+            result = await mock_mcp_manager.remove_server(
                 name="test_server",
                 save=True
             )
@@ -233,7 +234,7 @@ def test_mcp_manager_remove_server(mock_mcp_manager, mock_mcp_server):
             # Test with a non-existent server
             mock_save_config.reset_mock()
             mock_stop_server.reset_mock()
-            result = mock_mcp_manager.remove_server(
+            result = await mock_mcp_manager.remove_server(
                 name="nonexistent",
                 save=True
             )
@@ -244,8 +245,9 @@ def test_mcp_manager_remove_server(mock_mcp_manager, mock_mcp_server):
             mock_save_config.assert_not_called()
 
 
+@pytest.mark.asyncio
 @patch("subprocess.Popen")
-def test_mcp_manager_start_server(mock_popen, mock_mcp_manager, mock_mcp_server):
+async def test_mcp_manager_start_server(mock_popen, mock_mcp_manager, mock_mcp_server):
     """Test starting a server."""
     # Set up mock process
     mock_process = MagicMock()
@@ -258,7 +260,7 @@ def test_mcp_manager_start_server(mock_popen, mock_mcp_manager, mock_mcp_server)
     mock_mcp_server.get_full_command.return_value = ["test_command", "arg1", "arg2"]
     mock_mcp_server.get_env.return_value = {"ENV_VAR": "value"}
     
-    result = mock_mcp_manager.start_server("test_server")
+    result = await mock_mcp_manager.start_server("test_server")
     
     # Verify the result
     assert result["success"] is True
@@ -278,7 +280,7 @@ def test_mcp_manager_start_server(mock_popen, mock_mcp_manager, mock_mcp_server)
     mock_popen.reset_mock()
     mock_mcp_server.running = True
     
-    result = mock_mcp_manager.start_server("test_server")
+    result = await mock_mcp_manager.start_server("test_server")
     
     # Verify the result
     assert result["success"] is True
@@ -288,7 +290,7 @@ def test_mcp_manager_start_server(mock_popen, mock_mcp_manager, mock_mcp_server)
     # Test starting a non-existent server
     mock_popen.reset_mock()
     
-    result = mock_mcp_manager.start_server("nonexistent")
+    result = await mock_mcp_manager.start_server("nonexistent")
     
     # Verify the result
     assert result["success"] is False
@@ -296,8 +298,9 @@ def test_mcp_manager_start_server(mock_popen, mock_mcp_manager, mock_mcp_server)
     mock_popen.assert_not_called()
 
 
+@pytest.mark.asyncio
 @patch("os.kill")
-def test_mcp_manager_stop_server(mock_kill, mock_mcp_manager, mock_mcp_server):
+async def test_mcp_manager_stop_server(mock_kill, mock_mcp_manager, mock_mcp_server):
     """Test stopping a server."""
     # Test stopping a running server
     mock_mcp_server.running = True
@@ -306,7 +309,7 @@ def test_mcp_manager_stop_server(mock_kill, mock_mcp_manager, mock_mcp_server):
     mock_mcp_server.process = mock_process
     
     with patch("platform.system", return_value="Linux"):
-        result = mock_mcp_manager.stop_server("test_server")
+        result = await mock_mcp_manager.stop_server("test_server")
         
         # Verify the result
         assert result["success"] is True
@@ -322,7 +325,7 @@ def test_mcp_manager_stop_server(mock_kill, mock_mcp_manager, mock_mcp_server):
     mock_mcp_server.running = False
     mock_mcp_server.process = None
     
-    result = mock_mcp_manager.stop_server("test_server")
+    result = await mock_mcp_manager.stop_server("test_server")
     
     # Verify the result
     assert result["success"] is True
@@ -332,7 +335,7 @@ def test_mcp_manager_stop_server(mock_kill, mock_mcp_manager, mock_mcp_server):
     # Test stopping a non-existent server
     mock_kill.reset_mock()
     
-    result = mock_mcp_manager.stop_server("nonexistent")
+    result = await mock_mcp_manager.stop_server("nonexistent")
     
     # Verify the result
     assert result["success"] is False
@@ -340,7 +343,8 @@ def test_mcp_manager_stop_server(mock_kill, mock_mcp_manager, mock_mcp_server):
     mock_kill.assert_not_called()
 
 
-def test_mcp_manager_start_all_servers(mock_mcp_manager):
+@pytest.mark.asyncio
+async def test_mcp_manager_start_all_servers(mock_mcp_manager):
     """Test starting all servers."""
     # Add another server
     mock_mcp_manager.servers["another_server"] = MagicMock()
@@ -350,7 +354,7 @@ def test_mcp_manager_start_all_servers(mock_mcp_manager):
         mock_start_server.side_effect = lambda name: {"success": True, "message": f"Started {name}"}
         
         # Start all servers
-        results = mock_mcp_manager.start_all_servers()
+        results = await mock_mcp_manager.start_all_servers()
         
         # Verify the results
         assert len(results) == 2
@@ -359,7 +363,8 @@ def test_mcp_manager_start_all_servers(mock_mcp_manager):
         assert mock_start_server.call_count == 2
 
 
-def test_mcp_manager_stop_all_servers(mock_mcp_manager, mock_mcp_server):
+@pytest.mark.asyncio
+async def test_mcp_manager_stop_all_servers(mock_mcp_manager, mock_mcp_server):
     """Test stopping all running servers."""
     # Set up first server as running
     mock_mcp_server.running = True
@@ -374,7 +379,7 @@ def test_mcp_manager_stop_all_servers(mock_mcp_manager, mock_mcp_server):
         mock_stop_server.side_effect = lambda name: {"success": True, "message": f"Stopped {name}"}
         
         # Stop all servers
-        results = mock_mcp_manager.stop_all_servers()
+        results = await mock_mcp_manager.stop_all_servers()
         
         # Verify the results
         assert len(results) == 1
@@ -449,8 +454,9 @@ def computer_use_server():
     )
 
 
+@pytest.mark.asyncio
 @patch("subprocess.Popen")
-def test_computer_use_server_start(mock_popen, computer_use_server):
+async def test_computer_use_server_start(mock_popen, computer_use_server):
     """Test starting the computer-use server."""
     # Set up mock process
     mock_process = MagicMock()
@@ -461,7 +467,7 @@ def test_computer_use_server_start(mock_popen, computer_use_server):
     manager.servers = {"computer-use": computer_use_server}
     
     # Start the server
-    result = manager.start_server("computer-use")
+    result = await manager.start_server("computer-use")
     
     # Verify the result
     assert result["success"] is True
@@ -480,8 +486,9 @@ def test_computer_use_server_start(mock_popen, computer_use_server):
     )
 
 
+@pytest.mark.asyncio
 @patch("os.kill")
-def test_computer_use_server_stop(mock_kill, computer_use_server):
+async def test_computer_use_server_stop(mock_kill, computer_use_server):
     """Test stopping the computer-use server."""
     computer_use_server.running = True
     computer_use_server.pid = 12345
@@ -492,7 +499,7 @@ def test_computer_use_server_stop(mock_kill, computer_use_server):
     manager.servers = {"computer-use": computer_use_server}
     
     with patch("platform.system", return_value="Linux"):
-        result = manager.stop_server("computer-use")
+        result = await manager.stop_server("computer-use")
         
         # Verify the result
         assert result["success"] is True

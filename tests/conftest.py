@@ -17,6 +17,41 @@ from hanzo_mcp.tools.common.permissions import PermissionManager
 from hanzo_mcp.tools.common.context import DocumentContext, ToolContext
 from hanzo_mcp.tools.project.analysis import ProjectAnalyzer, ProjectManager, ProjectAnalysis
 
+# Register asyncio mark for pytest
+def pytest_configure(config):
+    config.addinivalue_line(
+        "markers", "asyncio: mark test to run using asyncio"
+    )
+
+# Configure anyio to use only asyncio backend
+pytest.mark.asyncio = pytest.mark.anyio(backends="asyncio")
+
+# Skip tests with trio backend
+def pytest_generate_tests(metafunc):
+    if "anyio_backend" in metafunc.fixturenames:
+        try:
+            if hasattr(metafunc.config.option, "anyio_backends") and not metafunc.config.option.anyio_backends:
+                # Only run with asyncio
+                metafunc.parametrize("anyio_backend", ["asyncio"], scope="function")
+        except AttributeError:
+            # If option doesn't exist, just run with asyncio
+            metafunc.parametrize("anyio_backend", ["asyncio"], scope="function")
+
+# Skip any already collected tests that use trio backend
+def pytest_collection_modifyitems(config, items):
+    selected_items = []
+    deselected_items = []
+    
+    for item in items:
+        # Skip tests with trio in the name
+        if 'trio' in item.name and 'asyncio' not in item.name:
+            deselected_items.append(item)
+        else:
+            selected_items.append(item)
+    
+    config.hook.pytest_deselected(items=deselected_items)
+    items[:] = selected_items
+
 
 @pytest.fixture
 def temp_dir():

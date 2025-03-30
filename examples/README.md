@@ -2,6 +2,135 @@
 
 This directory contains examples demonstrating how to use the Hanzo MCP framework.
 
+## Browser Use Example
+
+The `browser_use_example.py` script demonstrates how to use the MCP browser use interface to interact with web browsers for automation purposes.
+
+### Prerequisites
+
+- Hanzo MCP should be installed
+- The browser-use server should be available and configured
+
+By default, the browser-use server is enabled with a headless browser. To configure it, you can modify the MCP servers configuration file located at `~/.config/hanzo/mcp_servers.json`:
+
+```json
+{
+  "browser-use": {
+    "enabled": "true",
+    "command": "uvx",
+    "args": ["mcp-server-browser-use"],
+    "description": "Automates browser interactions",
+    "env": {
+      "BROWSER_HEADLESS": "true",
+      "CHROME_PATH": "/path/to/chrome"
+    }
+  }
+}
+```
+
+### Usage
+
+The example script provides several commands to demonstrate different browser automation capabilities:
+
+```bash
+# Show browser capabilities
+python browser_use_example.py info
+
+# Navigate to a URL
+python browser_use_example.py navigate https://example.com
+
+# Take a screenshot
+python browser_use_example.py screenshot --output screenshot.png
+
+# Get the current page's HTML content
+python browser_use_example.py content --output page.html
+
+# Click an element with a CSS selector
+python browser_use_example.py click "#submit-button"
+
+# Fill a form field
+python browser_use_example.py fill "#search-input" "search term"
+
+# Run a complete workflow demonstration
+python browser_use_example.py demo
+```
+
+### Example API Usage
+
+Here's how you can use the browser use interface in your own code:
+
+```python
+import asyncio
+from hanzo_mcp.tools.browser_use import (
+    get_browser_capabilities,
+    navigate_to,
+    take_screenshot,
+    get_page_content,
+    click_element,
+    fill_form
+)
+
+async def example():
+    # Check if browser automation is available
+    capabilities = await get_browser_capabilities()
+    if not capabilities["available"]:
+        print("Browser automation is not available on this system")
+        return
+        
+    # Navigate to a website
+    await navigate_to("https://example.com")
+    
+    # Fill a search box
+    await fill_form("#search", "MCP browser automation")
+    
+    # Click the search button
+    await click_element("#search-button")
+    
+    # Take a screenshot of the results
+    result = await take_screenshot()
+    if result["success"]:
+        print(f"Screenshot taken: {result['path']}")
+    
+    # Get the page content
+    result = await get_page_content()
+    if result["success"]:
+        print(f"Page content length: {len(result['content'])}")
+
+# Run the example
+asyncio.run(example())
+```
+
+For more advanced usage, you can create your own instance of the `BrowserUseInterface` class:
+
+```python
+import asyncio
+from hanzo_mcp.tools.browser_use import BrowserUseInterface
+
+async def advanced_example():
+    # Create a custom interface
+    interface = BrowserUseInterface()
+    
+    # Make sure the server is running
+    await interface.ensure_running()
+    
+    # Get available tools
+    tools = await interface.get_available_tools()
+    for tool in tools:
+        print(f"Available tool: {tool['name']}")
+    
+    # Execute a custom tool
+    result = await interface.execute_tool(
+        tool_name="navigate_to",
+        params={"url": "https://example.com"}
+    )
+    
+    # Stop the server when done
+    await interface.stop()
+
+# Run the example
+asyncio.run(advanced_example())
+```
+
 ## Computer Use Example
 
 The `computer_use_example.py` script demonstrates how to use the MCP computer use interface to interact with the computer-use MCP server, which provides full computer access capabilities.

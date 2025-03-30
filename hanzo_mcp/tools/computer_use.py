@@ -56,7 +56,7 @@ class ComputerUseInterface:
             }
             
         if not self.is_running():
-            return self.manager.start_server(self._server_name)
+            return await self.manager.start_server(self._server_name)
             
         return {
             "success": True,
@@ -81,7 +81,7 @@ class ComputerUseInterface:
                 "message": f"Server not running: {self._server_name}"
             }
             
-        return self.manager.stop_server(self._server_name)
+        return await self.manager.stop_server(self._server_name)
 
     async def restart(self) -> Dict[str, Any]:
         """Restart the computer-use server.
@@ -97,12 +97,12 @@ class ComputerUseInterface:
             
         # Stop the server if it's running
         if self.is_running():
-            stop_result = self.manager.stop_server(self._server_name)
+            stop_result = await self.manager.stop_server(self._server_name)
             if not stop_result["success"]:
                 return stop_result
                 
         # Start the server
-        return self.manager.start_server(self._server_name)
+        return await self.manager.start_server(self._server_name)
 
     async def get_available_tools(self) -> List[Dict[str, Any]]:
         """Get all available tools from the computer-use server.
@@ -147,7 +147,7 @@ class ComputerUseInterface:
             
         # Make sure the server is running
         if not self.is_running():
-            start_result = self.manager.start_server(self._server_name)
+            start_result = await self.manager.start_server(self._server_name)
             if not start_result["success"]:
                 return start_result
                 
