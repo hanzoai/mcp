@@ -79,8 +79,8 @@ class TestAgentTool:
         assert agent_tool.model_override is None
         assert agent_tool.api_key_override is None
         assert agent_tool.max_tokens_override is None
-        assert agent_tool.max_iterations == 30
-        assert agent_tool.max_tool_uses == 100
+        assert agent_tool.max_iterations == 10
+        assert agent_tool.max_tool_uses == 30
         
     def test_initialization_with_params(self, agent_tool_with_params):
         """Test agent tool initialization with custom parameters."""

@@ -73,9 +73,9 @@ You can customize the agent behavior by specifying the LLM model and token limit
         "--agent-api-key",
         "{your-api-key}",
         "--agent-max-tool-uses"
-        "100",
+        "30",
         "--agent-max-iterations",
-        "30"
+        "10"
       ]
     }
   }
@@ -87,8 +87,8 @@ The available LLM configuration options are:
 - `--agent-model`: Specify the model name in LiteLLM format (e.g., 'openai/gpt-4o', 'anthropic/claude-3-sonnet')
 - `--agent-max-tokens`: Specify the maximum tokens for agent responses
 - `--agent-api-key`: Specify the API key for the LLM provider (for development/testing only)
-- `--agent-max-iterations`: Maximum number of iterations for agent (default: 30)
-- `--agent-max-tool-uses`: Maximum number of total tool uses for agent (default: 100)
+- `--agent-max-iterations`: Maximum number of iterations for agent (default: 10)
+- `--agent-max-tool-uses`: Maximum number of total tool uses for agent (default: 30)
 - `--enable-agent-tool`: Enable the agent tool (disabled by default)
 
 The model name uses the LiteLLM format with provider prefixes. Examples:
@@ -109,8 +109,8 @@ If you don't specify these options, the agent will use the following environment
 The agent tool allows Claude to delegate tasks to specialized sub-agents. By default, the agent tool is disabled. You can enable and configure it using these options:
 
 - `--enable-agent-tool`: Enable the agent tool functionality
-- `--agent-max-iterations`: Control the maximum number of back-and-forth interactions an agent can have (default: 30)
-- `--agent-max-tool-uses`: Control the maximum number of tool calls an agent can make (default: 100)
+- `--agent-max-iterations`: Control the maximum number of back-and-forth interactions an agent can have (default: 10)
+- `--agent-max-tool-uses`: Control the maximum number of tool calls an agent can make (default: 30)
 
 Enabling the agent tool can improve Claude's ability to handle complex tasks by allowing it to delegate to specialized sub-agents. However, it requires setting up an LLM provider with a valid API key.
 

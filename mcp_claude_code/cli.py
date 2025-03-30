@@ -63,16 +63,16 @@ def main() -> None:
         "--agent-max-iterations",
         dest="agent_max_iterations",
         type=int,
-        default=30,
-        help="Maximum number of iterations for agent (default: 30)"
+        default=10,
+        help="Maximum number of iterations for agent (default: 10)"
     )
     
     _ = parser.add_argument(
         "--agent-max-tool-uses",
         dest="agent_max_tool_uses",
         type=int,
-        default=100,
-        help="Maximum number of total tool uses for agent (default: 100)"
+        default=30,
+        help="Maximum number of total tool uses for agent (default: 30)"
     )
     
     _ = parser.add_argument(

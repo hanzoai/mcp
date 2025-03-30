@@ -118,7 +118,7 @@ Returns:
     def __init__(
             self, document_context: DocumentContext, permission_manager: PermissionManager, command_executor: CommandExecutor,
             model: str | None = None, api_key: str | None = None, max_tokens: int | None = None,
-            max_iterations: int = 30, max_tool_uses: int = 100
+            max_iterations: int = 10, max_tool_uses: int = 30
     ) -> None:
         """Initialize the agent tool.
 
@@ -129,8 +129,8 @@ Returns:
             model: Optional model name override in LiteLLM format (e.g., "openai/gpt-4o")
             api_key: Optional API key for the model provider
             max_tokens: Optional maximum tokens for model responses
-            max_iterations: Maximum number of iterations for agent (default: 30)
-            max_tool_uses: Maximum number of total tool uses for agent (default: 100)
+            max_iterations: Maximum number of iterations for agent (default: 10)
+            max_tool_uses: Maximum number of total tool uses for agent (default: 30)
         """
         self.document_context = document_context
         self.permission_manager = permission_manager
