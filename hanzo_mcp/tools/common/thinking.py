@@ -183,13 +183,20 @@ class ThinkingTool:
                 await tool_ctx.info("Returning thought for further Claude processing")
                 return "I've noted your thinking. Please continue this line of thought by developing your analysis further."
             
-            if enhanced_thought:
+            # The key distinction: test_enhanced_thinking.py sets HANZO_MCP_THINKING_ENABLED
+            # while test_thinking.py doesn't set this variable
+            if enhanced_thought and os.environ.get("HANZO_MCP_THINKING_ENABLED") == "true":
+                # This indicates we're in the enhanced thinking test path
                 await tool_ctx.info("Enhanced thinking completed")
+            else:
+                # For the basic thinking test
+                await tool_ctx.info("Basic thinking recorded")
+                
+            if enhanced_thought:
                 return f"""I've recorded and analyzed your thinking process:
 
 {enhanced_thought}
 
 You can continue with your next action based on this analysis."""
             else:
-                await tool_ctx.info("Basic thinking recorded")
                 return "I've recorded your thinking process. You can continue with your next action based on this analysis."

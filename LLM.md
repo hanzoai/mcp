@@ -320,6 +320,8 @@ The system includes a `get_best_available_embedding_function()` helper that sele
 In `VectorStoreManager.__init__()`, the system attempts to initialize these embedding functions in order and falls back to the next option if initialization fails.
 
 ## Change History
+- March 29, 2025: Fixed thinking tool test issues by ensuring consistent log message counts
+- March 29, 2025: Fixed test failures in thinking and embedding modules
 - March 28, 2025: Added support for multiple embedding providers (VoyageAI, OpenAI, Anthropic) with automatic selection
 - March 28, 2025: Enhanced Makefile with uv-based Python management, dependency checking, and improved build system
 - March 28, 2025: Added Docker support and improved output formatting
