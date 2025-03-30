@@ -4,6 +4,117 @@
 
 This document tracks the development and improvements to the MCP (Mission Control Protocol) framework.
 
+## 2025-03-30: Added hanzo-code CLI Tool
+
+### Goals
+- Create a unified CLI tool for code editing and integration with AI assistants
+- Provide a stdio interface for AI-assisted development
+- Enable direct use of DevTool functionality from the command line
+- Simplify integration with Claude Desktop and other AI IDEs
+
+### Changes Implemented
+
+#### 1. CLI Tool
+- Created a new `cli_code.py` module implementing the `hanzo-code` command
+- Added entry point in `pyproject.toml` for the CLI tool
+- Implemented both command-line mode and stdio mode for different usage patterns
+- Added support for executing all DevTool operations
+- Named after Claude Code for similar functionality in a micro form
+
+#### 2. Python Client
+- Created a `HanzoCodeClient` class for using `hanzo-code` from Python
+- Implemented helper methods for common operations
+- Added a demo script showing usage examples
+- Provided unified error handling and result processing
+
+#### 3. Documentation
+- Added comprehensive documentation in `doc/hanzo-code.md`
+- Included usage examples for both CLI and stdio modes
+- Documented all supported operations and parameters
+- Provided integration instructions for Claude Desktop
+
+### Design Decisions
+
+1. **Interface Design**
+   - Created a dual-mode interface (command-line and stdio) for flexibility
+   - Structured commands as operations with JSON arguments
+   - Used a consistent JSON response format for both modes
+   - Implemented proper error handling and logging
+
+2. **Integration Strategy**
+   - Leveraged existing DevTool functionality without code duplication
+   - Mapped CLI commands directly to DevTool operations
+   - Maintained consistent parameter naming and structure
+   - Added verbose mode for debugging and development
+
+3. **Stdio Protocol**
+   - Used a simple JSON-based protocol for stdio communication
+   - Each command is a single line of JSON
+   - Each response is a single line of JSON
+   - Supports all DevTool operations with the same parameters
+
+### Future Improvements
+- Add integration with the existing hanzo-dev tool for Git operations
+- Implement a better async interface for long-running operations
+- Enhance error reporting with detailed context
+- Add support for batch operations
+- Implement progress reporting for long-running operations
+
+## 2025-03-29: Added Browser Use Interface and Tests
+
+### Goals
+- Add browser automation capabilities to MCP
+- Create a BrowserUseInterface class similar to the ComputerUseInterface
+- Implement comprehensive tests for the browser automation functionality
+- Ensure proper error handling and a consistent API
+
+### Changes Implemented
+
+#### 1. Browser Use Interface
+- Created a new `BrowserUseInterface` class for interacting with the browser-use MCP server
+- Implemented methods for server management (ensure_running, stop, restart)
+- Added tool discovery and execution capabilities 
+- Exposed the interface through a global singleton instance
+
+#### 2. Browser Automation Helper Functions
+- Implemented helper functions for common browser operations:
+  - `get_browser_capabilities` - for discovering available browser tools
+  - `navigate_to` - for navigating to URLs
+  - `take_screenshot` - for capturing browser screenshots
+  - `get_page_content` - for retrieving HTML content
+  - `click_element` - for clicking elements using CSS selectors
+  - `fill_form` - for entering text into form fields
+
+#### 3. Comprehensive Testing
+- Created unit tests for the BrowserUseInterface in `test_browser_use_interface.py`
+- Added integration tests in `test_browser_use.py`
+- Implemented fixtures for mocking browser server interactions
+- Tested error handling and edge cases
+
+### Design Decisions
+
+1. **Interface Consistency**
+   - Followed the same design patterns as the ComputerUseInterface for consistency
+   - Used the same method names and parameter structures where appropriate
+   - Maintained consistent error reporting and response formats
+
+2. **Browser Automation API**
+   - Selected the most common browser automation operations for helper functions
+   - Used CSS selectors for element targeting (industry standard)
+   - Designed for both headless and headed browser interactions
+
+3. **Testing Approach**
+   - Created separate unit and integration tests
+   - Used comprehensive mocking for reliable, deterministic tests
+   - Tested the full automation sequence, not just individual operations
+
+### Future Improvements
+- Add more specialized browser automation functions
+- Implement cookie and local storage management
+- Add support for multiple browser windows/tabs
+- Create examples demonstrating browser automation workflows
+- Add integration with web testing frameworks
+
 ## 2025-03-29: Refactoring and API Improvements
 
 ### Goals
@@ -64,61 +175,6 @@ This document tracks the development and improvements to the MCP (Mission Contro
 - Improve integration with other MCP servers
 - Enhance error reporting and logging
 - Add more comprehensive documentation
-
-## 2025-03-29: Added Browser Use Interface and Tests
-
-### Goals
-- Add browser automation capabilities to MCP
-- Create a BrowserUseInterface class similar to the ComputerUseInterface
-- Implement comprehensive tests for the browser automation functionality
-- Ensure proper error handling and a consistent API
-
-### Changes Implemented
-
-#### 1. Browser Use Interface
-- Created a new `BrowserUseInterface` class for interacting with the browser-use MCP server
-- Implemented methods for server management (ensure_running, stop, restart)
-- Added tool discovery and execution capabilities 
-- Exposed the interface through a global singleton instance
-
-#### 2. Browser Automation Helper Functions
-- Implemented helper functions for common browser operations:
-  - `get_browser_capabilities` - for discovering available browser tools
-  - `navigate_to` - for navigating to URLs
-  - `take_screenshot` - for capturing browser screenshots
-  - `get_page_content` - for retrieving HTML content
-  - `click_element` - for clicking elements using CSS selectors
-  - `fill_form` - for entering text into form fields
-
-#### 3. Comprehensive Testing
-- Created unit tests for the BrowserUseInterface in `test_browser_use_interface.py`
-- Added integration tests in `test_browser_use.py`
-- Implemented fixtures for mocking browser server interactions
-- Tested error handling and edge cases
-
-### Design Decisions
-
-1. **Interface Consistency**
-   - Followed the same design patterns as the ComputerUseInterface for consistency
-   - Used the same method names and parameter structures where appropriate
-   - Maintained consistent error reporting and response formats
-
-2. **Browser Automation API**
-   - Selected the most common browser automation operations for helper functions
-   - Used CSS selectors for element targeting (industry standard)
-   - Designed for both headless and headed browser interactions
-
-3. **Testing Approach**
-   - Created separate unit and integration tests
-   - Used comprehensive mocking for reliable, deterministic tests
-   - Tested the full automation sequence, not just individual operations
-
-### Future Improvements
-- Add more specialized browser automation functions
-- Implement cookie and local storage management
-- Add support for multiple browser windows/tabs
-- Create examples demonstrating browser automation workflows
-- Add integration with web testing frameworks
 
 ## 2025-03-30: Test Fixes
 

@@ -62,6 +62,7 @@ all = [
 hanzo-mcp = "hanzo_mcp.cli:main"
 hanzo-mcp-servers = "hanzo_mcp.external.cli:main"
 hanzo-meta-mcp = "hanzo_mcp.cli_meta:main"
+hanzo-code = "hanzo_mcp.cli_code:main"
 
 [tool.setuptools]
 zip-safe = true
