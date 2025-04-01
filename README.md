@@ -44,6 +44,8 @@ This project provides an MCP server that implements Claude Code-like functionali
 
 For detailed installation and configuration instructions, please refer to [INSTALL.md](./doc/INSTALL.md).
 
+Of course, you can also read [USEFUL_PROMPTS](./doc/USEFUL_PROMPTS.md) for some inspiration on how to use mcp-claude-code.
+
 ## Security
 
 This implementation follows best practices for securing access to your filesystem:
