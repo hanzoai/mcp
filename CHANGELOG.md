@@ -5,6 +5,31 @@ All notable changes to the MCP Claude Code project will be documented in this fi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.20] - 2025-04-03
+
+### Added
+- Added new USEFUL_PROMPTS.md document with practical prompt templates for common scenarios:
+  - Summarizing history for continued conversations
+  - Automation research summaries
+  - Release preparation commands
+  - Resuming interrupted conversations
+
+### Changed
+- Reduced default values for agent tool limits:
+  - agent_max_iterations reduced from 30 to 10
+  - agent_max_tool_uses reduced from 100 to 30
+- Enhanced system prompt documentation for the dispatch_agent tool:
+  - Improved guidelines for when to use the dispatch_agent tool
+  - Added detailed examples for effective agent prompting
+  - Clarified agent limitations and capabilities
+  - Added categorized use case recommendations
+
+### Documentation
+- Improved README.md with clearer feature descriptions
+- Fixed formatting and alignment in README.md tables
+- Added cross-reference to USEFUL_PROMPTS.md in the README
+- Added specific guidance for file reading operations in system prompt
+
 ## [0.1.19] - 2025-03-28
 
 ### Added
