@@ -89,7 +89,7 @@ async def test_cli_search_content(cli):
 
 
 @pytest.mark.asyncio
-@patch("hanzo_mcp.cli_dev.sys")
+@patch("hanzo_mcp.cli_code.sys")
 async def test_process_stdin_command(mock_sys, cli):
     """Test processing a command from stdin."""
     # Mock stdin and stdout

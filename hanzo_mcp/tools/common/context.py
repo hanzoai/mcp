@@ -9,7 +9,7 @@ import os
 import time
 from collections.abc import Iterable
 from pathlib import Path
-from typing import Any, ClassVar, final
+from typing import Any, ClassVar, final, Protocol
 
 from mcp.server.fastmcp import Context as MCPContext
 from mcp.server.lowlevel.helper_types import ReadResourceContents
@@ -489,3 +489,85 @@ class DocumentContext:
         context.allowed_paths = set(Path(p) for p in data.get("allowed_paths", []))
 
         return context
+
+
+@final
+class SimpleToolContext:
+    """A simplified context for tools when an MCP context is not available.
+    
+    This class provides a minimal implementation compatible with ToolContext
+    for cases where an MCP context is not available, such as in CLI operations.
+    """
+    
+    def __init__(self) -> None:
+        """Initialize the simple tool context."""
+        # For tracking operations and params
+        self.current_operation: str | None = None
+        self.operation_params: dict[str, Any] = {}
+        
+    async def info(self, message: str) -> None:
+        """Log an informational message.
+        
+        Args:
+            message: The message to log
+        """
+        print(f"[INFO] {message}")
+        
+    async def debug(self, message: str) -> None:
+        """Log a debug message.
+        
+        Args:
+            message: The message to log
+        """
+        print(f"[DEBUG] {message}")
+        
+    async def warning(self, message: str) -> None:
+        """Log a warning message.
+        
+        Args:
+            message: The message to log
+        """
+        print(f"[WARNING] {message}")
+        
+    async def error(self, message: str) -> None:
+        """Log an error message.
+        
+        Args:
+            message: The message to log
+        """
+        print(f"[ERROR] {message}")
+        
+    async def success(self, message: str, data: dict[str, Any] | None = None) -> str:
+        """Create a success response with standardized format.
+        
+        Args:
+            message: Success message
+            data: Optional data to include in the response
+            
+        Returns:
+            JSON string response
+        """
+        if data is None:
+            data = {}
+            
+        # Always include the operation name if we have it
+        if self.current_operation and "tool" not in data:
+            data["tool"] = self.current_operation
+            
+        # Add operation params for transparency if needed
+        if self.operation_params and "params" not in data:
+            # Don't include passwords, tokens, or keys
+            filtered_params = {k: v for k, v in self.operation_params.items() 
+                              if not any(sensitive in k.lower() for sensitive in 
+                                      ["password", "token", "key", "secret"])}
+            if filtered_params:
+                data["params"] = filtered_params
+        
+        # Create response
+        response = {
+            "status": "success",
+            "message": message,
+            "data": data
+        }
+        
+        return json.dumps(response)

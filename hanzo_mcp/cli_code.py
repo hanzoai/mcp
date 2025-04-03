@@ -55,6 +55,7 @@ class HanzoCodeCLI:
             verbose: Whether to enable verbose output
         """
         self.verbose = verbose
+        self.project_dir = project_dir if project_dir else os.getcwd()
         
         # Set up allowed paths
         if allowed_paths is None:
@@ -69,9 +70,13 @@ class HanzoCodeCLI:
             self.permission_manager.add_allowed_path(path)
             
         self.document_context = DocumentContext()
-        self.project_manager = ProjectManager()
-        self.project_analyzer = ProjectAnalyzer()
         self.command_executor = CommandExecutor(self.permission_manager)
+        self.project_analyzer = ProjectAnalyzer(self.command_executor)
+        self.project_manager = ProjectManager(
+            document_context=self.document_context,
+            permission_manager=self.permission_manager,
+            project_analyzer=self.project_analyzer
+        )
         self.llm_file_manager = LLMFileManager(self.permission_manager)
         
         # Initialize vector store manager if available
