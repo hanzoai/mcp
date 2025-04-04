@@ -2,6 +2,7 @@
 
 This module provides a clean and composable interface for interacting with the computer-use
 MCP server, which provides full computer access capabilities.
+This implementation leverages the hanzo_aci module for computer interactions.
 """
 
 import os
@@ -10,30 +11,31 @@ import logging
 import json
 from typing import Dict, List, Optional, Any, Union
 
-from hanzo_mcp.tools.mcp_manager import MCPServerManager
+# Import hanzo_aci components
+from hanzo_aci.concrete import computer as aci_computer
+from hanzo_aci.specialized.vector_search import vector_search
+from hanzo_aci.specialized.symbolic_reasoning import symbolic_reasoning
 
 logger = logging.getLogger(__name__)
 
 
 class ComputerUseInterface:
-    """Interface for interacting with the computer-use MCP server."""
+    """Interface for interacting with the computer-use MCP server.
+    This is a compatibility wrapper around the hanzo_aci ComputerInterface.
+    """
 
-    def __init__(self, manager: Optional[MCPServerManager] = None):
-        """Initialize the ComputerUseInterface.
-        
-        Args:
-            manager: Optional MCPServerManager instance. If not provided, a new one will be created.
-        """
-        self.manager = manager or MCPServerManager()
+    def __init__(self):
+        """Initialize the ComputerUseInterface using hanzo_aci's computer interface."""
+        self._computer = aci_computer
         self._server_name = "computer-use"
 
-    def is_available(self) -> bool:
+    async def is_available(self) -> bool:
         """Check if the computer-use server is available.
         
         Returns:
             True if the server is available in the configuration, False otherwise
         """
-        return self._server_name in self.manager.servers
+        return await self._computer.is_available()
 
     def is_running(self) -> bool:
         """Check if the computer-use server is currently running.
@@ -41,7 +43,8 @@ class ComputerUseInterface:
         Returns:
             True if the server is running, False otherwise
         """
-        return self.manager.is_server_running(self._server_name)
+        # For compatibility - ACI handles this internally
+        return True
 
     async def ensure_running(self) -> Dict[str, Any]:
         """Ensure that the computer-use server is running.
@@ -49,19 +52,7 @@ class ComputerUseInterface:
         Returns:
             Dictionary with result information
         """
-        if not self.is_available():
-            return {
-                "success": False,
-                "error": f"Server not available: {self._server_name}"
-            }
-            
-        if not self.is_running():
-            return await self.manager.start_server(self._server_name)
-            
-        return {
-            "success": True,
-            "message": f"Server already running: {self._server_name}"
-        }
+        return await self._computer.ensure_running()
 
     async def stop(self) -> Dict[str, Any]:
         """Stop the computer-use server.
@@ -69,19 +60,12 @@ class ComputerUseInterface:
         Returns:
             Dictionary with result information
         """
-        if not self.is_available():
-            return {
-                "success": False,
-                "error": f"Server not available: {self._server_name}"
-            }
-            
-        if not self.is_running():
-            return {
-                "success": True,
-                "message": f"Server not running: {self._server_name}"
-            }
-            
-        return await self.manager.stop_server(self._server_name)
+        # ACI doesn't expose a direct stop method, but we'll return a success response
+        # since the interface is designed to be stateless
+        return {
+            "success": True,
+            "message": "ACI computer interface doesn't require explicit stop"
+        }
 
     async def restart(self) -> Dict[str, Any]:
         """Restart the computer-use server.
@@ -89,106 +73,47 @@ class ComputerUseInterface:
         Returns:
             Dictionary with result information
         """
-        if not self.is_available():
-            return {
-                "success": False,
-                "error": f"Server not available: {self._server_name}"
-            }
-            
-        # Stop the server if it's running
-        if self.is_running():
-            stop_result = await self.manager.stop_server(self._server_name)
-            if not stop_result["success"]:
-                return stop_result
-                
-        # Start the server
-        return await self.manager.start_server(self._server_name)
+        # ACI doesn't need explicit restart, but we'll re-ensure it's running
+        return await self._computer.ensure_running()
 
     async def get_available_tools(self) -> List[Dict[str, Any]]:
-        """Get all available tools from the computer-use server.
+        """Get all available tools from the computer interface.
         
         Returns:
             List of tool definitions
         """
-        if not self.is_available() or not self.is_running():
-            return []
-            
-        server = self.manager.get_server(self._server_name)
-        if not server:
-            return []
-            
-        return [
-            {
-                "name": tool_name,
-                "definition": tool_def
-            }
-            for tool_name, tool_def in server.tools.items()
-        ]
+        capabilities = await self._computer.get_capabilities()
+        
+        # Transform ACI capabilities into MCP-compatible format
+        tools = []
+        if "operations" in capabilities:
+            for operation in capabilities.get("operations", []):
+                tools.append({
+                    "name": operation,
+                    "definition": {
+                        "description": f"ACI operation: {operation}",
+                        "parameters": {}
+                    }
+                })
+                
+        return tools
 
     async def execute_tool(
         self,
         tool_name: str,
         params: Dict[str, Any]
     ) -> Dict[str, Any]:
-        """Execute a tool on the computer-use server.
+        """Execute a tool using the ACI computer interface.
         
         Args:
-            tool_name: Name of the tool to execute
+            tool_name: Name of the tool/operation to execute
             params: Parameters for the tool
             
         Returns:
             Dictionary with the tool result
         """
-        if not self.is_available():
-            return {
-                "success": False,
-                "error": f"Server not available: {self._server_name}"
-            }
-            
-        # Make sure the server is running
-        if not self.is_running():
-            start_result = await self.manager.start_server(self._server_name)
-            if not start_result["success"]:
-                return start_result
-                
-        server = self.manager.get_server(self._server_name)
-        if not server:
-            return {
-                "success": False,
-                "error": f"Server not found: {self._server_name}"
-            }
-            
-        # Check if the tool is available
-        if tool_name not in server.tools:
-            return {
-                "success": False,
-                "error": f"Tool not found: {tool_name}"
-            }
-            
-        # Prepare the request
-        request = {
-            "tool": tool_name,
-            "params": params
-        }
-        
-        # Send the request
         try:
-            response = server.process.stdin.write(json.dumps(request) + "\n")
-            server.process.stdin.flush()
-            
-            # Wait for the response
-            response_text = server.process.stdout.readline()
-            
-            # Parse the response
-            try:
-                result = json.loads(response_text)
-                return result
-            except json.JSONDecodeError:
-                return {
-                    "success": False,
-                    "error": f"Invalid response from server: {response_text}"
-                }
-                
+            return await self._computer.execute_operation(tool_name, params)
         except Exception as e:
             logger.error(f"Error executing tool: {str(e)}")
             return {
@@ -207,7 +132,7 @@ async def get_computer_capabilities() -> Dict[str, Any]:
     Returns:
         Dictionary with information about available tools
     """
-    if not computer_use.is_available():
+    if not await computer_use.is_available():
         return {
             "available": False,
             "message": "Computer use is not available on this system"
@@ -215,13 +140,28 @@ async def get_computer_capabilities() -> Dict[str, Any]:
         
     await computer_use.ensure_running()
     
-    tools = await computer_use.get_available_tools()
+    # Get capabilities directly from ACI
+    capabilities = await aci_computer.get_capabilities()
     
-    return {
-        "available": True,
-        "tools": tools,
-        "running": computer_use.is_running()
+    # Add specialized module information
+    vector_available = await vector_search.is_available()
+    symbolic_available = await symbolic_reasoning.is_available()
+    
+    specialized = {
+        "vector_search": {
+            "available": vector_available,
+            "operations": await vector_search.get_capabilities() if vector_available else []
+        },
+        "symbolic_reasoning": {
+            "available": symbolic_available,
+            "operations": await symbolic_reasoning.get_capabilities() if symbolic_available else []
+        }
     }
+    
+    capabilities["specialized_modules"] = specialized
+    capabilities["running"] = True  # ACI is stateless/always running
+    
+    return capabilities
 
 
 async def open_application(app_name: str) -> Dict[str, Any]:
@@ -233,10 +173,7 @@ async def open_application(app_name: str) -> Dict[str, Any]:
     Returns:
         Dictionary with the result of the operation
     """
-    return await computer_use.execute_tool(
-        tool_name="open_application",
-        params={"name": app_name}
-    )
+    return await aci_computer.open_application(app_name)
 
 
 async def take_screenshot() -> Dict[str, Any]:
@@ -245,10 +182,7 @@ async def take_screenshot() -> Dict[str, Any]:
     Returns:
         Dictionary with the path to the screenshot
     """
-    return await computer_use.execute_tool(
-        tool_name="screenshot",
-        params={}
-    )
+    return await aci_computer.take_screenshot()
 
 
 async def file_explorer(path: str) -> Dict[str, Any]:
@@ -260,10 +194,7 @@ async def file_explorer(path: str) -> Dict[str, Any]:
     Returns:
         Dictionary with the result of the operation
     """
-    return await computer_use.execute_tool(
-        tool_name="file_explorer",
-        params={"path": path}
-    )
+    return await aci_computer.file_explorer(path)
 
 
 async def clipboard_get() -> Dict[str, Any]:
@@ -272,10 +203,7 @@ async def clipboard_get() -> Dict[str, Any]:
     Returns:
         Dictionary with the clipboard contents
     """
-    return await computer_use.execute_tool(
-        tool_name="clipboard_get",
-        params={}
-    )
+    return await aci_computer.clipboard_get()
 
 
 async def clipboard_set(text: str) -> Dict[str, Any]:
@@ -287,7 +215,46 @@ async def clipboard_set(text: str) -> Dict[str, Any]:
     Returns:
         Dictionary with the result of the operation
     """
-    return await computer_use.execute_tool(
-        tool_name="clipboard_set",
-        params={"text": text}
+    return await aci_computer.clipboard_set(text)
+
+
+# New specialized functions leveraging ACI's capabilities
+
+async def vector_search_query(query_text: str, project_dir: str, n_results: int = 10) -> Dict[str, Any]:
+    """Search the project using vector similarity.
+    
+    Args:
+        query_text: Text to search for
+        project_dir: Project directory to search in
+        n_results: Number of results to return
+        
+    Returns:
+        Dictionary with search results
+    """
+    return await vector_search.execute_operation(
+        operation="vector_search",
+        params={
+            "query": query_text,
+            "project_dir": project_dir,
+            "n_results": n_results
+        }
+    )
+
+
+async def find_symbols(file_path: str, symbol_type: Optional[str] = None) -> Dict[str, Any]:
+    """Find symbols in a file.
+    
+    Args:
+        file_path: Path to the file
+        symbol_type: Optional type of symbol to find (function, class, etc.)
+        
+    Returns:
+        Dictionary with symbols found
+    """
+    return await symbolic_reasoning.execute_operation(
+        operation="find_symbols",
+        params={
+            "file_path": file_path,
+            "symbol_type": symbol_type
+        }
     )
