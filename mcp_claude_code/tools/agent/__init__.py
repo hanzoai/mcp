@@ -53,7 +53,6 @@ def register_agent_tools(
     )
 
     # Register agent tool
-    # TODO: agent tool is't fully implemented yet
     ToolRegistry.register_tool(mcp_server, agent_tool)
 
     # Return list of registered tools
