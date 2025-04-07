@@ -5,6 +5,11 @@ I hope you can assist me with the project.
 - {project_path}
 </goal>
 
+<project_info>
+repo: {repo name}
+owner: {git user name}
+</project_info>
+
 <standard_flow>
 1. Understand: Analyze the request in the context of the project's architecture and constraints by rereading **ClaudeCode.md**
 2. Plan: Propose a solution strategy with rationale and expected outcomes
