@@ -38,6 +38,10 @@ include = ["mcp_claude_code*"]
 
 [tool.basedpyright]
 include = ["mcp_claude_code"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "strict"
+asyncio_default_fixture_loop_scope = "function"
 exclude = [
   "**/node_modules",
   "**/__pycache__",
