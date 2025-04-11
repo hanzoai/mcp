@@ -58,4 +58,51 @@ reinstall: uninstall install
 install-dev:
 	$(call run_in_venv, $(UV) pip install -e ".[dev]")
 
-# Install
+# Install test dependencies
+install-test:
+	$(call run_in_venv, $(UV) pip install -e ".[test]")
+
+# Install publish dependencies
+install-publish:
+	$(call run_in_venv, $(UV) pip install -e ".[publish]")
+
+# Run tests
+test:
+	$(call run_in_venv, python -m pytest $(TEST_DIR) --disable-warnings)
+
+# Run tests with coverage
+test-cov:
+	$(call run_in_venv, python -m pytest --cov=$(SRC_DIR) $(TEST_DIR))
+
+# Lint code
+lint:
+	$(call run_in_venv, ruff check $(SRC_DIR) $(TEST_DIR))
+
+# Format code
+format:
+	$(call run_in_venv, ruff format $(SRC_DIR) $(TEST_DIR))
+
+# Clean build artifacts
+clean:
+	$(RM_CMD) .pytest_cache htmlcov .coverage $(DIST_DIR) 2>/dev/null || true
+	find . -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null || true
+
+# Build package distribution files
+build: clean install-publish
+	$(call run_in_venv, python -m build)
+
+# Publish package to PyPI
+publish: build
+	$(call run_in_venv, python -m twine upload $(DIST_DIR)/*)
+
+# Publish package to Test PyPI
+publish-test: build
+	$(call run_in_venv, python -m twine upload --repository testpypi $(DIST_DIR)/*)
+
+# Check the package
+check: build
+	$(call run_in_venv, python -m twine check $(DIST_DIR)/*)
+
+# Update dependencies
+update-deps:
+	$(call run_in_venv, $(UV) pip compile pyproject.toml -o requirements.txt)

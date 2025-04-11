@@ -11,6 +11,7 @@ import shlex
 import sys
 import tempfile
 from collections.abc import Awaitable, Callable
+from pathlib import Path
 from typing import Dict, Optional, final
 
 from mcp.server.fastmcp import Context as MCPContext
@@ -18,6 +19,7 @@ from mcp.server.fastmcp import FastMCP
 
 from hanzo_mcp.tools.common.context import create_tool_context
 from hanzo_mcp.tools.common.permissions import PermissionManager
+from hanzo_mcp.tools.common.session import SessionManager
 from hanzo_mcp.tools.shell.base import CommandResult
 
 
@@ -40,6 +42,9 @@ class CommandExecutor:
         """
         self.permission_manager: PermissionManager = permission_manager
         self.verbose: bool = verbose
+
+        # Session management (initialized on first use with session ID)
+        self.session_manager: Optional[SessionManager] = None
 
         # Excluded commands or patterns
         self.excluded_commands: list[str] = ["rm"]
@@ -72,6 +77,77 @@ class CommandExecutor:
         """
         if command not in self.excluded_commands:
             self.excluded_commands.append(command)
+
+    def _get_preferred_shell(self) -> str:
+        """Get the best available shell for the current environment.
+        
+        Tries to find the best shell in this order:
+        1. User's SHELL environment variable
+        2. zsh
+        3. bash
+        4. fish
+        5. sh (fallback)
+        
+        Returns:
+            Path to the preferred shell
+        """
+        # First check the SHELL environment variable
+        user_shell = os.environ.get("SHELL")
+        if user_shell and os.path.exists(user_shell):
+            return user_shell
+        
+        # Try common shells in order of preference
+        shell_paths = [
+            "/bin/zsh",
+            "/usr/bin/zsh",
+            "/bin/bash",
+            "/usr/bin/bash",
+            "/bin/fish",
+            "/usr/bin/fish",
+            "/bin/sh",
+            "/usr/bin/sh",
+        ]
+        
+        for shell_path in shell_paths:
+            if os.path.exists(shell_path) and os.access(shell_path, os.X_OK):
+                return shell_path
+        
+        # Fallback to /bin/sh which should exist on most systems
+        return "/bin/sh"
+
+    def get_session_manager(self, session_id: str) -> SessionManager:
+        """Get the session manager for the given session ID.
+
+        Args:
+            session_id: The session ID
+
+        Returns:
+            The session manager instance
+        """
+        return SessionManager.get_instance(session_id)
+
+    def set_working_dir(self, session_id: str, path: str) -> None:
+        """Set the current working directory for the session.
+
+        Args:
+            session_id: The session ID
+            path: The path to set as the current working directory
+        """
+        session = self.get_session_manager(session_id)
+        expanded_path = os.path.expanduser(path)
+        session.set_working_dir(Path(expanded_path))
+
+    def get_working_dir(self, session_id: str) -> str:
+        """Get the current working directory for the session.
+
+        Args:
+            session_id: The session ID
+
+        Returns:
+            The current working directory
+        """
+        session = self.get_session_manager(session_id)
+        return str(session.current_working_dir)
 
     def _log(self, message: str, data: object | None = None) -> None:
         """Log a message if verbose logging is enabled.
@@ -132,15 +208,17 @@ class CommandExecutor:
         env: dict[str, str] | None = None,
         timeout: float | None = 60.0,
         use_login_shell: bool = True,
+        session_id: str | None = None,
     ) -> CommandResult:
         """Execute a shell command with safety checks.
 
         Args:
             command: The command to execute
-            cwd: Optional working directory
+            cwd: Optional working directory (if None, uses session's current working directory)
             env: Optional environment variables
             timeout: Optional timeout in seconds
             use_login_shell: Whether to use login shell. default true (loads ~/.zshrc, ~/.bashrc, etc.)
+            session_id: Optional session ID for persistent working directory
 
         Returns:
             CommandResult containing execution results
@@ -153,17 +231,50 @@ class CommandExecutor:
                 return_code=1, error_message=f"Command not allowed: {command}"
             )
 
+        # Use session working directory if no cwd specified and session_id provided
+        effective_cwd = cwd
+        if session_id and not cwd:
+            effective_cwd = self.get_working_dir(session_id)
+            self._log(f"Using session working directory: {effective_cwd}")
+
+        # Check if it's a cd command and update session working directory
+        is_cd_command = False
+        if session_id and command.strip().startswith("cd "):
+            is_cd_command = True
+            args = shlex.split(command)
+            if len(args) > 1:
+                target_dir = args[1]
+                # Handle relative paths
+                if not os.path.isabs(target_dir):
+                    session_cwd = self.get_working_dir(session_id)
+                    target_dir = os.path.join(session_cwd, target_dir)
+                
+                # Expand user paths
+                target_dir = os.path.expanduser(target_dir)
+                
+                # Normalize path
+                target_dir = os.path.normpath(target_dir)
+                
+                if os.path.isdir(target_dir):
+                    self.set_working_dir(session_id, target_dir)
+                    self._log(f"Updated session working directory: {target_dir}")
+                    return CommandResult(return_code=0, stdout="")
+                else:
+                    return CommandResult(
+                        return_code=1, error_message=f"Directory does not exist: {target_dir}"
+                    )
+
         # Check working directory permissions if specified
-        if cwd:
-            if not os.path.isdir(cwd):
+        if effective_cwd:
+            if not os.path.isdir(effective_cwd):
                 return CommandResult(
                     return_code=1,
-                    error_message=f"Working directory does not exist: {cwd}",
+                    error_message=f"Working directory does not exist: {effective_cwd}",
                 )
 
-            if not self.permission_manager.is_path_allowed(cwd):
+            if not self.permission_manager.is_path_allowed(effective_cwd):
                 return CommandResult(
-                    return_code=1, error_message=f"Working directory not allowed: {cwd}"
+                    return_code=1, error_message=f"Working directory not allowed: {effective_cwd}"
                 )
 
         # Set up environment
@@ -181,8 +292,8 @@ class CommandExecutor:
                 shell_cmd = command
 
                 if use_login_shell:
-                    # Get the user's login shell
-                    user_shell = os.environ.get("SHELL", "/bin/bash")
+                    # Try to find the best available shell
+                    user_shell = self._get_preferred_shell()
                     shell_basename = os.path.basename(user_shell)
 
                     self._log(f"Using login shell: {user_shell}")
@@ -207,7 +318,7 @@ class CommandExecutor:
                     shell_cmd,
                     stdout=asyncio.subprocess.PIPE,
                     stderr=asyncio.subprocess.PIPE,
-                    cwd=cwd,
+                    cwd=effective_cwd,
                     env=command_env,
                 )
             else:
@@ -219,7 +330,7 @@ class CommandExecutor:
                     *args,
                     stdout=asyncio.subprocess.PIPE,
                     stderr=asyncio.subprocess.PIPE,
-                    cwd=cwd,
+                    cwd=effective_cwd,
                     env=command_env,
                 )
 
@@ -259,33 +370,41 @@ class CommandExecutor:
         env: dict[str, str] | None = None,
         timeout: float | None = 60.0,
         use_login_shell: bool = True,
+        session_id: str | None = None,
     ) -> CommandResult:
         """Execute a script with the specified interpreter.
 
         Args:
             script: The script content to execute
             interpreter: The interpreter to use (bash, python, etc.)
-            cwd: Optional working directory
+            cwd: Optional working directory (if None, uses session's current working directory)
             env: Optional environment variables
             timeout: Optional timeout in seconds
             use_login_shell: Whether to use login shell (loads ~/.zshrc, ~/.bashrc, etc.)
+            session_id: Optional session ID for persistent working directory
 
         Returns:
             CommandResult containing execution results
         """
         self._log(f"Executing script with interpreter: {interpreter}")
 
+        # Use session working directory if no cwd specified and session_id provided
+        effective_cwd = cwd
+        if session_id and not cwd:
+            effective_cwd = self.get_working_dir(session_id)
+            self._log(f"Using session working directory: {effective_cwd}")
+
         # Check working directory permissions if specified
-        if cwd:
-            if not os.path.isdir(cwd):
+        if effective_cwd:
+            if not os.path.isdir(effective_cwd):
                 return CommandResult(
                     return_code=1,
-                    error_message=f"Working directory does not exist: {cwd}",
+                    error_message=f"Working directory does not exist: {effective_cwd}",
                 )
 
-            if not self.permission_manager.is_path_allowed(cwd):
+            if not self.permission_manager.is_path_allowed(effective_cwd):
                 return CommandResult(
-                    return_code=1, error_message=f"Working directory not allowed: {cwd}"
+                    return_code=1, error_message=f"Working directory not allowed: {effective_cwd}"
                 )
 
         # Check if we need special handling for this interpreter
@@ -293,11 +412,11 @@ class CommandExecutor:
         if interpreter_name in self.special_interpreters:
             self._log(f"Using special handler for interpreter: {interpreter_name}")
             special_handler = self.special_interpreters[interpreter_name]
-            return await special_handler(interpreter, script, cwd, env, timeout)
+            return await special_handler(interpreter, script, effective_cwd, env, timeout)
 
         # Regular execution
         return await self._execute_script_with_stdin(
-            interpreter, script, cwd, env, timeout, use_login_shell
+            interpreter, script, effective_cwd, env, timeout, use_login_shell
         )
 
     async def _execute_script_with_stdin(
@@ -330,9 +449,9 @@ class CommandExecutor:
         try:
             # Determine if we should use a login shell
             if use_login_shell:
-                # Get the user's login shell
-                user_shell = os.environ.get("SHELL", "/bin/bash")
-                os.path.basename(user_shell)
+                # Try to find the best available shell
+                user_shell = self._get_preferred_shell()
+                shell_basename = os.path.basename(user_shell)
 
                 self._log(f"Using login shell for interpreter: {user_shell}")
 
@@ -342,10 +461,9 @@ class CommandExecutor:
                 # Create and run the process with shell
                 process = await asyncio.create_subprocess_shell(
                     shell_cmd,
-                    stdin=asyncio.subprocess.PIPE,
                     stdout=asyncio.subprocess.PIPE,
                     stderr=asyncio.subprocess.PIPE,
-                    cwd=cwd,
+                    cwd=effective_cwd,
                     env=command_env,
                 )
             else:
@@ -358,7 +476,7 @@ class CommandExecutor:
                     stdin=asyncio.subprocess.PIPE,
                     stdout=asyncio.subprocess.PIPE,
                     stderr=asyncio.subprocess.PIPE,
-                    cwd=cwd,
+                    cwd=effective_cwd,
                     env=command_env,
                 )
 
@@ -475,6 +593,7 @@ class CommandExecutor:
         timeout: float | None = 60.0,
         args: list[str] | None = None,
         use_login_shell: bool = True,
+        session_id: str | None = None,
     ) -> CommandResult:
         """Execute a script by writing it to a temporary file and executing it.
 
@@ -484,15 +603,21 @@ class CommandExecutor:
         Args:
             script: The script content
             language: The script language (determines file extension and interpreter)
-            cwd: Optional working directory
+            cwd: Optional working directory (if None, uses session's current working directory)
             env: Optional environment variables
             timeout: Optional timeout in seconds
             args: Optional command-line arguments
             use_login_shell: Whether to use login shell. default true (loads ~/.zshrc, ~/.bashrc, etc.)
+            session_id: Optional session ID for persistent working directory
 
         Returns:
             CommandResult containing execution results
         """
+        # Use session working directory if no cwd specified and session_id provided
+        effective_cwd = cwd
+        if session_id and not cwd:
+            effective_cwd = self.get_working_dir(session_id)
+            self._log(f"Using session working directory: {effective_cwd}")
         # Language to interpreter mapping
         language_map: dict[str, dict[str, str]] = {
             "python": {
@@ -560,9 +685,9 @@ class CommandExecutor:
         try:
             # Determine if we should use a login shell
             if use_login_shell:
-                # Get the user's login shell
-                user_shell = os.environ.get("SHELL", "/bin/bash")
-                os.path.basename(user_shell)
+                # Try to find the best available shell
+                user_shell = self._get_preferred_shell()
+                shell_basename = os.path.basename(user_shell)
 
                 self._log(f"Using login shell for script execution: {user_shell}")
 
@@ -581,7 +706,7 @@ class CommandExecutor:
                     shell_cmd,
                     stdout=asyncio.subprocess.PIPE,
                     stderr=asyncio.subprocess.PIPE,
-                    cwd=cwd,
+                    cwd=effective_cwd,
                     env=command_env,
                 )
             else:
@@ -597,7 +722,7 @@ class CommandExecutor:
                     *cmd_args,
                     stdout=asyncio.subprocess.PIPE,
                     stderr=asyncio.subprocess.PIPE,
-                    cwd=cwd,
+                    cwd=effective_cwd,
                     env=command_env,
                 )
 
@@ -677,8 +802,17 @@ class CommandExecutor:
             tool_ctx.set_tool_info("run_command")
             await tool_ctx.info(f"Executing command: {command}")
 
+            # Use request_id as session_id for persistent working directory
+            session_id = ctx.request_id
+
             # Run validations and execute
-            result = await self.execute_command(command, cwd, timeout=30.0, use_login_shell=use_login_shell)
+            result = await self.execute_command(
+                command, 
+                cwd, 
+                timeout=30.0, 
+                use_login_shell=use_login_shell,
+                session_id=session_id
+            )
             
             if result.is_success:
                 return result.stdout
@@ -697,6 +831,9 @@ class CommandExecutor:
             tool_ctx = create_tool_context(ctx)
             tool_ctx.set_tool_info("run_script")
             
+            # Use request_id as session_id for persistent working directory
+            session_id = ctx.request_id
+            
             # Execute the script
             result = await self.execute_script(
                 script=script,
@@ -704,6 +841,7 @@ class CommandExecutor:
                 cwd=cwd,
                 timeout=30.0,
                 use_login_shell=use_login_shell,
+                session_id=session_id,
             )
             
             if result.is_success:
@@ -724,6 +862,9 @@ class CommandExecutor:
             tool_ctx = create_tool_context(ctx)
             tool_ctx.set_tool_info("script_tool")
             
+            # Use request_id as session_id for persistent working directory
+            session_id = ctx.request_id
+            
             # Execute the script
             result = await self.execute_script_from_file(
                 script=script,
@@ -731,7 +872,8 @@ class CommandExecutor:
                 cwd=cwd,
                 timeout=30.0,
                 args=args,
-                use_login_shell=use_login_shell
+                use_login_shell=use_login_shell,
+                session_id=session_id
             )
             
             if result.is_success:

@@ -33,7 +33,7 @@ def main() -> None:
         "--allow-path",
         action="append",
         dest="allowed_paths",
-        help="Add an allowed path (can be specified multiple times)",
+        help="Add an allowed path (can be specified multiple times, defaults to user's home directory)",
     )
 
     _ = parser.add_argument(
@@ -110,18 +110,31 @@ def main() -> None:
         install_claude_desktop_config(name, allowed_paths)
         return
 
-    # If no allowed paths are specified, use the current directory
+    # If no allowed paths are specified, use the user's home directory
     if not allowed_paths:
-        allowed_paths = [os.getcwd()]
+        allowed_paths = [str(Path.home())]
 
     # If project directory is specified, add it to allowed paths
     if project_dir and project_dir not in allowed_paths:
         allowed_paths.append(project_dir)
 
+    # Set project directory as initial working directory if provided
+    if project_dir:
+        # Expand user paths
+        project_dir = os.path.expanduser(project_dir)
+        # Make absolute
+        if not os.path.isabs(project_dir):
+            project_dir = os.path.abspath(project_dir)
+
+    # If no specific project directory, use the first allowed path
+    elif allowed_paths:
+        project_dir = allowed_paths[0]
+
     # Run the server
     server = HanzoServer(
         name=name, 
         allowed_paths=allowed_paths,
+        project_dir=project_dir,  # Pass project_dir for initial working directory
         agent_model=agent_model,
         agent_max_tokens=agent_max_tokens,
         agent_api_key=agent_api_key,

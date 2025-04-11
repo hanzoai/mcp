@@ -179,7 +179,9 @@ class DocumentContext:
         Args:
             path: The path to allow
         """
-        resolved_path: Path = Path(path).resolve()
+        # Expand user path (e.g., ~/ or $HOME)
+        expanded_path = os.path.expanduser(path)
+        resolved_path: Path = Path(expanded_path).resolve()
         self.allowed_paths.add(resolved_path)
 
     def is_path_allowed(self, path: str) -> bool:
@@ -191,7 +193,9 @@ class DocumentContext:
         Returns:
             True if the path is allowed, False otherwise
         """
-        resolved_path: Path = Path(path).resolve()
+        # Expand user path (e.g., ~/ or $HOME)
+        expanded_path = os.path.expanduser(path)
+        resolved_path: Path = Path(expanded_path).resolve()
 
         # Check if the path is within any allowed path
         for allowed_path in self.allowed_paths:
