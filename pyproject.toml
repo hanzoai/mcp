@@ -36,7 +36,7 @@ performance = ["ujson>=5.7.0", "orjson>=3.9.0"]
 publish = ["twine>=4.0.2", "build>=1.0.3"]
 
 [project.scripts]
-claudecode = "hanzo_mcp.cli:main"
+hanzo-mcp = "hanzo_mcp.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["."]

@@ -73,7 +73,7 @@ Configure Claude Desktop to use this server by adding the following to your Clau
       "args": [
         "--from",
         "hanzo-mcp",
-        "claudecode",
+        "hanzo-mcp",
         "--allow-path",
         "/path/to/your/project"
       ]
@@ -96,7 +96,7 @@ You can customize the server using other options:
       "args": [
         "--from",
         "hanzo-mcp",
-        "claudecode",
+        "hanzo-mcp",
         "--allow-path",
         "/path/to/project",
         "--name",
@@ -121,7 +121,7 @@ You can customize the agent behavior by specifying the LLM model and token limit
       "args": [
         "--from",
         "hanzo-mcp",
-        "claudecode",
+        "hanzo-mcp",
         "--allow-path",
         "/path/to/project",
         "--enable-agent-tool",
