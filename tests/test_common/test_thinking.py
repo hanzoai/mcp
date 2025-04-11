@@ -3,7 +3,7 @@
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from hanzo_mcp.tools.common.thinking_tool import ThinkingTool
+from hanzo_mcp.tools.common.think_tool import ThinkingTool
 from hanzo_mcp.tools.common.base import ToolRegistry
 
 
@@ -16,22 +16,22 @@ def mcp_server():
 
 
 @pytest.fixture
-def thinking_tool():
+def think_tool():
     """Create a ThinkingTool instance."""
     return ThinkingTool()
 
 
 @pytest.mark.asyncio
-async def test_think_tool_registration(mcp_server, thinking_tool):
+async def test_think_tool_registration(mcp_server, think_tool):
     """Test that the think tool is registered correctly."""
     # Test registration using ToolRegistry
-    ToolRegistry.register_tool(mcp_server, thinking_tool)
+    ToolRegistry.register_tool(mcp_server, think_tool)
     # Check if tool was registered
     assert mcp_server.tool.called
 
 
 @pytest.mark.asyncio
-async def test_think_with_valid_thought(thinking_tool, mcp_context):
+async def test_think_with_valid_thought(think_tool, mcp_context):
     """Test the think tool with a valid thought."""
     # Mock context calls
     tool_ctx = MagicMock()
@@ -42,12 +42,12 @@ async def test_think_with_valid_thought(thinking_tool, mcp_context):
 
     # Patch the create_tool_context function
     with patch(
-        "hanzo_mcp.tools.common.thinking_tool.create_tool_context",
+        "hanzo_mcp.tools.common.think_tool.create_tool_context",
         return_value=tool_ctx,
     ):
         # Test the tool's call method directly
         thought = "I should check if the file exists before trying to read it."
-        result = await thinking_tool.call(ctx=mcp_context, thought=thought)
+        result = await think_tool.call(ctx=mcp_context, thought=thought)
 
         # Check that the function behaved correctly
         tool_ctx.set_tool_info.assert_called_once_with("think")
@@ -56,7 +56,7 @@ async def test_think_with_valid_thought(thinking_tool, mcp_context):
 
 
 @pytest.mark.asyncio
-async def test_think_with_empty_thought(thinking_tool, mcp_context):
+async def test_think_with_empty_thought(think_tool, mcp_context):
     """Test the think tool with an empty thought."""
     # Mock context calls
     tool_ctx = MagicMock()
@@ -67,17 +67,17 @@ async def test_think_with_empty_thought(thinking_tool, mcp_context):
 
     # Patch the create_tool_context function
     with patch(
-        "hanzo_mcp.tools.common.thinking_tool.create_tool_context",
+        "hanzo_mcp.tools.common.think_tool.create_tool_context",
         return_value=tool_ctx,
     ):
         # Test with None thought
-        result_none = await thinking_tool.call(ctx=mcp_context, thought=None)
+        result_none = await think_tool.call(ctx=mcp_context, thought=None)
         assert "Error" in result_none
 
         # Test with empty string thought
-        result_empty = await thinking_tool.call(ctx=mcp_context, thought="")
+        result_empty = await think_tool.call(ctx=mcp_context, thought="")
         assert "Error" in result_empty
 
         # Test with whitespace-only thought
-        result_whitespace = await thinking_tool.call(ctx=mcp_context, thought="   ")
+        result_whitespace = await think_tool.call(ctx=mcp_context, thought="   ")
         assert "Error" in result_whitespace
