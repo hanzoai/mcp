@@ -165,15 +165,30 @@ If you don't specify these options, the agent will use the following environment
 
 ## Publishing to PyPI
 
-If you have the necessary credentials, you can publish updates to PyPI:
+If you have the necessary credentials, you can publish updates to PyPI. Each publish operation automatically creates and pushes a git tag matching the current version.
 
 ```bash
-# Build and publish to PyPI
+# Update the version number
+make bump-patch    # Increment patch version (0.1.x → 0.1.x+1)
+make bump-minor    # Increment minor version (0.x.0 → 0.x+1.0)
+make bump-major    # Increment major version (x.0.0 → x+1.0.0)
+
+# Build, publish, and create git tag
 make publish
+
+# Build, publish with token, and create git tag
+PYPI_TOKEN=your_token make publish
+
+# Combined commands (bump version, publish, create git tag)
+make publish-patch  # Bump patch version, publish, and create git tag
+make publish-minor  # Bump minor version, publish, and create git tag
+make publish-major  # Bump major version, publish, and create git tag
 
 # Build and publish to Test PyPI (for testing)
 make publish-test
 ```
+
+When publishing in CI/CD environments like GitHub Actions, you can set the PYPI_TOKEN as a secret environment variable.
 
 ## Configuring Claude Desktop System Prompt
 

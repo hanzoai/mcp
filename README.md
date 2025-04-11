@@ -100,8 +100,19 @@ make test-cov
 # Build package
 make build
 
-# Publish to PyPI
-make publish
+# Version bumping
+make bump-patch    # Increment patch version (0.1.x → 0.1.x+1)
+make bump-minor    # Increment minor version (0.x.0 → 0.x+1.0)
+make bump-major    # Increment major version (x.0.0 → x+1.0.0)
+
+# Publishing (creates git tag and pushes it to GitHub)
+make publish                     # Publish using configured credentials in .pypirc
+PYPI_TOKEN=your_token make publish  # Publish with token from environment variable
+
+# Version bump and publish in one step (with automatic git tagging)
+make publish-patch  # Bump patch version, publish, and create git tag
+make publish-minor  # Bump minor version, publish, and create git tag
+make publish-major  # Bump major version, publish, and create git tag
 
 # Publish to Test PyPI
 make publish-test
