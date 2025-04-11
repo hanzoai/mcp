@@ -153,6 +153,8 @@ Automatic version management:
 - Patch, minor, major version bumping
 - Git tagging for releases
 - PyPI publishing with version tracking
+- Version defined in `hanzo_mcp/__init__.py` as `__version__`
+- Version tool directly imports this value for consistency
 
 ## Implementation Notes
 
@@ -219,4 +221,4 @@ When extending the project, consider these key areas:
 ## User Commands
 
 - /init: Investigate project structure and generate LLM.md
-- /version: Display the current version of hanzo-mcp
+- /version: Display the current version of hanzo-mcp (implemented in `tools/common/version_tool.py`, reads version directly from `hanzo_mcp.__version__`)
