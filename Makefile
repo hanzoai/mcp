@@ -38,11 +38,11 @@ setup: install-python venv install
 
 # Install Python using uv
 install-python:
-	$(UV) python install 3.13
+	$(UV) python install 3.12
 
 # Create virtual environment using uv and install package
 venv:
-	$(UV) venv $(VENV_NAME) --python=3.13
+	$(UV) venv $(VENV_NAME) --python=3.12
 	$(call run_in_venv, $(UV) pip install -e ".")
 
 # Install the package
