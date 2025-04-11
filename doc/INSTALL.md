@@ -1,10 +1,69 @@
-## Getting Started
+# Installation Guide
 
-### Usage
+## Prerequisites
 
-#### Configuring Claude Desktop
+- [uv](https://github.com/astral-sh/uv) - Fast Python package installer and resolver
 
-You can run it with `uvx run hanzo-mcp` without installation. Configure Claude Desktop to use this server by adding the following to your Claude Desktop configuration file:
+If you don't have `uv` installed, you can install it following the [official instructions](https://github.com/astral-sh/uv#installation).
+
+## Installation Options
+
+### Quick Install
+
+The quickest way to install and run without setting up a development environment:
+
+```bash
+# Install directly from PyPI
+uv pip install hanzo-mcp
+```
+
+### Development Setup
+
+For contributing or modifying the code:
+
+```bash
+# Clone the repository
+git clone https://github.com/hanzoai/mcp.git
+cd mcp
+
+# Install Python 3.13 (if not already installed)
+make install-python
+
+# Create a virtual environment and install dependencies
+make install-dev
+
+# Activate the virtual environment
+# On Unix/macOS
+source .venv/bin/activate
+# On Windows
+.venv\Scripts\activate
+```
+
+## Running Tests
+
+After setting up the development environment:
+
+```bash
+# Run the tests
+make test
+
+# Run tests with coverage report
+make test-cov
+```
+
+## Usage
+
+### Running with uvx
+
+You can run it without installation using uvx:
+
+```bash
+uvx run hanzo-mcp
+```
+
+### Configuring Claude Desktop
+
+Configure Claude Desktop to use this server by adding the following to your Claude Desktop configuration file:
 
 ```json
 {
@@ -25,7 +84,7 @@ You can run it with `uvx run hanzo-mcp` without installation. Configure Claude D
 
 Make sure to replace `/path/to/your/project` with the actual path to the project you want Claude to access.
 
-#### Advanced Configuration Options
+### Advanced Configuration Options
 
 You can customize the server using other options:
 
@@ -50,7 +109,7 @@ You can customize the server using other options:
 }
 ```
 
-#### LLM Model and Token Configuration
+### LLM Model and Token Configuration
 
 You can customize the agent behavior by specifying the LLM model and token limits:
 
@@ -104,17 +163,19 @@ If you don't specify these options, the agent will use the following environment
 - `AGENT_MAX_TOKENS`: Maximum tokens for model responses
 - `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`: API keys for respective providers
 
-#### Agent Tool Configuration
+## Publishing to PyPI
 
-The agent tool allows Claude to delegate tasks to specialized sub-agents. By default, the agent tool is disabled. You can enable and configure it using these options:
+If you have the necessary credentials, you can publish updates to PyPI:
 
-- `--enable-agent-tool`: Enable the agent tool functionality
-- `--agent-max-iterations`: Control the maximum number of back-and-forth interactions an agent can have (default: 10)
-- `--agent-max-tool-uses`: Control the maximum number of tool calls an agent can make (default: 30)
+```bash
+# Build and publish to PyPI
+make publish
 
-Enabling the agent tool can improve Claude's ability to handle complex tasks by allowing it to delegate to specialized sub-agents. However, it requires setting up an LLM provider with a valid API key.
+# Build and publish to Test PyPI (for testing)
+make publish-test
+```
 
-### Configuring Claude Desktop System Prompt
+## Configuring Claude Desktop System Prompt
 
 To get the best experience with Hanzo, you need to add the provided system prompt to your Claude Desktop client. This system prompt guides Claude through a structured workflow for code modifications and project management.
 

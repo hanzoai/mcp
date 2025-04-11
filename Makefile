@@ -1,91 +1,101 @@
-.PHONY: install test lint clean dev venv
+.PHONY: install test lint clean dev venv build publish setup
 
-# Virtual environment detection and activation
+# Virtual environment settings
 VENV_NAME ?= .venv
 
 # Detect OS for proper path handling
 ifeq ($(OS),Windows_NT)
 	VENV_ACTIVATE = $(VENV_NAME)\Scripts\activate
-	VENV_TEST = $(VENV_NAME)\Scripts\pytest.exe
-	VENV_PYTHON = $(VENV_NAME)\Scripts\python.exe
+	PYTHON_BIN = $(VENV_NAME)\Scripts\python.exe
 	RM_CMD = rmdir /s /q
 	CP = copy
 	SEP = \\
-	ACTIVATE_CMD = call
 else
 	VENV_ACTIVATE = $(VENV_NAME)/bin/activate
-	VENV_TEST = $(VENV_NAME)/bin/pytest
-	VENV_PYTHON = $(VENV_NAME)/bin/python
+	PYTHON_BIN = $(VENV_NAME)/bin/python
 	RM_CMD = rm -rf
 	CP = cp
 	SEP = /
-	ACTIVATE_CMD = .
 endif
 
-# Python interpreter
-PYTHON = python
-# Path to package manager (uv or pip)
-# Check if uv is available, otherwise use plain pip
-UV := $(shell command -v uv 2> /dev/null)
-ifeq ($(UV),)
-	PACKAGE_CMD = pip install
-else
-	PACKAGE_CMD = $(UV) pip install
-endif
+# Python and package management commands
+UV = uv
 
 # Project paths
 SRC_DIR = hanzo_mcp
 TEST_DIR = tests
+DIST_DIR = dist
 
-# Create virtual environment
+# Run commands in virtual environment
+define run_in_venv
+	. $(VENV_ACTIVATE) && $(1)
+endef
+
+# Setup everything at once
+setup: install-python venv install
+
+# Install Python using uv
+install-python:
+	$(UV) python install 3.13
+
+# Create virtual environment using uv and install package
 venv:
-	$(PYTHON) -m venv $(VENV_NAME)
-ifeq ($(OS),Windows_NT)
-	@echo "Virtual environment created. Run '$(VENV_ACTIVATE)' to activate it."
-else
-	@echo "Virtual environment created. Run 'source $(VENV_ACTIVATE)' to activate it."
-endif
+	$(UV) venv $(VENV_NAME) --python=3.13
+	$(call run_in_venv, $(UV) pip install -e ".")
 
-install: venv-check
-	$(ACTIVATE_CMD) $(VENV_ACTIVATE) && $(PACKAGE_CMD) -e "."
+# Install the package
+install:
+	$(call run_in_venv, $(UV) pip install -e ".")
 
-uninstall: venv-check
-	$(ACTIVATE_CMD) $(VENV_ACTIVATE) && $(PYTHON) -m pip uninstall -y hanzo-mcp
+uninstall:
+	$(call run_in_venv, $(UV) pip uninstall -y hanzo-mcp)
 
 reinstall: uninstall install
 
-install-dev: venv-check
-	$(ACTIVATE_CMD) $(VENV_ACTIVATE) && $(PACKAGE_CMD) -e ".[dev]"
+# Install development dependencies
+install-dev:
+	$(call run_in_venv, $(UV) pip install -e ".[dev]")
 
-install-test: venv-check
-	$(ACTIVATE_CMD) $(VENV_ACTIVATE) && $(PACKAGE_CMD) -e ".[test]"
+# Install test dependencies
+install-test:
+	$(call run_in_venv, $(UV) pip install -e ".[test]")
 
-test: venv-check
-	$(ACTIVATE_CMD) $(VENV_ACTIVATE) && python -m pytest $(TEST_DIR) --disable-warnings
+# Run tests
+test:
+	$(call run_in_venv, python -m pytest $(TEST_DIR) --disable-warnings)
 
-test-cov: venv-check
-	$(ACTIVATE_CMD) $(VENV_ACTIVATE) && python -m pytest --cov=$(SRC_DIR) $(TEST_DIR)
+# Run tests with coverage
+test-cov:
+	$(call run_in_venv, python -m pytest --cov=$(SRC_DIR) $(TEST_DIR))
 
-lint: venv-check
-	$(ACTIVATE_CMD) $(VENV_ACTIVATE) && ruff check $(SRC_DIR) $(TEST_DIR)
+# Lint code
+lint:
+	$(call run_in_venv, ruff check $(SRC_DIR) $(TEST_DIR))
 
-format: venv-check
-	$(ACTIVATE_CMD) $(VENV_ACTIVATE) && ruff format $(SRC_DIR) $(TEST_DIR)
+# Format code
+format:
+	$(call run_in_venv, ruff format $(SRC_DIR) $(TEST_DIR))
 
+# Clean build artifacts
 clean:
-	$(RM_CMD) .pytest_cache htmlcov .coverage 2>nul || true
-ifeq ($(OS),Windows_NT)
-	for /d /r . %d in (__pycache__) do @if exist "%d" rd /s /q "%d"
-else
-	find . -name "__pycache__" -type d -exec rm -rf {} +
-endif
+	$(RM_CMD) .pytest_cache htmlcov .coverage $(DIST_DIR) 2>/dev/null || true
+	find . -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null || true
 
-# Helper to check for virtual environment
-venv-check:
-	@if [ ! -f $(VENV_ACTIVATE) ]; then \
-		echo "Virtual environment not found. Creating one..." ; \
-		$(MAKE) venv ; \
-	fi
+# Build package distribution files
+build:
+	$(call run_in_venv, $(UV) pip build)
+
+# Publish package to PyPI
+publish: build
+	$(call run_in_venv, $(UV) pip publish)
+
+# Publish package to Test PyPI
+publish-test: build
+	$(call run_in_venv, $(UV) pip publish --repository testpypi)
+
+# Update dependencies
+update-deps:
+	$(call run_in_venv, $(UV) pip compile pyproject.toml -o requirements.txt)
 
 # Default target
-all: test
+all: setup test
