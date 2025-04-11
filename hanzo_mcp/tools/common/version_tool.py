@@ -1,9 +1,6 @@
 """Version tool for displaying project version information."""
 
-import importlib.metadata
-import os
-import tomllib
-from typing import Any, Dict, TypedDict, cast, final, override
+from typing import Any, Dict, TypedDict, final, override
 
 from mcp.server.fastmcp import Context as MCPContext
 from mcp.server.fastmcp import FastMCP
@@ -101,21 +98,10 @@ class VersionTool(BaseTool):
         Returns:
             A dictionary containing the package name and version
         """
-        try:
-            version = importlib.metadata.version("hanzo-mcp")
-        except importlib.metadata.PackageNotFoundError:
-            # If package not installed, try to read from pyproject.toml
-            try:
-                root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
-                toml_path = os.path.join(root_dir, "pyproject.toml")
-                
-                with open(toml_path, "rb") as f:
-                    pyproject = tomllib.load(f)
-                    version = cast(str, pyproject.get("project", {}).get("version", "unknown"))
-            except Exception:
-                version = "unknown"
+        # Directly use the __version__ from the hanzo_mcp package
+        from hanzo_mcp import __version__
         
-        return {"version": version, "package_name": "hanzo-mcp"}
+        return {"version": __version__, "package_name": "hanzo-mcp"}
         
     @override
     def register(self, mcp_server: FastMCP) -> None:
