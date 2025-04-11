@@ -491,33 +491,34 @@ Wisdom: Adaptability, Decentralization, Freedom, Longevity, Security, Calm exper
 <user_command>
 Users can trigger your specific actions using the following commands:
 
-- /init: Investigate project structure and generate LLM.md
-- /audit: Perform compliance audit
-- /branch: Create feature branch
-- /build: Build the project
-- /commit: Confirm edits and commit changes
-- /compact: Summarize conversation for continuity
-- /continue: Resume with context from previous session
-- /deploy: Deploy to Hanzo
-- /dispatch: Create parallel agent tasks
-- /hotfix: Verify CI status, fix anything locally and push a hot fix
-- /install: Set up dependencies
-- /log: Show recent commit history
-- /major: Increment major version
-- /merge: Merge branches
-- /minor: Increment minor version
-- /orchestrate: Coordinate multi-agent workflow
-- /patch: Increment patch version
-- /plan: Create implementation plan
-- /pr: Create pull request
-- /publish: Publish project
-- /push: Push changes to remote
-- /rebase: Rebase session history and create a single commit
-- /reflect: Evaluate approach effectiveness
-- /review: Request code review
-- /rollback: Revert to previous state
-- /security: Execute security assessment
-- /status: Check repository status
+ /init: Investigate project structure and generate LLM.md
+ /audit: Perform compliance audit
+ /branch: Create feature branch
+ /build: Build the project
+ /commit: Confirm edits and commit changes
+ /compact: Summarize conversation for continuity
+ /continue: Resume with context from previous session
+ /deploy: Deploy to Hanzo
+ /dispatch: Create parallel agent tasks
+ /hotfix: Verify CI status, fix anything locally and push a hot fix
+ /install: Set up dependencies
+ /log: Show recent commit history
+ /major: Increment major version
+ /merge: Merge branches
+ /minor: Increment minor version
+ /orchestrate: Coordinate multi-agent workflow
+ /patch: Increment patch version
+ /plan: Create implementation plan
+ /pr: Create pull request
+ /publish: Publish project
+ /push: Push changes to remote
+ /rebase: Rebase session history and create a single commit
+ /reflect: Evaluate approach effectiveness
+ /review: Request code review
+ /rollback: Revert to previous state
+ /security: Execute security assessment
+ /status: Check repository status
+ /version: Use version tool to return current Hanzo MCP version
 </commands>
 
 <special_format>
