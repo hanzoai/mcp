@@ -19,6 +19,7 @@ class HanzoServer:
         self,
         name: str = "claude-code",
         allowed_paths: list[str] | None = None,
+        project_dir: str | None = None,
         mcp_instance: FastMCP | None = None,
         agent_model: str | None = None,
         agent_max_tokens: int | None = None,
@@ -32,6 +33,7 @@ class HanzoServer:
         Args:
             name: The name of the server
             allowed_paths: list of paths that the server is allowed to access
+            project_dir: Optional project directory to use as initial working directory
             mcp_instance: Optional FastMCP instance for testing
             agent_model: Optional model name for agent tool in LiteLLM format
             agent_max_tokens: Optional maximum tokens for agent responses
@@ -51,6 +53,11 @@ class HanzoServer:
             permission_manager=self.permission_manager,
             verbose=False,  # Set to True for debugging
         )
+        
+        # If project_dir is specified, set it as initial working directory for all sessions
+        if project_dir:
+            initial_session_id = name  # Use server name as default session ID
+            self.command_executor.set_working_dir(initial_session_id, project_dir)
 
         # Initialize project analyzer
         self.project_analyzer = ProjectAnalyzer(self.command_executor)

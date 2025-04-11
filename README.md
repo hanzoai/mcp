@@ -42,6 +42,16 @@ This project provides an MCP server that implements Hanzo-like functionality, al
 
 ## Getting Started
 
+### Quick Install
+
+```bash
+# Install using uv
+uv pip install hanzo-mcp
+
+# Or using pip
+pip install hanzo-mcp
+```
+
 For detailed installation and configuration instructions, please refer to [INSTALL.md](./doc/INSTALL.md).
 
 Of course, you can also read [USEFUL_PROMPTS](./doc/USEFUL_PROMPTS.md) for some inspiration on how to use hanzo-mcp.
@@ -56,6 +66,48 @@ This implementation follows best practices for securing access to your filesyste
 - Proper error handling and reporting
 
 ## Development
+
+### Setup Development Environment
+
+```bash
+# Clone the repository
+git clone https://github.com/hanzoai/mcp.git
+cd mcp
+
+# Install Python 3.13 using uv
+make install-python
+
+# Setup virtual environment and install dependencies
+make setup
+
+# Or install with development dependencies
+make install-dev
+```
+
+### Testing
+
+```bash
+# Run tests
+make test
+
+# Run tests with coverage
+make test-cov
+```
+
+### Building and Publishing
+
+```bash
+# Build package
+make build
+
+# Publish to PyPI
+make publish
+
+# Publish to Test PyPI
+make publish-test
+```
+
+### Contributing
 
 To contribute to this project:
 
