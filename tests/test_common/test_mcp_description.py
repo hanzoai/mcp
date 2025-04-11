@@ -7,7 +7,7 @@ import pytest
 from unittest.mock import MagicMock
 
 from hanzo_mcp.tools.filesystem.read_files import ReadFilesTool
-from hanzo_mcp.tools.common.thinking_tool import ThinkingTool
+from hanzo_mcp.tools.common.think_tool import ThinkingTool
 from hanzo_mcp.tools.filesystem.edit_file import EditFileTool
 from hanzo_mcp.tools.common.context import DocumentContext
 from hanzo_mcp.tools.common.permissions import PermissionManager
@@ -27,7 +27,7 @@ class TestMCPDescription:
         return MagicMock(spec=PermissionManager)
     
     @pytest.fixture
-    def thinking_tool(self):
+    def think_tool(self):
         """Create a thinking tool."""
         return ThinkingTool()
     
@@ -41,10 +41,10 @@ class TestMCPDescription:
         """Create an edit file tool."""
         return EditFileTool(document_context, permission_manager)
     
-    def test_mcp_description_simple_tool(self, thinking_tool):
+    def test_mcp_description_simple_tool(self, think_tool):
         """Test mcp_description for simple tool with single parameter."""
         # Get the mcp_description
-        mcp_desc = thinking_tool.mcp_description
+        mcp_desc = think_tool.mcp_description
         
         # Verify it contains the base description
         assert "Use the tool to think about something" in mcp_desc
@@ -89,9 +89,9 @@ class TestMCPDescription:
         # Verify it includes return description
         assert "Returns:" in mcp_desc
     
-    def test_mcp_description_format(self, thinking_tool):
+    def test_mcp_description_format(self, think_tool):
         """Test that mcp_description follows proper formatting."""
-        mcp_desc = thinking_tool.mcp_description
+        mcp_desc = think_tool.mcp_description
         
         # Check for proper section spacing
         sections = mcp_desc.split("\n\n")
