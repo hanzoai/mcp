@@ -133,13 +133,15 @@ tag-version:
 	@VERSION=$$(grep 'version =' pyproject.toml | sed 's/version = "\(.*\)"/\1/'); \
 	echo "Creating git tag v$$VERSION"; \
 	git tag -a "v$$VERSION" -m "Release v$$VERSION"; \
+	echo "Pushing changes and tags to remote"; \
+	git push origin main; \
 	git push origin "v$$VERSION"
 
 # Combined version bump and publish targets with tagging
 publish: build _publish tag-version
 
-publish-patch: bump-patch build _publish tag-version
+patch: bump-patch build _publish tag-version
 
-publish-minor: bump-minor build _publish tag-version
+minor: bump-minor build _publish tag-version
 
-publish-major: bump-major build _publish tag-version
+major: bump-major build _publish tag-version

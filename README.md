@@ -114,10 +114,10 @@ python -m scripts.bump_version major  # Increment major version
 make publish                     # Publish using configured credentials in .pypirc
 PYPI_TOKEN=your_token make publish  # Publish with token from environment variable
 
-# Version bump and publish in one step (with automatic git tagging)
-make publish-patch  # Bump patch version, publish, and create git tag
-make publish-minor  # Bump minor version, publish, and create git tag
-make publish-major  # Bump major version, publish, and create git tag
+# Publishing (creates git tag, pushes to GitHub, and publishes to PyPI)
+make patch    # Bump patch version, build, publish, create git tag, and push
+make minor    # Bump minor version, build, publish, create git tag, and push
+make major    # Bump major version, build, publish, create git tag, and push
 
 # Publish to Test PyPI
 make publish-test
