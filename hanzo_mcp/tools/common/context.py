@@ -14,6 +14,8 @@ from typing import Any, ClassVar, final
 from mcp.server.fastmcp import Context as MCPContext
 from mcp.server.lowlevel.helper_types import ReadResourceContents
 
+from hanzo_mcp.tools.common.path_utils import PathUtils
+
 
 @final
 class ToolContext:
@@ -179,9 +181,9 @@ class DocumentContext:
         Args:
             path: The path to allow
         """
-        # Expand user path (e.g., ~/ or $HOME)
-        expanded_path = os.path.expanduser(path)
-        resolved_path: Path = Path(expanded_path).resolve()
+        # Normalize path (expand user paths and make absolute)
+        normalized_path = PathUtils.normalize_path(path)
+        resolved_path: Path = Path(normalized_path).resolve()
         self.allowed_paths.add(resolved_path)
 
     def is_path_allowed(self, path: str) -> bool:
@@ -193,9 +195,9 @@ class DocumentContext:
         Returns:
             True if the path is allowed, False otherwise
         """
-        # Expand user path (e.g., ~/ or $HOME)
-        expanded_path = os.path.expanduser(path)
-        resolved_path: Path = Path(expanded_path).resolve()
+        # Normalize path (expand user paths and make absolute)
+        normalized_path = PathUtils.normalize_path(path)
+        resolved_path: Path = Path(normalized_path).resolve()
 
         # Check if the path is within any allowed path
         for allowed_path in self.allowed_paths:

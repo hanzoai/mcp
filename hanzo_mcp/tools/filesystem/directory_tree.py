@@ -3,12 +3,14 @@
 This module provides the DirectoryTreeTool for viewing file and directory structures.
 """
 
+import os
 from pathlib import Path
 from typing import Any, final, override
 
 from mcp.server.fastmcp import Context as MCPContext
 from mcp.server.fastmcp import FastMCP
 
+from hanzo_mcp.tools.common.path_utils import PathUtils
 from hanzo_mcp.tools.filesystem.base import FilesystemBaseTool
 
 
@@ -137,17 +139,47 @@ requested. Only works within allowed directories."""
             if not is_dir:
                 return error_msg
 
-            # Define filtered directories
+            # Define filtered directories based on common patterns and .gitignore
             FILTERED_DIRECTORIES = {
-                ".git", "node_modules", ".venv", "venv", 
-                "__pycache__", ".pytest_cache", ".idea", 
-                ".vs", ".vscode", "dist", "build", "target",
-                ".ruff_cache",".llm-context"
+                # Hidden/dot directories
+                ".git", ".github", ".gitignore", ".hg", ".svn", ".venv", ".env",
+                ".idea", ".vscode", ".vs", ".cache", ".config", ".local",
+                ".pytest_cache", ".ruff_cache", ".mypy_cache", ".pytype",
+                ".coverage", ".tox", ".nox", ".circleci", ".llm-context",
+                # Cache directories
+                "__pycache__", ".ipynb_checkpoints", "htmlcov", ".eggs",
+                # Build artifacts
+                "dist", "build", "target", "out", "site", "coverage", 
+                # Dependency directories
+                "node_modules", "venv", "env", "ENV", "lib", "libs", "vendor",
+                "eggs", "sdist", "wheels", "share"
             }
             
             # Log filtering settings
             await tool_ctx.info(f"Directory tree filtering: include_filtered={include_filtered}")
             
+            # Try to get additional patterns from .gitignore if it exists
+            gitignore_patterns = set()
+            gitignore_path = dir_path / ".gitignore"
+            if gitignore_path.exists() and gitignore_path.is_file():
+                try:
+                    with open(gitignore_path, "r") as f:
+                        for line in f:
+                            line = line.strip()
+                            if line and not line.startswith("#"):
+                                # Strip trailing slashes for directory patterns
+                                if line.endswith("/"):
+                                    line = line[:-1]
+                                # Extract the actual pattern without path
+                                pattern = line.split("/")[-1]
+                                if pattern and "*" not in pattern and "?" not in pattern:
+                                    gitignore_patterns.add(pattern)
+                except Exception as e:
+                    await tool_ctx.warning(f"Error reading .gitignore: {str(e)}")
+            
+            # Add gitignore patterns to filtered directories
+            FILTERED_DIRECTORIES.update(gitignore_patterns)
+                
             # Check if a directory should be filtered
             def should_filter(current_path: Path) -> bool:
                 # Don't filter if it's the explicitly requested path
@@ -155,8 +187,15 @@ requested. Only works within allowed directories."""
                     # Don't filter explicitly requested paths
                     return False
                     
-                # Filter based on directory name if filtering is enabled
-                return current_path.name in FILTERED_DIRECTORIES and not include_filtered
+                # First check standard filtered directories
+                if current_path.name in FILTERED_DIRECTORIES and not include_filtered:
+                    return True
+                    
+                # Also filter hidden directories (dot directories) unless explicitly included
+                if PathUtils.is_dot_directory(current_path) and not include_filtered:
+                    return True
+                    
+                return False
             
             # Track stats for summary
             stats = {

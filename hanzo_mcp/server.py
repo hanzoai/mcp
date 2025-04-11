@@ -6,6 +6,7 @@ from mcp.server.fastmcp import FastMCP
 
 from hanzo_mcp.tools import register_all_tools
 from hanzo_mcp.tools.common.context import DocumentContext
+from hanzo_mcp.tools.common.path_utils import PathUtils
 from hanzo_mcp.tools.common.permissions import PermissionManager
 from hanzo_mcp.tools.project.analysis import ProjectAnalyzer, ProjectManager
 from hanzo_mcp.tools.shell.command_executor import CommandExecutor
@@ -70,8 +71,10 @@ class HanzoServer:
         # Add allowed paths
         if allowed_paths:
             for path in allowed_paths:
-                self.permission_manager.add_allowed_path(path)
-                self.document_context.add_allowed_path(path)
+                # Path should already be normalized from CLI, but normalize here for safety
+                normalized_path = PathUtils.normalize_path(path)
+                self.permission_manager.add_allowed_path(normalized_path)
+                self.document_context.add_allowed_path(normalized_path)
 
         # Store agent options
         self.agent_model = agent_model
@@ -104,8 +107,10 @@ class HanzoServer:
         # Add allowed paths if provided
         allowed_paths_list = allowed_paths or []
         for path in allowed_paths_list:
-            self.permission_manager.add_allowed_path(path)
-            self.document_context.add_allowed_path(path)
+            # Normalize path before adding
+            normalized_path = PathUtils.normalize_path(path)
+            self.permission_manager.add_allowed_path(normalized_path)
+            self.document_context.add_allowed_path(normalized_path)
 
         # Run the server
         transport_type = cast(Literal["stdio", "sse"], transport)
