@@ -1,4 +1,4 @@
-.PHONY: install test lint clean dev venv build publish setup
+.PHONY: install test lint clean dev venv build _publish publish setup bump-patch bump-minor bump-major publish-patch publish-minor publish-major tag-version
 
 # Virtual environment settings
 VENV_NAME ?= .venv
@@ -92,12 +92,20 @@ build: clean install-publish
 	$(call run_in_venv, python -m build)
 
 # Publish package to PyPI
-publish: build
+_publish:
+ifdef PYPI_TOKEN
+	$(call run_in_venv, TWINE_USERNAME=__token__ TWINE_PASSWORD=$(PYPI_TOKEN) python -m twine upload $(DIST_DIR)/*)
+else
 	$(call run_in_venv, python -m twine upload $(DIST_DIR)/*)
+endif
 
 # Publish package to Test PyPI
 publish-test: build
+ifdef PYPI_TOKEN
+	$(call run_in_venv, TWINE_USERNAME=__token__ TWINE_PASSWORD=$(PYPI_TOKEN) python -m twine upload --repository testpypi $(DIST_DIR)/*)
+else
 	$(call run_in_venv, python -m twine upload --repository testpypi $(DIST_DIR)/*)
+endif
 
 # Check the package
 check: build
@@ -106,3 +114,54 @@ check: build
 # Update dependencies
 update-deps:
 	$(call run_in_venv, $(UV) pip compile pyproject.toml -o requirements.txt)
+
+# Version bumping targets
+bump-patch:
+	@echo "Current version: $$(grep 'version =' pyproject.toml | sed 's/version = "\(.*\)"/\1/')"
+	@python -c "import re; \
+with open('pyproject.toml', 'r') as f: content = f.read(); \
+current = re.search('version = \"([0-9]+)\.([0-9]+)\.([0-9]+)\"', content); \
+major, minor, patch = current.groups(); \
+new_version = f'{major}.{minor}.{int(patch) + 1}'; \
+new_content = re.sub('version = \"[0-9]+\.[0-9]+\.[0-9]+\"', f'version = \"{new_version}\"', content); \
+print(f'Bumping to: {new_version}'); \
+with open('pyproject.toml', 'w') as f: f.write(new_content)"
+
+
+bump-minor:
+	@echo "Current version: $$(grep 'version =' pyproject.toml | sed 's/version = "\(.*\)"/\1/')"
+	@python -c "import re; \
+with open('pyproject.toml', 'r') as f: content = f.read(); \
+current = re.search('version = \"([0-9]+)\.([0-9]+)\.([0-9]+)\"', content); \
+major, minor, patch = current.groups(); \
+new_version = f'{major}.{int(minor) + 1}.0'; \
+new_content = re.sub('version = \"[0-9]+\.[0-9]+\.[0-9]+\"', f'version = \"{new_version}\"', content); \
+print(f'Bumping to: {new_version}'); \
+with open('pyproject.toml', 'w') as f: f.write(new_content)"
+
+bump-major:
+	@echo "Current version: $$(grep 'version =' pyproject.toml | sed 's/version = "\(.*\)"/\1/')"
+	@python -c "import re; \
+with open('pyproject.toml', 'r') as f: content = f.read(); \
+current = re.search('version = \"([0-9]+)\.([0-9]+)\.([0-9]+)\"', content); \
+major, minor, patch = current.groups(); \
+new_version = f'{int(major) + 1}.0.0'; \
+new_content = re.sub('version = \"[0-9]+\.[0-9]+\.[0-9]+\"', f'version = \"{new_version}\"', content); \
+print(f'Bumping to: {new_version}'); \
+with open('pyproject.toml', 'w') as f: f.write(new_content)"
+
+# Tag creation and pushing
+tag-version:
+	@VERSION=$$(grep 'version =' pyproject.toml | sed 's/version = "\(.*\)"/\1/'); \
+	echo "Creating git tag v$$VERSION"; \
+	git tag -a "v$$VERSION" -m "Release v$$VERSION"; \
+	git push origin "v$$VERSION"
+
+# Combined version bump and publish targets with tagging
+publish: build _publish tag-version
+
+patch: bump-patch build _publish tag-version
+
+minor: bump-minor build _publish tag-version
+
+major: bump-major build _publish tag-version
