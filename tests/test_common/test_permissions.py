@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from mcp_claude_code.tools.common.permissions import (
+from hanzo_mcp.tools.common.permissions import (
     PermissibleOperation,
     PermissionManager,
 )

@@ -6,10 +6,10 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from mcp_claude_code.tools.agent.agent_tool import AgentTool
-from mcp_claude_code.tools.common.base import BaseTool
-from mcp_claude_code.tools.common.context import DocumentContext
-from mcp_claude_code.tools.common.permissions import PermissionManager
+from hanzo_mcp.tools.agent.agent_tool import AgentTool
+from hanzo_mcp.tools.common.base import BaseTool
+from hanzo_mcp.tools.common.context import DocumentContext
+from hanzo_mcp.tools.common.permissions import PermissionManager
 
 
 class TestAgentTool:
@@ -38,7 +38,7 @@ class TestAgentTool:
     @pytest.fixture
     def agent_tool(self, document_context, permission_manager, command_executor):
         """Create a test agent tool."""
-        with patch("mcp_claude_code.tools.agent.agent_tool.litellm"):
+        with patch("hanzo_mcp.tools.agent.agent_tool.litellm"):
             # Set environment variable for test
             os.environ["OPENAI_API_KEY"] = "test_key"
             return AgentTool(document_context, permission_manager, command_executor)
@@ -46,7 +46,7 @@ class TestAgentTool:
     @pytest.fixture
     def agent_tool_with_params(self, document_context, permission_manager, command_executor):
         """Create a test agent tool with custom parameters."""
-        with patch("mcp_claude_code.tools.agent.agent_tool.litellm"):
+        with patch("hanzo_mcp.tools.agent.agent_tool.litellm"):
             return AgentTool(
                 document_context=document_context, 
                 permission_manager=permission_manager,
@@ -145,7 +145,7 @@ class TestAgentTool:
         tool_ctx.info = AsyncMock()
         tool_ctx.set_tool_info = AsyncMock()
         
-        with patch("mcp_claude_code.tools.agent.agent_tool.create_tool_context", return_value=tool_ctx):
+        with patch("hanzo_mcp.tools.agent.agent_tool.create_tool_context", return_value=tool_ctx):
             result = await agent_tool.call(ctx=mcp_context)
             
         assert "Error" in result
@@ -163,11 +163,11 @@ class TestAgentTool:
         tool_ctx.get_tools = AsyncMock(return_value=[])
         
         # Mock litellm to raise an error
-        with patch("mcp_claude_code.tools.agent.agent_tool.create_tool_context", return_value=tool_ctx):
-            with patch("mcp_claude_code.tools.agent.agent_tool.litellm.completion", side_effect=RuntimeError("API key error")):
-                with patch("mcp_claude_code.tools.agent.agent_tool.get_allowed_agent_tools", return_value=[]):
-                    with patch("mcp_claude_code.tools.agent.agent_tool.convert_tools_to_openai_functions", return_value=[]):
-                        with patch("mcp_claude_code.tools.agent.agent_tool.get_system_prompt", return_value="System prompt"):
+        with patch("hanzo_mcp.tools.agent.agent_tool.create_tool_context", return_value=tool_ctx):
+            with patch("hanzo_mcp.tools.agent.agent_tool.litellm.completion", side_effect=RuntimeError("API key error")):
+                with patch("hanzo_mcp.tools.agent.agent_tool.get_allowed_agent_tools", return_value=[]):
+                    with patch("hanzo_mcp.tools.agent.agent_tool.convert_tools_to_openai_functions", return_value=[]):
+                        with patch("hanzo_mcp.tools.agent.agent_tool.get_system_prompt", return_value="System prompt"):
                             # Update the test to use a list instead of a string
                             result = await agent_tool.call(ctx=mcp_context, prompts=["Test prompt"])
                 
@@ -187,7 +187,7 @@ class TestAgentTool:
         
         # Mock the _execute_multiple_agents method
         with patch.object(agent_tool, "_execute_multiple_agents", AsyncMock(return_value="Agent result")):
-            with patch("mcp_claude_code.tools.agent.agent_tool.create_tool_context", return_value=tool_ctx):
+            with patch("hanzo_mcp.tools.agent.agent_tool.create_tool_context", return_value=tool_ctx):
                 # Update the test to use a list instead of a string
                 result = await agent_tool.call(ctx=mcp_context, prompts=["Test prompt"])
                 
@@ -211,7 +211,7 @@ class TestAgentTool:
         # Mock the _execute_multiple_agents method
         multi_agent_result = "\n\n---\n\nAgent 1 Result:\nResult 1\n\n---\n\nAgent 2 Result:\nResult 2\n\n---\n\nAgent 3 Result:\nResult 3"
         with patch.object(agent_tool, "_execute_multiple_agents", AsyncMock(return_value=multi_agent_result)):
-            with patch("mcp_claude_code.tools.agent.agent_tool.create_tool_context", return_value=tool_ctx):
+            with patch("hanzo_mcp.tools.agent.agent_tool.create_tool_context", return_value=tool_ctx):
                 result = await agent_tool.call(ctx=mcp_context, prompts=test_prompts)
                 
         assert "Multi-agent execution completed" in result
@@ -230,7 +230,7 @@ class TestAgentTool:
         tool_ctx.info = AsyncMock()
         tool_ctx.error = AsyncMock()
         
-        with patch("mcp_claude_code.tools.agent.agent_tool.create_tool_context", return_value=tool_ctx):
+        with patch("hanzo_mcp.tools.agent.agent_tool.create_tool_context", return_value=tool_ctx):
             # Test with empty list
             result = await agent_tool.call(ctx=mcp_context, prompts=[])
             
@@ -247,7 +247,7 @@ class TestAgentTool:
         tool_ctx.info = AsyncMock()
         tool_ctx.error = AsyncMock()
         
-        with patch("mcp_claude_code.tools.agent.agent_tool.create_tool_context", return_value=tool_ctx):
+        with patch("hanzo_mcp.tools.agent.agent_tool.create_tool_context", return_value=tool_ctx):
             # Test with invalid type (number)
             result = await agent_tool.call(ctx=mcp_context, prompts=123)
             
@@ -277,7 +277,7 @@ class TestAgentTool:
         
         # Set test mode and mock litellm
         os.environ["TEST_MODE"] = "1"
-        with patch("mcp_claude_code.tools.agent.agent_tool.litellm.completion", return_value=mock_response):            
+        with patch("hanzo_mcp.tools.agent.agent_tool.litellm.completion", return_value=mock_response):            
             # Execute the method
             result = await agent_tool._execute_agent_with_tools(
                 "System prompt",
@@ -333,7 +333,7 @@ class TestAgentTool:
         
         # Set test mode and mock litellm
         os.environ["TEST_MODE"] = "1"
-        with patch("mcp_claude_code.tools.agent.agent_tool.litellm.completion", side_effect=[first_response, second_response]):
+        with patch("hanzo_mcp.tools.agent.agent_tool.litellm.completion", side_effect=[first_response, second_response]):
             # Mock any complex dictionary or string processing by directly using the expected values in the test
             with patch.object(json, "loads", return_value={"param": "value"}):
                 result = await agent_tool._execute_agent_with_tools(
@@ -360,9 +360,9 @@ class TestAgentTool:
         test_prompts = ["Task 1", "Task 2"]
         
         # Mock the necessary dependencies
-        with patch("mcp_claude_code.tools.agent.agent_tool.get_allowed_agent_tools", return_value=mock_tools):
-            with patch("mcp_claude_code.tools.agent.agent_tool.get_system_prompt", return_value="System prompt"):
-                with patch("mcp_claude_code.tools.agent.agent_tool.convert_tools_to_openai_functions", return_value=[]):
+        with patch("hanzo_mcp.tools.agent.agent_tool.get_allowed_agent_tools", return_value=mock_tools):
+            with patch("hanzo_mcp.tools.agent.agent_tool.get_system_prompt", return_value="System prompt"):
+                with patch("hanzo_mcp.tools.agent.agent_tool.convert_tools_to_openai_functions", return_value=[]):
                     with patch.object(agent_tool, "_execute_agent_with_tools", side_effect=["Result 1", "Result 2"]):
                         import asyncio
                         with patch.object(asyncio, "gather", AsyncMock(return_value=["Result 1", "Result 2"])):
@@ -388,9 +388,9 @@ class TestAgentTool:
         test_prompts = ["Single task"]
         
         # Mock the necessary dependencies
-        with patch("mcp_claude_code.tools.agent.agent_tool.get_allowed_agent_tools", return_value=mock_tools):
-            with patch("mcp_claude_code.tools.agent.agent_tool.get_system_prompt", return_value="System prompt"):
-                with patch("mcp_claude_code.tools.agent.agent_tool.convert_tools_to_openai_functions", return_value=[]):
+        with patch("hanzo_mcp.tools.agent.agent_tool.get_allowed_agent_tools", return_value=mock_tools):
+            with patch("hanzo_mcp.tools.agent.agent_tool.get_system_prompt", return_value="System prompt"):
+                with patch("hanzo_mcp.tools.agent.agent_tool.convert_tools_to_openai_functions", return_value=[]):
                     with patch.object(agent_tool, "_execute_agent_with_tools", AsyncMock(return_value="Single result")):
                         import asyncio
                         with patch.object(asyncio, "gather", AsyncMock(return_value=["Single result"])):
@@ -417,9 +417,9 @@ class TestAgentTool:
         gather_results = ["Result 1", Exception("Task failed"), "Result 3"]
         
         # Mock the necessary dependencies
-        with patch("mcp_claude_code.tools.agent.agent_tool.get_allowed_agent_tools", return_value=mock_tools):
-            with patch("mcp_claude_code.tools.agent.agent_tool.get_system_prompt", return_value="System prompt"):
-                with patch("mcp_claude_code.tools.agent.agent_tool.convert_tools_to_openai_functions", return_value=[]):
+        with patch("hanzo_mcp.tools.agent.agent_tool.get_allowed_agent_tools", return_value=mock_tools):
+            with patch("hanzo_mcp.tools.agent.agent_tool.get_system_prompt", return_value="System prompt"):
+                with patch("hanzo_mcp.tools.agent.agent_tool.convert_tools_to_openai_functions", return_value=[]):
                     with patch.object(agent_tool, "_execute_agent_with_tools", side_effect=[lambda: "Result 1", lambda: "Result 2", lambda: "Result 3"]):
                         import asyncio
                         with patch.object(asyncio, "gather", AsyncMock(return_value=gather_results)):

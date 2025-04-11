@@ -3,8 +3,8 @@
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from mcp_claude_code.tools.common.thinking_tool import ThinkingTool
-from mcp_claude_code.tools.common.base import ToolRegistry
+from hanzo_mcp.tools.common.thinking_tool import ThinkingTool
+from hanzo_mcp.tools.common.base import ToolRegistry
 
 
 @pytest.fixture
@@ -42,7 +42,7 @@ async def test_think_with_valid_thought(thinking_tool, mcp_context):
 
     # Patch the create_tool_context function
     with patch(
-        "mcp_claude_code.tools.common.thinking_tool.create_tool_context",
+        "hanzo_mcp.tools.common.thinking_tool.create_tool_context",
         return_value=tool_ctx,
     ):
         # Test the tool's call method directly
@@ -67,7 +67,7 @@ async def test_think_with_empty_thought(thinking_tool, mcp_context):
 
     # Patch the create_tool_context function
     with patch(
-        "mcp_claude_code.tools.common.thinking_tool.create_tool_context",
+        "hanzo_mcp.tools.common.thinking_tool.create_tool_context",
         return_value=tool_ctx,
     ):
         # Test with None thought

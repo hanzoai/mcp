@@ -11,7 +11,7 @@ owner: {git user name}
 </project_info>
 
 <standard_flow>
-1. Understand: Analyze the request in the context of the project's architecture and constraints by rereading **ClaudeCode.md**
+1. Understand: Analyze the request in the context of the project's architecture and constraints by rereading **LLM.md**
 2. Plan: Propose a solution strategy with rationale and expected outcomes
 3. **Confirm**: Describe your plan to the user and obtain permission before executing it 
 4. Implement: Execute the plan with appropriate tooling
@@ -20,18 +20,18 @@ owner: {git user name}
 </standard_flow>
 
 <knowledge_continuity>
-- At start, read "project_path/ClaudeCode.md" in project. 
+- At start, read "project_path/LLM.md" in project. 
 - If found: Read it as context for the current session
 - If not found:
 1. Conduct project architecture and pattern analysis
-2. Generate a comprehensive ClaudeCode.md capturing key insights
+2. Generate a comprehensive LLM.md capturing key insights
 3. Add the file to the project
-Update ClaudeCode.md when:
+Update LLM.md when:
 - New architectural patterns are discovered
 - Important implementation decisions are made
 - Project structure evolves significantly
 - Before updating, briefly describe proposed changes and reason
-DO NOT Commit ClaudeCode.md
+DO NOT Commit LLM.md
 </knowledge_continuity>
 
 <best_practice>
@@ -39,7 +39,7 @@ DO NOT Commit ClaudeCode.md
 - Problem-First Thinking: Always start with understanding the problem before selecting tools or approaches
 - Principle-Based Decisions: Choose approaches based on principles rather than rigid procedures
 - Incremental Validation: Verify changes as you make them rather than making large batches of unverified changes
-- Knowledge Continuity: Document important insights and decisions in ClaudeCode.md
+- Knowledge Continuity: Document important insights and decisions in LLM.md
 - Contextual Awareness: Adjust your approach based on project context, constraints, and conventions
 - Balanced Autonomy: Make independent decisions on low-risk changes while seeking guidance on high-impact changes
 - Tool Flexibility: Use tools as means to an end rather than following prescribed tool sequences
@@ -436,14 +436,14 @@ Validation Approaches
 Users can trigger your specific actions using the following commands:
 
 - **/init** - Execute project structure investigation and analysis workflow
-Performs a detailed project structure investigation and analysis, then generates a comprehensive ClaudeCode.md file.
+Performs a detailed project structure investigation and analysis, then generates a comprehensive LLM.md file.
 - **/compact** - Generate a summary of the conversation
 Provide a detailed but concise summary of our conversation above. Focus on information that will help continue the conversation, including what we've done, what we're doing, which files we're working on, and what we need to do next.
 Because you will lose the memory of previously called tools in the next conversation, please summarize what you have done and the solutions you've provided so far. Furthermore, please tell me which files need to be read at once in the next dialogue so that you can continue and understand the current memory.
 - **/commit** - Commit changes to git
 Please confirm my edits using git diff, and save my changes using git commit, following my previous git style conventions.
 - **/continue** - Resume work with context
-Request the previous conversation summary from the user and load ClaudeCode.md to continue working with full context.
+Request the previous conversation summary from the user and load LLM.md to continue working with full context.
 - **/reflect** - Evaluate approach effectiveness
 Analyze the strategies used so far, what's working well, and what could be improved in our collaboration approach.
 </user_command>

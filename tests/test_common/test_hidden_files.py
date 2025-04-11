@@ -4,7 +4,7 @@ import os
 from pathlib import Path
 
 
-from mcp_claude_code.tools.common.permissions import PermissionManager
+from hanzo_mcp.tools.common.permissions import PermissionManager
 
 
 class TestHiddenFilePermissions:
@@ -138,7 +138,7 @@ class TestHiddenFilePermissions:
     def test_real_world_project_paths(self, temp_dir: str):
         """Test with realistic project paths that might be problematic."""
         manager = PermissionManager()
-        base_dir = "/Users/lijie/project/mcp-claude-code"
+        base_dir = "/Users/lijie/project/hanzo-mcp"
         manager.add_allowed_path(base_dir)
 
         # These should all be allowed with the fixed implementation

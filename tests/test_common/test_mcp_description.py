@@ -6,11 +6,11 @@ This module contains tests for the mcp_description method of the BaseTool class.
 import pytest
 from unittest.mock import MagicMock
 
-from mcp_claude_code.tools.filesystem.read_files import ReadFilesTool
-from mcp_claude_code.tools.common.thinking_tool import ThinkingTool
-from mcp_claude_code.tools.filesystem.edit_file import EditFileTool
-from mcp_claude_code.tools.common.context import DocumentContext
-from mcp_claude_code.tools.common.permissions import PermissionManager
+from hanzo_mcp.tools.filesystem.read_files import ReadFilesTool
+from hanzo_mcp.tools.common.thinking_tool import ThinkingTool
+from hanzo_mcp.tools.filesystem.edit_file import EditFileTool
+from hanzo_mcp.tools.common.context import DocumentContext
+from hanzo_mcp.tools.common.permissions import PermissionManager
 
 
 class TestMCPDescription:

@@ -8,11 +8,11 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 if TYPE_CHECKING:
-    from mcp_claude_code.tools.common.context import DocumentContext
-    from mcp_claude_code.tools.common.permissions import PermissionManager
-    from mcp_claude_code.tools.shell.command_executor import CommandExecutor
+    from hanzo_mcp.tools.common.context import DocumentContext
+    from hanzo_mcp.tools.common.permissions import PermissionManager
+    from hanzo_mcp.tools.shell.command_executor import CommandExecutor
 
-from mcp_claude_code.tools.project.analysis import (
+from hanzo_mcp.tools.project.analysis import (
     ProjectAnalysis,
     ProjectAnalyzer,
     ProjectManager,
@@ -444,7 +444,7 @@ class TestProjectAnalysis:
             )
 
             with patch(
-                "mcp_claude_code.tools.project.analysis.create_tool_context",
+                "hanzo_mcp.tools.project.analysis.create_tool_context",
                 return_value=mock_tool_ctx,
             ):
                 # Call the project_analyze_tool

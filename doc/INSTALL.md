@@ -4,7 +4,7 @@
 
 #### Configuring Claude Desktop
 
-You can run it with `uvx run mcp-claude-code` without installation. Configure Claude Desktop to use this server by adding the following to your Claude Desktop configuration file:
+You can run it with `uvx run hanzo-mcp` without installation. Configure Claude Desktop to use this server by adding the following to your Claude Desktop configuration file:
 
 ```json
 {
@@ -13,7 +13,7 @@ You can run it with `uvx run mcp-claude-code` without installation. Configure Cl
       "command": "uvx",
       "args": [
         "--from",
-        "mcp-claude-code",
+        "hanzo-mcp",
         "claudecode",
         "--allow-path",
         "/path/to/your/project"
@@ -36,7 +36,7 @@ You can customize the server using other options:
       "command": "uvx",
       "args": [
         "--from",
-        "mcp-claude-code",
+        "hanzo-mcp",
         "claudecode",
         "--allow-path",
         "/path/to/project",
@@ -61,7 +61,7 @@ You can customize the agent behavior by specifying the LLM model and token limit
       "command": "uvx",
       "args": [
         "--from",
-        "mcp-claude-code",
+        "hanzo-mcp",
         "claudecode",
         "--allow-path",
         "/path/to/project",
@@ -116,7 +116,7 @@ Enabling the agent tool can improve Claude's ability to handle complex tasks by 
 
 ### Configuring Claude Desktop System Prompt
 
-To get the best experience with Claude Code, you need to add the provided system prompt to your Claude Desktop client. This system prompt guides Claude through a structured workflow for code modifications and project management.
+To get the best experience with Hanzo, you need to add the provided system prompt to your Claude Desktop client. This system prompt guides Claude through a structured workflow for code modifications and project management.
 
 Follow these steps:
 

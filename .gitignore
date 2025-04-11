@@ -176,6 +176,6 @@ pyrightconfig.json
 .llm-context
 
 KODING.md
-ClaudeCode.md
+LLM.md
 uv.lock
 run*test.sh

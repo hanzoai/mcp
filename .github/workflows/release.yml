@@ -82,9 +82,9 @@ jobs:
         run: |
           CHANGELOG=$(cat CHANGELOG.md)
           VERSION=$(echo ${{ steps.tag.outputs.tag }} | sed 's/^v//')
-          
+
           echo "Extracting release notes for version $VERSION"
-          
+
           # Extract the release notes for this version
           NOTES=$(awk -v ver="$VERSION" '
           BEGIN { found=0; printing=0; }
@@ -95,16 +95,16 @@ jobs:
           printing { print; }
           END { if (!found) print "No release notes found for version " ver; }
           ' CHANGELOG.md)
-          
+
           # Save to file
           if [ -z "$NOTES" ]; then
             echo "No release notes found for version $VERSION or extraction failed."
-            echo "**Release $VERSION**\n\nPlease check the [CHANGELOG.md](https://github.com/SDGLBL/mcp-claude-code/blob/main/CHANGELOG.md) for more details." > release_notes.md
+            echo "**Release $VERSION**\n\nPlease check the [CHANGELOG.md](https://github.com/hanzoai/mcp/blob/main/CHANGELOG.md) for more details." > release_notes.md
           else
             echo "$NOTES" > release_notes.md
             echo "Successfully extracted release notes for version $VERSION"
           fi
-          
+
           # Display content of release notes file for debugging
           echo "Content of release_notes.md:"
           cat release_notes.md
@@ -113,7 +113,7 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ steps.tag.outputs.tag }}
-          name: MCP Claude Code ${{ steps.tag.outputs.tag }}
+          name: Hanzo MCP ${{ steps.tag.outputs.tag }}
           body_path: release_notes.md
           files: dist/*
         env:
@@ -136,12 +136,12 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.13'
-          
+
       - name: Install publishing dependencies
         run: |
           python -m pip install --upgrade pip
           pip install twine
-          
+
       - name: Publish to PyPI
         env:
           TWINE_USERNAME: __token__

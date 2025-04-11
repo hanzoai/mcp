@@ -4,28 +4,28 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from mcp_claude_code.server import ClaudeCodeServer
+from hanzo_mcp.server import HanzoServer
 
 
-class TestClaudeCodeServer:
-    """Test the ClaudeCodeServer class."""
+class TestHanzoServer:
+    """Test the HanzoServer class."""
 
     @pytest.fixture
-    def server(self) -> tuple[ClaudeCodeServer, MagicMock]:
-        """Create a ClaudeCodeServer instance for testing."""
+    def server(self) -> tuple[HanzoServer, MagicMock]:
+        """Create a HanzoServer instance for testing."""
         with patch("mcp.server.fastmcp.FastMCP") as mock_fastmcp:
             # Create a mock FastMCP instance
             mock_mcp = MagicMock()
             mock_fastmcp.return_value = mock_mcp
 
             # Create the server with the mock MCP
-            server = ClaudeCodeServer(name="test-server", mcp_instance=mock_mcp)
+            server = HanzoServer(name="test-server", mcp_instance=mock_mcp)
 
             # Return both the server and the mock MCP
             yield server, mock_mcp
 
-    def test_initialization(self, server: tuple[ClaudeCodeServer, MagicMock]) -> None:
-        """Test initializing ClaudeCodeServer."""
+    def test_initialization(self, server: tuple[HanzoServer, MagicMock]) -> None:
+        """Test initializing HanzoServer."""
         server_instance, mock_mcp = server
 
         # Verify components were initialized
@@ -42,7 +42,7 @@ class TestClaudeCodeServer:
 
         with (
             patch("mcp.server.fastmcp.FastMCP") as mock_fastmcp,
-            patch("mcp_claude_code.tools.register_all_tools") as mock_register,
+            patch("hanzo_mcp.tools.register_all_tools") as mock_register,
         ):
             # Create mock fastmcp
             mock_mcp = MagicMock()
@@ -53,14 +53,14 @@ class TestClaudeCodeServer:
             doc_context = MagicMock()
 
             # Create the server
-            server = ClaudeCodeServer(name="test-server", mcp_instance=mock_mcp)
+            server = HanzoServer(name="test-server", mcp_instance=mock_mcp)
 
             # Inject our mocks
             server.permission_manager = perm_manager
             server.document_context = doc_context
 
             # Manually call register_all_tools
-            from mcp_claude_code.tools import register_all_tools
+            from hanzo_mcp.tools import register_all_tools
 
             register_all_tools(
                 mock_mcp,
@@ -88,7 +88,7 @@ class TestClaudeCodeServer:
             mock_register.assert_called_once()
 
     @pytest.mark.skip(reason="Cannot run stdio server in a test environment")
-    def test_run(self, server: tuple[ClaudeCodeServer, MagicMock]) -> None:
+    def test_run(self, server: tuple[HanzoServer, MagicMock]) -> None:
         """Test running the server."""
         server_instance, mock_mcp = server
 
@@ -110,7 +110,7 @@ class TestClaudeCodeServer:
 
     @pytest.mark.skip(reason="Cannot run stdio server in a test environment")
     def test_run_with_allowed_paths(
-        self, server: tuple[ClaudeCodeServer, MagicMock]
+        self, server: tuple[HanzoServer, MagicMock]
     ) -> None:
         """Test running the server with additional allowed paths."""
         server_instance, mock_mcp = server
@@ -144,7 +144,7 @@ def test_main() -> None:
     """Test the main function."""
     with (
         patch("argparse.ArgumentParser.parse_args") as mock_parse_args,
-        patch("mcp_claude_code.server.ClaudeCodeServer") as mock_server_class,
+        patch("hanzo_mcp.server.HanzoServer") as mock_server_class,
     ):
         # Mock parsed arguments
         mock_args = MagicMock()
@@ -158,7 +158,7 @@ def test_main() -> None:
         mock_server_class.return_value = mock_server
 
         # Call main
-        from mcp_claude_code.server import main
+        from hanzo_mcp.server import main
 
         main()
 

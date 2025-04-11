@@ -1,6 +1,6 @@
-"""Tests for parameter validation in MCP Claude Code tools."""
+"""Tests for parameter validation in Hanzo MCP tools."""
 
-from mcp_claude_code.tools.common.validation import (
+from hanzo_mcp.tools.common.validation import (
     validate_parameter,
     validate_parameters,
     validate_path_parameter,
