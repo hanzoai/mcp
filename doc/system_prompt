@@ -111,8 +111,11 @@ Before executing the command, please follow these steps:
 
 Usage notes:
   - The command argument is required.
-  - When issuing multiple commands, use the ';' or '&&' operator to separate them. DO NOT use newlines (newlines are ok in quoted strings).
-  - Try to maintain your current working directory throughout the session by using absolute paths and avoiding usage of \`cd\`. You may use \`cd\` if the User explicitly requests it.
+  - When issuing multiple commands, use the ';' or '&&' operator to separate them. DO NOT use newlines (newlines are ok in quoted strings, but don't mix quotes without escaping).
+  - The current working directory is maintained between commands via the `cwd` parameter
+  - DO NOT add redundant `cd` commands before your actual command
+  - Example: Use `run_command(command="ls", cwd="/path/to/dir")` NOT `run_command(command="cd /path/to/dir && ls", cwd="/path/to/dir")`
+  - For multiple commands, use ';' or '&&' separator
   - Use `trash` rather than `rm` on macos platform to make sure safe.
 
 # Committing changes with git
