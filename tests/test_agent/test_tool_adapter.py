@@ -4,11 +4,11 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from mcp_claude_code.tools.agent.tool_adapter import (
+from hanzo_mcp.tools.agent.tool_adapter import (
     convert_tool_parameters,
     convert_tools_to_openai_functions,
 )
-from mcp_claude_code.tools.common.base import BaseTool
+from hanzo_mcp.tools.common.base import BaseTool
 
 
 class TestToolAdapter:

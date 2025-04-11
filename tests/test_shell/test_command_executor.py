@@ -7,9 +7,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 if TYPE_CHECKING:
-    from mcp_claude_code.tools.common.permissions import PermissionManager
+    from hanzo_mcp.tools.common.permissions import PermissionManager
 
-from mcp_claude_code.tools.shell.command_executor import CommandExecutor, CommandResult
+from hanzo_mcp.tools.shell.command_executor import CommandExecutor, CommandResult
 
 
 class TestCommandResult:
@@ -319,7 +319,7 @@ class TestCommandExecutor:
             mock_tool_ctx = AsyncMock()
 
             with patch(
-                "mcp_claude_code.tools.shell.command_executor.create_tool_context",
+                "hanzo_mcp.tools.shell.command_executor.create_tool_context",
                 return_value=mock_tool_ctx,
             ):
                 # Call the run_command tool

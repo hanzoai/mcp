@@ -5,20 +5,20 @@ import json
 from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from mcp_claude_code.tools.filesystem.base import FilesystemBaseTool
+from hanzo_mcp.tools.filesystem.base import FilesystemBaseTool
 
 import pytest
 
 if TYPE_CHECKING:
-    from mcp_claude_code.tools.common.context import DocumentContext
-    from mcp_claude_code.tools.common.permissions import PermissionManager
+    from hanzo_mcp.tools.common.context import DocumentContext
+    from hanzo_mcp.tools.common.permissions import PermissionManager
 
-from mcp_claude_code.tools.filesystem.read_files import ReadFilesTool
-from mcp_claude_code.tools.filesystem.write_file import WriteFileTool
-from mcp_claude_code.tools.filesystem.edit_file import EditFileTool
-from mcp_claude_code.tools.filesystem.directory_tree import DirectoryTreeTool
-from mcp_claude_code.tools.filesystem.search_content import SearchContentTool
-from mcp_claude_code.tools.filesystem.content_replace import ContentReplaceTool
+from hanzo_mcp.tools.filesystem.read_files import ReadFilesTool
+from hanzo_mcp.tools.filesystem.write_file import WriteFileTool
+from hanzo_mcp.tools.filesystem.edit_file import EditFileTool
+from hanzo_mcp.tools.filesystem.directory_tree import DirectoryTreeTool
+from hanzo_mcp.tools.filesystem.search_content import SearchContentTool
+from hanzo_mcp.tools.filesystem.content_replace import ContentReplaceTool
 
 
 class TestReadFilesTool:
@@ -61,7 +61,7 @@ class TestReadFilesTool:
         # Mock the base class method
         with patch.object(FilesystemBaseTool, 'set_tool_context_info', AsyncMock()):
             with patch(
-                "mcp_claude_code.tools.common.context.create_tool_context",
+                "hanzo_mcp.tools.common.context.create_tool_context",
                 return_value=tool_ctx,
             ):
                 result = await read_files_tool.call(mcp_context, paths=test_file)
@@ -84,7 +84,7 @@ class TestReadFilesTool:
         # Mock the base class method
         with patch.object(FilesystemBaseTool, 'set_tool_context_info', AsyncMock()):
             with patch(
-                "mcp_claude_code.tools.common.context.create_tool_context",
+                "hanzo_mcp.tools.common.context.create_tool_context",
                 return_value=tool_ctx,
             ):
                 result = await read_files_tool.call(mcp_context, paths=path)
@@ -113,7 +113,7 @@ class TestReadFilesTool:
         # Mock the base class method
         with patch.object(FilesystemBaseTool, 'set_tool_context_info', AsyncMock()):
             with patch(
-                "mcp_claude_code.tools.common.context.create_tool_context",
+                "hanzo_mcp.tools.common.context.create_tool_context",
                 return_value=tool_ctx,
             ):
                 result = await read_files_tool.call(mcp_context, paths=[test_file, second_file])
@@ -137,7 +137,7 @@ class TestReadFilesTool:
         # Mock the base class method
         with patch.object(FilesystemBaseTool, 'set_tool_context_info', AsyncMock()):
             with patch(
-                "mcp_claude_code.tools.common.context.create_tool_context",
+                "hanzo_mcp.tools.common.context.create_tool_context",
                 return_value=tool_ctx,
             ):
                 result = await read_files_tool.call(mcp_context, paths=[])
@@ -189,7 +189,7 @@ class TestWriteFileTool:
         # Mock the base class method
         with patch.object(FilesystemBaseTool, 'set_tool_context_info', AsyncMock()):
             with patch(
-                "mcp_claude_code.tools.common.context.create_tool_context",
+                "hanzo_mcp.tools.common.context.create_tool_context",
                 return_value=tool_ctx,
             ):
                 result = await write_file_tool.call(mcp_context, path=test_path, content=test_content)
@@ -251,7 +251,7 @@ class TestEditFileTool:
         # Mock the base class method
         with patch.object(FilesystemBaseTool, 'set_tool_context_info', AsyncMock()):
             with patch(
-                "mcp_claude_code.tools.common.context.create_tool_context",
+                "hanzo_mcp.tools.common.context.create_tool_context",
                 return_value=tool_ctx,
             ):
                 result = await edit_file_tool.call(mcp_context, path=test_file, edits=edits, dry_run=False)
@@ -288,7 +288,7 @@ class TestEditFileTool:
         # Mock the base class method
         with patch.object(FilesystemBaseTool, 'set_tool_context_info', AsyncMock()):
             with patch(
-                "mcp_claude_code.tools.common.context.create_tool_context",
+                "hanzo_mcp.tools.common.context.create_tool_context",
                 return_value=tool_ctx,
             ):
                 result = await edit_file_tool.call(mcp_context, path=test_file, edits=edits, dry_run=False)
@@ -323,7 +323,7 @@ class TestEditFileTool:
         # Mock the base class method
         with patch.object(FilesystemBaseTool, 'set_tool_context_info', AsyncMock()):
             with patch(
-                "mcp_claude_code.tools.common.context.create_tool_context",
+                "hanzo_mcp.tools.common.context.create_tool_context",
                 return_value=tool_ctx,
             ):
                 result = await edit_file_tool.call(mcp_context, path=test_file, edits=edits, dry_run=False)
@@ -358,7 +358,7 @@ class TestEditFileTool:
         # Mock the base class method
         with patch.object(FilesystemBaseTool, 'set_tool_context_info', AsyncMock()):
             with patch(
-                "mcp_claude_code.tools.common.context.create_tool_context",
+                "hanzo_mcp.tools.common.context.create_tool_context",
                 return_value=tool_ctx,
             ):
                 result = await edit_file_tool.call(mcp_context, path=test_file, edits=edits, dry_run=False)
@@ -427,7 +427,7 @@ class TestDirectoryTreeTool:
         # Mock the base class method
         with patch.object(FilesystemBaseTool, 'set_tool_context_info', AsyncMock()):
             with patch(
-                "mcp_claude_code.tools.common.context.create_tool_context",
+                "hanzo_mcp.tools.common.context.create_tool_context",
                 return_value=tool_ctx,
             ):
                 result = await directory_tree_tool.call(mcp_context, path=test_dir)
@@ -480,7 +480,7 @@ class TestDirectoryTreeTool:
         # Test with depth=1
         with patch.object(FilesystemBaseTool, 'set_tool_context_info', AsyncMock()):
             with patch(
-                "mcp_claude_code.tools.common.context.create_tool_context",
+                "hanzo_mcp.tools.common.context.create_tool_context",
                 return_value=tool_ctx,
             ):
                 result = await directory_tree_tool.call(mcp_context, path=test_dir, depth=1, include_filtered=False)
@@ -494,7 +494,7 @@ class TestDirectoryTreeTool:
         # Test with deeper depth
         with patch.object(FilesystemBaseTool, 'set_tool_context_info', AsyncMock()):
             with patch(
-                "mcp_claude_code.tools.common.context.create_tool_context",
+                "hanzo_mcp.tools.common.context.create_tool_context",
                 return_value=tool_ctx,
             ):
                 result2 = await directory_tree_tool.call(mcp_context, path=test_dir, depth=2, include_filtered=False)
@@ -508,7 +508,7 @@ class TestDirectoryTreeTool:
         # Test with unlimited depth
         with patch.object(FilesystemBaseTool, 'set_tool_context_info', AsyncMock()):
             with patch(
-                "mcp_claude_code.tools.common.context.create_tool_context",
+                "hanzo_mcp.tools.common.context.create_tool_context",
                 return_value=tool_ctx,
             ):
                 result3 = await directory_tree_tool.call(mcp_context, path=test_dir, depth=0, include_filtered=False)
@@ -565,7 +565,7 @@ class TestDirectoryTreeTool:
         # Test with default filtering (filtered dirs should be marked but not traversed)
         with patch.object(FilesystemBaseTool, 'set_tool_context_info', AsyncMock()):
             with patch(
-                "mcp_claude_code.tools.common.context.create_tool_context",
+                "hanzo_mcp.tools.common.context.create_tool_context",
                 return_value=tool_ctx,
             ):
                 result = await directory_tree_tool.call(mcp_context, path=test_dir)
@@ -583,7 +583,7 @@ class TestDirectoryTreeTool:
         # Test with include_filtered=True
         with patch.object(FilesystemBaseTool, 'set_tool_context_info', AsyncMock()):
             with patch(
-                "mcp_claude_code.tools.common.context.create_tool_context",
+                "hanzo_mcp.tools.common.context.create_tool_context",
                 return_value=tool_ctx,
             ):
                 result2 = await directory_tree_tool.call(mcp_context, path=test_dir, include_filtered=True)
@@ -613,7 +613,7 @@ class TestDirectoryTreeTool:
         # Test direct access to filtered directory
         with patch.object(FilesystemBaseTool, 'set_tool_context_info', AsyncMock()):
             with patch(
-                "mcp_claude_code.tools.common.context.create_tool_context",
+                "hanzo_mcp.tools.common.context.create_tool_context",
                 return_value=tool_ctx,
             ):
                 result3 = await directory_tree_tool.call(mcp_context, path=git_dir)
@@ -638,7 +638,7 @@ class TestDirectoryTreeTool:
         
         with patch.object(FilesystemBaseTool, 'set_tool_context_info', AsyncMock()):
             with patch(
-                "mcp_claude_code.tools.common.context.create_tool_context",
+                "hanzo_mcp.tools.common.context.create_tool_context",
                 return_value=tool_ctx,
             ):
                 result = await directory_tree_tool.call(mcp_context, path=path)
@@ -692,7 +692,7 @@ class TestSearchContentTool:
         
         with patch.object(FilesystemBaseTool, 'set_tool_context_info', AsyncMock()):
             with patch(
-                "mcp_claude_code.tools.common.context.create_tool_context",
+                "hanzo_mcp.tools.common.context.create_tool_context",
                 return_value=tool_ctx,
             ):
                 result = await search_content_tool.call(mcp_context, pattern="searchable", path=test_file_path, file_pattern="*")
@@ -722,7 +722,7 @@ class TestSearchContentTool:
         
         with patch.object(FilesystemBaseTool, 'set_tool_context_info', AsyncMock()):
             with patch(
-                "mcp_claude_code.tools.common.context.create_tool_context",
+                "hanzo_mcp.tools.common.context.create_tool_context",
                 return_value=tool_ctx,
             ):
                 result = await search_content_tool.call(mcp_context, pattern="pattern", path=test_file_path, file_pattern="*.py")
@@ -765,7 +765,7 @@ class TestSearchContentTool:
         # Test searching in all files
         with patch.object(FilesystemBaseTool, 'set_tool_context_info', AsyncMock()):
             with patch(
-                "mcp_claude_code.tools.common.context.create_tool_context",
+                "hanzo_mcp.tools.common.context.create_tool_context",
                 return_value=tool_ctx,
             ):
                 result = await search_content_tool.call(mcp_context, pattern="findable", path=test_dir, file_pattern="*")
@@ -778,7 +778,7 @@ class TestSearchContentTool:
         # Test searching with a file pattern
         with patch.object(FilesystemBaseTool, 'set_tool_context_info', AsyncMock()):
             with patch(
-                "mcp_claude_code.tools.common.context.create_tool_context",
+                "hanzo_mcp.tools.common.context.create_tool_context",
                 return_value=tool_ctx,
             ):
                 result2 = await search_content_tool.call(mcp_context, pattern="findable", path=test_dir, file_pattern="*.py")
@@ -833,7 +833,7 @@ class TestContentReplaceTool:
         
         with patch.object(FilesystemBaseTool, 'set_tool_context_info', AsyncMock()):
             with patch(
-                "mcp_claude_code.tools.common.context.create_tool_context",
+                "hanzo_mcp.tools.common.context.create_tool_context",
                 return_value=tool_ctx,
             ):
                 result = await content_replace_tool.call(
@@ -880,7 +880,7 @@ class TestContentReplaceTool:
         
         with patch.object(FilesystemBaseTool, 'set_tool_context_info', AsyncMock()):
             with patch(
-                "mcp_claude_code.tools.common.context.create_tool_context",
+                "hanzo_mcp.tools.common.context.create_tool_context",
                 return_value=tool_ctx,
             ):
                 result = await content_replace_tool.call(
@@ -937,7 +937,7 @@ class TestContentReplaceTool:
         # Test replacing in all files
         with patch.object(FilesystemBaseTool, 'set_tool_context_info', AsyncMock()):
             with patch(
-                "mcp_claude_code.tools.common.context.create_tool_context",
+                "hanzo_mcp.tools.common.context.create_tool_context",
                 return_value=tool_ctx,
             ):
                 result = await content_replace_tool.call(
@@ -983,7 +983,7 @@ class TestContentReplaceTool:
         # Test replacing with a file pattern - execute the replacement with Python files only
         with patch.object(FilesystemBaseTool, 'set_tool_context_info', AsyncMock()):
             with patch(
-                "mcp_claude_code.tools.common.context.create_tool_context",
+                "hanzo_mcp.tools.common.context.create_tool_context",
                 return_value=tool_ctx,
             ):
                 await content_replace_tool.call(

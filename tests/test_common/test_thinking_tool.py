@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from mcp_claude_code.tools.common.thinking_tool import ThinkingTool
+from hanzo_mcp.tools.common.thinking_tool import ThinkingTool
 
 
 class TestThinkingTool:
@@ -27,7 +27,7 @@ class TestThinkingTool:
         # Mock context calls
         tool_ctx = AsyncMock()
         with patch(
-            "mcp_claude_code.tools.common.thinking_tool.create_tool_context",
+            "hanzo_mcp.tools.common.thinking_tool.create_tool_context",
             return_value=tool_ctx,
         ):
             # Call the tool directly
@@ -44,7 +44,7 @@ class TestThinkingTool:
         # Mock context calls
         tool_ctx = AsyncMock()
         with patch(
-            "mcp_claude_code.tools.common.thinking_tool.create_tool_context",
+            "hanzo_mcp.tools.common.thinking_tool.create_tool_context",
             return_value=tool_ctx,
         ):
             # Call the tool with an empty thought

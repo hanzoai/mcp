@@ -5,14 +5,14 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from mcp_claude_code.tools.agent.prompt import (
+from hanzo_mcp.tools.agent.prompt import (
     get_allowed_agent_tools,
     get_default_model,
     get_model_parameters,
     get_system_prompt,
 )
-from mcp_claude_code.tools.common.base import BaseTool
-from mcp_claude_code.tools.common.permissions import PermissionManager
+from hanzo_mcp.tools.common.base import BaseTool
+from hanzo_mcp.tools.common.permissions import PermissionManager
 
 
 class TestPrompt:

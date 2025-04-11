@@ -6,7 +6,7 @@ To debug your MCP project using the inspector tool, run the following command:
 ```bash
 npx @modelcontextprotocol/inspector \
   uv \
-  --directory ~/project/mcp-claude-code \
+  --directory ~/project/hanzo-mcp \
   run \
   claudecode \
   --allow-path \

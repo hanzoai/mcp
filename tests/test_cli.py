@@ -8,7 +8,7 @@ from typing import Callable
 
 import pytest
 
-from mcp_claude_code.cli import install_claude_desktop_config, main
+from hanzo_mcp.cli import install_claude_desktop_config, main
 
 
 class TestCLI:
@@ -18,7 +18,7 @@ class TestCLI:
         """Test the main function running the server."""
         with (
             patch("argparse.ArgumentParser.parse_args") as mock_parse_args,
-            patch("mcp_claude_code.cli.ClaudeCodeServer") as mock_server_class,
+            patch("hanzo_mcp.cli.HanzoServer") as mock_server_class,
         ):
             # Mock parsed arguments
             mock_args = MagicMock()
@@ -61,7 +61,7 @@ class TestCLI:
         """Test the main function with install option."""
         with (
             patch("argparse.ArgumentParser.parse_args") as mock_parse_args,
-            patch("mcp_claude_code.cli.install_claude_desktop_config") as mock_install,
+            patch("hanzo_mcp.cli.install_claude_desktop_config") as mock_install,
         ):
             # Mock parsed arguments
             mock_args = MagicMock()
@@ -80,7 +80,7 @@ class TestCLI:
         """Test the main function without specified allowed paths."""
         with (
             patch("argparse.ArgumentParser.parse_args") as mock_parse_args,
-            patch("mcp_claude_code.cli.ClaudeCodeServer") as mock_server_class,
+            patch("hanzo_mcp.cli.HanzoServer") as mock_server_class,
             patch("os.getcwd", return_value="/current/dir"),
         ):
             # Mock parsed arguments

@@ -1,10 +1,10 @@
-# MCP Claude Code
+# Hanzo MCP
 
-An implementation of Claude Code capabilities using the Model Context Protocol (MCP).
+An implementation of Hanzo capabilities using the Model Context Protocol (MCP).
 
 ## Overview
 
-This project provides an MCP server that implements Claude Code-like functionality, allowing Claude to directly execute instructions for modifying and improving project files. By leveraging the Model Context Protocol, this implementation enables seamless integration with various MCP clients including Claude Desktop.
+This project provides an MCP server that implements Hanzo-like functionality, allowing Claude to directly execute instructions for modifying and improving project files. By leveraging the Model Context Protocol, this implementation enables seamless integration with various MCP clients including Claude Desktop.
 
 ![example](./doc/example.gif)
 
@@ -44,7 +44,7 @@ This project provides an MCP server that implements Claude Code-like functionali
 
 For detailed installation and configuration instructions, please refer to [INSTALL.md](./doc/INSTALL.md).
 
-Of course, you can also read [USEFUL_PROMPTS](./doc/USEFUL_PROMPTS.md) for some inspiration on how to use mcp-claude-code.
+Of course, you can also read [USEFUL_PROMPTS](./doc/USEFUL_PROMPTS.md) for some inspiration on how to use hanzo-mcp.
 
 ## Security
 

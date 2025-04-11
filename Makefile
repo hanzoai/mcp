@@ -34,7 +34,7 @@ else
 endif
 
 # Project paths
-SRC_DIR = mcp_claude_code
+SRC_DIR = hanzo_mcp
 TEST_DIR = tests
 
 # Create virtual environment
@@ -50,7 +50,7 @@ install: venv-check
 	$(ACTIVATE_CMD) $(VENV_ACTIVATE) && $(PACKAGE_CMD) -e "."
 
 uninstall: venv-check
-	$(ACTIVATE_CMD) $(VENV_ACTIVATE) && $(PYTHON) -m pip uninstall -y mcp-claude-code
+	$(ACTIVATE_CMD) $(VENV_ACTIVATE) && $(PYTHON) -m pip uninstall -y hanzo-mcp
 
 reinstall: uninstall install
 

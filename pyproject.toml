@@ -3,13 +3,13 @@ requires = ["setuptools>=61.0.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "mcp-claude-code"
+name = "hanzo-mcp"
 version = "0.1.20"
-description = "MCP implementation of Claude Code capabilities"
+description = "MCP implementation of Hanzo capabilities"
 readme = "README.md"
 requires-python = ">=3.13"
 license = { text = "MIT" }
-authors = [{ name = "SDGLBL", email = "sdglbl.me@gmail.com" }]
+authors = [{ name = "hanzoai", email = "sdglbl.me@gmail.com" }]
 classifiers = [
   "Programming Language :: Python :: 3",
   "License :: OSI Approved :: MIT License",
@@ -29,15 +29,15 @@ test = [
 performance = ["ujson>=5.7.0", "orjson>=3.9.0"]
 
 [project.scripts]
-claudecode = "mcp_claude_code.cli:main"
+claudecode = "hanzo_mcp.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["mcp_claude_code*"]
+include = ["hanzo_mcp*"]
 
 
 [tool.basedpyright]
-include = ["mcp_claude_code"]
+include = ["hanzo_mcp"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "strict"
