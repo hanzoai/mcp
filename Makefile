@@ -117,38 +117,16 @@ update-deps:
 
 # Version bumping targets
 bump-patch:
-	@echo "Current version: $$(grep 'version =' pyproject.toml | sed 's/version = "\(.*\)"/\1/')"
-	@python -c "import re; \
-with open('pyproject.toml', 'r') as f: content = f.read(); \
-current = re.search('version = \"([0-9]+)\.([0-9]+)\.([0-9]+)\"', content); \
-major, minor, patch = current.groups(); \
-new_version = f'{major}.{minor}.{int(patch) + 1}'; \
-new_content = re.sub('version = \"[0-9]+\.[0-9]+\.[0-9]+\"', f'version = \"{new_version}\"', content); \
-print(f'Bumping to: {new_version}'); \
-with open('pyproject.toml', 'w') as f: f.write(new_content)"
-
+	@echo "Running version bump script (patch)..."
+	@python -m scripts.bump_version patch
 
 bump-minor:
-	@echo "Current version: $$(grep 'version =' pyproject.toml | sed 's/version = "\(.*\)"/\1/')"
-	@python -c "import re; \
-with open('pyproject.toml', 'r') as f: content = f.read(); \
-current = re.search('version = \"([0-9]+)\.([0-9]+)\.([0-9]+)\"', content); \
-major, minor, patch = current.groups(); \
-new_version = f'{major}.{int(minor) + 1}.0'; \
-new_content = re.sub('version = \"[0-9]+\.[0-9]+\.[0-9]+\"', f'version = \"{new_version}\"', content); \
-print(f'Bumping to: {new_version}'); \
-with open('pyproject.toml', 'w') as f: f.write(new_content)"
+	@echo "Running version bump script (minor)..."
+	@python -m scripts.bump_version minor
 
 bump-major:
-	@echo "Current version: $$(grep 'version =' pyproject.toml | sed 's/version = "\(.*\)"/\1/')"
-	@python -c "import re; \
-with open('pyproject.toml', 'r') as f: content = f.read(); \
-current = re.search('version = \"([0-9]+)\.([0-9]+)\.([0-9]+)\"', content); \
-major, minor, patch = current.groups(); \
-new_version = f'{int(major) + 1}.0.0'; \
-new_content = re.sub('version = \"[0-9]+\.[0-9]+\.[0-9]+\"', f'version = \"{new_version}\"', content); \
-print(f'Bumping to: {new_version}'); \
-with open('pyproject.toml', 'w') as f: f.write(new_content)"
+	@echo "Running version bump script (major)..."
+	@python -m scripts.bump_version major
 
 # Tag creation and pushing
 tag-version:
@@ -160,8 +138,8 @@ tag-version:
 # Combined version bump and publish targets with tagging
 publish: build _publish tag-version
 
-patch: bump-patch build _publish tag-version
+publish-patch: bump-patch build _publish tag-version
 
-minor: bump-minor build _publish tag-version
+publish-minor: bump-minor build _publish tag-version
 
-major: bump-major build _publish tag-version
+publish-major: bump-major build _publish tag-version
