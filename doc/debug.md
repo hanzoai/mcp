@@ -8,7 +8,7 @@ npx @modelcontextprotocol/inspector \
   uv \
   --directory ~/project/hanzo-mcp \
   run \
-  claudecode \
+  hanzo-mcp \
   --allow-path \
   {allow path} \
   "--agent-model" \
