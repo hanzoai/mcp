@@ -12,7 +12,7 @@ to delegate tasks to sub-agents for concurrent execution and specialized process
 from mcp.server.fastmcp import FastMCP
 
 from hanzo_mcp.tools.agent import register_agent_tools
-from hanzo_mcp.tools.common import register_thinking_tool
+from hanzo_mcp.tools.common import register_thinking_tool, register_version_tool
 from hanzo_mcp.tools.common.context import DocumentContext
 from hanzo_mcp.tools.common.permissions import PermissionManager
 from hanzo_mcp.tools.filesystem import register_filesystem_tools
@@ -79,3 +79,6 @@ def register_all_tools(
     
     # Initialize and register thinking tool
     register_thinking_tool(mcp_server)
+    
+    # Register version tool
+    register_version_tool(mcp_server)
