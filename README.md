@@ -105,6 +105,11 @@ make bump-patch    # Increment patch version (0.1.x → 0.1.x+1)
 make bump-minor    # Increment minor version (0.x.0 → 0.x+1.0)
 make bump-major    # Increment major version (x.0.0 → x+1.0.0)
 
+# Manual version bumping (alternative to make commands)
+python -m scripts.bump_version patch  # Increment patch version
+python -m scripts.bump_version minor  # Increment minor version
+python -m scripts.bump_version major  # Increment major version
+
 # Publishing (creates git tag and pushes it to GitHub)
 make publish                     # Publish using configured credentials in .pypirc
 PYPI_TOKEN=your_token make publish  # Publish with token from environment variable

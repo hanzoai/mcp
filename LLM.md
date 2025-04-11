@@ -155,6 +155,10 @@ Automatic version management:
 - PyPI publishing with version tracking
 - Version defined in `hanzo_mcp/__init__.py` as `__version__`
 - Version tool directly imports this value for consistency
+- Build-time hooks ensure `__version__` is synchronized with `pyproject.toml`
+- Scripts available for version management:
+  - `scripts/update_version.py`: Updates `__init__.py` from `pyproject.toml`
+  - `scripts/bump_version.py`: Bumps version in `pyproject.toml` and propagates to `__init__.py`
 
 ## Implementation Notes
 
