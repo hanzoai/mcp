@@ -16,7 +16,7 @@ classifiers = [
   "Operating System :: OS Independent",
 ]
 keywords = ["mcp", "claude", "hanzo", "code", "agent"]
-dependencies = ["mcp>=1.3.0", "httpx>=0.27.0", "uvicorn>=0.23.1", "openai>=1.50.0", "python-dotenv>=1.0.0", "litellm>=1.40.14"]
+dependencies = ["mcp>=1.6.0", "httpx>=0.27.0", "uvicorn>=0.23.1", "openai>=1.50.0", "python-dotenv>=1.0.0", "litellm>=1.40.14"]
 
 [project.urls]
 "Homepage" = "https://github.com/hanzoai/mcp"
