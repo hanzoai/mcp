@@ -3,6 +3,7 @@
 from mcp.server.fastmcp import FastMCP
 
 from hanzo_mcp.tools.common.base import ToolRegistry
+from hanzo_mcp.tools.common.path_utils import PathUtils
 from hanzo_mcp.tools.common.think_tool import ThinkingTool
 from hanzo_mcp.tools.common.version_tool import VersionTool
 

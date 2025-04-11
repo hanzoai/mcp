@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any, cast
 
 from hanzo_mcp.server import HanzoServer
+from hanzo_mcp.tools.common.path_utils import PathUtils
 
 
 def main() -> None:
@@ -113,21 +114,18 @@ def main() -> None:
     # If no allowed paths are specified, use the user's home directory
     if not allowed_paths:
         allowed_paths = [str(Path.home())]
+        
+    # Normalize all allowed paths
+    allowed_paths = [PathUtils.normalize_path(path) for path in allowed_paths]
 
-    # If project directory is specified, add it to allowed paths
-    if project_dir and project_dir not in allowed_paths:
-        allowed_paths.append(project_dir)
-
-    # Set project directory as initial working directory if provided
+    # If project directory is specified, normalize it and add to allowed paths
     if project_dir:
-        # Expand user paths
-        project_dir = os.path.expanduser(project_dir)
-        # Make absolute
-        if not os.path.isabs(project_dir):
-            project_dir = os.path.abspath(project_dir)
+        project_dir = PathUtils.normalize_path(project_dir)
+        if project_dir not in allowed_paths:
+            allowed_paths.append(project_dir)
 
     # If no specific project directory, use the first allowed path
-    elif allowed_paths:
+    if not project_dir and allowed_paths:
         project_dir = allowed_paths[0]
 
     # Run the server

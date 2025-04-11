@@ -6,6 +6,8 @@ from collections.abc import Awaitable, Callable
 from pathlib import Path
 from typing import Any, TypeVar, final
 
+from hanzo_mcp.tools.common.path_utils import PathUtils
+
 # Define type variables for better type annotations
 T = TypeVar("T")
 P = TypeVar("P")
@@ -69,9 +71,9 @@ class PermissionManager:
         Args:
             path: The path to allow
         """
-        # Expand user path (e.g., ~/ or $HOME)
-        expanded_path = os.path.expanduser(path)
-        resolved_path: Path = Path(expanded_path).resolve()
+        # Normalize path (expand user paths and make absolute)
+        normalized_path = PathUtils.normalize_path(path)
+        resolved_path: Path = Path(normalized_path).resolve()
         self.allowed_paths.add(resolved_path)
 
     def remove_allowed_path(self, path: str) -> None:
@@ -110,9 +112,9 @@ class PermissionManager:
         Returns:
             True if the path is allowed, False otherwise
         """
-        # Expand user path (e.g., ~/ or $HOME)
-        expanded_path = os.path.expanduser(path)
-        resolved_path: Path = Path(expanded_path).resolve()
+        # Normalize path (expand user paths and make absolute)
+        normalized_path = PathUtils.normalize_path(path)
+        resolved_path: Path = Path(normalized_path).resolve()
 
         # Check exclusions first
         if self._is_path_excluded(resolved_path):

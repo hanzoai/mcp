@@ -14,6 +14,8 @@ from collections.abc import Awaitable, Callable
 from pathlib import Path
 from typing import Dict, Optional, final
 
+from hanzo_mcp.tools.common.path_utils import PathUtils
+
 from mcp.server.fastmcp import Context as MCPContext
 from mcp.server.fastmcp import FastMCP
 
@@ -134,8 +136,8 @@ class CommandExecutor:
             path: The path to set as the current working directory
         """
         session = self.get_session_manager(session_id)
-        expanded_path = os.path.expanduser(path)
-        session.set_working_dir(Path(expanded_path))
+        normalized_path = PathUtils.normalize_path(path)
+        session.set_working_dir(Path(normalized_path))
 
     def get_working_dir(self, session_id: str) -> str:
         """Get the current working directory for the session.
@@ -249,11 +251,8 @@ class CommandExecutor:
                     session_cwd = self.get_working_dir(session_id)
                     target_dir = os.path.join(session_cwd, target_dir)
                 
-                # Expand user paths
-                target_dir = os.path.expanduser(target_dir)
-                
-                # Normalize path
-                target_dir = os.path.normpath(target_dir)
+                # Normalize path (expand user and make absolute)
+                target_dir = PathUtils.normalize_path(target_dir)
                 
                 if os.path.isdir(target_dir):
                     self.set_working_dir(session_id, target_dir)
