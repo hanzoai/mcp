@@ -77,6 +77,7 @@ def register_filesystem_tools(
     mcp_server: FastMCP,
     document_context: DocumentContext,
     permission_manager: PermissionManager,
+    disable_write_tools: bool = False,
 ) -> None:
     """Register all filesystem tools with the MCP server.
     
@@ -84,6 +85,10 @@ def register_filesystem_tools(
         mcp_server: The FastMCP server instance
         document_context: Document context for tracking file contents
         permission_manager: Permission manager for access control
+        disable_write_tools: Whether to disable write/edit tools (default: False)
     """
-    tools = get_filesystem_tools(document_context, permission_manager)
+    if disable_write_tools:
+        tools = get_read_only_filesystem_tools(document_context, permission_manager)
+    else:
+        tools = get_filesystem_tools(document_context, permission_manager)
     ToolRegistry.register_tools(mcp_server, tools)

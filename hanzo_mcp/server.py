@@ -27,6 +27,7 @@ class HanzoServer:
         agent_max_iterations: int = 10,
         agent_max_tool_uses: int = 30,
         enable_agent_tool: bool = False,
+        disable_write_tools: bool = False,
     ):
         """Initialize the Hanzo server.
 
@@ -41,6 +42,7 @@ class HanzoServer:
             agent_max_iterations: Maximum number of iterations for agent (default: 10)
             agent_max_tool_uses: Maximum number of total tool uses for agent (default: 30)
             enable_agent_tool: Whether to enable the agent tool (default: False)
+            disable_write_tools: Whether to disable write/edit tools (default: False)
         """
         self.mcp = mcp_instance if mcp_instance is not None else FastMCP(name)
 
@@ -80,6 +82,7 @@ class HanzoServer:
         self.agent_max_iterations = agent_max_iterations
         self.agent_max_tool_uses = agent_max_tool_uses
         self.enable_agent_tool = enable_agent_tool
+        self.disable_write_tools = disable_write_tools
         
         # Register all tools
         register_all_tools(
@@ -92,6 +95,7 @@ class HanzoServer:
             agent_max_iterations=self.agent_max_iterations,
             agent_max_tool_uses=self.agent_max_tool_uses,
             enable_agent_tool=self.enable_agent_tool,
+            disable_write_tools=self.disable_write_tools,
         )
 
     def run(self, transport: str = "stdio", allowed_paths: list[str] | None = None):

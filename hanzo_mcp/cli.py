@@ -82,6 +82,14 @@ def main() -> None:
         default=False,
         help="Enable the agent tool (disabled by default)"
     )
+    
+    _ = parser.add_argument(
+        "--disable-write-tools",
+        dest="disable_write_tools",
+        action="store_true",
+        default=False,
+        help="Disable write/edit tools (file writing, editing, notebook editing) to use IDE tools instead. Note: Shell commands can still modify files."
+    )
 
     _ = parser.add_argument(
         "--install",
@@ -102,12 +110,13 @@ def main() -> None:
     agent_max_iterations: int = cast(int, args.agent_max_iterations)
     agent_max_tool_uses: int = cast(int, args.agent_max_tool_uses)
     enable_agent_tool: bool = cast(bool, args.enable_agent_tool)
+    disable_write_tools: bool = cast(bool, args.disable_write_tools)
     allowed_paths: list[str] = (
         cast(list[str], args.allowed_paths) if args.allowed_paths else []
     )
 
     if install:
-        install_claude_desktop_config(name, allowed_paths)
+        install_claude_desktop_config(name, allowed_paths, disable_write_tools)
         return
 
     # If no allowed paths are specified, use the user's home directory
@@ -140,20 +149,25 @@ def main() -> None:
         agent_api_key=agent_api_key,
         agent_max_iterations=agent_max_iterations,
         agent_max_tool_uses=agent_max_tool_uses,
-        enable_agent_tool=enable_agent_tool
+        enable_agent_tool=enable_agent_tool,
+        disable_write_tools=disable_write_tools
     )
     # Transport will be automatically cast to Literal['stdio', 'sse'] by the server
     server.run(transport=transport)
 
 
 def install_claude_desktop_config(
-    name: str = "claude-code", allowed_paths: list[str] | None = None
+    name: str = "claude-code", allowed_paths: list[str] | None = None,
+    disable_write_tools: bool = False
 ) -> None:
     """Install the server configuration in Claude Desktop.
 
     Args:
         name: The name to use for the server in the config
         allowed_paths: Optional list of paths to allow
+        disable_write_tools: Whether to disable write/edit tools (file writing, editing, notebook editing)
+                          to use IDE tools instead. Note: Shell commands can still modify files.
+                          (default: False)
     """
     # Find the Claude Desktop config directory
     home: Path = Path.home()
@@ -183,6 +197,10 @@ def install_claude_desktop_config(
     else:
         # Allow home directory by default
         args.extend(["--allow-path", str(home)])
+        
+    # Add disable_write_tools flag if specified
+    if disable_write_tools:
+        args.append("--disable-write-tools")
 
     # Create config object
     config: dict[str, Any] = {

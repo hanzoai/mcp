@@ -91,6 +91,7 @@ Entry point for running the server with various configuration options:
 - Allowed paths for file access
 - Project directory setting
 - Agent model configuration
+- Tool enablement options (e.g., disabling write/edit tools for IDE integration)
 
 ### Server API (`server.py`)
 
@@ -168,6 +169,14 @@ All tools are registered with the MCP server through a centralized registration 
 1. `register_all_tools` in `__init__.py` coordinates registration
 2. Each tool category has its own registration function
 3. Tools receive necessary context and permission instances
+
+### IDE Integration Support
+
+The server can be configured to disable write/edit tools to allow integration with IDEs and other external editing tools:
+1. Use the `--disable-write-tools` flag when starting the server
+2. With this flag, only read-only filesystem and Jupyter notebook tools are registered
+3. This allows using IDE tools (like Cursor or other AI-enabled editors) for making changes to files while still using MCP for analysis and exploration
+4. Note that shell commands (`run_command`, `run_script`, `script_tool`) can still modify files even with this flag set, as they're necessary for various analysis operations
 
 ### Security Implementation
 
