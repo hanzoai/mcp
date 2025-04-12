@@ -35,6 +35,26 @@ class TestHanzoServer:
         assert server_instance.command_executor is not None
         assert server_instance.project_analyzer is not None
         assert server_instance.project_manager is not None
+        
+    def test_initialization_with_disable_write_tools(self) -> None:
+        """Test initializing HanzoServer with disable_write_tools=True."""
+        with patch("mcp.server.fastmcp.FastMCP") as mock_fastmcp, \
+             patch("hanzo_mcp.tools.register_all_tools") as mock_register_all_tools:
+            # Create a mock FastMCP instance
+            mock_mcp = MagicMock()
+            mock_fastmcp.return_value = mock_mcp
+            
+            # Create the server with disable_write_tools=True
+            server = HanzoServer(
+                name="test-server", 
+                mcp_instance=mock_mcp,
+                disable_write_tools=True
+            )
+            
+            # Verify that the disable_write_tools flag was passed to register_all_tools
+            mock_register_all_tools.assert_called_once()
+            args, kwargs = mock_register_all_tools.call_args
+            assert kwargs.get("disable_write_tools") is True
 
     def test_initialization_with_allowed_paths(self) -> None:
         """Test initializing with allowed paths."""
