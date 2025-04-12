@@ -5,6 +5,13 @@ All notable changes to the Hanzo MCP project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Enhanced
+- Extended `--disable-write-tools` flag to also disable Jupyter notebook editing tools
+- Improved documentation in CLI help text and LLM.md about write tool disabling behavior
+- Clarified that shell commands can still modify files even when write tools are disabled
+
 ## [0.1.20] - 2025-04-03
 
 ### Added

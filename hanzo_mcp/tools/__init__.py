@@ -32,6 +32,7 @@ def register_all_tools(
     agent_max_iterations: int = 10,
     agent_max_tool_uses: int = 30,
     enable_agent_tool: bool = False,
+    disable_write_tools: bool = False,
 ) -> None:
     """Register all Hanzo tools with the MCP server.
 
@@ -45,12 +46,13 @@ def register_all_tools(
         agent_max_iterations: Maximum number of iterations for agent (default: 10)
         agent_max_tool_uses: Maximum number of total tool uses for agent (default: 30)
         enable_agent_tool: Whether to enable the agent tool (default: False)
+        disable_write_tools: Whether to disable write/edit tools (default: False)
     """
     # Register all filesystem tools
-    register_filesystem_tools(mcp_server, document_context, permission_manager)
+    register_filesystem_tools(mcp_server, document_context, permission_manager, disable_write_tools)
 
     # Register all jupyter tools
-    register_jupyter_tools(mcp_server, document_context, permission_manager)
+    register_jupyter_tools(mcp_server, document_context, permission_manager, disable_write_tools)
 
     # Register shell tools
     register_shell_tools(mcp_server, permission_manager)
