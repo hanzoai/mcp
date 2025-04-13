@@ -105,11 +105,6 @@ def main() -> None:
     )
 
     _ = parser.add_argument(
-        "--disable-write-tools",
-        dest="disable_write_tools",
-        action="store_true",
-        default=False,
-        help="Disable write/edit tools (file writing, editing, notebook editing) to use IDE tools instead. Note: Shell commands can still modify files."
         "--log-level",
         dest="log_level",
         choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
@@ -123,6 +118,14 @@ def main() -> None:
         action="store_true",
         default=False,
         help="Disable logging to file (logs to console only)"
+    )
+
+    _ = parser.add_argument(
+        "--disable-write-tools",
+        dest="disable_write_tools",
+        action="store_true",
+        default=False,
+        help="Disable write/edit tools (file writing, editing, notebook editing) to use IDE tools instead. Note: Shell commands can still modify files."
     )
 
     _ = parser.add_argument(
@@ -184,20 +187,6 @@ def main() -> None:
         project_dir = allowed_paths[0]
 
     # Run the server
-    server = HanzoServer(
-        name=name,
-        allowed_paths=allowed_paths,
-        project_dir=project_dir,  # Pass project_dir for initial working directory
-        agent_model=agent_model,
-        agent_max_tokens=agent_max_tokens,
-        agent_api_key=agent_api_key,
-        agent_max_iterations=agent_max_iterations,
-        agent_max_tool_uses=agent_max_tool_uses,
-        enable_agent_tool=enable_agent_tool,
-        disable_write_tools=disable_write_tools
-    )
-    # Transport will be automatically cast to Literal['stdio', 'sse'] by the server
-    server.run(transport=transport)
     logger.info(f"Starting Hanzo MCP server with name: {name}")
     logger.debug(f"Allowed paths: {allowed_paths}")
     logger.debug(f"Project directory: {project_dir}")
@@ -213,6 +202,7 @@ def main() -> None:
             agent_max_iterations=agent_max_iterations,
             agent_max_tool_uses=agent_max_tool_uses,
             enable_agent_tool=enable_agent_tool,
+            disable_write_tools=disable_write_tools,
             host=host,
             port=port
         )
@@ -228,7 +218,7 @@ def main() -> None:
 
 def install_claude_desktop_config(
     name: str = "claude-code", allowed_paths: list[str] | None = None,
-    disable_write_tools: bool = False
+    disable_write_tools: bool = False,
     host: str = "0.0.0.0", port: int = 3001
 ) -> None:
     """Install the server configuration in Claude Desktop.
@@ -270,6 +260,10 @@ def install_claude_desktop_config(
     else:
         # Allow home directory by default
         args.extend(["--allow-path", str(home)])
+
+    # Add host and port
+    args.extend(["--host", host])
+    args.extend(["--port", str(port)])
 
     # Add disable_write_tools flag if specified
     if disable_write_tools:
