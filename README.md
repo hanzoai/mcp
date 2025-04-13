@@ -52,7 +52,7 @@ uv pip install hanzo-mcp
 pip install hanzo-mcp
 ```
 
-For detailed installation and configuration instructions, please refer to [INSTALL.md](./doc/INSTALL.md).
+For detailed installation and configuration instructions, please refer to the [documentation](./docs/).
 
 Of course, you can also read [USEFUL_PROMPTS](./doc/USEFUL_PROMPTS.md) for some inspiration on how to use hanzo-mcp.
 
@@ -64,6 +64,20 @@ This implementation follows best practices for securing access to your filesyste
 - Restricted access to specified directories only
 - Input validation and sanitization
 - Proper error handling and reporting
+
+## Documentation
+
+Comprehensive documentation is available in the [docs](./docs/) directory. You can build and view the documentation locally:
+
+```bash
+# Build the documentation
+make docs
+
+# Start a local server to view the documentation
+make docs-serve
+```
+
+Then open http://localhost:8000/ in your browser to view the documentation.
 
 ## Development
 
