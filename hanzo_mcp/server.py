@@ -1,4 +1,7 @@
-"""MCP server implementing Hanzo capabilities."""
+"""MCP server implementing Hanzo capabilities.
+
+Includes improved error handling and debugging for tool execution.
+"""
 
 from typing import Literal, cast, final
 
@@ -13,7 +16,10 @@ from hanzo_mcp.tools.shell.command_executor import CommandExecutor
 
 @final
 class HanzoServer:
-    """MCP server implementing Hanzo capabilities."""
+    """MCP server implementing Hanzo capabilities.
+
+Includes improved error handling and debugging for tool execution.
+"""
 
     def __init__(
         self,
@@ -28,6 +34,8 @@ class HanzoServer:
         agent_max_tool_uses: int = 30,
         enable_agent_tool: bool = False,
         disable_write_tools: bool = False,
+        host: str = "0.0.0.0",
+        port: int = 3001,
     ):
         """Initialize the Hanzo server.
 
@@ -43,6 +51,8 @@ class HanzoServer:
             agent_max_tool_uses: Maximum number of total tool uses for agent (default: 30)
             enable_agent_tool: Whether to enable the agent tool (default: False)
             disable_write_tools: Whether to disable write/edit tools (default: False)
+            host: Host to bind to for SSE transport (default: '0.0.0.0')
+            port: Port to use for SSE transport (default: 3001)
         """
         self.mcp = mcp_instance if mcp_instance is not None else FastMCP(name)
 
@@ -55,7 +65,7 @@ class HanzoServer:
             permission_manager=self.permission_manager,
             verbose=False,  # Set to True for debugging
         )
-        
+
         # If project_dir is specified, set it as initial working directory for all sessions
         if project_dir:
             initial_session_id = name  # Use server name as default session ID
@@ -83,7 +93,11 @@ class HanzoServer:
         self.agent_max_tool_uses = agent_max_tool_uses
         self.enable_agent_tool = enable_agent_tool
         self.disable_write_tools = disable_write_tools
-        
+
+        # Store network options
+        self.host = host
+        self.port = port
+
         # Register all tools
         register_all_tools(
             mcp_server=self.mcp,
@@ -110,6 +124,14 @@ class HanzoServer:
         for path in allowed_paths_list:
             self.permission_manager.add_allowed_path(path)
             self.document_context.add_allowed_path(path)
+
+        # If using SSE, set the port and host in the environment variables
+        if transport == "sse":
+            import os
+            # Set environment variables for FastMCP settings
+            os.environ["FASTMCP_PORT"] = str(self.port)
+            os.environ["FASTMCP_HOST"] = self.host
+            print(f"Starting SSE server on {self.host}:{self.port}")
 
         # Run the server
         transport_type = cast(Literal["stdio", "sse"], transport)
