@@ -11,6 +11,7 @@ import sys
 from pathlib import Path
 from typing import Any, cast
 
+from hanzo_mcp import __version__
 from hanzo_mcp.tools.common.logging_config import setup_logging
 
 from hanzo_mcp.server import HanzoServer
@@ -20,8 +21,21 @@ def main() -> None:
     """Run the CLI for the Hanzo MCP server."""
     # Initialize logger
     logger = logging.getLogger(__name__)
+    
+    # Check if 'version' is the first argument
+    if len(sys.argv) > 1 and sys.argv[1] == 'version':
+        print(f"hanzo-mcp {__version__}")
+        return
+        
     parser = argparse.ArgumentParser(
         description="MCP server implementing Hanzo capabilities"
+    )
+    
+    parser.add_argument(
+        "--version",
+        action="version",
+        version=f"%(prog)s {__version__}",
+        help="Show the current version and exit"
     )
 
     _ = parser.add_argument(
