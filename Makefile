@@ -1,4 +1,4 @@
-.PHONY: install test lint clean dev venv build _publish publish setup bump-patch bump-minor bump-major publish-patch publish-minor publish-major tag-version
+.PHONY: install test lint clean dev venv build _publish publish setup bump-patch bump-minor bump-major publish-patch publish-minor publish-major tag-version docs docs-serve
 
 # Virtual environment settings
 VENV_NAME ?= .venv
@@ -82,8 +82,20 @@ lint:
 format:
 	$(call run_in_venv, ruff format $(SRC_DIR) $(TEST_DIR))
 
+# Documentation targets
+docs:
+	$(call run_in_venv, cd docs && make html)
+
+# Start documentation server
+docs-serve:
+	$(call run_in_venv, cd docs && python -m http.server -d build/html)
+
+# Clean documentation build
+clean-docs:
+	$(RM_CMD) docs/build 2>/dev/null || true
+
 # Clean build artifacts
-clean:
+clean: clean-docs
 	$(RM_CMD) .pytest_cache htmlcov .coverage $(DIST_DIR) 2>/dev/null || true
 	find . -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null || true
 
