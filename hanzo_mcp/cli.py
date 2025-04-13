@@ -1,17 +1,25 @@
-"""Command-line interface for the Hanzo MCP server."""
+"""Command-line interface for the Hanzo MCP server.
+
+Includes logging configuration and enhanced error handling.
+"""
 
 import argparse
 import json
+import logging
 import os
 import sys
 from pathlib import Path
 from typing import Any, cast
+
+from hanzo_mcp.tools.common.logging_config import setup_logging
 
 from hanzo_mcp.server import HanzoServer
 
 
 def main() -> None:
     """Run the CLI for the Hanzo MCP server."""
+    # Initialize logger
+    logger = logging.getLogger(__name__)
     parser = argparse.ArgumentParser(
         description="MCP server implementing Hanzo capabilities"
     )
@@ -21,6 +29,19 @@ def main() -> None:
         choices=["stdio", "sse"],
         default="stdio",
         help="Transport protocol to use (default: stdio)",
+    )
+
+    _ = parser.add_argument(
+        "--port",
+        type=int,
+        default=3001,
+        help="Port to use for SSE transport (default: 3001)",
+    )
+
+    _ = parser.add_argument(
+        "--host",
+        default="0.0.0.0",
+        help="Host to bind to for SSE transport (default: 0.0.0.0)",
     )
 
     _ = parser.add_argument(
@@ -82,6 +103,22 @@ def main() -> None:
         default=False,
         help="Enable the agent tool (disabled by default)"
     )
+    
+    _ = parser.add_argument(
+        "--log-level",
+        dest="log_level",
+        choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
+        default="INFO",
+        help="Set the logging level (default: INFO)"
+    )
+    
+    _ = parser.add_argument(
+        "--disable-file-logging",
+        dest="disable_file_logging",
+        action="store_true",
+        default=False,
+        help="Disable logging to file (logs to console only)"
+    )
 
     _ = parser.add_argument(
         "--install",
@@ -95,6 +132,8 @@ def main() -> None:
     name: str = cast(str, args.name)
     install: bool = cast(bool, args.install)
     transport: str = cast(str, args.transport)
+    port: int = cast(int, args.port)
+    host: str = cast(str, args.host)
     project_dir: str | None = cast(str | None, args.project_dir)
     agent_model: str | None = cast(str | None, args.agent_model)
     agent_max_tokens: int | None = cast(int | None, args.agent_max_tokens)
@@ -102,17 +141,25 @@ def main() -> None:
     agent_max_iterations: int = cast(int, args.agent_max_iterations)
     agent_max_tool_uses: int = cast(int, args.agent_max_tool_uses)
     enable_agent_tool: bool = cast(bool, args.enable_agent_tool)
+    log_level: str = cast(str, args.log_level)
+    disable_file_logging: bool = cast(bool, args.disable_file_logging)
     allowed_paths: list[str] = (
         cast(list[str], args.allowed_paths) if args.allowed_paths else []
     )
+    
+    # Setup logging
+    setup_logging(log_level=log_level, log_to_file=not disable_file_logging, testing="pytest" in sys.modules)
+    logger.debug(f"Hanzo MCP CLI started with arguments: {args}")
+    
 
     if install:
-        install_claude_desktop_config(name, allowed_paths)
+        install_claude_desktop_config(name, allowed_paths, host, port)
         return
 
     # If no allowed paths are specified, use the user's home directory
     if not allowed_paths:
         allowed_paths = [str(Path.home())]
+        logger.info(f"No allowed paths specified, using home directory: {allowed_paths[0]}")
 
     # If project directory is specified, add it to allowed paths
     if project_dir and project_dir not in allowed_paths:
@@ -131,29 +178,45 @@ def main() -> None:
         project_dir = allowed_paths[0]
 
     # Run the server
-    server = HanzoServer(
-        name=name, 
-        allowed_paths=allowed_paths,
-        project_dir=project_dir,  # Pass project_dir for initial working directory
-        agent_model=agent_model,
-        agent_max_tokens=agent_max_tokens,
-        agent_api_key=agent_api_key,
-        agent_max_iterations=agent_max_iterations,
-        agent_max_tool_uses=agent_max_tool_uses,
-        enable_agent_tool=enable_agent_tool
-    )
-    # Transport will be automatically cast to Literal['stdio', 'sse'] by the server
-    server.run(transport=transport)
+    logger.info(f"Starting Hanzo MCP server with name: {name}")
+    logger.debug(f"Allowed paths: {allowed_paths}")
+    logger.debug(f"Project directory: {project_dir}")
+    
+    try:
+        server = HanzoServer(
+            name=name, 
+            allowed_paths=allowed_paths,
+            project_dir=project_dir,  # Pass project_dir for initial working directory
+            agent_model=agent_model,
+            agent_max_tokens=agent_max_tokens,
+            agent_api_key=agent_api_key,
+            agent_max_iterations=agent_max_iterations,
+            agent_max_tool_uses=agent_max_tool_uses,
+            enable_agent_tool=enable_agent_tool,
+            host=host,
+            port=port
+        )
+        logger.info(f"Server initialized successfully, running with transport: {transport}")
+        # Transport will be automatically cast to Literal['stdio', 'sse'] by the server
+        server.run(transport=transport)
+    except Exception as e:
+        logger.error(f"Error starting server: {str(e)}")
+        logger.exception("Server startup failed with exception:")
+        # Re-raise the exception for proper error handling
+        raise
 
 
 def install_claude_desktop_config(
-    name: str = "claude-code", allowed_paths: list[str] | None = None
+    name: str = "claude-code", allowed_paths: list[str] | None = None,
+    host: str = "0.0.0.0", port: int = 3001
 ) -> None:
     """Install the server configuration in Claude Desktop.
 
     Args:
         name: The name to use for the server in the config
         allowed_paths: Optional list of paths to allow
+        host: Host to bind to for SSE transport (default: '0.0.0.0')
+        port: Port to use for SSE transport (default: 3001)
     """
     # Find the Claude Desktop config directory
     home: Path = Path.home()
@@ -183,6 +246,10 @@ def install_claude_desktop_config(
     else:
         # Allow home directory by default
         args.extend(["--allow-path", str(home)])
+        
+    # Add host and port
+    args.extend(["--host", host])
+    args.extend(["--port", str(port)])
 
     # Create config object
     config: dict[str, Any] = {
