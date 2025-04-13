@@ -235,3 +235,24 @@ When extending the project, consider these key areas:
 
 - /init: Investigate project structure and generate LLM.md
 - /version: Display the current version of hanzo-mcp (implemented in `tools/common/version_tool.py`, reads version directly from `hanzo_mcp.__version__`)
+
+## Version Checking Options
+
+There are several ways to check the version of hanzo-mcp:
+
+1. **Command-line flag**: Using the `--version` option
+   ```
+   python -m hanzo_mcp.cli --version
+   ```
+
+2. **Version subcommand**: Using the `version` subcommand
+   ```
+   python -m hanzo_mcp.cli version
+   ```
+
+3. **Version script**: Using the script in the scripts directory
+   ```
+   ./scripts/hanzo-mcp-version
+   ```
+
+4. **Version tool**: Using the version tool when the server is running

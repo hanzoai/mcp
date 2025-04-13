@@ -1,0 +1,8 @@
+#!/bin/sh
+
+# Get the absolute path to the script
+SCRIPT_DIR="/bin"
+PROJECT_ROOT="."
+
+# Set PYTHONPATH to include the project directory
+PYTHONPATH="" python3 -c "from hanzo_mcp import __version__; print(f\"hanzo-mcp {__version__}\")"
