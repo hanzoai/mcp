@@ -14,7 +14,7 @@ from typing import Optional
 def setup_logging(
     log_level: str = "INFO", 
     log_to_file: bool = True, 
-    log_to_console: bool = True,
+    log_to_console: bool = False,  # Changed default to False
     transport: Optional[str] = None,
     testing: bool = False
 ) -> None:
@@ -22,8 +22,8 @@ def setup_logging(
     
     Args:
         log_level: The logging level ("DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL")
-        log_to_file: Whether to log to a file in addition to the console
-        log_to_console: Whether to log to the console
+        log_to_file: Whether to log to a file in addition to the console (default: True)
+        log_to_console: Whether to log to the console (default: False to avoid stdio transport conflicts)
         transport: The transport mechanism being used ("stdio" or "sse")
         testing: Set to True to disable file operations for testing
     """
