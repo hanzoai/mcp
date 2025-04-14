@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.2] - 2025-04-13
+
 ### Added
 - Added `--enable-console-logging` option to enable console logging (disabled by default to avoid stdio transport conflicts)
 
