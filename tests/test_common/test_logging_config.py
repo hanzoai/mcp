@@ -35,8 +35,8 @@ def test_setup_logging_with_invalid_level():
 
 
 def test_console_handler_configuration():
-    """Test that the console handler is configured correctly."""
-    # Test with console logging enabled (default)
+    """Test that the console handler is configured correctly when enabled."""
+    # Test with console logging explicitly enabled
     with patch("logging.StreamHandler") as mock_stream_handler,\
          patch("logging.basicConfig") as mock_basic_config,\
          patch("logging.getLogger") as mock_get_logger:
@@ -49,6 +49,7 @@ def test_console_handler_configuration():
         mock_logger = MagicMock()
         mock_get_logger.return_value = mock_logger
         
+        # Explicitly enable console logging
         setup_logging(log_to_file=False, log_to_console=True, testing=True)
         
         # Check that the stream handler was created with sys.stderr
@@ -57,8 +58,8 @@ def test_console_handler_configuration():
         assert mock_handler.setFormatter.called
 
 
-def test_disable_console_logging():
-    """Test that console logging can be disabled."""
+def test_console_logging_disabled_by_default():
+    """Test that console logging is disabled by default."""
     with patch("logging.StreamHandler") as mock_stream_handler,\
          patch("logging.basicConfig") as mock_basic_config,\
          patch("logging.getLogger") as mock_get_logger:
@@ -66,14 +67,15 @@ def test_disable_console_logging():
         mock_logger = MagicMock()
         mock_get_logger.return_value = mock_logger
         
-        setup_logging(log_to_file=False, log_to_console=False, testing=True)
+        # Call with default parameters for console logging
+        setup_logging(log_to_file=False, testing=True)  # log_to_console defaults to False
         
         # Check that the stream handler was not created
         assert not mock_stream_handler.called
 
 
-def test_auto_disable_console_for_stdio_transport():
-    """Test that console logging is automatically disabled when using stdio transport."""
+def test_console_logging_never_used_with_stdio_transport():
+    """Test that console logging is never used with stdio transport, even if explicitly enabled."""
     with patch("logging.StreamHandler") as mock_stream_handler,\
          patch("logging.basicConfig") as mock_basic_config,\
          patch("logging.getLogger") as mock_get_logger:
@@ -81,9 +83,10 @@ def test_auto_disable_console_for_stdio_transport():
         mock_logger = MagicMock()
         mock_get_logger.return_value = mock_logger
         
+        # Explicitly try to enable console logging, but use stdio transport
         setup_logging(log_to_file=False, log_to_console=True, transport="stdio", testing=True)
         
-        # Check that the stream handler was not created
+        # Check that the stream handler was still not created (stdio transport takes precedence)
         assert not mock_stream_handler.called
 
 
