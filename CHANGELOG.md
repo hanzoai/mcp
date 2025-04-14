@@ -8,7 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- Added `--disable-console-logging` option to disable console logging for better integration with IDEs and UI tools
+- Added `--enable-console-logging` option to enable console logging (disabled by default to avoid stdio transport conflicts)
+
+### Changed
+- Changed default logging behavior to use file logging only, with console logging disabled by default
+- Modified logging configuration to use stderr instead of stdout when console logging is enabled
 
 ### Enhanced
 - Extended `--disable-write-tools` flag to also disable Jupyter notebook editing tools
@@ -17,8 +21,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - Fixed critical issue where logging to stdout interfered with MCP server communication when using stdio transport
-- Modified logging configuration to automatically use stderr instead of stdout for console logging
-- Automatically disable console logging when using stdio transport to prevent protocol corruption
+- Modified logging configuration to use stderr instead of stdout for console logging
+- Automatically prevent console logging when using stdio transport to prevent protocol corruption
 - Ensured command executor verbose logging consistently uses stderr
 
 ## [0.1.20] - 2025-04-03
