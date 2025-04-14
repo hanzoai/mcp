@@ -133,6 +133,14 @@ def main() -> None:
         default=False,
         help="Disable logging to file (logs to console only)"
     )
+    
+    _ = parser.add_argument(
+        "--disable-console-logging",
+        dest="disable_console_logging",
+        action="store_true",
+        default=False,
+        help="Disable logging to console (logs to file only). Automatically enabled when using stdio transport."
+    )
 
     _ = parser.add_argument(
         "--disable-write-tools",
@@ -166,12 +174,20 @@ def main() -> None:
     disable_write_tools: bool = cast(bool, args.disable_write_tools)
     log_level: str = cast(str, args.log_level)
     disable_file_logging: bool = cast(bool, args.disable_file_logging)
+    disable_console_logging: bool = cast(bool, args.disable_console_logging)
     allowed_paths: list[str] = (
         cast(list[str], args.allowed_paths) if args.allowed_paths else []
     )
 
     # Setup logging
-    setup_logging(log_level=log_level, log_to_file=not disable_file_logging, testing="pytest" in sys.modules)
+    # Disable console logging when using stdio transport to avoid protocol corruption
+    setup_logging(
+        log_level=log_level,
+        log_to_file=not disable_file_logging, 
+        log_to_console=not disable_console_logging,  # Allow explicit disabling via CLI flag
+        transport=transport,  # Pass the transport to disable console logging for stdio
+        testing="pytest" in sys.modules
+    )
     logger.debug(f"Hanzo MCP CLI started with arguments: {args}")
 
 

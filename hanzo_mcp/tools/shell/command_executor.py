@@ -155,6 +155,9 @@ class CommandExecutor:
         Args:
             message: The message to log
             data: Optional data to include with the message
+
+        Note:
+            Always logs to stderr to avoid interfering with stdio transport
         """
         if not self.verbose:
             return
