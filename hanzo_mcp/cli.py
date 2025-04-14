@@ -180,16 +180,19 @@ def main() -> None:
     )
 
     # Setup logging
-    # Use file logging by default, only enable console logging if explicitly requested
-    # Also ensure stdio transport never uses console logging to avoid protocol corruption
-    setup_logging(
-        log_level=log_level,
-        log_to_file=not disable_file_logging, 
-        log_to_console=enable_console_logging and transport != "stdio",  # Only enable console logging if requested AND not using stdio
-        transport=transport,  # Pass the transport to ensure it's properly handled
-        testing="pytest" in sys.modules
-    )
-    logger.debug(f"Hanzo MCP CLI started with arguments: {args}")
+    # Ensure absolutely NO logging when using stdio transport to avoid protocol corruption
+    # For sse transport, use file logging by default and console logging only if explicitly requested
+    # Only set up logging if not using stdio transport or explicitly requested
+    if transport != "stdio" or (enable_console_logging or not disable_file_logging):
+        setup_logging(
+            log_level=log_level,
+            log_to_file=not disable_file_logging and transport != "stdio",  # Disable file logging for stdio transport
+            log_to_console=enable_console_logging and transport != "stdio",  # Only enable console logging if requested AND not using stdio
+            transport=transport,  # Pass the transport to ensure it's properly handled
+            testing="pytest" in sys.modules
+        )
+        logger.debug(f"Hanzo MCP CLI started with arguments: {args}")
+    # No logging setup at all for stdio transport unless explicitly requested
 
 
     if install:
@@ -217,10 +220,11 @@ def main() -> None:
     elif allowed_paths:
         project_dir = allowed_paths[0]
 
-    # Run the server
-    logger.info(f"Starting Hanzo MCP server with name: {name}")
-    logger.debug(f"Allowed paths: {allowed_paths}")
-    logger.debug(f"Project directory: {project_dir}")
+    # Run the server - only log if not using stdio transport or logging is explicitly enabled
+    if transport != "stdio" or (enable_console_logging or not disable_file_logging):
+        logger.info(f"Starting Hanzo MCP server with name: {name}")
+        logger.debug(f"Allowed paths: {allowed_paths}")
+        logger.debug(f"Project directory: {project_dir}")
 
     try:
         server = HanzoServer(
@@ -237,12 +241,19 @@ def main() -> None:
             host=host,
             port=port
         )
-        logger.info(f"Server initialized successfully, running with transport: {transport}")
+        
+        # Only log if not using stdio transport or logging is explicitly enabled
+        if transport != "stdio" or (enable_console_logging or not disable_file_logging):
+            logger.info(f"Server initialized successfully, running with transport: {transport}")
+            
         # Transport will be automatically cast to Literal['stdio', 'sse'] by the server
         server.run(transport=transport)
     except Exception as e:
-        logger.error(f"Error starting server: {str(e)}")
-        logger.exception("Server startup failed with exception:")
+        # Only log if not using stdio transport or logging is explicitly enabled
+        if transport != "stdio" or (enable_console_logging or not disable_file_logging):
+            logger.error(f"Error starting server: {str(e)}")
+            logger.exception("Server startup failed with exception:")
+        # For stdio transport, we want a clean exception without any logging
         # Re-raise the exception for proper error handling
         raise
 
