@@ -1,8 +1,9 @@
 """Test fixtures for the Hanzo MCP project."""
 
+import asyncio
 import tempfile
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -10,6 +11,38 @@ from hanzo_mcp.tools.common.context import DocumentContext, ToolContext
 from hanzo_mcp.tools.common.permissions import PermissionManager
 from hanzo_mcp.tools.project.analysis import ProjectAnalyzer
 from hanzo_mcp.tools.shell.command_executor import CommandExecutor
+
+# Simplifying asyncio test support
+
+# Register asyncio marker
+def pytest_configure(config):
+    config.addinivalue_line("markers", "asyncio: mark test as using asyncio")
+
+# Add support for asyncio tests
+@pytest.hookimpl(trylast=True)
+def pytest_pyfunc_call(pyfuncitem):
+    """Run async test functions without pytest-asyncio."""
+    if asyncio.iscoroutinefunction(pyfuncitem.obj):
+        funcargs = {arg: pyfuncitem.funcargs[arg] for arg in pyfuncitem.funcargs}
+        
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_closed():
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+        except RuntimeError:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+        
+        try:
+            testcoro = pyfuncitem.obj(**funcargs)
+            loop.run_until_complete(testcoro)
+        finally:
+            if not loop.is_closed():
+                loop.close()
+                asyncio.set_event_loop(None)
+            
+        return True
 
 
 @pytest.fixture

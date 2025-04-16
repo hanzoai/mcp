@@ -49,23 +49,11 @@ hanzo_mcp = ["py.typed"]
 include = ["hanzo_mcp"]
 
 [tool.pytest.ini_options]
-asyncio_mode = "strict"
-asyncio_default_fixture_loop_scope = "function"
-exclude = [
-  "**/node_modules",
-  "**/__pycache__",
-  "src/experimental",
-  "src/typestubs",
+# Configuration for pytest
+addopts = "--no-header --no-summary"
+markers = [
+  "asyncio: mark test as using asyncio",
 ]
-pythonVersion = "3.13"
-reportUnknownVariableType = false
-reportUnknownMemberType = false
-reportUnknownParameterType = false
-reportUnusedCallResult = false
-reportIgnoreCommentWithoutRule = false
-reportUnusedParameter = false
-reportAny = false
-reportRedeclaration = false
-reportMissingTypeArgument = false
-reportExplicitAny = false
-reportUnusedFunction = false
+# exclude option is not supported by pytest, removing to fix warnings
+
+
