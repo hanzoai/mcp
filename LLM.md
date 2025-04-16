@@ -4,6 +4,10 @@
 
 Hanzo MCP is an implementation of Hanzo capabilities using the Model Context Protocol (MCP). It provides an MCP server that enables Claude to directly execute instructions for modifying and improving project files. The implementation leverages the Model Context Protocol to facilitate seamless integration with various MCP clients, including Claude Desktop.
 
+ALWAYS use `Makefile` for running commands as it uses `uv` to configure the venv
+and otherwise deps will not be installed. most commands you would want just add
+to Makefile or improve as necessary if missing.
+
 ## Architecture
 
 ### High-Level Architecture
