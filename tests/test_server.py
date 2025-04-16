@@ -39,7 +39,7 @@ class TestHanzoServer:
     def test_initialization_with_disable_write_tools(self) -> None:
         """Test initializing HanzoServer with disable_write_tools=True."""
         with patch("mcp.server.fastmcp.FastMCP") as mock_fastmcp, \
-             patch("hanzo_mcp.tools.register_all_tools") as mock_register_all_tools:
+             patch("hanzo_mcp.server.register_all_tools") as mock_register_all_tools:
             # Create a mock FastMCP instance
             mock_mcp = MagicMock()
             mock_fastmcp.return_value = mock_mcp
