@@ -34,13 +34,6 @@ def test_think_tool_registration(mcp_server, think_tool):
         assert mcp_server.tool.called
     
     # Run the async test using a manual event loop
-    loop = asyncio.new_event_loop()
-    try:
-        asyncio.set_event_loop(loop)
-        loop.run_until_complete(_async_test())
-    finally:
-        loop.close()
-        asyncio.set_event_loop(None)
 
 
 def test_think_with_valid_thought(think_tool, mcp_context):
@@ -69,13 +62,6 @@ def test_think_with_valid_thought(think_tool, mcp_context):
             assert "I've recorded your thinking process" in result
     
     # Run the async test using a manual event loop
-    loop = asyncio.new_event_loop()
-    try:
-        asyncio.set_event_loop(loop)
-        loop.run_until_complete(_async_test())
-    finally:
-        loop.close()
-        asyncio.set_event_loop(None)
 
 
 def test_think_with_empty_thought(think_tool, mcp_context):
@@ -107,10 +93,3 @@ def test_think_with_empty_thought(think_tool, mcp_context):
             assert "Error" in result_whitespace
     
     # Run the async test using a manual event loop
-    loop = asyncio.new_event_loop()
-    try:
-        asyncio.set_event_loop(loop)
-        loop.run_until_complete(_async_test())
-    finally:
-        loop.close()
-        asyncio.set_event_loop(None)

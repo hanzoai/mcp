@@ -1,6 +1,7 @@
 """Tests for the context module."""
 
 import json
+import asyncio
 import os
 from pathlib import Path
 from unittest.mock import MagicMock
@@ -8,6 +9,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from hanzo_mcp.tools.common.context import (
+
     DocumentContext,
     ToolContext,
     create_tool_context,

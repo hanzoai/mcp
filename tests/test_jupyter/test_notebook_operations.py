@@ -12,6 +12,7 @@ if TYPE_CHECKING:
     from hanzo_mcp.tools.common.permissions import PermissionManager
 
 from hanzo_mcp.tools.jupyter.notebook_operations import JupyterNotebookTools
+import asyncio
 
 
 class TestJupyterNotebookTools:

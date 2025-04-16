@@ -127,13 +127,6 @@ class TestPermissibleOperation:
             assert result == f"Read {temp_dir}"
         
         # Execute the async test
-        loop = asyncio.new_event_loop()
-        try:
-            asyncio.set_event_loop(loop)
-            loop.run_until_complete(_async_test())
-        finally:
-            loop.close()
-            asyncio.set_event_loop(None)
 
     def test_permissible_operation_with_custom_path_fn(self, temp_dir: str):
         """Test the decorator with a custom path function (converted from async)."""
@@ -156,13 +149,6 @@ class TestPermissibleOperation:
             assert result == f"Read {temp_dir}"
         
         # Execute the async test
-        loop = asyncio.new_event_loop()
-        try:
-            asyncio.set_event_loop(loop)
-            loop.run_until_complete(_async_test())
-        finally:
-            loop.close()
-            asyncio.set_event_loop(None)
 
     def test_permissible_operation_with_invalid_path(self, temp_dir: str):
         """Test the decorator with an invalid path type (converted from async)."""
@@ -179,10 +165,3 @@ class TestPermissibleOperation:
                 await test_func(123)  # Not a string
         
         # Execute the async test
-        loop = asyncio.new_event_loop()
-        try:
-            asyncio.set_event_loop(loop)
-            loop.run_until_complete(_async_test())
-        finally:
-            loop.close()
-            asyncio.set_event_loop(None)

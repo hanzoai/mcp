@@ -1,6 +1,7 @@
 """Tests for the project analysis module."""
 
 import json
+import asyncio
 from pathlib import Path
 from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -13,6 +14,7 @@ if TYPE_CHECKING:
     from hanzo_mcp.tools.shell.command_executor import CommandExecutor
 
 from hanzo_mcp.tools.project.analysis import (
+
     ProjectAnalysis,
     ProjectAnalyzer,
     ProjectManager,
