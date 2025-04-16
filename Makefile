@@ -1,3 +1,6 @@
+# Set test as the default target
+.DEFAULT_GOAL := test
+
 .PHONY: install test lint clean dev venv build _publish publish setup bump-patch bump-minor bump-major publish-patch publish-minor publish-major tag-version docs docs-serve
 
 # Virtual environment settings
@@ -67,7 +70,7 @@ install-publish:
 	$(call run_in_venv, $(UV) pip install -e ".[publish]")
 
 # Run tests
-test:
+test: install-test
 	$(call run_in_venv, python -m pytest $(TEST_DIR) --disable-warnings)
 
 # Run tests with coverage
