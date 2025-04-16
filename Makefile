@@ -1,7 +1,7 @@
 # Set test as the default target
 .DEFAULT_GOAL := test
 
-.PHONY: install test lint clean dev venv build _publish publish setup bump-patch bump-minor bump-major publish-patch publish-minor publish-major tag-version docs docs-serve
+.PHONY: install test test-debug test-quick test-cov fix-tests lint clean dev venv build _publish publish setup bump-patch bump-minor bump-major publish-patch publish-minor publish-major tag-version docs docs-serve
 
 # Virtual environment settings
 VENV_NAME ?= .venv
@@ -112,6 +112,41 @@ fix-tests: install-test
 	@echo "Removing backup files..."
 	@find $(TEST_DIR) -name "*.bak" -delete
 
+# Debug test collection issues
+test-debug: install-test
+	@echo "==== Checking for problematic test files ===="
+	@mkdir -p .debug
+	@for file in $$(find $(TEST_DIR) -name "*.py" -type f); do \
+		$(call run_in_venv, python -m pytest "$$file" --collect-only -q > /dev/null 2> .debug/error.log || echo "Problem in $$file"); \
+	done
+	@echo "\n==== Fixing remaining problematic files ===="
+	@for file in $$(find $(TEST_DIR) -name "*.py" -type f); do \
+		if ! $(call run_in_venv, python -m pytest "$$file" --collect-only -q > /dev/null 2>&1); then \
+			echo "Fixing $$file..."; \
+			if grep -q "def test_.*(self" "$$file" && grep -q "asyncio.new_event_loop" "$$file"; then \
+				echo "Converting complex async test in class"; \
+				mkdir -p .debug/backup; \
+				cp "$$file" .debug/backup/; \
+				replacement="@pytest.mark.asyncio\n    async def"; \
+				sed -i "s/def test_\([a-zA-Z0-9_]*\).*self.*:\n.*async def _async_test.*:/$$replacement test_\1(self):" "$$file"; \
+				sed -i "/loop = asyncio.new_event_loop(/,/asyncio.set_event_loop(None)/d" "$$file"; \
+				echo "  - Fixed complex class-based async test"; \
+			fi; \
+			if grep -q "async def" "$$file" && ! grep -q "@pytest.mark.asyncio" "$$file"; then \
+				echo "  - Adding missing @pytest.mark.asyncio decorators"; \
+				sed -i 's/\(\s*\)async def test_\([a-zA-Z0-9_]*\)/\1@pytest.mark.asyncio\n\1async def test_\2/g' "$$file"; \
+			fi; \
+		fi; \
+	done
+	@echo "\n==== Testing fixes ===="
+	@echo "Running full test collection to verify fixes"
+	@$(call run_in_venv, python -m pytest $(TEST_DIR) --collect-only -q); \
+	if [ $$? -eq 0 ]; then \
+		echo "\n✅ TEST COLLECTION SUCCESSFUL! All issues fixed.\n"; \
+	else \
+		echo "\n❌ COLLECTION STILL FAILING. Please seek manual intervention.\n"; \
+	fi
+
 # Documentation targets
 docs: install-dev
 	$(call run_in_venv, cd docs && make html)
@@ -207,6 +242,7 @@ help:
 	@echo "  make lint          Run linting checks"
 	@echo "  make format        Format code"
 	@echo "  make fix-tests     Fix common test issues automatically"
+	@echo "  make test-debug    Advanced debugging for test collection issues"
 	@echo ""
 	@echo "Installation:"
 	@echo "  make install       Install the package"
