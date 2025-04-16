@@ -68,7 +68,7 @@ Configure Claude Desktop to use this server by adding the following to your Clau
 ```json
 {
   "mcpServers": {
-    "claude-code": {
+    "hanzo-mcp": {
       "command": "uvx",
       "args": [
         "--from",
@@ -82,7 +82,7 @@ Configure Claude Desktop to use this server by adding the following to your Clau
 }
 ```
 
-Make sure to replace `/path/to/your/project` with the actual path to the project you want Claude to access.
+Make sure to replace `/path/to/your/project` with the actual path to the project you want Hanzo to access.
 
 ### Advanced Configuration Options
 
@@ -91,7 +91,7 @@ You can customize the server using other options:
 ```json
 {
   "mcpServers": {
-    "claude-code": {
+    "hanzo": {
       "command": "uvx",
       "args": [
         "--from",
@@ -116,7 +116,7 @@ You can customize the agent behavior by specifying the LLM model and token limit
 ```json
 {
   "mcpServers": {
-    "claude-code": {
+    "hanzo": {
       "command": "uvx",
       "args": [
         "--from",
