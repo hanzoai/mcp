@@ -11,6 +11,7 @@ if TYPE_CHECKING:
 
 from hanzo_mcp.tools.filesystem.write_file import WriteFileTool
 from hanzo_mcp.tools.filesystem.base import FilesystemBaseTool
+import asyncio
 
 
 class TestWriteFileTool:

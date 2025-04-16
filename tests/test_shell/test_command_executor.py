@@ -10,6 +10,7 @@ if TYPE_CHECKING:
     from hanzo_mcp.tools.common.permissions import PermissionManager
 
 from hanzo_mcp.tools.shell.command_executor import CommandExecutor, CommandResult
+import asyncio
 
 
 class TestCommandResult:

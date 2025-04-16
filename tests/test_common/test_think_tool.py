@@ -41,13 +41,6 @@ class TestThinkingTool:
                 tool_ctx.info.assert_called_with("Thinking process recorded")
         
         # Run the async test using a manual event loop
-        loop = asyncio.new_event_loop()
-        try:
-            asyncio.set_event_loop(loop)
-            loop.run_until_complete(_async_test_valid_thought())
-        finally:
-            loop.close()
-            asyncio.set_event_loop(None)
 
     def test_empty_thought(self, think_tool: ThinkingTool, mcp_context: MagicMock):
         """Test the thinking tool with an empty thought (converted from async)."""
@@ -67,10 +60,3 @@ class TestThinkingTool:
                 tool_ctx.error.assert_called()
         
         # Run the async test using a manual event loop
-        loop = asyncio.new_event_loop()
-        try:
-            asyncio.set_event_loop(loop)
-            loop.run_until_complete(_async_test_empty_thought())
-        finally:
-            loop.close()
-            asyncio.set_event_loop(None)

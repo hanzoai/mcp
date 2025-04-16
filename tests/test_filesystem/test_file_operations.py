@@ -19,6 +19,7 @@ from hanzo_mcp.tools.filesystem.edit_file import EditFileTool
 from hanzo_mcp.tools.filesystem.directory_tree import DirectoryTreeTool
 from hanzo_mcp.tools.filesystem.search_content import SearchContentTool
 from hanzo_mcp.tools.filesystem.content_replace import ContentReplaceTool
+import asyncio
 
 
 class TestReadFilesTool:
