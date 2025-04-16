@@ -41,15 +41,18 @@ setup: install-python venv install
 
 # Install Python using uv
 install-python:
+	@command -v $(UV) >/dev/null 2>&1 || { echo "Error: uv is not installed. Install it with 'pip install uv'."; exit 1; }
 	$(UV) python install 3.12
 
 # Create virtual environment using uv and install package
 venv:
+	@command -v $(UV) >/dev/null 2>&1 || { echo "Error: uv is not installed. Install it with 'pip install uv'."; exit 1; }
 	$(UV) venv $(VENV_NAME) --python=3.12
 	$(call run_in_venv, $(UV) pip install -e ".")
 
 # Install the package
 install:
+	@command -v $(UV) >/dev/null 2>&1 || { echo "Error: uv is not installed. Install it with 'pip install uv'."; exit 1; }
 	$(call run_in_venv, $(UV) pip install -e ".")
 
 uninstall:
@@ -59,30 +62,58 @@ reinstall: uninstall install
 
 # Install development dependencies
 install-dev:
+	@command -v $(UV) >/dev/null 2>&1 || { echo "Error: uv is not installed. Install it with 'pip install uv'."; exit 1; }
 	$(call run_in_venv, $(UV) pip install -e ".[dev]")
 
 # Install test dependencies
 install-test:
+	@command -v $(UV) >/dev/null 2>&1 || { echo "Error: uv is not installed. Install it with 'pip install uv'."; exit 1; }
 	$(call run_in_venv, $(UV) pip install -e ".[test]")
+	@# Ensure conftest.py exists with proper pytest-asyncio configuration
+	@if [ ! -f "$(TEST_DIR)/conftest.py" ]; then \
+		echo "Creating pytest configuration..."; \
+		echo '"""Pytest configuration for the Hanzo MCP project."""\n\nimport pytest\nimport os\n\n# Set environment variables for testing\nos.environ["TEST_MODE"] = "1"\n\n# Configure pytest\ndef pytest_configure(config):\n    """Configure pytest."""\n    # Register asyncio marker\n    config.addinivalue_line(\n        "markers", "asyncio: mark test as using asyncio"\n    )\n    \n    # Configure pytest-asyncio\n    config._inicache["asyncio_default_fixture_loop_scope"] = "function"' > $(TEST_DIR)/conftest.py; \
+	fi
 
 # Run tests
 test: install-test
 	$(call run_in_venv, python -m pytest $(TEST_DIR) -v --disable-warnings)
 
+# Quick test - run without installing dependencies (assumes they're already installed)
+test-quick:
+	$(call run_in_venv, python -m pytest $(TEST_DIR) -v --disable-warnings)
+
 # Run tests with coverage
-test-cov:
+test-cov: install-test
 	$(call run_in_venv, python -m pytest --cov=$(SRC_DIR) $(TEST_DIR))
 
 # Lint code
-lint:
+lint: install-dev
 	$(call run_in_venv, ruff check $(SRC_DIR) $(TEST_DIR))
 
 # Format code
-format:
+format: install-dev
 	$(call run_in_venv, ruff format $(SRC_DIR) $(TEST_DIR))
 
+# Fix common test issues (automatically adds asyncio imports and fixes test patterns)
+fix-tests: install-test
+	@echo "Fixing async test issues..."
+	@for file in $$(find $(TEST_DIR) -name "*.py" -type f); do \
+		if grep -q "async def" "$$file" && ! grep -q "import asyncio" "$$file"; then \
+			echo "Adding asyncio import to $$file"; \
+			sed -i '1,10 s/^import pytest/import pytest\nimport asyncio/' "$$file"; \
+		fi; \
+		if grep -q "async def _async_test" "$$file"; then \
+			echo "Converting manual async wrapper to pytest.mark.asyncio in $$file"; \
+			sed -i 's/def test_\([a-zA-Z0-9_]*\).*:\n.*async def _async_test.*:/@pytest.mark.asyncio\nasync def test_\1():/' "$$file"; \
+			sed -i '/loop = asyncio.new_event_loop()/,/asyncio.set_event_loop(None)/d' "$$file"; \
+		fi; \
+	done
+	@echo "Removing backup files..."
+	@find $(TEST_DIR) -name "*.bak" -delete
+
 # Documentation targets
-docs:
+docs: install-dev
 	$(call run_in_venv, cd docs && make html)
 
 # Start documentation server
@@ -101,6 +132,11 @@ clean: clean-docs
 # Build package distribution files
 build: clean install-publish
 	$(call run_in_venv, python -m build)
+
+# Install publish dependencies
+install-publish:
+	@command -v $(UV) >/dev/null 2>&1 || { echo "Error: uv is not installed. Install it with 'pip install uv'."; exit 1; }
+	$(call run_in_venv, $(UV) pip install -e ".[publish]")
 
 # Publish package to PyPI
 _publish:
@@ -124,6 +160,7 @@ check: build
 
 # Update dependencies
 update-deps:
+	@command -v $(UV) >/dev/null 2>&1 || { echo "Error: uv is not installed. Install it with 'pip install uv'."; exit 1; }
 	$(call run_in_venv, $(UV) pip compile pyproject.toml -o requirements.txt)
 
 # Version bumping targets
@@ -156,3 +193,41 @@ patch: bump-patch build _publish tag-version
 minor: bump-minor build _publish tag-version
 
 major: bump-major build _publish tag-version
+
+# Display help information
+help:
+	@echo "Hanzo MCP Makefile Commands:"
+	@echo ""
+	@echo "Development:"
+	@echo "  make               Run tests (default target)"
+	@echo "  make setup         Setup everything at once"
+	@echo "  make test          Run tests (installs test dependencies first)"
+	@echo "  make test-quick    Run tests quickly (without reinstalling dependencies)"
+	@echo "  make test-cov      Run tests with coverage report"
+	@echo "  make lint          Run linting checks"
+	@echo "  make format        Format code"
+	@echo "  make fix-tests     Fix common test issues automatically"
+	@echo ""
+	@echo "Installation:"
+	@echo "  make install       Install the package"
+	@echo "  make install-dev   Install development dependencies"
+	@echo "  make install-test  Install test dependencies"
+	@echo ""
+	@echo "Documentation:"
+	@echo "  make docs          Build documentation"
+	@echo "  make docs-serve    Serve documentation locally"
+	@echo ""
+	@echo "Versioning:"
+	@echo "  make bump-patch    Bump patch version"
+	@echo "  make bump-minor    Bump minor version"
+	@echo "  make bump-major    Bump major version"
+	@echo ""
+	@echo "Publishing:"
+	@echo "  make publish       Build, publish, and tag version"
+	@echo "  make publish-test  Publish to Test PyPI"
+	@echo ""
+	@echo "Cleaning:"
+	@echo "  make clean         Clean build artifacts"
+	@echo ""
+	@echo "Note: This project requires 'uv' to be installed."
+	@echo "      Install it with: pip install uv"
