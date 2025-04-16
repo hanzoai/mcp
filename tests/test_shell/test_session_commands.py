@@ -2,6 +2,7 @@
 
 import os
 import pytest
+import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from hanzo_mcp.tools.common.session import SessionManager

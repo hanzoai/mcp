@@ -1,1 +1,1 @@
-"""Tests for agent tools."""
+"""Agent tools test package."""

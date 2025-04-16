@@ -1,1 +1,1 @@
-"""Shell commands test modules package."""
+"""Shell command test package."""

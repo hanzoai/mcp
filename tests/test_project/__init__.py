@@ -1,1 +1,1 @@
-"""Project analysis test modules package."""
+"""Project analysis test package."""
