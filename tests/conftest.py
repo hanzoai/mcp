@@ -163,6 +163,12 @@ def project_analyzer(command_executor):
     """Create a project analyzer for testing."""
     from hanzo_mcp.tools.project.analysis import ProjectAnalyzer
     return ProjectAnalyzer(command_executor)
+    
+@pytest.fixture
+def project_manager(document_context, permission_manager, project_analyzer):
+    """Create a project manager for testing."""
+    from hanzo_mcp.tools.project.analysis import ProjectManager
+    return ProjectManager(document_context, permission_manager, project_analyzer)
 
 
 
