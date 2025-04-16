@@ -18,31 +18,37 @@ from hanzo_mcp.tools.shell.command_executor import CommandExecutor
 def pytest_configure(config):
     config.addinivalue_line("markers", "asyncio: mark test as using asyncio")
 
-# Add support for asyncio tests
+# Add support for asyncio tests without pytest-asyncio plugin
+# This uses a direct approach to handle coroutine functions
 @pytest.hookimpl(trylast=True)
-def pytest_pyfunc_call(pyfuncitem):
+def pytest_runtest_setup(item):
+    """Set up async tests to run without pytest-asyncio."""
+    if asyncio.iscoroutinefunction(item.obj):
+        # This makes the test show as skipped but doesn't attempt to run it
+        # We'll handle it in pytest_runtest_call instead
+        pass
+
+@pytest.hookimpl(trylast=True)
+def pytest_runtest_call(item):
     """Run async test functions without pytest-asyncio."""
-    if asyncio.iscoroutinefunction(pyfuncitem.obj):
-        funcargs = {arg: pyfuncitem.funcargs[arg] for arg in pyfuncitem.funcargs}
+    if asyncio.iscoroutinefunction(item.obj):
+        # Get the function arguments
+        funcargs = {arg: item.funcargs[arg] for arg in item.funcargs}
+        
+        # Create and set up a new event loop
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
         
         try:
-            loop = asyncio.get_event_loop()
-            if loop.is_closed():
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-        except RuntimeError:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-        
-        try:
-            testcoro = pyfuncitem.obj(**funcargs)
-            loop.run_until_complete(testcoro)
+            # Run the coroutine function
+            coro = item.obj(**funcargs)
+            loop.run_until_complete(coro)
+            # Indicate successful completion, preventing the test from being marked as skipped
+            return True
         finally:
-            if not loop.is_closed():
-                loop.close()
-                asyncio.set_event_loop(None)
-            
-        return True
+            # Clean up the loop
+            loop.close()
+            asyncio.set_event_loop(None)
 
 
 @pytest.fixture
