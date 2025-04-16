@@ -6,7 +6,7 @@ An implementation of Hanzo capabilities using the Model Context Protocol (MCP).
 
 This project provides an MCP server that implements Hanzo-like functionality, allowing Claude to directly execute instructions for modifying and improving project files. By leveraging the Model Context Protocol, this implementation enables seamless integration with various MCP clients including Claude Desktop.
 
-![example](./doc/example.gif)
+![example](./docs/example.gif)
 
 ## Features
 
@@ -54,7 +54,7 @@ pip install hanzo-mcp
 
 For detailed installation and configuration instructions, please refer to the [documentation](./docs/).
 
-Of course, you can also read [USEFUL_PROMPTS](./doc/USEFUL_PROMPTS.md) for some inspiration on how to use hanzo-mcp.
+Of course, you can also read [USEFUL_PROMPTS](./docs/USEFUL_PROMPTS.md) for some inspiration on how to use hanzo-mcp.
 
 ## Security
 
