@@ -216,9 +216,8 @@ def main() -> None:
         if not os.path.isabs(project_dir):
             project_dir = os.path.abspath(project_dir)
 
-    # If no specific project directory, use the first allowed path
-    elif allowed_paths:
-        project_dir = allowed_paths[0]
+    # Don't set project_dir if not explicitly specified
+    # This ensures it remains None when not provided
 
     # Run the server - only log if not using stdio transport or logging is explicitly enabled
     if transport != "stdio" or (enable_console_logging or not disable_file_logging):
