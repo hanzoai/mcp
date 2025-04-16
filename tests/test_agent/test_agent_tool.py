@@ -420,7 +420,7 @@ class TestAgentTool:
         with patch("hanzo_mcp.tools.agent.agent_tool.get_allowed_agent_tools", return_value=mock_tools):
             with patch("hanzo_mcp.tools.agent.agent_tool.get_system_prompt", return_value="System prompt"):
                 with patch("hanzo_mcp.tools.agent.agent_tool.convert_tools_to_openai_functions", return_value=[]):
-                    with patch.object(agent_tool, "_execute_agent_with_tools", side_effect=[lambda: "Result 1", lambda: "Result 2", lambda: "Result 3"]):
+                    with patch.object(agent_tool, "_execute_agent_with_tools", side_effect=["Result 1", "Result 2", "Result 3"]):
                         import asyncio
                         with patch.object(asyncio, "gather", AsyncMock(return_value=gather_results)):
                             result = await agent_tool._execute_multiple_agents(test_prompts, tool_ctx)
