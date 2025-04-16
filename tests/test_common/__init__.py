@@ -1,1 +1,1 @@
-"""Common test modules package."""
+"""Common test package."""

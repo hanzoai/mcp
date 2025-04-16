@@ -2,6 +2,7 @@
 
 import os
 import pytest
+import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from hanzo_mcp.tools.common.session import SessionManager
@@ -105,7 +106,7 @@ async def test_reset_session(command_executor):
     assert command_executor.get_working_dir(session_id) == original_dir
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio  
 async def test_nonexistent_directory(command_executor):
     """Test trying to CD to a nonexistent directory."""
     session_id = "nonexistent-dir-session"

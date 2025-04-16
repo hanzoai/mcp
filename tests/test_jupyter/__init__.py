@@ -1,1 +1,1 @@
-"""Tests for Jupyter notebook tools."""
+"""Jupyter notebook test package."""
