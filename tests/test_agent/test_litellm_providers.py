@@ -1,9 +1,9 @@
 """Test LiteLLM with different providers."""
 
 import os
-
 import pytest
 import litellm
+import asyncio
 
 from hanzo_mcp.tools.agent.tool_adapter import convert_tools_to_openai_functions
 from hanzo_mcp.tools.common.base import BaseTool
@@ -77,7 +77,8 @@ def test_convert_echo_tool_to_openai_functions(echo_tool):
     not os.environ.get("OPENAI_API_KEY"),
     reason="OPENAI_API_KEY environment variable not set",
 )
-def test_litellm_openai_provider():
+@pytest.mark.asyncio
+async def test_litellm_openai_provider():
     """Test LiteLLM with OpenAI provider."""
     messages = [
         {"role": "user", "content": "Hello, how are you?"}
@@ -100,7 +101,8 @@ def test_litellm_openai_provider():
     not os.environ.get("ANTHROPIC_API_KEY"),
     reason="ANTHROPIC_API_KEY environment variable not set",
 )
-def test_litellm_anthropic_provider():
+@pytest.mark.asyncio
+async def test_litellm_anthropic_provider():
     """Test LiteLLM with Anthropic provider."""
     messages = [
         {"role": "user", "content": "Hello, how are you?"}
