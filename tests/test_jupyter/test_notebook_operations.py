@@ -203,8 +203,10 @@ class TestJupyterNotebookTools:
             mock_server.tool = mock_decorator
             jupyter_tools.register_tools(mock_server)
 
-            # Use the extracted read_notebook function
-            result = await tools["read_notebook"](path, mcp_context)
+            # Mock is_path_allowed to return False for this test
+            with patch.object(jupyter_tools.permission_manager, 'is_path_allowed', return_value=False):
+                # Use the extracted read_notebook function
+                result = await tools["read_notebook"](path, mcp_context)
 
             # Verify result
             assert "Error: Access denied" in result
@@ -681,10 +683,12 @@ class TestJupyterNotebookTools:
             mock_server.tool = mock_decorator
             jupyter_tools.register_tools(mock_server)
 
-            # Use the extracted edit_notebook function
-            result = await tools["edit_notebook"](
-                path, 0, "New content", mcp_context, "code", "replace"
-            )
+            # Mock is_path_allowed to return False for this test
+            with patch.object(jupyter_tools.permission_manager, 'is_path_allowed', return_value=False):
+                # Use the extracted edit_notebook function
+                result = await tools["edit_notebook"](
+                    path, 0, "New content", mcp_context, "code", "replace"
+                )
 
             # Verify result
             assert "Error: Access denied" in result

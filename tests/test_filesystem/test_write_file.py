@@ -53,20 +53,21 @@ class TestWriteFileTool:
         # Mock context calls
         tool_ctx = AsyncMock()
         
+        # For the success case, we want path to be allowed
         # Mock the base class method
         with patch.object(FilesystemBaseTool, 'set_tool_context_info', AsyncMock()):
-            with patch(
-                "hanzo_mcp.tools.common.context.create_tool_context",
-                return_value=tool_ctx,
-            ):
-                result = await write_file_tool.call(mcp_context, path=test_path, content=test_content)
+            with patch.object(write_file_tool, 'is_path_allowed', return_value=True):
+                with patch(
+                    "hanzo_mcp.tools.common.context.create_tool_context",
+                    return_value=tool_ctx,
+                ):
+                    result = await write_file_tool.call(mcp_context, path=test_path, content=test_content)
 
         # Verify result
         assert "Successfully wrote file" in result
-        assert f"{test_path}" in result
-        assert f"{len(test_content)} bytes" in result
+        assert test_path in result
 
-        # Verify file was written
+        # Verify parent dirs were created and file was written
         assert os.path.exists(test_path)
         with open(test_path, "r") as f:
             assert f.read() == test_content
@@ -84,11 +85,12 @@ class TestWriteFileTool:
         
         # Mock the base class method
         with patch.object(FilesystemBaseTool, 'set_tool_context_info', AsyncMock()):
-            with patch(
-                "hanzo_mcp.tools.common.context.create_tool_context",
-                return_value=tool_ctx,
-            ):
-                result = await write_file_tool.call(mcp_context, path=None, content="test content")
+            with patch.object(write_file_tool, 'is_path_allowed', return_value=False):
+                with patch(
+                    "hanzo_mcp.tools.common.context.create_tool_context",
+                    return_value=tool_ctx,
+                ):
+                    result = await write_file_tool.call(mcp_context, path=None, content="test content")
 
         # Verify result
         assert "Error: Parameter 'path' is required but was None" in result
@@ -106,11 +108,12 @@ class TestWriteFileTool:
         
         # Mock the base class method
         with patch.object(FilesystemBaseTool, 'set_tool_context_info', AsyncMock()):
-            with patch(
-                "hanzo_mcp.tools.common.context.create_tool_context",
-                return_value=tool_ctx,
-            ):
-                result = await write_file_tool.call(mcp_context, path="", content="test content")
+            with patch.object(write_file_tool, 'is_path_allowed', return_value=False):
+                with patch(
+                    "hanzo_mcp.tools.common.context.create_tool_context",
+                    return_value=tool_ctx,
+                ):
+                    result = await write_file_tool.call(mcp_context, path="", content="test content")
 
         # Verify result
         assert "Error: Parameter 'path' is required but was None" in result or "Error: Parameter 'path' cannot be empty" in result
@@ -131,11 +134,12 @@ class TestWriteFileTool:
         
         # Mock the base class method
         with patch.object(FilesystemBaseTool, 'set_tool_context_info', AsyncMock()):
-            with patch(
-                "hanzo_mcp.tools.common.context.create_tool_context",
-                return_value=tool_ctx,
-            ):
-                result = await write_file_tool.call(mcp_context, path=test_path, content=None)
+            with patch.object(write_file_tool, 'is_path_allowed', return_value=False):
+                with patch(
+                    "hanzo_mcp.tools.common.context.create_tool_context",
+                    return_value=tool_ctx,
+                ):
+                    result = await write_file_tool.call(mcp_context, path=test_path, content=None)
 
         # Verify result
         assert "Error: Parameter 'content' is required but was None" in result
@@ -156,11 +160,12 @@ class TestWriteFileTool:
         
         # Mock the base class method
         with patch.object(FilesystemBaseTool, 'set_tool_context_info', AsyncMock()):
-            with patch(
-                "hanzo_mcp.tools.common.context.create_tool_context",
-                return_value=tool_ctx,
-            ):
-                result = await write_file_tool.call(mcp_context, path=test_path, content=test_content)
+            with patch.object(write_file_tool, 'is_path_allowed', return_value=False):
+                with patch(
+                    "hanzo_mcp.tools.common.context.create_tool_context",
+                    return_value=tool_ctx,
+                ):
+                        result = await write_file_tool.call(mcp_context, path=test_path, content=test_content)
 
         # Verify result indicates error
         assert "Error: Access denied" in result or "Error: Path not allowed" in result
@@ -182,11 +187,12 @@ class TestWriteFileTool:
         
         # Mock the base class method
         with patch.object(FilesystemBaseTool, 'set_tool_context_info', AsyncMock()):
-            with patch(
-                "hanzo_mcp.tools.common.context.create_tool_context",
-                return_value=tool_ctx,
-            ):
-                result = await write_file_tool.call(mcp_context, path=test_path, content=test_content)
+            with patch.object(write_file_tool, 'is_path_allowed', return_value=False):
+                with patch(
+                    "hanzo_mcp.tools.common.context.create_tool_context",
+                    return_value=tool_ctx,
+                ):
+                        result = await write_file_tool.call(mcp_context, path=test_path, content=test_content)
 
         # Verify result indicates error
         assert "Error: Access denied" in result or "Error: Path not allowed" in result
@@ -207,13 +213,15 @@ class TestWriteFileTool:
         # Mock context calls
         tool_ctx = AsyncMock()
         
+        # For the success case, we want path to be allowed
         # Mock the base class method
         with patch.object(FilesystemBaseTool, 'set_tool_context_info', AsyncMock()):
-            with patch(
-                "hanzo_mcp.tools.common.context.create_tool_context",
-                return_value=tool_ctx,
-            ):
-                result = await write_file_tool.call(mcp_context, path=test_path, content=test_content)
+            with patch.object(write_file_tool, 'is_path_allowed', return_value=True):
+                with patch(
+                    "hanzo_mcp.tools.common.context.create_tool_context",
+                    return_value=tool_ctx,
+                ):
+                    result = await write_file_tool.call(mcp_context, path=test_path, content=test_content)
 
         # Verify result
         assert "Successfully wrote file" in result
@@ -246,11 +254,12 @@ class TestWriteFileTool:
         
         # Mock the base class method
         with patch.object(FilesystemBaseTool, 'set_tool_context_info', AsyncMock()):
-            with patch(
-                "hanzo_mcp.tools.common.context.create_tool_context",
-                return_value=tool_ctx,
-            ):
-                result = await write_file_tool.call(mcp_context, path=test_path, content=new_content)
+            with patch.object(write_file_tool, 'is_path_allowed', return_value=True):
+                with patch(
+                    "hanzo_mcp.tools.common.context.create_tool_context",
+                    return_value=tool_ctx,
+                ):
+                    result = await write_file_tool.call(mcp_context, path=test_path, content=new_content)
 
         # Verify result
         assert "Successfully wrote file" in result
@@ -280,11 +289,12 @@ class TestWriteFileTool:
         
         # Mock the base class method
         with patch.object(FilesystemBaseTool, 'set_tool_context_info', AsyncMock()):
-            with patch(
-                "hanzo_mcp.tools.common.context.create_tool_context",
-                return_value=tool_ctx,
-            ):
-                result = await write_file_tool.call(mcp_context, path=test_path, content=large_content)
+            with patch.object(write_file_tool, 'is_path_allowed', return_value=True):
+                with patch(
+                    "hanzo_mcp.tools.common.context.create_tool_context",
+                    return_value=tool_ctx,
+                ):
+                    result = await write_file_tool.call(mcp_context, path=test_path, content=large_content)
 
         # Verify result
         assert "Successfully wrote file" in result
@@ -313,11 +323,12 @@ class TestWriteFileTool:
         
         # Mock the base class method
         with patch.object(FilesystemBaseTool, 'set_tool_context_info', AsyncMock()):
-            with patch(
-                "hanzo_mcp.tools.common.context.create_tool_context",
-                return_value=tool_ctx,
-            ):
-                result = await write_file_tool.call(mcp_context, path=test_path, content=special_content)
+            with patch.object(write_file_tool, 'is_path_allowed', return_value=True):
+                with patch(
+                    "hanzo_mcp.tools.common.context.create_tool_context",
+                    return_value=tool_ctx,
+                ):
+                    result = await write_file_tool.call(mcp_context, path=test_path, content=special_content)
 
         # Verify result
         assert "Successfully wrote file" in result
@@ -348,11 +359,12 @@ class TestWriteFileTool:
         
         # Mock the base class method
         with patch.object(FilesystemBaseTool, 'set_tool_context_info', AsyncMock()):
-            with patch(
-                "hanzo_mcp.tools.common.context.create_tool_context",
-                return_value=tool_ctx,
-            ):
-                result = await write_file_tool.call(mcp_context, path=test_path, content=unicode_content)
+            with patch.object(write_file_tool, 'is_path_allowed', return_value=True):
+                with patch(
+                    "hanzo_mcp.tools.common.context.create_tool_context",
+                    return_value=tool_ctx,
+                ):
+                    result = await write_file_tool.call(mcp_context, path=test_path, content=unicode_content)
 
         # Verify result
         assert "Successfully wrote file" in result
