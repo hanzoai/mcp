@@ -1,7 +1,7 @@
 # Set test as the default target
 .DEFAULT_GOAL := test
 
-.PHONY: install test lint clean dev venv build _publish publish setup bump-patch bump-minor bump-major publish-patch publish-minor publish-major tag-version docs docs-serve
+.PHONY: install test lint clean dev venv build _publish publish setup bump-patch bump-minor bump-major publish-patch publish-minor publish-major tag-version docs docs-serve uv-check
 
 # Virtual environment settings
 VENV_NAME ?= .venv
@@ -24,6 +24,10 @@ endif
 # Python and package management commands
 UV = uv
 
+# Add a check for uv
+uv-check:
+	@which uv > /dev/null || (echo "Error: uv is not installed. Please install it with 'pip install uv'." && exit 1)
+
 # Project paths
 SRC_DIR = hanzo_mcp
 TEST_DIR = tests
@@ -34,39 +38,39 @@ define run_in_venv
 	. $(VENV_ACTIVATE) && $(1)
 endef
 
-# Setup everything at once (default target)
+# Setup everything at once
 all: setup
 
-setup: install-python venv install
+setup: uv-check install-python venv install
 
 # Install Python using uv
-install-python:
+install-python: uv-check
 	$(UV) python install 3.12
 
 # Create virtual environment using uv and install package
-venv:
+venv: uv-check
 	$(UV) venv $(VENV_NAME) --python=3.12
 	$(call run_in_venv, $(UV) pip install -e ".")
 
 # Install the package
-install:
+install: uv-check
 	$(call run_in_venv, $(UV) pip install -e ".")
 
-uninstall:
+uninstall: uv-check
 	$(call run_in_venv, $(UV) pip uninstall -y hanzo-mcp)
 
 reinstall: uninstall install
 
 # Install development dependencies
-install-dev:
+install-dev: uv-check
 	$(call run_in_venv, $(UV) pip install -e ".[dev]")
 
 # Install test dependencies
-install-test:
+install-test: uv-check
 	$(call run_in_venv, $(UV) pip install -e ".[test]")
 
 # Install publish dependencies
-install-publish:
+install-publish: uv-check
 	$(call run_in_venv, $(UV) pip install -e ".[publish]")
 
 # Run tests
@@ -74,19 +78,19 @@ test: install-test
 	$(call run_in_venv, python -m pytest $(TEST_DIR) --disable-warnings)
 
 # Run tests with coverage
-test-cov:
+test-cov: install-test
 	$(call run_in_venv, python -m pytest --cov=$(SRC_DIR) $(TEST_DIR))
 
 # Lint code
-lint:
+lint: install-dev
 	$(call run_in_venv, ruff check $(SRC_DIR) $(TEST_DIR))
 
 # Format code
-format:
+format: install-dev
 	$(call run_in_venv, ruff format $(SRC_DIR) $(TEST_DIR))
 
 # Documentation targets
-docs:
+docs: install-dev
 	$(call run_in_venv, cd docs && make html)
 
 # Start documentation server
@@ -127,7 +131,7 @@ check: build
 	$(call run_in_venv, python -m twine check $(DIST_DIR)/*)
 
 # Update dependencies
-update-deps:
+update-deps: uv-check
 	$(call run_in_venv, $(UV) pip compile pyproject.toml -o requirements.txt)
 
 # Version bumping targets
