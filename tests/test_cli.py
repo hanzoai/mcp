@@ -34,6 +34,9 @@ class TestCLI:
             mock_args.agent_max_tool_uses = 30
             mock_args.enable_agent_tool = False
             mock_args.disable_write_tools = False
+            mock_args.log_level = "INFO"
+            mock_args.host = "127.0.0.1"
+            mock_args.port = 3000
             mock_parse_args.return_value = mock_args
 
             # Mock server instance
@@ -49,13 +52,16 @@ class TestCLI:
             mock_server_class.assert_called_once_with(
                 name="test-server",
                 allowed_paths=expected_paths,
+                project_dir="/test/project",
                 agent_model="anthropic/claude-3-sonnet",
                 agent_max_tokens=2000,
                 agent_api_key="test_api_key",
                 agent_max_iterations=10,
                 agent_max_tool_uses=30,
                 enable_agent_tool=False,
-                disable_write_tools=False
+                disable_write_tools=False,
+                host=mock_args.host,
+                port=mock_args.port
             )
             mock_server.run.assert_called_once_with(transport="stdio")
 
@@ -70,20 +76,23 @@ class TestCLI:
             mock_args.name = "test-server"
             mock_args.install = True
             mock_args.allowed_paths = ["/test/path"]
+            mock_args.log_level = "INFO"
+            mock_args.host = "127.0.0.1"
+            mock_args.port = 3000
             mock_parse_args.return_value = mock_args
 
             # Call main
             main()
 
             # Verify install function was called
-            mock_install.assert_called_once_with("test-server", ["/test/path"])
+            mock_install.assert_called_once_with("test-server", ["/test/path"], mock_args.host, mock_args.port)
 
     def test_main_without_allowed_paths(self) -> None:
         """Test the main function without specified allowed paths."""
         with (
             patch("argparse.ArgumentParser.parse_args") as mock_parse_args,
             patch("hanzo_mcp.cli.HanzoServer") as mock_server_class,
-            patch("os.getcwd", return_value="/current/dir"),
+            patch("pathlib.Path.home", return_value=Path("/current/dir")),
         ):
             # Mock parsed arguments
             mock_args = MagicMock()
@@ -99,6 +108,9 @@ class TestCLI:
             mock_args.agent_max_tool_uses = 30
             mock_args.enable_agent_tool = False
             mock_args.disable_write_tools = False
+            mock_args.log_level = "INFO"
+            mock_args.host = "127.0.0.1"
+            mock_args.port = 3000
             mock_parse_args.return_value = mock_args
 
             # Mock server instance
@@ -112,13 +124,16 @@ class TestCLI:
             mock_server_class.assert_called_once_with(
                 name="test-server",
                 allowed_paths=["/current/dir"],
+                project_dir=None,
                 agent_model=None,
                 agent_max_tokens=None,
                 agent_api_key=None,
                 agent_max_iterations=10,
                 agent_max_tool_uses=30,
                 enable_agent_tool=False,
-                disable_write_tools=False
+                disable_write_tools=False,
+                host=mock_args.host,
+                port=mock_args.port
             )
             mock_server.run.assert_called_once_with(transport="stdio")
             
@@ -142,6 +157,9 @@ class TestCLI:
             mock_args.agent_max_tool_uses = 30
             mock_args.enable_agent_tool = False
             mock_args.disable_write_tools = True
+            mock_args.log_level = "INFO"
+            mock_args.host = "127.0.0.1"
+            mock_args.port = 3000
             mock_parse_args.return_value = mock_args
 
             # Mock server instance
@@ -156,13 +174,16 @@ class TestCLI:
             mock_server_class.assert_called_once_with(
                 name="test-server",
                 allowed_paths=expected_paths,
+                project_dir="/test/project",
                 agent_model=None,
                 agent_max_tokens=None,
                 agent_api_key=None,
                 agent_max_iterations=10,
                 agent_max_tool_uses=30,
                 enable_agent_tool=False,
-                disable_write_tools=True
+                disable_write_tools=True,
+                host=mock_args.host,
+                port=mock_args.port
             )
             mock_server.run.assert_called_once_with(transport="stdio")
 
