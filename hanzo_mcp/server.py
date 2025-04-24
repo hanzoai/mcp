@@ -34,6 +34,7 @@ Includes improved error handling and debugging for tool execution.
         agent_max_tool_uses: int = 30,
         enable_agent_tool: bool = False,
         disable_write_tools: bool = False,
+        disable_search_tools: bool = False,
         host: str = "0.0.0.0",
         port: int = 3001,
     ):
@@ -51,6 +52,7 @@ Includes improved error handling and debugging for tool execution.
             agent_max_tool_uses: Maximum number of total tool uses for agent (default: 30)
             enable_agent_tool: Whether to enable the agent tool (default: False)
             disable_write_tools: Whether to disable write/edit tools (default: False)
+            disable_search_tools: Whether to disable search tools (default: False)
             host: Host to bind to for SSE transport (default: '0.0.0.0')
             port: Port to use for SSE transport (default: 3001)
         """
@@ -93,6 +95,7 @@ Includes improved error handling and debugging for tool execution.
         self.agent_max_tool_uses = agent_max_tool_uses
         self.enable_agent_tool = enable_agent_tool
         self.disable_write_tools = disable_write_tools
+        self.disable_search_tools = disable_search_tools
 
         # Store network options
         self.host = host
@@ -110,6 +113,7 @@ Includes improved error handling and debugging for tool execution.
             agent_max_tool_uses=self.agent_max_tool_uses,
             enable_agent_tool=self.enable_agent_tool,
             disable_write_tools=self.disable_write_tools,
+            disable_search_tools=self.disable_search_tools,
         )
 
     def run(self, transport: str = "stdio", allowed_paths: list[str] | None = None):

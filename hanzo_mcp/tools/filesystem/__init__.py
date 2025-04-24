@@ -31,46 +31,60 @@ __all__ = [
 ]
 
 def get_read_only_filesystem_tools(
-            document_context: DocumentContext, permission_manager: PermissionManager
+            document_context: DocumentContext, permission_manager: PermissionManager,
+            disable_search_tools: bool = False
 ) -> list[BaseTool]:
     """Create instances of read-only filesystem tools.
     
     Args:
         document_context: Document context for tracking file contents
         permission_manager: Permission manager for access control
+        disable_search_tools: Whether to disable search tools (default: False)
 
     Returns:
         List of read-only filesystem tool instances
     """
-    return [
+    tools = [
         ReadFilesTool(document_context, permission_manager),
         DirectoryTreeTool(document_context, permission_manager),
         GetFileInfoTool(document_context, permission_manager),
-        SearchContentTool(document_context, permission_manager),
     ]
+    
+    if not disable_search_tools:
+        tools.append(SearchContentTool(document_context, permission_manager))
+        
+    return tools
 
 
 def get_filesystem_tools(
-    document_context: DocumentContext, permission_manager: PermissionManager
+    document_context: DocumentContext, permission_manager: PermissionManager,
+    disable_search_tools: bool = False
 ) -> list[BaseTool]:
     """Create instances of all filesystem tools.
     
     Args:
         document_context: Document context for tracking file contents
         permission_manager: Permission manager for access control
+        disable_search_tools: Whether to disable search tools (default: False)
         
     Returns:
         List of filesystem tool instances
     """
-    return [
+    tools = [
         ReadFilesTool(document_context, permission_manager),
         WriteFileTool(document_context, permission_manager),
         EditFileTool(document_context, permission_manager),
         DirectoryTreeTool(document_context, permission_manager),
         GetFileInfoTool(document_context, permission_manager),
-        SearchContentTool(document_context, permission_manager),
-        ContentReplaceTool(document_context, permission_manager),
     ]
+    
+    if not disable_search_tools:
+        tools.extend([
+            SearchContentTool(document_context, permission_manager),
+            ContentReplaceTool(document_context, permission_manager),
+        ])
+        
+    return tools
 
 
 def register_filesystem_tools(
@@ -78,6 +92,7 @@ def register_filesystem_tools(
     document_context: DocumentContext,
     permission_manager: PermissionManager,
     disable_write_tools: bool = False,
+    disable_search_tools: bool = False,
 ) -> None:
     """Register all filesystem tools with the MCP server.
     
@@ -86,9 +101,10 @@ def register_filesystem_tools(
         document_context: Document context for tracking file contents
         permission_manager: Permission manager for access control
         disable_write_tools: Whether to disable write/edit tools (default: False)
+        disable_search_tools: Whether to disable search tools (default: False)
     """
     if disable_write_tools:
-        tools = get_read_only_filesystem_tools(document_context, permission_manager)
+        tools = get_read_only_filesystem_tools(document_context, permission_manager, disable_search_tools)
     else:
-        tools = get_filesystem_tools(document_context, permission_manager)
+        tools = get_filesystem_tools(document_context, permission_manager, disable_search_tools)
     ToolRegistry.register_tools(mcp_server, tools)
