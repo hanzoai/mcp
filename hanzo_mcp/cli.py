@@ -151,6 +151,14 @@ def main() -> None:
     )
 
     _ = parser.add_argument(
+        "--disable-search-tools",
+        dest="disable_search_tools",
+        action="store_true",
+        default=False,
+        help="Disable search tools when the IDE has better built-in semantic search capabilities."
+    )
+
+    _ = parser.add_argument(
         "--install",
         action="store_true",
         help="Install server configuration in Claude Desktop",
@@ -172,6 +180,7 @@ def main() -> None:
     agent_max_tool_uses: int = cast(int, args.agent_max_tool_uses)
     enable_agent_tool: bool = cast(bool, args.enable_agent_tool)
     disable_write_tools: bool = cast(bool, args.disable_write_tools)
+    disable_search_tools: bool = cast(bool, args.disable_search_tools)
     log_level: str = cast(str, args.log_level)
     disable_file_logging: bool = cast(bool, args.disable_file_logging)
     enable_console_logging: bool = cast(bool, args.enable_console_logging)
@@ -196,7 +205,7 @@ def main() -> None:
 
 
     if install:
-        install_claude_desktop_config(name, allowed_paths, host, port)
+        install_claude_desktop_config(name, allowed_paths, disable_write_tools, disable_search_tools, host, port)
         return
 
     # If no allowed paths are specified, use the user's home directory
@@ -237,6 +246,7 @@ def main() -> None:
             agent_max_tool_uses=agent_max_tool_uses,
             enable_agent_tool=enable_agent_tool,
             disable_write_tools=disable_write_tools,
+            disable_search_tools=disable_search_tools,
             host=host,
             port=port
         )
@@ -259,7 +269,7 @@ def main() -> None:
 
 def install_claude_desktop_config(
     name: str = "claude-code", allowed_paths: list[str] | None = None,
-    disable_write_tools: bool = False,
+    disable_write_tools: bool = False, disable_search_tools: bool = False,
     host: str = "0.0.0.0", port: int = 3001
 ) -> None:
     """Install the server configuration in Claude Desktop.
@@ -270,6 +280,8 @@ def install_claude_desktop_config(
         disable_write_tools: Whether to disable write/edit tools (file writing, editing, notebook editing)
                           to use IDE tools instead. Note: Shell commands can still modify files.
                           (default: False)
+        disable_search_tools: Whether to disable search tools when the IDE has better built-in
+                          semantic search capabilities. (default: False)
         host: Host to bind to for SSE transport (default: '0.0.0.0')
         port: Port to use for SSE transport (default: 3001)
     """
@@ -309,6 +321,10 @@ def install_claude_desktop_config(
     # Add disable_write_tools flag if specified
     if disable_write_tools:
         args.append("--disable-write-tools")
+        
+    # Add disable_search_tools flag if specified
+    if disable_search_tools:
+        args.append("--disable-search-tools")
 
     # Add host and port
     args.extend(["--host", host])

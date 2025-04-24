@@ -34,6 +34,7 @@ class TestCLI:
             mock_args.agent_max_tool_uses = 30
             mock_args.enable_agent_tool = False
             mock_args.disable_write_tools = False
+            mock_args.disable_search_tools = False
             mock_args.log_level = "INFO"
             mock_args.host = "127.0.0.1"
             mock_args.port = 3000
@@ -60,6 +61,7 @@ class TestCLI:
                 agent_max_tool_uses=30,
                 enable_agent_tool=False,
                 disable_write_tools=False,
+                disable_search_tools=False,
                 host=mock_args.host,
                 port=mock_args.port
             )
@@ -76,6 +78,8 @@ class TestCLI:
             mock_args.name = "test-server"
             mock_args.install = True
             mock_args.allowed_paths = ["/test/path"]
+            mock_args.disable_write_tools = False
+            mock_args.disable_search_tools = False
             mock_args.log_level = "INFO"
             mock_args.host = "127.0.0.1"
             mock_args.port = 3000
@@ -85,7 +89,14 @@ class TestCLI:
             main()
 
             # Verify install function was called
-            mock_install.assert_called_once_with("test-server", ["/test/path"], mock_args.host, mock_args.port)
+            mock_install.assert_called_once_with(
+                "test-server", 
+                ["/test/path"], 
+                mock_args.disable_write_tools, 
+                mock_args.disable_search_tools, 
+                mock_args.host, 
+                mock_args.port
+            )
 
     def test_main_without_allowed_paths(self) -> None:
         """Test the main function without specified allowed paths."""
@@ -108,6 +119,7 @@ class TestCLI:
             mock_args.agent_max_tool_uses = 30
             mock_args.enable_agent_tool = False
             mock_args.disable_write_tools = False
+            mock_args.disable_search_tools = False
             mock_args.log_level = "INFO"
             mock_args.host = "127.0.0.1"
             mock_args.port = 3000
@@ -132,6 +144,7 @@ class TestCLI:
                 agent_max_tool_uses=30,
                 enable_agent_tool=False,
                 disable_write_tools=False,
+                disable_search_tools=False,
                 host=mock_args.host,
                 port=mock_args.port
             )
@@ -157,6 +170,7 @@ class TestCLI:
             mock_args.agent_max_tool_uses = 30
             mock_args.enable_agent_tool = False
             mock_args.disable_write_tools = True
+            mock_args.disable_search_tools = False
             mock_args.log_level = "INFO"
             mock_args.host = "127.0.0.1"
             mock_args.port = 3000
@@ -182,6 +196,59 @@ class TestCLI:
                 agent_max_tool_uses=30,
                 enable_agent_tool=False,
                 disable_write_tools=True,
+                disable_search_tools=False,
+                host=mock_args.host,
+                port=mock_args.port
+            )
+            mock_server.run.assert_called_once_with(transport="stdio")
+            
+    def test_main_with_disable_search_tools(self) -> None:
+        """Test the main function with disable_search_tools=True."""
+        with (
+            patch("argparse.ArgumentParser.parse_args") as mock_parse_args,
+            patch("hanzo_mcp.cli.HanzoServer") as mock_server_class,
+        ):
+            # Mock parsed arguments
+            mock_args = MagicMock()
+            mock_args.name = "test-server"
+            mock_args.transport = "stdio"
+            mock_args.allowed_paths = ["/test/path"]
+            mock_args.project_dir = "/test/project"
+            mock_args.install = False
+            mock_args.agent_model = None
+            mock_args.agent_max_tokens = None
+            mock_args.agent_api_key = None
+            mock_args.agent_max_iterations = 10
+            mock_args.agent_max_tool_uses = 30
+            mock_args.enable_agent_tool = False
+            mock_args.disable_write_tools = False
+            mock_args.disable_search_tools = True
+            mock_args.log_level = "INFO"
+            mock_args.host = "127.0.0.1"
+            mock_args.port = 3000
+            mock_parse_args.return_value = mock_args
+
+            # Mock server instance
+            mock_server = MagicMock()
+            mock_server_class.return_value = mock_server
+
+            # Call main
+            main()
+
+            # Verify server was created with disable_search_tools=True
+            expected_paths = ["/test/path", "/test/project"]
+            mock_server_class.assert_called_once_with(
+                name="test-server",
+                allowed_paths=expected_paths,
+                project_dir="/test/project",
+                agent_model=None,
+                agent_max_tokens=None,
+                agent_api_key=None,
+                agent_max_iterations=10,
+                agent_max_tool_uses=30,
+                enable_agent_tool=False,
+                disable_write_tools=False,
+                disable_search_tools=True,
                 host=mock_args.host,
                 port=mock_args.port
             )
@@ -426,3 +493,85 @@ class TestInstallClaudeDesktopConfig:
             
             # Verify --disable-write-tools flag is present
             assert "--disable-write-tools" in server_args
+            
+    def test_install_config_with_disable_search_tools(
+        self, mock_platform: Callable[[str], str], tmp_path: Path
+    ) -> None:
+        """Test installing config with disable_search_tools=True."""
+        # Set platform to macOS
+        mock_platform("darwin")
+
+        # Mock home directory and config path
+        with (
+            patch("pathlib.Path.home", return_value=Path(tmp_path)),
+            patch("sys.executable", "/usr/bin/python3"),
+            patch("json.dump") as mock_json_dump,
+            patch("builtins.open", create=True) as mock_open,
+            patch("pathlib.Path.exists", return_value=False),
+            patch("pathlib.Path.mkdir"),
+        ):
+            # Mock file opening
+            mock_file = MagicMock()
+            mock_open.return_value.__enter__.return_value = mock_file
+
+            # Call the install function with disable_search_tools=True
+            install_claude_desktop_config(
+                "test-server", 
+                allowed_paths=["/test/path"], 
+                disable_search_tools=True
+            )
+
+            # Verify correct config was written
+            mock_json_dump.assert_called_once()
+            config_data = mock_json_dump.call_args[0][0]
+            server_args = config_data["mcpServers"]["test-server"]["args"]
+
+            # Verify allowed path was added
+            assert "--allow-path" in server_args
+            path_index = server_args.index("--allow-path") + 1
+            assert "/test/path" in server_args[path_index]
+            
+            # Verify --disable-search-tools flag is present
+            assert "--disable-search-tools" in server_args
+            
+    def test_install_config_with_both_flags(
+        self, mock_platform: Callable[[str], str], tmp_path: Path
+    ) -> None:
+        """Test installing config with both disable_write_tools and disable_search_tools set to True."""
+        # Set platform to macOS
+        mock_platform("darwin")
+
+        # Mock home directory and config path
+        with (
+            patch("pathlib.Path.home", return_value=Path(tmp_path)),
+            patch("sys.executable", "/usr/bin/python3"),
+            patch("json.dump") as mock_json_dump,
+            patch("builtins.open", create=True) as mock_open,
+            patch("pathlib.Path.exists", return_value=False),
+            patch("pathlib.Path.mkdir"),
+        ):
+            # Mock file opening
+            mock_file = MagicMock()
+            mock_open.return_value.__enter__.return_value = mock_file
+
+            # Call the install function with both flags set to True
+            install_claude_desktop_config(
+                "test-server", 
+                allowed_paths=["/test/path"], 
+                disable_write_tools=True,
+                disable_search_tools=True
+            )
+
+            # Verify correct config was written
+            mock_json_dump.assert_called_once()
+            config_data = mock_json_dump.call_args[0][0]
+            server_args = config_data["mcpServers"]["test-server"]["args"]
+
+            # Verify allowed path was added
+            assert "--allow-path" in server_args
+            path_index = server_args.index("--allow-path") + 1
+            assert "/test/path" in server_args[path_index]
+            
+            # Verify both flags are present
+            assert "--disable-write-tools" in server_args
+            assert "--disable-search-tools" in server_args
