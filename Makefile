@@ -201,15 +201,15 @@ update-deps:
 # Version bumping targets
 bump-patch:
 	@echo "Running version bump script (patch)..."
-	@python -m scripts.bump_version patch
+	$(call run_in_venv, python -m scripts.bump_version patch)
 
 bump-minor:
 	@echo "Running version bump script (minor)..."
-	@python -m scripts.bump_version minor
+	$(call run_in_venv, python -m scripts.bump_version minor)
 
 bump-major:
 	@echo "Running version bump script (major)..."
-	@python -m scripts.bump_version major
+	$(call run_in_venv, python -m scripts.bump_version major)
 
 # Tag creation and pushing
 tag-version:
