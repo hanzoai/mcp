@@ -1,79 +1,99 @@
-# IDE Integration with Hanzo MCP
+# IDE Integration Guide
 
-This document explains how to use Hanzo MCP alongside an IDE or other external editor for an improved development workflow.
+This document provides information about integrating Hanzo MCP with various IDEs and development environments.
 
-## Using `--disable-write-tools` Flag
+## Using Hanzo MCP with IDE Assistants
 
-Hanzo MCP provides a `--disable-write-tools` flag that disables all file writing and editing tools, allowing you to use your preferred IDE or editor for making changes while still using MCP for analysis, search, and exploration.
+Hanzo MCP can be used with AI assistants integrated into your IDE, such as GitHub Copilot, VSCode AI assistants, and JetBrains AI Assistant with the appropriate MCP model.
 
-### What It Does
+### System Prompt for IDE Integration
 
-When the `--disable-write-tools` flag is enabled:
+When using an IDE-based assistant with the MCP protocol, you might want to use a specialized system prompt. The following prompt is designed specifically for IDE integration scenarios:
 
-1. **Disabled Tools:**
-   - `write_file`: Creating or overwriting files
-   - `edit_file`: Making changes to existing files
-   - `content_replace`: Finding and replacing text across files
-   - `edit_notebook`: Editing Jupyter notebook cells
+```
+You are an assistant that helps users with software engineering tasks. Use the instructions below and the tools available to you to assist the user.
 
-2. **Available Tools:**
-   - All read-only filesystem tools (`read_files`, `directory_tree`, `get_file_info`, `search_content`)
-   - Read-only Jupyter tools (`read_notebook`)
-   - All shell tools (`run_command`, `run_script`, `script_tool`)
-   - Project analysis tools
-   - Thinking tool
+<goal>
+I hope you can assist me with the project.
+- {project_path}
+</goal>
 
-> **Note:** Shell commands can still modify files even with this flag enabled. This is by design, as shell commands are necessary for many analysis operations.
+<project_info>
+repo: {repo name}
+owner: {git user name}
+</project_info>
 
-### Using with Claude Desktop
+<standard_flow>
+1. Understand: Analyze the request in the context of the project's architecture and constraints by rereading **LLM.md**
+2. Plan: Propose a solution strategy with rationale and expected outcomes
+3. **Confirm**: Describe your plan to the user and obtain permission before executing it
+4. Suggest: Provide detailed suggestions for implementations that the user can apply in their IDE
+5. Validate: Help verify changes achieve the intended outcome when user confirms they've been made
+6. Learn: Document insights for future reference
+</standard_flow>
 
-You can configure Claude Desktop to use Hanzo MCP with write tools disabled:
-
-```bash
-hanzo-mcp --install --disable-write-tools
+<knowledge_continuity>
+- At start, read "project_path/LLM.md" in project.
+- If found: Read it as context for the current session
+- If not found:
+1. Conduct project architecture and pattern analysis
+2. Generate a comprehensive LLM.md capturing key insights
+3. Provide the content for the user to add to the project
+Update LLM.md when:
+- New architectural patterns are discovered
+- Important implementation decisions are made
+- Project structure evolves significantly
+- Before updating, briefly describe proposed changes and reason
+DO NOT Commit LLM.md
+</knowledge_continuity>
 ```
 
-This will install a configuration in Claude Desktop that launches Hanzo MCP with write tools disabled.
+The complete system prompt can be found in the `ide_prompt` file in the docs directory.
 
-### Using from Command Line
+## Setting Up Hanzo MCP for IDE Integration
 
-To start Hanzo MCP with write tools disabled:
+To use Hanzo MCP with your IDE:
 
-```bash
-hanzo-mcp --disable-write-tools
-```
-
-## Recommended Workflow
-
-1. **Start Hanzo MCP with write tools disabled**:
+1. Install Hanzo MCP:
    ```bash
-   hanzo-mcp --disable-write-tools --project-dir /path/to/your/project
+   uv pip install hanzo-mcp
    ```
 
-2. **Use Claude with Hanzo MCP for:**
-   - Exploring and understanding code
-   - Searching for patterns and usages
-   - Analyzing project structure
-   - Planning changes
-   - Running commands or scripts
+2. Configure and run the MCP server:
+   ```bash
+   hanzo-mcp --allow-path /path/to/your/projects
+   ```
 
-3. **Use your IDE or editor for:**
-   - Making changes to files
-   - Creating new files
-   - Editing and running Jupyter notebooks
-   - Refactoring code
+3. Configure your IDE's AI assistant to use the Hanzo MCP endpoint (usually `http://localhost:8000`).
 
-This workflow combines the analytical strengths of Claude with the editing capabilities of your preferred development environment.
+## IDE-Specific Instructions
 
-## Benefits
+### Visual Studio Code
 
-- **Better Editor Integration**: Use your familiar IDE features like syntax highlighting, auto-completion, and debugging
-- **Version Control Integration**: Use your IDE's Git integration for staging, committing, and reviewing changes
-- **Task Separation**: Let Claude focus on analysis and exploration while your IDE handles editing
-- **Performance**: Reduce the number of MCP tools being registered for faster startup and operation
+For VS Code, you can use the Claude extension with appropriate configuration to connect to the local MCP server.
 
-## Limitations
+### JetBrains IDEs
 
-- Shell commands can still modify files, so be careful when running them through Claude
-- You'll need to manually switch between Claude and your IDE when making changes
-- Claude won't be able to see changes you've made in your IDE until you explicitly tell it to check the file again
+JetBrains IDEs like IntelliJ IDEA, PyCharm, and others can use the AI Assistant plugin, which supports local MCP servers.
+
+### Command-Line Integration
+
+If your IDE doesn't directly support MCP, you can use the command-line interface alongside your IDE:
+
+```bash
+hanzo-mcp --allow-path /path/to/your/projects --serve --port 8000
+```
+
+Then configure your AI assistant to connect to this endpoint.
+
+## Debugging IDE Integration Issues
+
+If you encounter issues with IDE integration:
+
+1. Check that the MCP server is running with the correct allowed paths
+2. Verify your IDE AI assistant is configured to use the correct endpoint
+3. Look for permission issues (the MCP server must have access to the project files)
+4. For detailed debugging, use the MCP inspector tool:
+   ```bash
+   npx @modelcontextprotocol/inspector uv --directory ~/project/hanzo-mcp
+   ```
