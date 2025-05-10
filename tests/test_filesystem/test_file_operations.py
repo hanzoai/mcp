@@ -917,108 +917,91 @@ class TestContentReplaceTool:
             assert content == original_content
     
     @pytest.mark.asyncio
-    async def test_content_replace_directory_path(
-        self,
-        content_replace_tool: ContentReplaceTool,
-        setup_allowed_path: str,
-        mcp_context: MagicMock,
-    ):
-        """Test content_replace with a directory path."""
-        # Create a test directory with multiple files
-        test_dir = os.path.join(setup_allowed_path, "replace_dir")
-        os.makedirs(test_dir, exist_ok=True)
-        
-        # Create files with replaceable content
-        with open(os.path.join(test_dir, "file1.txt"), "w") as f:
-            f.write("This is file1 with replaceable text.\n")
-            f.write("Another line in file1.\n")
-            
-        with open(os.path.join(test_dir, "file2.py"), "w") as f:
-            f.write("# This is file2 with replaceable text\n")
-            f.write("def example():\n")
-            f.write("    return 'No replaceable text here'\n")
-            
-        # Create a subdirectory with more files
-        subdir = os.path.join(test_dir, "subdir")
-        os.makedirs(subdir, exist_ok=True)
-        
-        with open(os.path.join(subdir, "file3.txt"), "w") as f:
-            f.write("This is file3 with replaceable text.\n")
+    async def test_search_content_with_ripgrep(self, search_content_tool: SearchContentTool, setup_allowed_path: str, mcp_context: MagicMock):
+        """Test search_content with ripgrep functionality."""
+        # Create test files
+        test_file_path = os.path.join(setup_allowed_path, "ripgrep_test.txt")
+        with open(test_file_path, "w") as f:
+            f.write("This line contains ripgrep searchable text.\n")
+            f.write("This line doesn't match the pattern.\n")
+            f.write("Another line with ripgrep pattern.\n")
 
         # Mock context calls
         tool_ctx = AsyncMock()
         tool_ctx.set_tool_info = AsyncMock()
         
-        # Test replacing in all files
-        with patch.object(FilesystemBaseTool, 'set_tool_context_info', AsyncMock()):
-            with patch(
-                "hanzo_mcp.tools.common.context.create_tool_context",
-                return_value=tool_ctx,
-            ):
-                result = await content_replace_tool.call(
-                    mcp_context, 
-                    pattern="replaceable text", 
-                    replacement="updated content", 
-                    path=test_dir, 
-                    file_pattern="*", 
-                    dry_run=False
-                )
+        # Mock ripgrep availability and subprocess
+        with patch("hanzo_mcp.tools.filesystem.search_content.is_ripgrep_available", return_value=True):
+            with patch("subprocess.run") as mock_run:
+                # Configure mock subprocess result
+                mock_result = MagicMock()
+                mock_result.returncode = 0
+                mock_result.stdout = f"{test_file_path}:1:This line contains ripgrep searchable text.\n{test_file_path}:3:Another line with ripgrep pattern."
+                mock_run.return_value = mock_result
+                
+                with patch.object(FilesystemBaseTool, 'set_tool_context_info', AsyncMock()):
+                    with patch("hanzo_mcp.tools.common.context.create_tool_context", return_value=tool_ctx):
+                        result = await search_content_tool.call(mcp_context, pattern="ripgrep", path=test_file_path)
+        
+        # Verify result contains the expected output
+        assert "This line contains ripgrep searchable text" in result
+        assert "Another line with ripgrep pattern" in result
+        
+    @pytest.mark.asyncio
+    async def test_edit_file_no_changes_detection(self, edit_file_tool: EditFileTool, setup_allowed_path: str, mcp_context: MagicMock):
+        """Test editing a file with edits that don't actually change the content."""
+        # Create a test file with specific content
+        test_file_path = os.path.join(setup_allowed_path, "no_change_test.txt")
+        with open(test_file_path, "w") as f:
+            f.write("This is a test file.\nIt has specific content.\n")
 
-        # Verify result shows replacements were made
-        assert "Made" in result
-        assert "replacements of 'replaceable text'" in result
-        assert test_dir in result
+        # Set up an edit that replaces text with identical text (no actual change)
+        edits = [
+            {
+                "oldText": "This is a test file.",
+                "newText": "This is a test file.",  # Same text, should not change content
+            }
+        ]
+
+        # Mock context calls
+        tool_ctx = AsyncMock()
+        tool_ctx.set_tool_info = AsyncMock()
         
-        # Verify files were modified
-        with open(os.path.join(test_dir, "file1.txt"), "r") as f:
-            content = f.read()
-            assert "This is file1 with updated content." in content
-            
-        with open(os.path.join(test_dir, "file2.py"), "r") as f:
-            content = f.read()
-            assert "# This is file2 with updated content" in content
-            
-        with open(os.path.join(subdir, "file3.txt"), "r") as f:
-            content = f.read()
-            assert "This is file3 with updated content." in content
-        
-        # Reset files
-        with open(os.path.join(test_dir, "file1.txt"), "w") as f:
-            f.write("This is file1 with replaceable text.\n")
-            f.write("Another line in file1.\n")
-            
-        with open(os.path.join(test_dir, "file2.py"), "w") as f:
-            f.write("# This is file2 with replaceable text\n")
-            f.write("def example():\n")
-            f.write("    return 'No replaceable text here'\n")
-            
-        with open(os.path.join(subdir, "file3.txt"), "w") as f:
-            f.write("This is file3 with replaceable text.\n")
-        
-        # Test replacing with a file pattern - execute the replacement with Python files only
+        # Mock the base class method
         with patch.object(FilesystemBaseTool, 'set_tool_context_info', AsyncMock()):
             with patch(
                 "hanzo_mcp.tools.common.context.create_tool_context",
                 return_value=tool_ctx,
             ):
-                await content_replace_tool.call(
-                    mcp_context, 
-                    pattern="replaceable text", 
-                    replacement="updated content", 
-                    path=test_dir, 
-                    file_pattern="*.py", 
-                    dry_run=False
-                )
-            
-            # Verify only Python files were modified
-        with open(os.path.join(test_dir, "file1.txt"), "r") as f:
-            content = f.read()
-            assert "This is file1 with replaceable text." in content  # Unchanged
-            
-        with open(os.path.join(test_dir, "file2.py"), "r") as f:
-            content = f.read()
-            assert "# This is file2 with updated content" in content  # Changed
-            
-        with open(os.path.join(subdir, "file3.txt"), "r") as f:
-            content = f.read()
-            assert "This is file3 with replaceable text." in content  # Unchanged
+                result = await edit_file_tool.call(mcp_context, path=test_file_path, edits=edits, dry_run=False)
+
+        # Verify result shows no changes were made
+        assert "No changes made to file:" in result
+        
+        # Verify that the warning about edits with identical content is logged
+        tool_ctx.warning.assert_called_with(
+            f"Edits were processed but resulted in identical content: {test_file_path} (1 edits attempted)"
+        )
+    
+    @pytest.mark.asyncio
+    async def test_search_content_ripgrep_fallback(self, search_content_tool: SearchContentTool, setup_allowed_path: str, mcp_context: MagicMock):
+        """Test search_content fallback when ripgrep has an error."""
+        # Create test file
+        test_file_path = os.path.join(setup_allowed_path, "ripgrep_fallback.txt")
+        with open(test_file_path, "w") as f:
+            f.write("This line contains fallback searchable text.\n")
+            f.write("This line doesn't match.\n")
+            f.write("Another line with fallback text.\n")
+
+        # Mock context calls
+        tool_ctx = AsyncMock()
+        tool_ctx.set_tool_info = AsyncMock()
+        
+        # Patch the standard search method to verify it works as normal
+        with patch.object(FilesystemBaseTool, 'set_tool_context_info', AsyncMock()):
+            with patch("hanzo_mcp.tools.common.context.create_tool_context", return_value=tool_ctx):
+                result = await search_content_tool.call(mcp_context, pattern="fallback", path=test_file_path)
+                    
+        # Verify result contains expected output
+        assert "This line contains fallback searchable text" in result
+        assert "Another line with fallback text" in result

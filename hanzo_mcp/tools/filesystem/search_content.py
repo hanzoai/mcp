@@ -105,6 +105,7 @@ line number references. Only searches within allowed directories."""
             Tool result
         """
         tool_ctx = self.create_tool_context(ctx)
+        self.set_tool_context_info(tool_ctx)
         
         # Extract parameters
         pattern = params.get("pattern")
@@ -155,7 +156,11 @@ line number references. Only searches within allowed directories."""
             # Try to use ripgrep if available for faster searching
             if is_ripgrep_available():
                 await tool_ctx.info("Using ripgrep for faster searching")
-                return await self._search_with_ripgrep(tool_ctx, pattern, path, file_pattern, input_path)
+                try:
+                    return await self._search_with_ripgrep(tool_ctx, pattern, path, file_pattern, input_path)
+                except Exception as e:
+                    await tool_ctx.warning(f"Error using ripgrep: {str(e)}. Falling back to standard search.")
+                    return await self._search_standard(tool_ctx, pattern, path, file_pattern, input_path)
             else:
                 await tool_ctx.info("Ripgrep not available, using standard search")
                 return await self._search_standard(tool_ctx, pattern, path, file_pattern, input_path)
@@ -179,6 +184,12 @@ line number references. Only searches within allowed directories."""
             Search results
         """
         try:
+            # For single file search with file pattern, check if file matches pattern first
+            if input_path.is_file() and file_pattern != "*":
+                if not fnmatch.fnmatch(input_path.name, file_pattern):
+                    await tool_ctx.info(f"File does not match pattern '{file_pattern}': {path}")
+                    return f"File does not match pattern '{file_pattern}': {path}"
+                    
             # Build the ripgrep command
             rg_cmd = ["rg", "--line-number"]
             
@@ -223,13 +234,13 @@ line number references. Only searches within allowed directories."""
             else:
                 # Error occurred
                 await tool_ctx.error(f"Ripgrep error: {process.stderr}")
-                # Fall back to standard search
-                await tool_ctx.info("Falling back to standard search")
-                return await self._search_standard(tool_ctx, pattern, path, file_pattern, input_path)
+                # We'll fall back to standard search in the outer try-except block
+                raise Exception(f"Ripgrep error: {process.stderr}")
                 
         except Exception as e:
-            await tool_ctx.warning(f"Error using ripgrep: {str(e)}. Falling back to standard search.")
-            return await self._search_standard(tool_ctx, pattern, path, file_pattern, input_path)
+            # Let the exception propagate so the call() method can catch it
+            # and handle the fallback
+            raise e
     
     async def _search_standard(self, tool_ctx: Any, pattern: str, path: str,
                               file_pattern: str, input_path: Path) -> str:
