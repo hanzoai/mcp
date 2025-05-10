@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "hanzo-mcp"
-version = "0.3.8"
+version = "0.3.9"
 description = "MCP implementation of Hanzo capabilities"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -16,7 +16,7 @@ classifiers = [
   "Operating System :: OS Independent",
 ]
 keywords = ["mcp", "claude", "hanzo", "code", "agent"]
-dependencies = ["mcp>=1.6.0", "httpx>=0.27.0", "uvicorn>=0.23.1", "openai>=1.50.0", "python-dotenv>=1.0.0", "litellm>=1.40.14"]
+dependencies = ["mcp>=1.6.0", "httpx>=0.27.0", "uvicorn>=0.23.1", "openai>=1.50.0", "python-dotenv>=1.0.0", "litellm>=1.40.14", "grep-ast>=0.8.1"]
 
 [project.urls]
 "Homepage" = "https://github.com/hanzoai/mcp"

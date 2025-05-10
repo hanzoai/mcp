@@ -13,6 +13,7 @@ from hanzo_mcp.tools.filesystem.content_replace import ContentReplaceTool
 from hanzo_mcp.tools.filesystem.directory_tree import DirectoryTreeTool
 from hanzo_mcp.tools.filesystem.edit_file import EditFileTool
 from hanzo_mcp.tools.filesystem.get_file_info import GetFileInfoTool
+from hanzo_mcp.tools.filesystem.grep_ast_tool import GrepAstTool
 from hanzo_mcp.tools.filesystem.read_files import ReadFilesTool
 from hanzo_mcp.tools.filesystem.search_content import SearchContentTool
 from hanzo_mcp.tools.filesystem.write_file import WriteFileTool
@@ -26,6 +27,7 @@ __all__ = [
     "GetFileInfoTool",
     "SearchContentTool",
     "ContentReplaceTool",
+    "GrepAstTool",
     "get_filesystem_tools",
     "register_filesystem_tools",
 ]
@@ -51,7 +53,10 @@ def get_read_only_filesystem_tools(
     ]
     
     if not disable_search_tools:
-        tools.append(SearchContentTool(document_context, permission_manager))
+        tools.extend([
+            SearchContentTool(document_context, permission_manager),
+            GrepAstTool(document_context, permission_manager)
+        ])
         
     return tools
 
@@ -82,6 +87,7 @@ def get_filesystem_tools(
         tools.extend([
             SearchContentTool(document_context, permission_manager),
             ContentReplaceTool(document_context, permission_manager),
+            GrepAstTool(document_context, permission_manager),
         ])
         
     return tools
