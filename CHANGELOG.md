@@ -1,5 +1,16 @@
 # Changelog
 
+## v0.4.1 (2025-05-10)
+
+### Added
+- Improved backward compatibility with Anthropic MCP-Claude-Code
+- Enhanced documentation describing Anthropic MCP-Claude-Code compatibility
+
+### Fixed
+- Synchronized version display between command line and version tool
+- Fixed edge cases in ripgrep integration when searching large codebases
+- Improved error handling for selective tool disabling
+
 ## v0.4.0 (2025-05-10)
 
 ### Changed

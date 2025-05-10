@@ -3,6 +3,17 @@
 ## Project Overview
 Hanzo MCP (Machine Comprehension Platform) is a framework that provides tools for AI assistants to interact with the local file system, run commands, and perform various operations in a secure and controlled manner. It's designed to be used with LLMs (Large Language Models) to extend their capabilities beyond just text generation.
 
+## Compatibility with Anthropic MCP-Claude-Code
+Hanzo MCP is built as a superset of Anthropic's MCP-Claude-Code project, maintaining full backward compatibility while adding enhanced functionality. All tools and features from MCP-Claude-Code are preserved in Hanzo MCP with the same behavior, ensuring seamless migration. Key enhancements include:
+
+1. **Project Analysis Tools**: Tools for analyzing project structure and dependencies
+2. **Version Tool**: A dedicated tool to display the current version
+3. **Selective Tool Disabling**: Flags to disable specific tools when not needed
+4. **Enhanced Configuration**: Better transport and logging configuration
+5. **Better Claude Desktop Integration**: Robust installation for Claude Desktop
+
+When migrating from MCP-Claude-Code to Hanzo MCP, existing tools will continue to work exactly as before, while new tools become available for enhanced functionality.
+
 ## Core Components
 
 ### 1. Server Implementation
