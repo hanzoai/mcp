@@ -469,11 +469,11 @@ Validation Approaches
 </tool_approaches>
 
 <search>
-- Ripgrep (primary), Grep (fallback) - For basic text patterns
+- Ripgrep (primary, automatically used when available) with fallback to Python-based grep
 - grep_ast - For understanding code structure with AST context
 - Pattern matching with regex support
 - Parallel execution respecting gitignore rules
-- Choose grep_ast for code structure understanding, search_content (ripgrep) for simple text patterns
+- Choose grep_ast for code structure understanding, search_content for simple text patterns (automatically uses ripgrep when available)
 </search>
 
 <git>
