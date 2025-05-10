@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.4.0 (2025-05-10)
+
+### Changed
+- Bumped version from 0.3.9 to 0.4.0 for official release
+- Updated project structure documentation
+
 ## v0.3.9 (2025-05-09)
 
 ### Added
