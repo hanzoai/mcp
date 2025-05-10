@@ -1,10 +1,14 @@
 # Set test as the default target
 .DEFAULT_GOAL := test
 
-.PHONY: install test test-debug test-quick test-cov lint clean dev venv build _publish publish setup bump-patch bump-minor bump-major publish-patch publish-minor publish-major tag-version docs docs-serve
+.PHONY: install test test-debug test-quick test-cov lint clean dev venv build _publish publish setup bump-patch bump-minor bump-major publish-patch publish-minor publish-major tag-version docs docs-serve install-desktop
 
 # Virtual environment settings
 VENV_NAME ?= .venv
+
+# Define comma and space for list operations
+COMMA := ,
+SPACE := $(eval) $(eval)
 
 # Detect OS for proper path handling
 ifeq ($(OS),Windows_NT)
@@ -163,6 +167,17 @@ minor: bump-minor build _publish tag-version
 
 major: bump-major build _publish tag-version
 
+# Install to Claude Desktop
+# Usage: make install-desktop [ALLOWED_PATHS=/path1,/path2] [SERVER_NAME=hanzo] [DISABLE_WRITE=1] [DISABLE_SEARCH=1]
+install-desktop: install
+	@echo "Installing Hanzo MCP to Claude Desktop..."
+	$(eval ALLOWED_PATHS ?= $(HOME))
+	$(eval SERVER_NAME ?= hanzo)
+	$(eval DISABLE_WRITE ?= )
+	$(eval DISABLE_SEARCH ?= )
+	$(call run_in_venv, python scripts/install_desktop.py "$(ALLOWED_PATHS)" "$(SERVER_NAME)" "$(DISABLE_WRITE)" "$(DISABLE_SEARCH)")
+	@echo "Installation complete. Restart Claude Desktop for changes to take effect."
+
 # Display help information
 help:
 	@echo "Hanzo MCP Makefile Commands:"
@@ -178,6 +193,7 @@ help:
 	@echo ""
 	@echo "Installation:"
 	@echo "  make install       Install dependencies and package"
+	@echo "  make install-desktop [ALLOWED_PATHS=/path1,/path2] [SERVER_NAME=hanzo]  Install to Claude Desktop"
 	@echo ""
 	@echo "Documentation:"
 	@echo "  make docs          Build documentation"
