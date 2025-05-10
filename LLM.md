@@ -27,7 +27,7 @@ Tools are organized by functionality:
 - `hanzo_mcp/tools/filesystem/write_file.py`: Tool for writing files.
 - `hanzo_mcp/tools/filesystem/edit_file.py`: Tool for editing files.
 - `hanzo_mcp/tools/filesystem/directory_tree.py`: Tool for getting directory structure.
-- `hanzo_mcp/tools/filesystem/search_content.py`: Tool for searching file contents.
+- `hanzo_mcp/tools/filesystem/search_content.py`: Tool for searching file contents (uses ripgrep when available, falls back to Python implementation).
 - `hanzo_mcp/tools/filesystem/grep_ast_tool.py`: Tool for AST-aware code searching.
 
 #### 2.4 Jupyter Tools
