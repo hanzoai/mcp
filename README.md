@@ -52,6 +52,37 @@ uv pip install hanzo-mcp
 pip install hanzo-mcp
 ```
 
+### Claude Desktop Integration
+
+To install and configure hanzo-mcp for use with Claude Desktop:
+
+```bash
+# Install the package globally
+uv pip install hanzo-mcp
+
+# Install configuration to Claude Desktop with default settings
+hanzo-mcp --install
+```
+
+For development, if you want to install your local version to Claude Desktop:
+
+```bash
+# Clone and navigate to the repository
+git clone https://github.com/hanzoai/mcp.git
+cd mcp
+
+# Install and configure for Claude Desktop
+make install-desktop
+
+# With custom paths and server name
+make install-desktop ALLOWED_PATHS="/path/to/projects,/another/path" SERVER_NAME="hanzo-dev"
+
+# Disable write tools (useful if you prefer using your IDE for edits)
+make install-desktop DISABLE_WRITE=1
+```
+
+After installation, restart Claude Desktop. You'll see "hanzo" (or your custom server name) available in the MCP server dropdown.
+
 For detailed installation and configuration instructions, please refer to the [documentation](./docs/).
 
 Of course, you can also read [USEFUL_PROMPTS](./docs/USEFUL_PROMPTS.md) for some inspiration on how to use hanzo-mcp.
