@@ -13,7 +13,6 @@ from mcp.server.fastmcp import FastMCP
 
 from hanzo_mcp.tools.agent import register_agent_tools
 from hanzo_mcp.tools.common import register_think_tool, register_version_tool
-from hanzo_mcp.tools.common.base import ToolRegistry  # Added this import
 from hanzo_mcp.tools.common.context import DocumentContext
 from hanzo_mcp.tools.common.permissions import PermissionManager
 from hanzo_mcp.tools.filesystem import register_filesystem_tools
