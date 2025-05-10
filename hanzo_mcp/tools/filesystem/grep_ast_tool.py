@@ -177,58 +177,55 @@ Only works within allowed directories."""
                     processed_count += 1
                     continue
 
-                # Process with dummy TreeContext implementation in test mode
+                # Process with TreeContext implementation
                 try:
-                        # Import here to avoid issues in test environments where grep_ast might not be available
-                        try:
-                            # In test mode, use the fallback implementation
-                            import os
-                            if os.environ.get("TEST_MODE") == "1":
-                                # Use fallback implementation for testing
-                                await tool_ctx.warning("Running in TEST_MODE, using fallback implementation.")
-                                raise ImportError("TEST_MODE active, using fallback implementation")
+                    # Import here to avoid issues in test environments where grep_ast might not be available
+                    if os.environ.get("TEST_MODE") == "1":
+                        # Use fallback implementation for testing
+                        await tool_ctx.warning("Running in TEST_MODE, using fallback implementation.")
+                        raise ImportError("TEST_MODE active, using fallback implementation")
+                        
+                    from grep_ast.grep_ast import TreeContext
+                    tc = TreeContext(
+                        file_path,
+                        code,
+                        color=False,
+                        verbose=False,
+                        line_number=line_number,
+                    )
+
+                    # Find matches
+                    loi = tc.grep(pattern, ignore_case)
+
+                    if loi:
+                        tc.add_lines_of_interest(loi)
+                        tc.add_context()
+                        output = tc.format()
+
+                        # Add the result to our list
+                        results.append(f"\n{file_path}:\n{output}\n")
+                except ImportError as e:
+                    # Mock the behavior for test environments where grep_ast is not available
+                    await tool_ctx.warning(f"grep_ast module not available. Using fallback matching: {str(e)}")
+                    lines = code.splitlines()
+                    matched_lines = []
+                    for i, line in enumerate(lines, 1):
+                        if pattern.lower() in line.lower() if ignore_case else pattern in line:
+                            matched_lines.append(i)
+
+                    if matched_lines:
+                        # Generate a simple format for test purposes
+                        output_lines = []
+                        for line_num in matched_lines:
+                            if line_number:
+                                output_lines.append(f"{line_num}: {lines[line_num-1]}")
+                            else:
+                                output_lines.append(f"{lines[line_num-1]}")
                                 
-                            from grep_ast.grep_ast import TreeContext
-                            tc = TreeContext(
-                                file_path,
-                                code,
-                                color=False,
-                                verbose=False,
-                                line_number=line_number,
-                            )
-
-                            # Find matches
-                            loi = tc.grep(pattern, ignore_case)
-
-                            if loi:
-                                tc.add_lines_of_interest(loi)
-                                tc.add_context()
-                                output = tc.format()
-
-                                # Add the result to our list
-                                results.append(f"\n{file_path}:\n{output}\n")
-                        except ImportError as e:
-                            # Mock the behavior for test environments where grep_ast is not available
-                            await tool_ctx.warning(f"grep_ast module not available. Using fallback matching: {str(e)}")
-                            lines = code.splitlines()
-                            matched_lines = []
-                            for i, line in enumerate(lines, 1):
-                                if pattern.lower() in line.lower() if ignore_case else pattern in line:
-                                    matched_lines.append(i)
-
-                            if matched_lines:
-                                # Generate a simple format for test purposes
-                                output_lines = []
-                                for line_num in matched_lines:
-                                    if line_number:
-                                        output_lines.append(f"{line_num}: {lines[line_num-1]}")
-                                    else:
-                                        output_lines.append(f"{lines[line_num-1]}")
-                                        
-                                results.append(f"\n{file_path}:\n" + "\n".join(output_lines) + "\n")
-                        except Exception as e:
-                            # Skip files that can't be parsed by tree-sitter
-                            await tool_ctx.warning(f"Could not parse {file_path}: {str(e)}")
+                        results.append(f"\n{file_path}:\n" + "\n".join(output_lines) + "\n")
+                except Exception as e:
+                    # Skip files that can't be parsed by tree-sitter
+                    await tool_ctx.warning(f"Could not parse {file_path}: {str(e)}")
             except Exception as e:
                 await tool_ctx.error(f"Error processing {file_path}: {str(e)}")
 
