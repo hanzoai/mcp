@@ -71,102 +71,93 @@ class TestRefactoredFileTools:
         document_context.add_allowed_path(temp_dir)
         return temp_dir
 
-    def test_read_files_single_allowed(
+    @pytest.mark.asyncio
+    async def test_read_files_single_allowed(
         self,
         read_files_tool: ReadFilesTool,
         setup_allowed_path: str,
         test_file: str,
         mcp_context: MagicMock,
     ):
-        """Test reading a single allowed file with the refactored tool (converted from async)."""
-        # Define the async test function
-        async def _async_test():
-            # Mock context calls
-            tool_ctx = AsyncMock()
-            with patch(
-                "hanzo_mcp.tools.filesystem.base.create_tool_context",
-                return_value=tool_ctx,
-            ):
-                # Call the tool directly
-                result = await read_files_tool.call(ctx=mcp_context, paths=test_file)
+        """Test reading a single allowed file with the refactored tool."""
+        # Mock context calls
+        tool_ctx = AsyncMock()
+        with patch(
+            "hanzo_mcp.tools.filesystem.base.create_tool_context",
+            return_value=tool_ctx,
+        ):
+            # Call the tool directly
+            result = await read_files_tool.call(ctx=mcp_context, paths=test_file)
 
-                # Verify result
-                assert "This is a test file content" in result
-                tool_ctx.info.assert_called()
-        
-        # Run the async test using a manual event loop
+            # Verify result
+            assert "This is a test file content" in result
+            tool_ctx.info.assert_called()
 
-    def test_write_file(
+    @pytest.mark.asyncio
+    async def test_write_file(
         self,
         write_file_tool: WriteFileTool,
         setup_allowed_path: str,
         mcp_context: MagicMock,
     ):
-        """Test writing a file with the refactored tool (converted from async)."""
-        # Define the async test function
-        async def _async_test():
-            # Create a test path within allowed path
-            test_path = os.path.join(setup_allowed_path, "write_test.txt")
-            test_content = "Test content for writing"
+        """Test writing a file with the refactored tool."""
+        # Create a test path within allowed path
+        test_path = os.path.join(setup_allowed_path, "write_test.txt")
+        test_content = "Test content for writing"
 
-            # Mock context calls
-            tool_ctx = AsyncMock()
-            with patch(
-                "hanzo_mcp.tools.filesystem.base.create_tool_context",
-                return_value=tool_ctx,
-            ):
-                # Call the tool directly
-                result = await write_file_tool.call(
-                    ctx=mcp_context, path=test_path, content=test_content
-                )
+        # Mock context calls
+        tool_ctx = AsyncMock()
+        with patch(
+            "hanzo_mcp.tools.filesystem.base.create_tool_context",
+            return_value=tool_ctx,
+        ):
+            # Call the tool directly
+            result = await write_file_tool.call(
+                ctx=mcp_context, path=test_path, content=test_content
+            )
 
-                # Verify result
-                assert "Successfully wrote file" in result
-                tool_ctx.info.assert_called()
+            # Verify result
+            assert "Successfully wrote file" in result
+            tool_ctx.info.assert_called()
 
-                # Verify file was written
-                assert os.path.exists(test_path)
-                with open(test_path, "r") as f:
-                    assert f.read() == test_content
-        
-        # Run the async test using a manual event loop
+            # Verify file was written
+            assert os.path.exists(test_path)
+            with open(test_path, "r") as f:
+                assert f.read() == test_content
 
-    def test_edit_file(
+    @pytest.mark.asyncio
+    async def test_edit_file(
         self,
         edit_file_tool: EditFileTool,
         setup_allowed_path: str,
         test_file: str,
         mcp_context: MagicMock,
     ):
-        """Test editing a file with the refactored tool (converted from async)."""
-        # Define the async test function
-        async def _async_test():
-            # Set up edits
-            edits = [
-                {
-                    "oldText": "This is a test file content.",
-                    "newText": "This is modified content.",
-                }
-            ]
+        """Test editing a file with the refactored tool."""
+        # Set up edits
+        edits = [
+            {
+                "oldText": "This is a test file content.",
+                "newText": "This is modified content.",
+            }
+        ]
 
-            # Mock context calls
-            tool_ctx = AsyncMock()
-            with patch(
-                "hanzo_mcp.tools.filesystem.base.create_tool_context",
-                return_value=tool_ctx,
-            ):
-                # Call the tool directly
-                result = await edit_file_tool.call(
-                    ctx=mcp_context, path=test_file, edits=edits, dry_run=False
-                )
+        # Mock context calls
+        tool_ctx = AsyncMock()
+        with patch(
+            "hanzo_mcp.tools.filesystem.base.create_tool_context",
+            return_value=tool_ctx,
+        ):
+            # Call the tool directly
+            result = await edit_file_tool.call(
+                ctx=mcp_context, path=test_file, edits=edits, dry_run=False
+            )
 
-                # Verify result
-                assert "Successfully edited file" in result
-                tool_ctx.info.assert_called()
+            # Verify result
+            assert "Successfully edited file" in result
+            tool_ctx.info.assert_called()
 
-                # Verify file was modified
-                with open(test_file, "r") as f:
-                    content = f.read()
-                    assert "This is modified content." in content
-        
-        # Run the async test using a manual event loop
+            # Verify file was modified
+            with open(test_file, "r") as f:
+                content = f.read()
+                assert "This is modified content." in content

@@ -110,58 +110,52 @@ class TestPermissionManager:
 class TestPermissibleOperation:
     """Test the PermissibleOperation decorator."""
 
-    def test_permissible_operation_with_allowed_path(self, temp_dir: str):
-        """Test the decorator with an allowed path (converted from async)."""
-        async def _async_test():
-            manager = PermissionManager()
-            manager.add_allowed_path(temp_dir)
+    @pytest.mark.asyncio
+    async def test_permissible_operation_with_allowed_path(self, temp_dir: str):
+        """Test the decorator with an allowed path."""
+        manager = PermissionManager()
+        manager.add_allowed_path(temp_dir)
 
-            # Create a decorated function
-            @PermissibleOperation(manager, "read")
-            async def test_func(path):
-                return f"Read {path}"
+        # Create a decorated function
+        @PermissibleOperation(manager, "read")
+        async def test_func(path):
+            return f"Read {path}"
 
-            # Call the function
-            result = await test_func(temp_dir)
+        # Call the function
+        result = await test_func(temp_dir)
 
-            assert result == f"Read {temp_dir}"
-        
-        # Execute the async test
+        assert result == f"Read {temp_dir}"
 
-    def test_permissible_operation_with_custom_path_fn(self, temp_dir: str):
-        """Test the decorator with a custom path function (converted from async)."""
-        async def _async_test():
-            manager = PermissionManager()
-            manager.add_allowed_path(temp_dir)
+    @pytest.mark.asyncio
+    async def test_permissible_operation_with_custom_path_fn(self, temp_dir: str):
+        """Test the decorator with a custom path function."""
+        manager = PermissionManager()
+        manager.add_allowed_path(temp_dir)
 
-            # Custom path function
-            def get_path(args, kwargs):
-                return kwargs.get("filepath", args[0] if args else None)
+        # Custom path function
+        def get_path(args, kwargs):
+            return kwargs.get("filepath", args[0] if args else None)
 
-            # Create a decorated function
-            @PermissibleOperation(manager, "read", get_path_fn=get_path)
-            async def test_func(data, filepath=None):
-                return f"Read {filepath}"
+        # Create a decorated function
+        @PermissibleOperation(manager, "read", get_path_fn=get_path)
+        async def test_func(data, filepath=None):
+            return f"Read {filepath}"
 
-            # Call the function with a kwarg
-            result = await test_func("dummy", filepath=temp_dir)
+        # Call the function with a kwarg
+        result = await test_func("dummy", filepath=temp_dir)
 
-            assert result == f"Read {temp_dir}"
-        
-        # Execute the async test
+        assert result == f"Read {temp_dir}"
 
-    def test_permissible_operation_with_invalid_path(self, temp_dir: str):
-        """Test the decorator with an invalid path type (converted from async)."""
-        async def _async_test():
-            manager = PermissionManager()
+    @pytest.mark.asyncio
+    async def test_permissible_operation_with_invalid_path(self, temp_dir: str):
+        """Test the decorator with an invalid path type."""
+        manager = PermissionManager()
 
-            # Create a decorated function
-            @PermissibleOperation(manager, "read")
-            async def test_func(path):
-                return f"Read {path}"
+        # Create a decorated function
+        @PermissibleOperation(manager, "read")
+        async def test_func(path):
+            return f"Read {path}"
 
-            # Call the function with an invalid path type
-            with pytest.raises(ValueError):
-                await test_func(123)  # Not a string
-        
-        # Execute the async test
+        # Call the function with an invalid path type
+        with pytest.raises(ValueError):
+            await test_func(123)  # Not a string
