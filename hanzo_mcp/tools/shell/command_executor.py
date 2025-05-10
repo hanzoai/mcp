@@ -241,9 +241,7 @@ class CommandExecutor:
             self._log(f"Using session working directory: {effective_cwd}")
 
         # Check if it's a cd command and update session working directory
-        is_cd_command = False
         if session_id and command.strip().startswith("cd "):
-            is_cd_command = True
             args = shlex.split(command)
             if len(args) > 1:
                 target_dir = args[1]
@@ -321,7 +319,7 @@ class CommandExecutor:
                     shell_cmd,
                     stdout=asyncio.subprocess.PIPE,
                     stderr=asyncio.subprocess.PIPE,
-                    cwd=effective_cwd,
+                    cwd=cwd,
                     env=command_env,
                 )
             else:
@@ -454,8 +452,7 @@ class CommandExecutor:
             if use_login_shell:
                 # Try to find the best available shell
                 user_shell = self._get_preferred_shell()
-                shell_basename = os.path.basename(user_shell)
-
+                
                 self._log(f"Using login shell for interpreter: {user_shell}")
 
                 # Create command that pipes script to interpreter through login shell
@@ -466,7 +463,7 @@ class CommandExecutor:
                     shell_cmd,
                     stdout=asyncio.subprocess.PIPE,
                     stderr=asyncio.subprocess.PIPE,
-                    cwd=effective_cwd,
+                    cwd=cwd,
                     env=command_env,
                 )
             else:
@@ -479,7 +476,7 @@ class CommandExecutor:
                     stdin=asyncio.subprocess.PIPE,
                     stdout=asyncio.subprocess.PIPE,
                     stderr=asyncio.subprocess.PIPE,
-                    cwd=effective_cwd,
+                    cwd=cwd,
                     env=command_env,
                 )
 
@@ -690,8 +687,7 @@ class CommandExecutor:
             if use_login_shell:
                 # Try to find the best available shell
                 user_shell = self._get_preferred_shell()
-                shell_basename = os.path.basename(user_shell)
-
+                
                 self._log(f"Using login shell for script execution: {user_shell}")
 
                 # Build the command including args
@@ -709,7 +705,7 @@ class CommandExecutor:
                     shell_cmd,
                     stdout=asyncio.subprocess.PIPE,
                     stderr=asyncio.subprocess.PIPE,
-                    cwd=effective_cwd,
+                    cwd=cwd,
                     env=command_env,
                 )
             else:
