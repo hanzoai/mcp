@@ -4,9 +4,76 @@
 
 Hanzo MCP is an implementation of Hanzo capabilities using the Model Context Protocol (MCP). It provides an MCP server that enables Claude to directly execute instructions for modifying and improving project files. The implementation leverages the Model Context Protocol to facilitate seamless integration with various MCP clients, including Claude Desktop.
 
-ALWAYS use `Makefile` for running commands as it uses `uv` to configure the venv
-and otherwise deps will not be installed. most commands you would want just add
-to Makefile or improve as necessary if missing.
+## Development and Testing
+
+### Using the Makefile
+
+**ALWAYS use the `Makefile` for running commands** as it uses `uv` to configure the virtual environment and install dependencies correctly. The Makefile provides comprehensive commands for all common development operations.
+
+### Key Makefile Commands
+
+- **Setup and Installation**:
+  - `make setup` - Complete setup (install Python, create venv, install package)
+  - `make install` - Install the package
+  - `make venv` - Create a virtual environment using uv
+  - `make install-dev` - Install development dependencies
+  - `make install-test` - Install test dependencies
+
+- **Testing**:
+  - `make test` - Run all tests (default target)
+  - `make test-quick` - Run tests without reinstalling dependencies
+  - `make test-cov` - Run tests with coverage report
+  - `make fix-tests` - Fix common test issues automatically
+  - `make test-debug` - Debug test collection issues
+
+- **Code Quality**:
+  - `make lint` - Run linting checks
+  - `make format` - Format code
+
+- **Versioning**:
+  - `make bump-patch` - Bump patch version
+  - `make bump-minor` - Bump minor version
+  - `make bump-major` - Bump major version
+
+- **Package Publishing**:
+  - `make build` - Build package distribution files
+  - `make publish` - Build, publish, and tag version
+
+For a complete list of commands, run `make help`.
+
+### Adding New Commands
+
+If you need additional commands, add them to the Makefile rather than running them directly. This ensures consistency across development environments.
+
+### Using `uv` for Python Environment Management
+
+The project uses `uv` (a fast, reliable Python package installer and resolver) for managing the Python environment and dependencies. All Makefile commands automatically use `uv` as needed.
+
+### Testing New Features
+
+When testing new features like grep_ast and ripgrep improvements:
+
+1. Install dependencies:
+   ```bash
+   make install-test  # Installs the package with testing dependencies
+   ```
+
+2. Run specific test files:
+   ```bash
+   # Test grep_ast functionality
+   .venv/bin/python -m pytest tests/test_filesystem/test_grep_ast_tool.py -v
+   
+   # Test ripgrep functionality in search_content
+   .venv/bin/python -m pytest tests/test_filesystem/test_file_operations.py::TestFileOperations::test_search_content_with_ripgrep -v
+   ```
+
+3. External dependencies (like grep-ast) are managed through pyproject.toml:
+   ```bash
+   # After updating dependencies in pyproject.toml
+   make reinstall  # Reinstalls with updated dependencies
+   ```
+
+If you encounter any errors related to missing dependencies, make sure to run `make install` or `make install-test` to ensure all required packages are properly installed.
 
 ## Architecture
 
@@ -173,6 +240,15 @@ All tools are registered with the MCP server through a centralized registration 
 1. `register_all_tools` in `__init__.py` coordinates registration
 2. Each tool category has its own registration function
 3. Tools receive necessary context and permission instances
+
+### Edit File Tool
+
+The `EditFileTool` allows line-based edits to text files but contains a robust content change detection mechanism:
+- Uses direct string comparison between original and modified content to detect changes
+- Logs warnings for cases where changes were processed but didn't result in actual content changes
+- Returns different status messages depending on whether content was actually modified
+
+This avoids issues where the diff output (`difflib`) might not detect certain changes (e.g., whitespace-only changes or changes that result in identical content).
 
 ### IDE Integration Support
 

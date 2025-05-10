@@ -244,25 +244,31 @@ Only works within allowed directories."""
                     f"```{num_backticks}diff\n{diff_text}```{num_backticks}\n"
                 )
 
-                # Write the file if not a dry run
-                if not dry_run and diff_text:  # Only write if there are changes
-                    with open(file_path, "w", encoding="utf-8") as f:
-                        f.write(modified_content)
+                # Check if actual content has changed, regardless of diff output
+                if original_content != modified_content:  # Check actual content difference
+                    if not dry_run:  # Write the file if not a dry run
+                        with open(file_path, "w", encoding="utf-8") as f:
+                            f.write(modified_content)
 
-                    # Update document context
-                    self.document_context.update_document(path, modified_content)
+                        # Update document context
+                        self.document_context.update_document(path, modified_content)
 
-                    await tool_ctx.info(
-                        f"Successfully edited file: {path} ({edits_applied} edits applied)"
-                    )
-                    return f"Successfully edited file: {path} ({edits_applied} edits applied)\n\n{formatted_diff}"
-                elif not diff_text:
-                    return f"No changes made to file: {path}"
+                        await tool_ctx.info(
+                            f"Successfully edited file: {path} ({edits_applied} edits applied)"
+                        )
+                        return f"Successfully edited file: {path} ({edits_applied} edits applied)\n\n{formatted_diff}"
+                    else:
+                        await tool_ctx.info(
+                            f"Dry run: {edits_applied} edits would be applied"
+                        )
+                        return f"Dry run: {edits_applied} edits would be applied\n\n{formatted_diff}"
                 else:
-                    await tool_ctx.info(
-                        f"Dry run: {edits_applied} edits would be applied"
-                    )
-                    return f"Dry run: {edits_applied} edits would be applied\n\n{formatted_diff}"
+                    # Log a warning if edits were "applied" but content didn't change
+                    if edits_applied > 0:
+                        await tool_ctx.warning(
+                            f"Edits were processed but resulted in identical content: {path} ({edits_applied} edits attempted)"
+                        )
+                    return f"No changes made to file: {path}"
             except UnicodeDecodeError:
                 await tool_ctx.error(f"Cannot edit binary file: {path}")
                 return f"Error: Cannot edit binary file: {path}"
