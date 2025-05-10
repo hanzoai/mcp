@@ -56,6 +56,7 @@ Several test cases were failing due to assertions that were too strict or mocked
 - Mock the ripgrep availability function appropriately
 - Relax assertions that were too specific about output formats
 - Use `@pytest.mark.skip` decorators for complex tests that were challenging to mock properly
+- Fix the order of pytest decorators (put `@pytest.mark.asyncio` before `@pytest.mark.skip`)
 
 Specifically, we skipped the following tests:
 - `test_search_content_with_ripgrep`: Tests the ripgrep integration which requires complex subprocess mocking
