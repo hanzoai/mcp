@@ -1,41 +1,19 @@
-"""Command-line interface for the Hanzo MCP server.
-
-Includes logging configuration and enhanced error handling.
-"""
+"""Command-line interface for the Hanzo MCP server."""
 
 import argparse
 import json
-import logging
 import os
 import sys
 from pathlib import Path
 from typing import Any, cast
 
-from hanzo_mcp import __version__
-from hanzo_mcp.tools.common.logging_config import setup_logging
-
-from hanzo_mcp.server import HanzoServer
+from hanzo_mcp.server import HanzoMCPServer
 
 
 def main() -> None:
     """Run the CLI for the Hanzo MCP server."""
-    # Initialize logger
-    logger = logging.getLogger(__name__)
-    
-    # Check if 'version' is the first argument
-    if len(sys.argv) > 1 and sys.argv[1] == 'version':
-        print(f"hanzo-mcp {__version__}")
-        return
-        
     parser = argparse.ArgumentParser(
-        description="MCP server implementing Hanzo capabilities"
-    )
-    
-    parser.add_argument(
-        "--version",
-        action="version",
-        version=f"%(prog)s {__version__}",
-        help="Show the current version and exit"
+        description="MCP server implementing Hanzo AI capabilities"
     )
 
     _ = parser.add_argument(
@@ -46,52 +24,48 @@ def main() -> None:
     )
 
     _ = parser.add_argument(
-        "--port",
-        type=int,
-        default=3001,
-        help="Port to use for SSE transport (default: 3001)",
-    )
-
-    _ = parser.add_argument(
-        "--host",
-        default="0.0.0.0",
-        help="Host to bind to for SSE transport (default: 0.0.0.0)",
-    )
-
-    _ = parser.add_argument(
         "--name",
-        default="claude-code",
-        help="Name of the MCP server (default: claude-code)",
+        default="hanzo-mcp",
+        help="Name of the MCP server (default: hanzo-mcp)",
     )
 
     _ = parser.add_argument(
         "--allow-path",
         action="append",
         dest="allowed_paths",
-        help="Add an allowed path (can be specified multiple times, defaults to user's home directory)",
+        help="Add an allowed path (can be specified multiple times)",
     )
 
     _ = parser.add_argument(
-        "--project-dir", dest="project_dir", help="Set the project directory to analyze"
+        "--project",
+        action="append",
+        dest="project_paths",
+        help="Add a project path for prompt generation (can be specified multiple times)",
     )
 
     _ = parser.add_argument(
         "--agent-model",
         dest="agent_model",
-        help="Specify the model name in LiteLLM format (e.g., 'openai/gpt-4o', 'anthropic/claude-3-sonnet')"
+        help="Specify the model name in LiteLLM format (e.g., 'openai/gpt-4o', 'anthropic/claude-4-sonnet')",
     )
 
     _ = parser.add_argument(
         "--agent-max-tokens",
         dest="agent_max_tokens",
         type=int,
-        help="Specify the maximum tokens for agent responses"
+        help="Specify the maximum tokens for agent responses",
     )
 
     _ = parser.add_argument(
         "--agent-api-key",
         dest="agent_api_key",
-        help="Specify the API key for the LLM provider (for development/testing only)"
+        help="Specify the API key for the LLM provider (for development/testing only)",
+    )
+
+    _ = parser.add_argument(
+        "--agent-base-url",
+        dest="agent_base_url",
+        help="Specify the base URL for the LLM provider API endpoint (e.g., 'http://localhost:1234/v1')",
     )
 
     _ = parser.add_argument(
@@ -99,7 +73,7 @@ def main() -> None:
         dest="agent_max_iterations",
         type=int,
         default=10,
-        help="Maximum number of iterations for agent (default: 10)"
+        help="Maximum number of iterations for agent (default: 10)",
     )
 
     _ = parser.add_argument(
@@ -107,7 +81,7 @@ def main() -> None:
         dest="agent_max_tool_uses",
         type=int,
         default=30,
-        help="Maximum number of total tool uses for agent (default: 30)"
+        help="Maximum number of total tool uses for agent (default: 30)",
     )
 
     _ = parser.add_argument(
@@ -115,31 +89,15 @@ def main() -> None:
         dest="enable_agent_tool",
         action="store_true",
         default=False,
-        help="Enable the agent tool (disabled by default)"
+        help="Enable the agent tool (disabled by default)",
     )
 
     _ = parser.add_argument(
-        "--log-level",
-        dest="log_level",
-        choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
-        default="INFO",
-        help="Set the logging level (default: INFO)"
-    )
-
-    _ = parser.add_argument(
-        "--disable-file-logging",
-        dest="disable_file_logging",
-        action="store_true",
-        default=False,
-        help="Disable logging to file (logs to console only)"
-    )
-    
-    _ = parser.add_argument(
-        "--enable-console-logging",
-        dest="enable_console_logging",
-        action="store_true",
-        default=False,
-        help="Enable logging to console (stdout/stderr). By default, logs to file only."
+        "--command-timeout",
+        dest="command_timeout",
+        type=float,
+        default=120.0,
+        help="Default timeout for command execution in seconds (default: 120.0)",
     )
 
     _ = parser.add_argument(
@@ -147,7 +105,7 @@ def main() -> None:
         dest="disable_write_tools",
         action="store_true",
         default=False,
-        help="Disable write/edit tools (file writing, editing, notebook editing) to use IDE tools instead. Note: Shell commands can still modify files."
+        help="Disable write tools (edit, write, etc.)",
     )
 
     _ = parser.add_argument(
@@ -155,7 +113,36 @@ def main() -> None:
         dest="disable_search_tools",
         action="store_true",
         default=False,
-        help="Disable search tools when the IDE has better built-in semantic search capabilities."
+        help="Disable search tools (grep, search_content, etc.)",
+    )
+
+    _ = parser.add_argument(
+        "--host",
+        dest="host",
+        default="127.0.0.1",
+        help="Host for SSE server (default: 127.0.0.1)",
+    )
+
+    _ = parser.add_argument(
+        "--port",
+        dest="port",
+        type=int,
+        default=3000,
+        help="Port for SSE server (default: 3000)",
+    )
+
+    _ = parser.add_argument(
+        "--log-level",
+        dest="log_level",
+        default="INFO",
+        choices=["DEBUG", "INFO", "WARNING", "ERROR"],
+        help="Logging level (default: INFO)",
+    )
+
+    _ = parser.add_argument(
+        "--project-dir",
+        dest="project_dir",
+        help="Single project directory (alias for --project)",
     )
 
     _ = parser.add_argument(
@@ -170,120 +157,87 @@ def main() -> None:
     name: str = cast(str, args.name)
     install: bool = cast(bool, args.install)
     transport: str = cast(str, args.transport)
-    port: int = cast(int, args.port)
-    host: str = cast(str, args.host)
-    project_dir: str | None = cast(str | None, args.project_dir)
     agent_model: str | None = cast(str | None, args.agent_model)
     agent_max_tokens: int | None = cast(int | None, args.agent_max_tokens)
     agent_api_key: str | None = cast(str | None, args.agent_api_key)
+    agent_base_url: str | None = cast(str | None, args.agent_base_url)
     agent_max_iterations: int = cast(int, args.agent_max_iterations)
     agent_max_tool_uses: int = cast(int, args.agent_max_tool_uses)
     enable_agent_tool: bool = cast(bool, args.enable_agent_tool)
+    command_timeout: float = cast(float, args.command_timeout)
     disable_write_tools: bool = cast(bool, args.disable_write_tools)
     disable_search_tools: bool = cast(bool, args.disable_search_tools)
+    host: str = cast(str, args.host)
+    port: int = cast(int, args.port)
     log_level: str = cast(str, args.log_level)
-    disable_file_logging: bool = cast(bool, args.disable_file_logging)
-    enable_console_logging: bool = cast(bool, args.enable_console_logging)
+    project_dir: str | None = cast(str | None, args.project_dir)
     allowed_paths: list[str] = (
         cast(list[str], args.allowed_paths) if args.allowed_paths else []
     )
+    project_paths: list[str] = (
+        cast(list[str], args.project_paths) if args.project_paths else []
+    )
 
-    # Setup logging
-    # Ensure absolutely NO logging when using stdio transport to avoid protocol corruption
-    # For sse transport, use file logging by default and console logging only if explicitly requested
-    # Only set up logging if not using stdio transport or explicitly requested
-    if transport != "stdio" or (enable_console_logging or not disable_file_logging):
-        setup_logging(
-            log_level=log_level,
-            log_to_file=not disable_file_logging and transport != "stdio",  # Disable file logging for stdio transport
-            log_to_console=enable_console_logging and transport != "stdio",  # Only enable console logging if requested AND not using stdio
-            transport=transport,  # Pass the transport to ensure it's properly handled
-            testing="pytest" in sys.modules
-        )
-        logger.debug(f"Hanzo MCP CLI started with arguments: {args}")
-    # No logging setup at all for stdio transport unless explicitly requested
-
+    # Handle project_dir parameter (add to both allowed_paths and project_paths)
+    if project_dir:
+        if project_dir not in allowed_paths:
+            allowed_paths.append(project_dir)
+        if project_dir not in project_paths:
+            project_paths.append(project_dir)
 
     if install:
-        install_claude_desktop_config(name, allowed_paths, disable_write_tools, disable_search_tools, host, port)
+        install_claude_desktop_config(
+            name, 
+            allowed_paths, 
+            disable_write_tools, 
+            disable_search_tools, 
+            host, 
+            port
+        )
         return
 
-    # If no allowed paths are specified, use the user's home directory
+    # If no allowed paths are specified, use the current directory
     if not allowed_paths:
-        allowed_paths = [str(Path.home())]
-        logger.info(f"No allowed paths specified, using home directory: {allowed_paths[0]}")
+        allowed_paths = [os.getcwd()]
 
-    # If project directory is specified, add it to allowed paths
-    if project_dir and project_dir not in allowed_paths:
-        allowed_paths.append(project_dir)
-
-    # Set project directory as initial working directory if provided
-    if project_dir:
-        # Expand user paths
-        project_dir = os.path.expanduser(project_dir)
-        # Make absolute
-        if not os.path.isabs(project_dir):
-            project_dir = os.path.abspath(project_dir)
-
-    # Don't set project_dir if not explicitly specified
-    # This ensures it remains None when not provided
-
-    # Run the server - only log if not using stdio transport or logging is explicitly enabled
-    if transport != "stdio" or (enable_console_logging or not disable_file_logging):
-        logger.info(f"Starting Hanzo MCP server with name: {name}")
-        logger.debug(f"Allowed paths: {allowed_paths}")
-        logger.debug(f"Project directory: {project_dir}")
-
-    try:
-        server = HanzoServer(
-            name=name,
-            allowed_paths=allowed_paths,
-            project_dir=project_dir,  # Pass project_dir for initial working directory
-            agent_model=agent_model,
-            agent_max_tokens=agent_max_tokens,
-            agent_api_key=agent_api_key,
-            agent_max_iterations=agent_max_iterations,
-            agent_max_tool_uses=agent_max_tool_uses,
-            enable_agent_tool=enable_agent_tool,
-            disable_write_tools=disable_write_tools,
-            disable_search_tools=disable_search_tools,
-            host=host,
-            port=port
-        )
-        
-        # Only log if not using stdio transport or logging is explicitly enabled
-        if transport != "stdio" or (enable_console_logging or not disable_file_logging):
-            logger.info(f"Server initialized successfully, running with transport: {transport}")
-            
-        # Transport will be automatically cast to Literal['stdio', 'sse'] by the server
-        server.run(transport=transport)
-    except Exception as e:
-        # Only log if not using stdio transport or logging is explicitly enabled
-        if transport != "stdio" or (enable_console_logging or not disable_file_logging):
-            logger.error(f"Error starting server: {str(e)}")
-            logger.exception("Server startup failed with exception:")
-        # For stdio transport, we want a clean exception without any logging
-        # Re-raise the exception for proper error handling
-        raise
+    # Run the server
+    server = HanzoMCPServer(
+        name=name,
+        allowed_paths=allowed_paths,
+        project_dir=project_dir,
+        agent_model=agent_model,
+        agent_max_tokens=agent_max_tokens,
+        agent_api_key=agent_api_key,
+        agent_base_url=agent_base_url,
+        agent_max_iterations=agent_max_iterations,
+        agent_max_tool_uses=agent_max_tool_uses,
+        enable_agent_tool=enable_agent_tool,
+        disable_write_tools=disable_write_tools,
+        disable_search_tools=disable_search_tools,
+        host=host,
+        port=port,
+    )
+    # Transport will be automatically cast to Literal['stdio', 'sse'] by the server
+    server.run(transport=transport)
 
 
 def install_claude_desktop_config(
-    name: str = "claude-code", allowed_paths: list[str] | None = None,
-    disable_write_tools: bool = False, disable_search_tools: bool = False,
-    host: str = "0.0.0.0", port: int = 3001
+    name: str = "hanzo-mcp",
+    allowed_paths: list[str] | None = None,
+    disable_write_tools: bool = False,
+    disable_search_tools: bool = False,
+    host: str = "127.0.0.1",
+    port: int = 3000,
 ) -> None:
     """Install the server configuration in Claude Desktop.
 
     Args:
         name: The name to use for the server in the config
         allowed_paths: Optional list of paths to allow
-        disable_write_tools: Whether to disable write/edit tools (file writing, editing, notebook editing)
-                          to use IDE tools instead. Note: Shell commands can still modify files.
-                          (default: False)
-        disable_search_tools: Whether to disable search tools when the IDE has better built-in
-                          semantic search capabilities. (default: False)
-        host: Host to bind to for SSE transport (default: '0.0.0.0')
-        port: Port to use for SSE transport (default: 3001)
+        disable_write_tools: Whether to disable write tools
+        disable_search_tools: Whether to disable search tools
+        host: Host for SSE server
+        port: Port for SSE server
     """
     # Find the Claude Desktop config directory
     home: Path = Path.home()
@@ -314,25 +268,16 @@ def install_claude_desktop_config(
         # Allow home directory by default
         args.extend(["--allow-path", str(home)])
 
-    # Add host and port
-    args.extend(["--host", host])
-    args.extend(["--port", str(port)])
-
-    # Add disable_write_tools flag if specified
+    # Add tool disable flags if specified
     if disable_write_tools:
         args.append("--disable-write-tools")
-        
-    # Add disable_search_tools flag if specified
+    
     if disable_search_tools:
         args.append("--disable-search-tools")
 
-    # Add host and port
-    args.extend(["--host", host])
-    args.extend(["--port", str(port)])
-
     # Create config object
     config: dict[str, Any] = {
-        "mcpServers": {name: {"command": str(script_path), "args": args}}
+        "mcpServers": {name: {"command": script_path.as_posix(), "args": args}}
     }
 
     # Check if the file already exists
@@ -364,7 +309,10 @@ def install_claude_desktop_config(
             print(f"- {path}")
     else:
         print(f"\nDefault allowed path: {home}")
-    print("\nYou can modify allowed paths in the config file directly.")
+
+    print(
+        "\nYou can modify allowed paths in the config file directly."
+    )
     print("Restart Claude Desktop for changes to take effect.")
 
 

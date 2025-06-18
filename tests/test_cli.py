@@ -18,7 +18,7 @@ class TestCLI:
         """Test the main function running the server."""
         with (
             patch("argparse.ArgumentParser.parse_args") as mock_parse_args,
-            patch("hanzo_mcp.cli.HanzoServer") as mock_server_class,
+            patch("hanzo_mcp.cli.HanzoMCPServer") as mock_server_class,
         ):
             # Mock parsed arguments
             mock_args = MagicMock()
@@ -30,6 +30,7 @@ class TestCLI:
             mock_args.agent_model = "anthropic/claude-3-sonnet"
             mock_args.agent_max_tokens = 2000
             mock_args.agent_api_key = "test_api_key"
+            mock_args.agent_base_url = None
             mock_args.agent_max_iterations = 10
             mock_args.agent_max_tool_uses = 30
             mock_args.enable_agent_tool = False
@@ -38,6 +39,8 @@ class TestCLI:
             mock_args.log_level = "INFO"
             mock_args.host = "127.0.0.1"
             mock_args.port = 3000
+            mock_args.project_paths = None
+            mock_args.command_timeout = 120.0
             mock_parse_args.return_value = mock_args
 
             # Mock server instance
@@ -57,6 +60,7 @@ class TestCLI:
                 agent_model="anthropic/claude-3-sonnet",
                 agent_max_tokens=2000,
                 agent_api_key="test_api_key",
+                agent_base_url=mock_args.agent_base_url,
                 agent_max_iterations=10,
                 agent_max_tool_uses=30,
                 enable_agent_tool=False,
@@ -78,6 +82,7 @@ class TestCLI:
             mock_args.name = "test-server"
             mock_args.install = True
             mock_args.allowed_paths = ["/test/path"]
+            mock_args.project_dir = None
             mock_args.disable_write_tools = False
             mock_args.disable_search_tools = False
             mock_args.log_level = "INFO"
@@ -102,8 +107,8 @@ class TestCLI:
         """Test the main function without specified allowed paths."""
         with (
             patch("argparse.ArgumentParser.parse_args") as mock_parse_args,
-            patch("hanzo_mcp.cli.HanzoServer") as mock_server_class,
-            patch("pathlib.Path.home", return_value=Path("/current/dir")),
+            patch("hanzo_mcp.cli.HanzoMCPServer") as mock_server_class,
+            patch("os.getcwd", return_value="/current/dir"),
         ):
             # Mock parsed arguments
             mock_args = MagicMock()
@@ -115,6 +120,7 @@ class TestCLI:
             mock_args.agent_model = None
             mock_args.agent_max_tokens = None
             mock_args.agent_api_key = None
+            mock_args.agent_base_url = None
             mock_args.agent_max_iterations = 10
             mock_args.agent_max_tool_uses = 30
             mock_args.enable_agent_tool = False
@@ -123,6 +129,8 @@ class TestCLI:
             mock_args.log_level = "INFO"
             mock_args.host = "127.0.0.1"
             mock_args.port = 3000
+            mock_args.project_paths = None
+            mock_args.command_timeout = 120.0
             mock_parse_args.return_value = mock_args
 
             # Mock server instance
@@ -140,6 +148,7 @@ class TestCLI:
                 agent_model=None,
                 agent_max_tokens=None,
                 agent_api_key=None,
+                agent_base_url=None,
                 agent_max_iterations=10,
                 agent_max_tool_uses=30,
                 enable_agent_tool=False,
@@ -154,7 +163,7 @@ class TestCLI:
         """Test the main function with disable_write_tools=True."""
         with (
             patch("argparse.ArgumentParser.parse_args") as mock_parse_args,
-            patch("hanzo_mcp.cli.HanzoServer") as mock_server_class,
+            patch("hanzo_mcp.cli.HanzoMCPServer") as mock_server_class,
         ):
             # Mock parsed arguments
             mock_args = MagicMock()
@@ -166,6 +175,7 @@ class TestCLI:
             mock_args.agent_model = None
             mock_args.agent_max_tokens = None
             mock_args.agent_api_key = None
+            mock_args.agent_base_url = None
             mock_args.agent_max_iterations = 10
             mock_args.agent_max_tool_uses = 30
             mock_args.enable_agent_tool = False
@@ -174,6 +184,8 @@ class TestCLI:
             mock_args.log_level = "INFO"
             mock_args.host = "127.0.0.1"
             mock_args.port = 3000
+            mock_args.project_paths = None
+            mock_args.command_timeout = 120.0
             mock_parse_args.return_value = mock_args
 
             # Mock server instance
@@ -192,6 +204,7 @@ class TestCLI:
                 agent_model=None,
                 agent_max_tokens=None,
                 agent_api_key=None,
+                agent_base_url=None,
                 agent_max_iterations=10,
                 agent_max_tool_uses=30,
                 enable_agent_tool=False,
@@ -206,7 +219,7 @@ class TestCLI:
         """Test the main function with disable_search_tools=True."""
         with (
             patch("argparse.ArgumentParser.parse_args") as mock_parse_args,
-            patch("hanzo_mcp.cli.HanzoServer") as mock_server_class,
+            patch("hanzo_mcp.cli.HanzoMCPServer") as mock_server_class,
         ):
             # Mock parsed arguments
             mock_args = MagicMock()
@@ -218,6 +231,7 @@ class TestCLI:
             mock_args.agent_model = None
             mock_args.agent_max_tokens = None
             mock_args.agent_api_key = None
+            mock_args.agent_base_url = None
             mock_args.agent_max_iterations = 10
             mock_args.agent_max_tool_uses = 30
             mock_args.enable_agent_tool = False
@@ -226,6 +240,8 @@ class TestCLI:
             mock_args.log_level = "INFO"
             mock_args.host = "127.0.0.1"
             mock_args.port = 3000
+            mock_args.project_paths = None
+            mock_args.command_timeout = 120.0
             mock_parse_args.return_value = mock_args
 
             # Mock server instance
@@ -244,6 +260,7 @@ class TestCLI:
                 agent_model=None,
                 agent_max_tokens=None,
                 agent_api_key=None,
+                agent_base_url=None,
                 agent_max_iterations=10,
                 agent_max_tool_uses=30,
                 enable_agent_tool=False,

@@ -2,6 +2,8 @@
 
 import json
 import os
+import sys
+import tempfile
 from collections.abc import Awaitable, Callable
 from pathlib import Path
 from typing import Any, TypeVar, final
@@ -18,9 +20,14 @@ class PermissionManager:
     def __init__(self) -> None:
         """Initialize the permission manager."""
         # Allowed paths
-        self.allowed_paths: set[Path] = set(
-            [Path("/tmp").resolve(), Path("/var").resolve()]
-        )
+        self.allowed_paths: set[Path] = set()
+
+        # Allowed paths based on platform
+        if sys.platform == "win32":  # Windows
+            self.allowed_paths.add(Path(tempfile.gettempdir()).resolve())
+        else:  # Unix/Linux/Mac
+            self.allowed_paths.add(Path("/tmp").resolve())
+            self.allowed_paths.add(Path("/var").resolve())
 
         # Excluded paths
         self.excluded_paths: set[Path] = set()
@@ -33,17 +40,14 @@ class PermissionManager:
         """Add default exclusions for sensitive files and directories."""
         # Sensitive directories
         sensitive_dirs: list[str] = [
-            # ".git" is now allowed by default
             ".ssh",
             ".gnupg",
-            ".config",
             "node_modules",
             "__pycache__",
             ".venv",
             "venv",
             "env",
             ".idea",
-            ".vscode",
             ".DS_Store",
         ]
         self.excluded_patterns.extend(sensitive_dirs)
@@ -69,9 +73,7 @@ class PermissionManager:
         Args:
             path: The path to allow
         """
-        # Expand user path (e.g., ~/ or $HOME)
-        expanded_path = os.path.expanduser(path)
-        resolved_path: Path = Path(expanded_path).resolve()
+        resolved_path: Path = Path(path).resolve()
         self.allowed_paths.add(resolved_path)
 
     def remove_allowed_path(self, path: str) -> None:
@@ -110,9 +112,7 @@ class PermissionManager:
         Returns:
             True if the path is allowed, False otherwise
         """
-        # Expand user path (e.g., ~/ or $HOME)
-        expanded_path = os.path.expanduser(path)
-        resolved_path: Path = Path(expanded_path).resolve()
+        resolved_path: Path = Path(path).resolve()
 
         # Check exclusions first
         if self._is_path_excluded(resolved_path):

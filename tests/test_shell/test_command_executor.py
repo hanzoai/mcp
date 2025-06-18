@@ -288,44 +288,11 @@ class TestCommandExecutor:
         # The output should not just be the literal string "$PATH"
         assert result.stdout.strip() != "$PATH"
 
-    @pytest.mark.asyncio
-    async def test_register_tools(self, executor: CommandExecutor) -> None:
-        """Test registering command execution tools."""
-        mock_server = MagicMock()
-        tools = {}
-
-        def mock_decorator():
-            def decorator(func):
-                tools[func.__name__] = func
-                return func
-
-            return decorator
-
-        mock_server.tool = mock_decorator
-
-        # Register tools
-        executor.register_tools(mock_server)
-
-        # Verify tools were registered
-        assert "run_command" in tools
-        assert "run_script" in tools
-        assert "script_tool" in tools
-
-        # Test run_command tool
-        with patch.object(executor, "execute_command") as mock_execute:
-            mock_execute.return_value = CommandResult(0, "Command output", "")
-
-            # Create mock context
-            mock_context = AsyncMock()
-            mock_tool_ctx = AsyncMock()
-
-            with patch(
-                "hanzo_mcp.tools.shell.command_executor.create_tool_context",
-                return_value=mock_tool_ctx,
-            ):
-                # Call the run_command tool
-                result = await tools["run_command"]("echo test", "/tmp", mock_context)
-
-                # Verify execution and result
-                mock_execute.assert_called_once()
-                assert "Command output" in result
+    # CommandExecutor no longer has register_tools method in new architecture
+    # Tools are now registered through register_shell_tools function
+    # @pytest.mark.asyncio
+    # async def test_register_tools(self, executor: CommandExecutor) -> None:
+    #     """Test registering command execution tools."""
+    #     # This test is no longer applicable as tools are registered 
+    #     # through the hanzo_mcp.tools.shell.register_shell_tools function
+    #     pass
