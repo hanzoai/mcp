@@ -12,6 +12,8 @@ try:
 except ImportError:
     INFINITY_AVAILABLE = False
 
+from .ast_analyzer import ASTAnalyzer, FileAST, Symbol, create_symbol_embedding_text
+
 
 @dataclass
 class Document:
@@ -29,6 +31,27 @@ class SearchResult:
     document: Document
     score: float
     distance: float
+
+
+@dataclass
+class SymbolSearchResult:
+    """Search result for symbols."""
+    symbol: Symbol
+    score: float
+    context_document: Optional[Document] = None
+
+
+@dataclass
+class UnifiedSearchResult:
+    """Unified search result combining text, vector, and symbol search."""
+    type: str  # 'document', 'symbol', 'reference'
+    content: str
+    file_path: str
+    line_start: int
+    line_end: int
+    score: float
+    search_type: str  # 'text', 'vector', 'symbol', 'ast'
+    metadata: Dict[str, Any]
 
 
 class InfinityVectorStore:
@@ -62,6 +85,9 @@ class InfinityVectorStore:
         self.embedding_model = embedding_model
         self.dimension = dimension
         
+        # Initialize AST analyzer
+        self.ast_analyzer = ASTAnalyzer()
+        
         # Connect to Infinity
         self.infinity = infinity_embedded.connect(str(self.data_path))
         self.db = self.infinity.get_database("hanzo_mcp")
@@ -84,6 +110,60 @@ class InfinityVectorStore:
                     "chunk_index": {"type": "integer"},
                     "metadata": {"type": "varchar"},  # JSON string
                     "embedding": {"type": f"vector,{self.dimension},float"},
+                }
+            )
+        
+        # Symbols table for code symbols
+        try:
+            self.symbols_table = self.db.get_table("symbols")
+        except:
+            self.symbols_table = self.db.create_table(
+                "symbols",
+                {
+                    "id": {"type": "varchar"},
+                    "name": {"type": "varchar"},
+                    "type": {"type": "varchar"},  # function, class, variable, etc.
+                    "file_path": {"type": "varchar"},
+                    "line_start": {"type": "integer"},
+                    "line_end": {"type": "integer"},
+                    "scope": {"type": "varchar"},
+                    "parent": {"type": "varchar"},
+                    "signature": {"type": "varchar"},
+                    "docstring": {"type": "varchar"},
+                    "metadata": {"type": "varchar"},  # JSON string
+                    "embedding": {"type": f"vector,{self.dimension},float"},
+                }
+            )
+        
+        # AST table for storing complete file ASTs
+        try:
+            self.ast_table = self.db.get_table("ast_files")
+        except:
+            self.ast_table = self.db.create_table(
+                "ast_files",
+                {
+                    "file_path": {"type": "varchar"},
+                    "file_hash": {"type": "varchar"},
+                    "language": {"type": "varchar"},
+                    "ast_data": {"type": "varchar"},  # JSON string of complete AST
+                    "last_updated": {"type": "varchar"},  # ISO timestamp
+                }
+            )
+        
+        # References table for cross-file references
+        try:
+            self.references_table = self.db.get_table("references")
+        except:
+            self.references_table = self.db.create_table(
+                "references",
+                {
+                    "id": {"type": "varchar"},
+                    "source_file": {"type": "varchar"},
+                    "target_file": {"type": "varchar"},
+                    "symbol_name": {"type": "varchar"},
+                    "reference_type": {"type": "varchar"},  # import, call, inheritance, etc.
+                    "line_number": {"type": "integer"},
+                    "metadata": {"type": "varchar"},  # JSON string
                 }
             )
     
@@ -191,6 +271,290 @@ class InfinityVectorStore:
             doc_ids.append(doc_id)
         
         return doc_ids
+    
+    def add_file_with_ast(
+        self,
+        file_path: str,
+        chunk_size: int = 1000,
+        chunk_overlap: int = 200,
+        metadata: Dict[str, Any] = None,
+    ) -> Tuple[List[str], Optional[FileAST]]:
+        """Add a file with full AST analysis and symbol extraction.
+        
+        Args:
+            file_path: Path to the file to add
+            chunk_size: Maximum characters per chunk for content
+            chunk_overlap: Characters to overlap between chunks
+            metadata: Additional metadata for all chunks
+            
+        Returns:
+            Tuple of (document IDs for content chunks, FileAST object)
+        """
+        path = Path(file_path)
+        if not path.exists():
+            raise FileNotFoundError(f"File not found: {file_path}")
+        
+        # First add file content using existing method
+        doc_ids = self.add_file(file_path, chunk_size, chunk_overlap, metadata)
+        
+        # Analyze AST and symbols
+        file_ast = self.ast_analyzer.analyze_file(file_path)
+        if not file_ast:
+            return doc_ids, None
+        
+        # Store complete AST
+        self._store_file_ast(file_ast)
+        
+        # Store individual symbols with embeddings
+        self._store_symbols(file_ast.symbols)
+        
+        # Store cross-references
+        self._store_references(file_ast)
+        
+        return doc_ids, file_ast
+    
+    def _store_file_ast(self, file_ast: FileAST):
+        """Store complete file AST information."""
+        from datetime import datetime
+        
+        # Remove existing AST for this file
+        try:
+            self.ast_table.delete(f"file_path = '{file_ast.file_path}'")
+        except:
+            pass
+        
+        # Insert new AST
+        self.ast_table.insert([{
+            "file_path": file_ast.file_path,
+            "file_hash": file_ast.file_hash,
+            "language": file_ast.language,
+            "ast_data": json.dumps(file_ast.to_dict()),
+            "last_updated": datetime.now().isoformat(),
+        }])
+    
+    def _store_symbols(self, symbols: List[Symbol]):
+        """Store symbols with vector embeddings."""
+        if not symbols:
+            return
+        
+        # Remove existing symbols for these files
+        file_paths = list(set(symbol.file_path for symbol in symbols))
+        for file_path in file_paths:
+            try:
+                self.symbols_table.delete(f"file_path = '{file_path}'")
+            except:
+                pass
+        
+        # Insert new symbols
+        symbol_records = []
+        for symbol in symbols:
+            # Create embedding text for symbol
+            embedding_text = create_symbol_embedding_text(symbol)
+            embedding = self._generate_embedding(embedding_text)
+            
+            # Generate symbol ID
+            symbol_id = self._generate_symbol_id(symbol)
+            
+            # Prepare metadata
+            symbol_metadata = {
+                "references": symbol.references,
+                "embedding_text": embedding_text,
+            }
+            
+            symbol_records.append({
+                "id": symbol_id,
+                "name": symbol.name,
+                "type": symbol.type,
+                "file_path": symbol.file_path,
+                "line_start": symbol.line_start,
+                "line_end": symbol.line_end,
+                "scope": symbol.scope or "",
+                "parent": symbol.parent or "",
+                "signature": symbol.signature or "",
+                "docstring": symbol.docstring or "",
+                "metadata": json.dumps(symbol_metadata),
+                "embedding": embedding,
+            })
+        
+        if symbol_records:
+            self.symbols_table.insert(symbol_records)
+    
+    def _store_references(self, file_ast: FileAST):
+        """Store cross-file references."""
+        if not file_ast.dependencies:
+            return
+        
+        # Remove existing references for this file
+        try:
+            self.references_table.delete(f"source_file = '{file_ast.file_path}'")
+        except:
+            pass
+        
+        # Insert new references
+        reference_records = []
+        for i, dependency in enumerate(file_ast.dependencies):
+            ref_id = f"{file_ast.file_path}_{dependency}_{i}"
+            reference_records.append({
+                "id": ref_id,
+                "source_file": file_ast.file_path,
+                "target_file": dependency,
+                "symbol_name": dependency,
+                "reference_type": "import",
+                "line_number": 0,  # Could be enhanced to track actual line numbers
+                "metadata": json.dumps({}),
+            })
+        
+        if reference_records:
+            self.references_table.insert(reference_records)
+    
+    def _generate_symbol_id(self, symbol: Symbol) -> str:
+        """Generate unique symbol ID."""
+        text = f"{symbol.file_path}_{symbol.type}_{symbol.name}_{symbol.line_start}"
+        return hashlib.sha256(text.encode()).hexdigest()[:16]
+    
+    def search_symbols(
+        self,
+        query: str,
+        symbol_type: Optional[str] = None,
+        file_path: Optional[str] = None,
+        limit: int = 10,
+        score_threshold: float = 0.0,
+    ) -> List[SymbolSearchResult]:
+        """Search for symbols using vector similarity.
+        
+        Args:
+            query: Search query
+            symbol_type: Filter by symbol type (function, class, variable, etc.)
+            file_path: Filter by file path
+            limit: Maximum number of results
+            score_threshold: Minimum similarity score
+            
+        Returns:
+            List of symbol search results
+        """
+        # Generate query embedding
+        query_embedding = self._generate_embedding(query)
+        
+        # Build search query
+        search_query = self.symbols_table.output(["*"]).match_dense(
+            "embedding", 
+            query_embedding, 
+            "float", 
+            "ip",  # Inner product
+            limit * 2  # Get more results for filtering
+        )
+        
+        # Apply filters
+        if symbol_type:
+            search_query = search_query.filter(f"type = '{symbol_type}'")
+        if file_path:
+            search_query = search_query.filter(f"file_path = '{file_path}'")
+        
+        search_results = search_query.to_pl()
+        
+        # Convert to SymbolSearchResult objects
+        results = []
+        for row in search_results.iter_rows(named=True):
+            score = row.get("score", 0.0)
+            if score >= score_threshold:
+                # Parse metadata
+                try:
+                    metadata = json.loads(row["metadata"])
+                except:
+                    metadata = {}
+                
+                # Create Symbol object
+                symbol = Symbol(
+                    name=row["name"],
+                    type=row["type"],
+                    file_path=row["file_path"],
+                    line_start=row["line_start"],
+                    line_end=row["line_end"],
+                    column_start=0,  # Not stored in table
+                    column_end=0,   # Not stored in table
+                    scope=row["scope"],
+                    parent=row["parent"] if row["parent"] else None,
+                    docstring=row["docstring"] if row["docstring"] else None,
+                    signature=row["signature"] if row["signature"] else None,
+                    references=metadata.get("references", []),
+                )
+                
+                results.append(SymbolSearchResult(
+                    symbol=symbol,
+                    score=score,
+                ))
+        
+        return results[:limit]
+    
+    def search_ast_nodes(
+        self,
+        file_path: str,
+        node_type: Optional[str] = None,
+        node_name: Optional[str] = None,
+    ) -> Optional[FileAST]:
+        """Search AST nodes within a specific file.
+        
+        Args:
+            file_path: File to search in
+            node_type: Filter by AST node type
+            node_name: Filter by node name
+            
+        Returns:
+            FileAST object if file found, None otherwise
+        """
+        try:
+            results = self.ast_table.output(["*"]).filter(f"file_path = '{file_path}'").to_pl()
+            
+            if len(results) == 0:
+                return None
+            
+            row = next(results.iter_rows(named=True))
+            ast_data = json.loads(row["ast_data"])
+            
+            # Reconstruct FileAST object
+            file_ast = FileAST(
+                file_path=ast_data["file_path"],
+                file_hash=ast_data["file_hash"],
+                language=ast_data["language"],
+                symbols=[Symbol(**s) for s in ast_data["symbols"]],
+                ast_nodes=[],  # Would need custom deserialization for ASTNode
+                imports=ast_data["imports"],
+                exports=ast_data["exports"],
+                dependencies=ast_data["dependencies"],
+            )
+            
+            return file_ast
+            
+        except Exception as e:
+            print(f"Error searching AST nodes: {e}")
+            return None
+    
+    def get_file_references(self, file_path: str) -> List[Dict[str, Any]]:
+        """Get all files that reference the given file.
+        
+        Args:
+            file_path: File to find references for
+            
+        Returns:
+            List of reference information
+        """
+        try:
+            results = self.references_table.output(["*"]).filter(f"target_file = '{file_path}'").to_pl()
+            
+            references = []
+            for row in results.iter_rows(named=True):
+                references.append({
+                    "source_file": row["source_file"],
+                    "symbol_name": row["symbol_name"],
+                    "reference_type": row["reference_type"],
+                    "line_number": row["line_number"],
+                })
+            
+            return references
+            
+        except Exception as e:
+            print(f"Error getting file references: {e}")
+            return []
     
     def search(
         self,
