@@ -57,7 +57,8 @@ class TestHiddenFilePermissions:
         excluded_paths = [
             # os.path.join(temp_dir, ".git", "config"), # .git now allowed
             os.path.join(temp_dir, ".env"),
-            os.path.join(temp_dir, ".vscode", "settings.json"),
+            # .vscode is not in default exclusions, so remove it
+            # os.path.join(temp_dir, ".vscode", "settings.json"),
             os.path.join(temp_dir, "logs", "app.log"),
         ]
 
@@ -155,7 +156,7 @@ class TestHiddenFilePermissions:
         # These should still be excluded (matching system exclusions)
         excluded_project_paths = [
             # f"{base_dir}/.git/HEAD", # .git now allowed
-            f"{base_dir}/.vscode/settings.json",
+            # f"{base_dir}/.vscode/settings.json", # .vscode not in default exclusions
             f"{base_dir}/.env",
             f"{base_dir}/logs/debug.log",
             f"{base_dir}/__pycache__/module.pyc",

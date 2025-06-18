@@ -6,12 +6,63 @@ seeing matching lines with useful context showing how they fit into the code str
 
 import os
 from pathlib import Path
-from typing import Any, final, override
+from typing import Annotated, TypedDict, Unpack, final, override
 
-from mcp.server.fastmcp import Context as MCPContext
-from mcp.server.fastmcp import FastMCP
+from fastmcp import Context as MCPContext
+from fastmcp import FastMCP
+from fastmcp.server.dependencies import get_context
+from grep_ast.grep_ast import TreeContext
+from pydantic import Field
 
 from hanzo_mcp.tools.filesystem.base import FilesystemBaseTool
+
+Pattern = Annotated[
+    str,
+    Field(
+        description="The regex pattern to search for in source code files",
+        min_length=1,
+    ),
+]
+
+SearchPath = Annotated[
+    str,
+    Field(
+        description="The path to search in (file or directory)",
+        min_length=1,
+    ),
+]
+
+IgnoreCase = Annotated[
+    bool,
+    Field(
+        description="Whether to ignore case when matching",
+        default=False,
+    ),
+]
+
+LineNumber = Annotated[
+    bool,
+    Field(
+        description="Whether to display line numbers",
+        default=False,
+    ),
+]
+
+
+class GrepAstToolParams(TypedDict):
+    """Parameters for the GrepAstTool.
+
+    Attributes:
+        pattern: The regex pattern to search for in source code files
+        path: The path to search in (file or directory)
+        ignore_case: Whether to ignore case when matching
+        line_number: Whether to display line numbers
+    """
+
+    pattern: Pattern
+    path: SearchPath
+    ignore_case: IgnoreCase
+    line_number: LineNumber
 
 
 @final
@@ -36,62 +87,30 @@ class GrepAstTool(FilesystemBaseTool):
         Returns:
             Tool description
         """
-        return """Search through source code files and see matching lines with useful context.
+        return """Search through source code files and see matching lines with useful AST (Abstract Syntax Tree) context. This tool helps you understand code structure by showing how matched lines fit into functions, classes, and other code blocks.
 
-Grep source code files and see matching lines with useful context that show how they fit 
-into the code structure. See the loops, functions, methods, classes, etc. that contain
-all the matching lines. Get a sense of what's inside a matched class or function definition.
-Only works within allowed directories."""
+Unlike traditional search tools like `search_content` that only show matching lines, `grep_ast` leverages the AST to reveal the structural context around matches, making it easier to understand the code organization.
 
-    @property
-    @override
-    def parameters(self) -> dict[str, Any]:
-        """Get the parameter specifications for the tool.
+When to use this tool:
+1. When you need to understand where a pattern appears within larger code structures
+2. When searching for function or class definitions that match a pattern
+3. When you want to see not just the matching line but its surrounding context in the code
+4. When exploring unfamiliar codebases and need structural context
+5. When examining how a specific pattern is used across different parts of the codebase
 
-        Returns:
-            Parameter specifications
-        """
-        return {
-            "properties": {
-                "pattern": {
-                    "type": "string",
-                    "title": "Pattern",
-                    "description": "The regex pattern to search for in source code files"
-                },
-                "path": {
-                    "type": "string",
-                    "title": "Path",
-                    "description": "The path to search in (file or directory)"
-                },
-                "ignore_case": {
-                    "type": "boolean",
-                    "title": "Ignore Case",
-                    "description": "Whether to ignore case when matching",
-                    "default": False
-                },
-                "line_number": {
-                    "type": "boolean",
-                    "title": "Line Number",
-                    "description": "Whether to display line numbers",
-                    "default": False
-                }
-            },
-            "required": ["pattern", "path"],
-            "type": "object"
-        }
+This tool is superior to regular grep/search_content when you need to understand code structure, not just find text matches.
 
-    @property
-    @override
-    def required(self) -> list[str]:
-        """Get the list of required parameter names.
-
-        Returns:
-            List of required parameter names
-        """
-        return ["pattern", "path"]
+Example usage:
+```
+grep_ast(pattern="function_name", path="/path/to/file.py", ignore_case=False, line_number=True)
+```"""
 
     @override
-    async def call(self, ctx: MCPContext, **params: Any) -> str:
+    async def call(
+        self,
+        ctx: MCPContext,
+        **params: Unpack[GrepAstToolParams],
+    ) -> str:
         """Execute the tool with the given parameters.
 
         Args:
@@ -105,23 +124,14 @@ Only works within allowed directories."""
         self.set_tool_context_info(tool_ctx)
 
         # Extract parameters
-        pattern = params.get("pattern")
-        path = params.get("path")
+        pattern: Pattern = params["pattern"]
+        path: SearchPath = params["path"]
         ignore_case = params.get("ignore_case", False)
         line_number = params.get("line_number", False)
 
-        # Validate parameters
-        if not pattern:
-            await tool_ctx.error("Parameter 'pattern' is required but was None")
-            return "Error: Parameter 'pattern' is required but was None"
-
-        if not path:
-            await tool_ctx.error("Parameter 'path' is required but was None")
-            return "Error: Parameter 'path' is required but was None"
-
         # Validate the path
         path_validation = self.validate_path(path)
-        if path_validation.is_error:
+        if not path_validation.is_valid:
             await tool_ctx.error(f"Invalid path: {path_validation.error_message}")
             return f"Error: Invalid path: {path_validation.error_message}"
 
@@ -165,27 +175,11 @@ Only works within allowed directories."""
 
             try:
                 # Read the file
-                try:
-                    with open(file_path, "r", encoding="utf-8") as f:
-                        code = f.read()
-                except UnicodeDecodeError:
-                    await tool_ctx.warning(f"Could not read {file_path} as text")
-                    processed_count += 1
-                    continue
-                except Exception as e:
-                    await tool_ctx.error(f"Error reading {file_path}: {str(e)}")
-                    processed_count += 1
-                    continue
+                with open(file_path, "r", encoding="utf-8") as f:
+                    code = f.read()
 
-                # Process with TreeContext implementation
+                # Process the file with grep-ast
                 try:
-                    # Import here to avoid issues in test environments where grep_ast might not be available
-                    if os.environ.get("TEST_MODE") == "1":
-                        # Use fallback implementation for testing
-                        await tool_ctx.warning("Running in TEST_MODE, using fallback implementation.")
-                        raise ImportError("TEST_MODE active, using fallback implementation")
-                        
-                    from grep_ast.grep_ast import TreeContext
                     tc = TreeContext(
                         file_path,
                         code,
@@ -204,28 +198,11 @@ Only works within allowed directories."""
 
                         # Add the result to our list
                         results.append(f"\n{file_path}:\n{output}\n")
-                except ImportError as e:
-                    # Mock the behavior for test environments where grep_ast is not available
-                    await tool_ctx.warning(f"grep_ast module not available. Using fallback matching: {str(e)}")
-                    lines = code.splitlines()
-                    matched_lines = []
-                    for i, line in enumerate(lines, 1):
-                        if pattern.lower() in line.lower() if ignore_case else pattern in line:
-                            matched_lines.append(i)
-
-                    if matched_lines:
-                        # Generate a simple format for test purposes
-                        output_lines = []
-                        for line_num in matched_lines:
-                            if line_number:
-                                output_lines.append(f"{line_num}: {lines[line_num-1]}")
-                            else:
-                                output_lines.append(f"{lines[line_num-1]}")
-                                
-                        results.append(f"\n{file_path}:\n" + "\n".join(output_lines) + "\n")
                 except Exception as e:
                     # Skip files that can't be parsed by tree-sitter
                     await tool_ctx.warning(f"Could not parse {file_path}: {str(e)}")
+            except UnicodeDecodeError:
+                await tool_ctx.warning(f"Could not read {file_path} as text")
             except Exception as e:
                 await tool_ctx.error(f"Error processing {file_path}: {str(e)}")
 
@@ -255,14 +232,15 @@ Only works within allowed directories."""
         """
         tool_self = self  # Create a reference to self for use in the closure
 
-        @mcp_server.tool(name=self.name, description=self.mcp_description)
+        @mcp_server.tool(name=self.name, description=self.description)
         async def grep_ast(
             ctx: MCPContext,
-            pattern: str,
-            path: str,
-            ignore_case: bool = False,
-            line_number: bool = False,
+            pattern: Pattern,
+            path: SearchPath,
+            ignore_case: IgnoreCase,
+            line_number: LineNumber,
         ) -> str:
+            ctx = get_context()
             return await tool_self.call(
                 ctx,
                 pattern=pattern,

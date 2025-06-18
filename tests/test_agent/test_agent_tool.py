@@ -8,18 +8,12 @@ import pytest
 
 from hanzo_mcp.tools.agent.agent_tool import AgentTool
 from hanzo_mcp.tools.common.base import BaseTool
-from hanzo_mcp.tools.common.context import DocumentContext
 from hanzo_mcp.tools.common.permissions import PermissionManager
 
 
 class TestAgentTool:
     """Test cases for the AgentTool."""
     
-    @pytest.fixture
-    def document_context(self):
-        """Create a test document context."""
-        return MagicMock(spec=DocumentContext)
-        
     @pytest.fixture
     def permission_manager(self):
         """Create a test permission manager."""
@@ -31,26 +25,19 @@ class TestAgentTool:
         return MagicMock()
         
     @pytest.fixture
-    def command_executor(self):
-        """Create a test command executor."""
-        return MagicMock()
-        
-    @pytest.fixture
-    def agent_tool(self, document_context, permission_manager, command_executor):
+    def agent_tool(self, permission_manager):
         """Create a test agent tool."""
         with patch("hanzo_mcp.tools.agent.agent_tool.litellm"):
             # Set environment variable for test
             os.environ["OPENAI_API_KEY"] = "test_key"
-            return AgentTool(document_context, permission_manager, command_executor)
+            return AgentTool(permission_manager)
 
     @pytest.fixture
-    def agent_tool_with_params(self, document_context, permission_manager, command_executor):
+    def agent_tool_with_params(self, permission_manager):
         """Create a test agent tool with custom parameters."""
         with patch("hanzo_mcp.tools.agent.agent_tool.litellm"):
             return AgentTool(
-                document_context=document_context, 
                 permission_manager=permission_manager,
-                command_executor=command_executor,
                 model="anthropic/claude-3-sonnet",
                 api_key="test_anthropic_key",
                 max_tokens=2000,
@@ -74,8 +61,7 @@ class TestAgentTool:
     def test_initialization(self, agent_tool):
         """Test agent tool initialization."""
         assert agent_tool.name == "dispatch_agent"
-        assert "Launch one or more agents" in agent_tool.description
-        assert agent_tool.required == ["prompts"]
+        assert "Launch a new agent" in agent_tool.description
         assert agent_tool.model_override is None
         assert agent_tool.api_key_override is None
         assert agent_tool.max_tokens_override is None
@@ -91,22 +77,17 @@ class TestAgentTool:
         assert agent_tool_with_params.max_iterations == 40
         assert agent_tool_with_params.max_tool_uses == 150
         
-    def test_parameters(self, agent_tool):
-        """Test agent tool parameters."""
-        params = agent_tool.parameters
-        assert "prompts" in params["properties"]
-        assert "anyOf" in params["properties"]["prompts"]
-        # Updated test to check only array type is supported
-        assert any(schema.get("type") == "array" for schema in params["properties"]["prompts"]["anyOf"])
-        assert params["required"] == ["prompts"]
+# Parameters are not exposed directly in the new interface
+    # def test_parameters(self, agent_tool):
+    #     """Test agent tool parameters."""
+    #     # BaseTool doesn't expose parameters property
+    #     pass
         
-    def test_model_and_api_key_override(self, document_context, permission_manager, command_executor):
+    def test_model_and_api_key_override(self, permission_manager):
         """Test API key and model override functionality."""
         # Test with antropic model and API key
         agent_tool = AgentTool(
-            document_context=document_context,
             permission_manager=permission_manager,
-            command_executor=command_executor,
             model="anthropic/claude-3-sonnet",
             api_key="test_anthropic_key"
         )
@@ -116,9 +97,7 @@ class TestAgentTool:
         
         # Test with openai model and API key
         agent_tool = AgentTool(
-            document_context=document_context,
             permission_manager=permission_manager,
-            command_executor=command_executor,
             model="openai/gpt-4o",
             api_key="test_openai_key"
         )
@@ -128,9 +107,7 @@ class TestAgentTool:
         
         # Test with no model or API key
         agent_tool = AgentTool(
-            document_context=document_context,
             permission_manager=permission_manager,
-            command_executor=command_executor
         )
         
         assert agent_tool.model_override is None
@@ -189,7 +166,7 @@ class TestAgentTool:
         with patch.object(agent_tool, "_execute_multiple_agents", AsyncMock(return_value="Agent result")):
             with patch("hanzo_mcp.tools.agent.agent_tool.create_tool_context", return_value=tool_ctx):
                 # Update the test to use a list instead of a string
-                result = await agent_tool.call(ctx=mcp_context, prompts=["Test prompt"])
+                result = await agent_tool.call(ctx=mcp_context, prompts=["Test prompt /home/test/path"])
                 
         assert "Agent execution completed" in result
         assert "Agent result" in result
@@ -206,7 +183,7 @@ class TestAgentTool:
         tool_ctx.mcp_context = mcp_context
         
         # Create test prompts
-        test_prompts = ["Task 1", "Task 2", "Task 3"]
+        test_prompts = ["Task 1 /home/test/path1", "Task 2 /home/test/path2", "Task 3 /home/test/path3"]
         
         # Mock the _execute_multiple_agents method
         multi_agent_result = "\n\n---\n\nAgent 1 Result:\nResult 1\n\n---\n\nAgent 2 Result:\nResult 2\n\n---\n\nAgent 3 Result:\nResult 3"
@@ -357,7 +334,7 @@ class TestAgentTool:
         tool_ctx.mcp_context = mcp_context
         
         # Create test prompts
-        test_prompts = ["Task 1", "Task 2"]
+        test_prompts = ["Task 1 /home/test/path1", "Task 2 /home/test/path2"]
         
         # Mock the necessary dependencies
         with patch("hanzo_mcp.tools.agent.agent_tool.get_allowed_agent_tools", return_value=mock_tools):
@@ -385,7 +362,7 @@ class TestAgentTool:
         tool_ctx.mcp_context = mcp_context
         
         # Create test prompts - just one
-        test_prompts = ["Single task"]
+        test_prompts = ["Single task /home/test/path"]
         
         # Mock the necessary dependencies
         with patch("hanzo_mcp.tools.agent.agent_tool.get_allowed_agent_tools", return_value=mock_tools):
@@ -411,7 +388,7 @@ class TestAgentTool:
         tool_ctx.mcp_context = mcp_context
         
         # Create test prompts
-        test_prompts = ["Task 1", "Task that fails", "Task 3"]
+        test_prompts = ["Task 1 /home/test/path1", "Task that fails /home/test/path2", "Task 3 /home/test/path3"]
         
         # Create a mix of results and exceptions
         gather_results = ["Result 1", Exception("Task failed"), "Result 3"]

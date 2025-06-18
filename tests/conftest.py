@@ -84,12 +84,10 @@ def permission_manager():
 
 
 @pytest.fixture
-def document_context():
-    """Create a document context for testing."""
-    from hanzo_mcp.tools.common.context import DocumentContext
-    context = DocumentContext()
-    context.add_allowed_path("/")  # Allow all paths for testing
-    return context
+def tool_context(mcp_context):
+    """Create a tool context for testing."""
+    from hanzo_mcp.tools.common.context import ToolContext
+    return ToolContext(mcp_context)
 
 
 @pytest.fixture
@@ -109,10 +107,10 @@ def mcp_context():
 
 
 @pytest.fixture
-def command_executor(permission_manager):
+def command_executor(permission_manager):  
     """Create a command executor for testing."""
-    from hanzo_mcp.tools.shell.command_executor import CommandExecutor
-    return CommandExecutor(permission_manager=permission_manager, verbose=False)
+    from hanzo_mcp.tools.shell.bash_session_executor import BashSessionExecutor
+    return BashSessionExecutor(permission_manager=permission_manager)
 
 
 @pytest.fixture
@@ -158,17 +156,18 @@ def test_project_dir(project_dir):
     return project_dir
 
 
-@pytest.fixture
-def project_analyzer(command_executor):
-    """Create a project analyzer for testing."""
-    from hanzo_mcp.tools.project.analysis import ProjectAnalyzer
-    return ProjectAnalyzer(command_executor)
-    
-@pytest.fixture
-def project_manager(document_context, permission_manager, project_analyzer):
-    """Create a project manager for testing."""
-    from hanzo_mcp.tools.project.analysis import ProjectManager
-    return ProjectManager(document_context, permission_manager, project_analyzer)
+# Project analysis tools have been removed based on git status
+# @pytest.fixture
+# def project_analyzer(command_executor):
+#     """Create a project analyzer for testing."""
+#     from hanzo_mcp.tools.project.analysis import ProjectAnalyzer
+#     return ProjectAnalyzer(command_executor)
+#     
+# @pytest.fixture  
+# def project_manager(document_context, permission_manager, project_analyzer):
+#     """Create a project manager for testing."""
+#     from hanzo_mcp.tools.project.analysis import ProjectManager
+#     return ProjectManager(document_context, permission_manager, project_analyzer)
 
 
 

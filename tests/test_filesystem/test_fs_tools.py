@@ -9,13 +9,12 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 if TYPE_CHECKING:
-    from hanzo_mcp.tools.common.context import DocumentContext
     from hanzo_mcp.tools.common.permissions import PermissionManager
 
 from hanzo_mcp.tools.filesystem import (
-    ReadFilesTool,
-    WriteFileTool,
-    EditFileTool,
+    ReadTool,
+    Write,
+    Edit,
     get_filesystem_tools
 )
 
@@ -26,55 +25,49 @@ class TestRefactoredFileTools:
     @pytest.fixture
     def fs_tools(
         self,
-        document_context: "DocumentContext",
         permission_manager: "PermissionManager",
     ):
         """Create filesystem tool instances for testing."""
-        return get_filesystem_tools(document_context, permission_manager)
+        return get_filesystem_tools(permission_manager)
 
     @pytest.fixture
     def read_files_tool(
         self,
-        document_context: "DocumentContext",
         permission_manager: "PermissionManager",
     ):
-        """Create a ReadFilesTool instance for testing."""
-        return ReadFilesTool(document_context, permission_manager)
+        """Create a ReadTool instance for testing."""
+        return ReadTool(permission_manager)
 
     @pytest.fixture
     def write_file_tool(
         self,
-        document_context: "DocumentContext",
         permission_manager: "PermissionManager",
     ):
-        """Create a WriteFileTool instance for testing."""
-        return WriteFileTool(document_context, permission_manager)
+        """Create a Write instance for testing."""
+        return Write(permission_manager)
 
     @pytest.fixture
     def edit_file_tool(
         self,
-        document_context: "DocumentContext",
         permission_manager: "PermissionManager",
     ):
-        """Create an EditFileTool instance for testing."""
-        return EditFileTool(document_context, permission_manager)
+        """Create an Edit instance for testing."""
+        return Edit(permission_manager)
 
     @pytest.fixture
     def setup_allowed_path(
         self,
         permission_manager: "PermissionManager",
-        document_context: "DocumentContext",
         temp_dir: str,
     ):
         """Set up an allowed path for testing."""
         permission_manager.add_allowed_path(temp_dir)
-        document_context.add_allowed_path(temp_dir)
         return temp_dir
 
     @pytest.mark.asyncio
     async def test_read_files_single_allowed(
         self,
-        read_files_tool: ReadFilesTool,
+        read_files_tool: ReadTool,
         setup_allowed_path: str,
         test_file: str,
         mcp_context: MagicMock,
@@ -87,7 +80,7 @@ class TestRefactoredFileTools:
             return_value=tool_ctx,
         ):
             # Call the tool directly
-            result = await read_files_tool.call(ctx=mcp_context, paths=test_file)
+            result = await read_files_tool.call(ctx=mcp_context, file_path=test_file)
 
             # Verify result
             assert "This is a test file content" in result
@@ -96,7 +89,7 @@ class TestRefactoredFileTools:
     @pytest.mark.asyncio
     async def test_write_file(
         self,
-        write_file_tool: WriteFileTool,
+        write_file_tool: Write,
         setup_allowed_path: str,
         mcp_context: MagicMock,
     ):
@@ -113,7 +106,7 @@ class TestRefactoredFileTools:
         ):
             # Call the tool directly
             result = await write_file_tool.call(
-                ctx=mcp_context, path=test_path, content=test_content
+                ctx=mcp_context, file_path=test_path, content=test_content
             )
 
             # Verify result
@@ -128,19 +121,15 @@ class TestRefactoredFileTools:
     @pytest.mark.asyncio
     async def test_edit_file(
         self,
-        edit_file_tool: EditFileTool,
+        edit_file_tool: Edit,
         setup_allowed_path: str,
         test_file: str,
         mcp_context: MagicMock,
     ):
         """Test editing a file with the refactored tool."""
-        # Set up edits
-        edits = [
-            {
-                "oldText": "This is a test file content.",
-                "newText": "This is modified content.",
-            }
-        ]
+        # Set up edit parameters
+        old_string = "This is a test file content."
+        new_string = "This is modified content."
 
         # Mock context calls
         tool_ctx = AsyncMock()
@@ -150,7 +139,11 @@ class TestRefactoredFileTools:
         ):
             # Call the tool directly
             result = await edit_file_tool.call(
-                ctx=mcp_context, path=test_file, edits=edits, dry_run=False
+                ctx=mcp_context, 
+                file_path=test_file, 
+                old_string=old_string,
+                new_string=new_string,
+                expected_replacements=1
             )
 
             # Verify result

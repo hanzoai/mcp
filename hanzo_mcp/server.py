@@ -1,120 +1,188 @@
-"""MCP server implementing Hanzo capabilities.
+"""MCP server implementing Hanzo capabilities."""
 
-Includes improved error handling and debugging for tool execution.
-"""
-
+import atexit
+import signal
+import threading
+import time
 from typing import Literal, cast, final
 
-from mcp.server.fastmcp import FastMCP
+from fastmcp import FastMCP
 
+from hanzo_mcp.prompts import register_all_prompts
 from hanzo_mcp.tools import register_all_tools
-from hanzo_mcp.tools.common.context import DocumentContext
+
 from hanzo_mcp.tools.common.permissions import PermissionManager
-from hanzo_mcp.tools.project.analysis import ProjectAnalyzer, ProjectManager
-from hanzo_mcp.tools.shell.command_executor import CommandExecutor
+from hanzo_mcp.tools.shell.session_storage import SessionStorage
 
 
 @final
-class HanzoServer:
-    """MCP server implementing Hanzo capabilities.
-
-Includes improved error handling and debugging for tool execution.
-"""
+class HanzoMCPServer:
+    """MCP server implementing Hanzo capabilities."""
 
     def __init__(
         self,
-        name: str = "claude-code",
+        name: str = "hanzo",
         allowed_paths: list[str] | None = None,
+        project_paths: list[str] | None = None,
         project_dir: str | None = None,
         mcp_instance: FastMCP | None = None,
         agent_model: str | None = None,
         agent_max_tokens: int | None = None,
         agent_api_key: str | None = None,
+        agent_base_url: str | None = None,
         agent_max_iterations: int = 10,
         agent_max_tool_uses: int = 30,
         enable_agent_tool: bool = False,
+        command_timeout: float = 120.0,
         disable_write_tools: bool = False,
         disable_search_tools: bool = False,
-        host: str = "0.0.0.0",
-        port: int = 3001,
+        host: str = "127.0.0.1",
+        port: int = 3000,
+        enabled_tools: dict[str, bool] | None = None,
+        disabled_tools: list[str] | None = None,
     ):
-        """Initialize the Hanzo server.
+        """Initialize the Hanzo MCP server.
 
         Args:
             name: The name of the server
             allowed_paths: list of paths that the server is allowed to access
-            project_dir: Optional project directory to use as initial working directory
+            project_paths: list of project paths to generate prompts for
+            project_dir: single project directory (added to allowed_paths and project_paths)
             mcp_instance: Optional FastMCP instance for testing
             agent_model: Optional model name for agent tool in LiteLLM format
             agent_max_tokens: Optional maximum tokens for agent responses
             agent_api_key: Optional API key for the LLM provider
+            agent_base_url: Optional base URL for the LLM provider API endpoint
             agent_max_iterations: Maximum number of iterations for agent (default: 10)
             agent_max_tool_uses: Maximum number of total tool uses for agent (default: 30)
             enable_agent_tool: Whether to enable the agent tool (default: False)
-            disable_write_tools: Whether to disable write/edit tools (default: False)
+            command_timeout: Default timeout for command execution in seconds (default: 120.0)
+            disable_write_tools: Whether to disable write tools (default: False)
             disable_search_tools: Whether to disable search tools (default: False)
-            host: Host to bind to for SSE transport (default: '0.0.0.0')
-            port: Port to use for SSE transport (default: 3001)
+            host: Host for SSE server (default: 127.0.0.1)
+            port: Port for SSE server (default: 3000)
+            enabled_tools: Dictionary of individual tool enable states (default: None)
+            disabled_tools: List of tool names to disable (default: None)
         """
         self.mcp = mcp_instance if mcp_instance is not None else FastMCP(name)
 
-        # Initialize context, permissions, and command executor
-        self.document_context = DocumentContext()
+        # Initialize permissions and command executor
         self.permission_manager = PermissionManager()
 
-        # Initialize command executor
-        self.command_executor = CommandExecutor(
-            permission_manager=self.permission_manager,
-            verbose=False,  # Set to True for debugging
-        )
-
-        # If project_dir is specified, set it as initial working directory for all sessions
+        # Handle project_dir parameter
         if project_dir:
-            initial_session_id = name  # Use server name as default session ID
-            self.command_executor.set_working_dir(initial_session_id, project_dir)
-
-        # Initialize project analyzer
-        self.project_analyzer = ProjectAnalyzer(self.command_executor)
-
-        # Initialize project manager
-        self.project_manager = ProjectManager(
-            self.document_context, self.permission_manager, self.project_analyzer
-        )
+            if allowed_paths is None:
+                allowed_paths = []
+            if project_dir not in allowed_paths:
+                allowed_paths.append(project_dir)
+            if project_paths is None:
+                project_paths = []
+            if project_dir not in project_paths:
+                project_paths.append(project_dir)
 
         # Add allowed paths
         if allowed_paths:
             for path in allowed_paths:
                 self.permission_manager.add_allowed_path(path)
-                self.document_context.add_allowed_path(path)
+
+        # Store paths and options
+        self.project_paths = project_paths
+        self.project_dir = project_dir
+        self.disable_write_tools = disable_write_tools
+        self.disable_search_tools = disable_search_tools
+        self.host = host
+        self.port = port
+        self.enabled_tools = enabled_tools or {}
+        self.disabled_tools = disabled_tools or []
 
         # Store agent options
         self.agent_model = agent_model
         self.agent_max_tokens = agent_max_tokens
         self.agent_api_key = agent_api_key
+        self.agent_base_url = agent_base_url
         self.agent_max_iterations = agent_max_iterations
         self.agent_max_tool_uses = agent_max_tool_uses
         self.enable_agent_tool = enable_agent_tool
-        self.disable_write_tools = disable_write_tools
-        self.disable_search_tools = disable_search_tools
+        self.command_timeout = command_timeout
 
-        # Store network options
-        self.host = host
-        self.port = port
+        # Initialize cleanup tracking
+        self._cleanup_thread: threading.Thread | None = None
+        self._shutdown_event = threading.Event()
+        self._cleanup_registered = False
+
+        # Apply disabled_tools to enabled_tools
+        final_enabled_tools = self.enabled_tools.copy()
+        for tool_name in self.disabled_tools:
+            final_enabled_tools[tool_name] = False
+        
+        # Store the final processed tool configuration
+        self.enabled_tools = final_enabled_tools
 
         # Register all tools
         register_all_tools(
             mcp_server=self.mcp,
-            document_context=self.document_context,
             permission_manager=self.permission_manager,
             agent_model=self.agent_model,
             agent_max_tokens=self.agent_max_tokens,
             agent_api_key=self.agent_api_key,
+            agent_base_url=self.agent_base_url,
             agent_max_iterations=self.agent_max_iterations,
             agent_max_tool_uses=self.agent_max_tool_uses,
             enable_agent_tool=self.enable_agent_tool,
             disable_write_tools=self.disable_write_tools,
             disable_search_tools=self.disable_search_tools,
+            enabled_tools=final_enabled_tools,
         )
+
+        register_all_prompts(mcp_server=self.mcp, projects=self.project_paths)
+
+    def _setup_cleanup_handlers(self) -> None:
+        """Set up signal handlers and background cleanup thread."""
+        if self._cleanup_registered:
+            return
+
+        # Register cleanup on normal exit
+        atexit.register(self._cleanup_sessions)
+
+        # Register signal handlers for graceful shutdown
+        def signal_handler(signum, frame):
+            self._cleanup_sessions()
+            self._shutdown_event.set()
+
+        signal.signal(signal.SIGTERM, signal_handler)
+        signal.signal(signal.SIGINT, signal_handler)
+
+        # Start background cleanup thread for periodic cleanup
+        self._cleanup_thread = threading.Thread(
+            target=self._background_cleanup, daemon=True
+        )
+        self._cleanup_thread.start()
+
+        self._cleanup_registered = True
+
+    def _background_cleanup(self) -> None:
+        """Background thread for periodic session cleanup."""
+        while not self._shutdown_event.is_set():
+            try:
+                # Clean up expired sessions every 2 minutes
+                # Using shorter TTL of 5 minutes (300 seconds)
+                SessionStorage.cleanup_expired_sessions(max_age_seconds=300)
+
+                # Wait for 2 minutes or until shutdown
+                self._shutdown_event.wait(timeout=120)
+            except Exception:
+                # Ignore cleanup errors and continue
+                pass
+
+    def _cleanup_sessions(self) -> None:
+        """Clean up all active sessions."""
+        try:
+            cleared_count = SessionStorage.clear_all_sessions()
+            if cleared_count > 0:
+                print(f"Cleaned up {cleared_count} tmux sessions on shutdown")
+        except Exception:
+            # Ignore cleanup errors during shutdown
+            pass
 
     def run(self, transport: str = "stdio", allowed_paths: list[str] | None = None):
         """Run the MCP server.
@@ -127,60 +195,10 @@ Includes improved error handling and debugging for tool execution.
         allowed_paths_list = allowed_paths or []
         for path in allowed_paths_list:
             self.permission_manager.add_allowed_path(path)
-            self.document_context.add_allowed_path(path)
 
-        # If using SSE, set the port and host in the environment variables
-        if transport == "sse":
-            import os
-            # Set environment variables for FastMCP settings
-            os.environ["FASTMCP_PORT"] = str(self.port)
-            os.environ["FASTMCP_HOST"] = self.host
-            print(f"Starting SSE server on {self.host}:{self.port}")
+        # Set up cleanup handlers before running
+        self._setup_cleanup_handlers()
 
         # Run the server
         transport_type = cast(Literal["stdio", "sse"], transport)
         self.mcp.run(transport=transport_type)
-
-
-def main():
-    """Run the Hanzo MCP server."""
-    import argparse
-
-    parser = argparse.ArgumentParser(
-        description="MCP server implementing Hanzo capabilities"
-    )
-
-    _ = parser.add_argument(
-        "--name",
-        default="claude-code",
-        help="Name of the MCP server (default: claude-code)",
-    )
-
-    _ = parser.add_argument(
-        "--transport",
-        choices=["stdio", "sse"],
-        default="stdio",
-        help="Transport protocol to use (default: stdio)",
-    )
-
-    _ = parser.add_argument(
-        "--allow-path",
-        action="append",
-        dest="allowed_paths",
-        help="Add an allowed path (can be specified multiple times)",
-    )
-
-    args = parser.parse_args()
-
-    # Type annotations for args to avoid Any warnings
-    name: str = args.name
-    transport: str = args.transport
-    allowed_paths: list[str] | None = args.allowed_paths
-
-    # Create and run the server
-    server = HanzoServer(name=name, allowed_paths=allowed_paths)
-    server.run(transport=transport, allowed_paths=allowed_paths or [])
-
-
-if __name__ == "__main__":
-    main()
