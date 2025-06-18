@@ -75,7 +75,7 @@ cd mcp
 make install-desktop
 
 # With custom paths and server name
-make install-desktop ALLOWED_PATHS="/path/to/projects,/another/path" SERVER_NAME="hanzo-dev"
+make install-desktop ALLOWED_PATHS="/path/to/projects,/another/path" SERVER_NAME="hanzo"
 
 # Disable write tools (useful if you prefer using your IDE for edits)
 make install-desktop DISABLE_WRITE=1
