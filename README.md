@@ -1,5 +1,9 @@
 # Hanzo MCP
 
+[![Open in Hanzo.App](https://img.shields.io/badge/Open%20in-Hanzo.App-8A2BE2?style=for-the-badge&logo=rocket)](https://hanzo.app/launch?repo=https://github.com/hanzoai/mcp)
+[![Add Feature with Hanzo Dev](https://img.shields.io/badge/Add%20Feature-Hanzo%20Dev-00D4AA?style=for-the-badge&logo=plus)](https://hanzo.app/dev?repo=https://github.com/hanzoai/mcp&action=feature)
+[![Fix Bugs with Hanzo Dev](https://img.shields.io/badge/Fix%20Bugs-Hanzo%20Dev-FF6B6B?style=for-the-badge&logo=wrench)](https://hanzo.app/dev?repo=https://github.com/hanzoai/mcp&action=bugfix)
+
 An implementation of Hanzo capabilities using the Model Context Protocol (MCP).
 
 ## Overview
@@ -41,6 +45,12 @@ This project provides an MCP server that implements Hanzo-like functionality, al
 | `dispatch_agent`       | Launch one or more agents that can perform tasks using read-only tools concurrently           |
 
 ## Getting Started
+
+### 🚀 Try it Instantly in Hanzo.App
+
+**No setup required!** Launch this project instantly in your browser:
+
+[![Open in Hanzo.App](https://img.shields.io/badge/Launch%20Now-Hanzo.App-8A2BE2?style=for-the-badge&logo=rocket&logoColor=white)](https://hanzo.app/launch?repo=https://github.com/hanzoai/mcp)
 
 ### Quick Install
 
@@ -170,13 +180,24 @@ make publish-test
 
 ### Contributing
 
-To contribute to this project:
+**New contributors welcome!** 🎉 We've made it easy to contribute:
+
+[![Contribute with Hanzo Dev](https://img.shields.io/badge/Contribute%20with-Hanzo%20Dev-00D4AA?style=for-the-badge&logo=code)](https://hanzo.app/dev?repo=https://github.com/hanzoai/mcp&action=contribute)
+
+**Traditional approach:**
 
 1. Fork the repository
 2. Create a feature branch (`git checkout -b feature/amazing-feature`)
 3. Commit your changes (`git commit -m 'Add some amazing feature'`)
 4. Push to the branch (`git push origin feature/amazing-feature`)
 5. Open a Pull Request
+
+**Or use Hanzo Dev for AI-assisted contributions:**
+- [Launch in Hanzo.App](https://hanzo.app/launch?repo=https://github.com/hanzoai/mcp) for instant setup
+- [Add new features](https://hanzo.app/dev?repo=https://github.com/hanzoai/mcp&action=feature) with AI assistance
+- [Fix bugs automatically](https://hanzo.app/dev?repo=https://github.com/hanzoai/mcp&action=bugfix)
+
+See [CONTRIBUTING.md](./CONTRIBUTING.md) for detailed guidelines.
 
 ## License
 
