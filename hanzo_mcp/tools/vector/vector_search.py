@@ -213,3 +213,13 @@ Returns ranked results with similarity scores, project context, and document met
             
         except Exception as e:
             return f"Error searching vector database: {str(e)}"
+    
+    def register(self, mcp_server) -> None:
+        """Register this tool with the MCP server.
+        
+        Args:
+            mcp_server: The FastMCP server instance
+        """
+        # This is a placeholder - the actual registration would happen
+        # through the MCP server's tool registration mechanism
+        pass

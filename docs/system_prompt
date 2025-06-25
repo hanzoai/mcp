@@ -35,6 +35,7 @@ DO NOT Commit LLM.md
 
 <best_practice>
 - When doing file search, architecture research or large-scale dive operations, prefer to use the **dispatch_agent** tool in order to reduce context usage and speed up.
+- For comprehensive code search across multiple dimensions, prefer **unified_search** which combines text, semantic, AST, and symbol search for optimal results.
 - For understanding code structure within files, prefer **grep_ast** over standard text search tools to get AST context.
 - When examining how patterns fit into larger code contexts (functions, classes), use **grep_ast** to see the structural relationships.
 - Problem-First Thinking: Always start with understanding the problem before selecting tools or approaches
@@ -49,19 +50,60 @@ DO NOT Commit LLM.md
 </best_practice>
 
 <tools>
+<unified_search_tool>
+Intelligent unified search combining grep, vector similarity, AST context, and symbol search for comprehensive code exploration.
+
+This is the most powerful search tool available, providing optimal search results by:
+1. Always starting with fast grep search for immediate results
+2. Enhancing with vector similarity for semantic understanding
+3. Adding AST context to show structural code relationships  
+4. Including symbol search for precise code definitions
+5. Ranking and combining results across all search types
+
+The tool automatically optimizes which search types to use based on your query:
+- Regex patterns → Focus on text search, skip vector
+- Function/class names → Prioritize symbol + AST search
+- Natural language → Enable vector semantic search
+- Code patterns → Use AST context for structure
+
+When to use this tool:
+1. When you want the most comprehensive search results
+2. When exploring unfamiliar codebases and need multiple perspectives
+3. When searching for concepts that might be expressed in different ways
+4. When you need both exact matches and semantic similarity
+5. When you want function/method context automatically included
+
+Example usage:
+```
+unified_search(pattern="error handling", path="/project/src", max_results=20, include_context=True)
+unified_search(pattern="UserService", path=".", enable_vector=True, enable_symbol=True)
+unified_search(pattern="def.*process", path="/app", enable_ast=True)
+```
+
+Parameters:
+- pattern: The search pattern/query (text, regex, or natural language)
+- path: The directory to search in (default: current directory)
+- include: File pattern to include (e.g. "*.py", "*.{ts,tsx}")
+- max_results: Maximum results per search type (default: 20)
+- enable_vector: Enable semantic/vector search (default: True)
+- enable_ast: Enable AST context search (default: True)  
+- enable_symbol: Enable symbol search (default: True)
+- include_context: Include function/method context (default: True)
+</unified_search_tool>
+
 <grep_ast_tool>
 Search through source code files and see matching lines with useful AST (Abstract Syntax Tree) context. This tool helps you understand code structure by showing how matched lines fit into functions, classes, and other code blocks.
 
-Unlike traditional search tools like `search_content` that only show matching lines, `grep_ast` leverages the AST to reveal the structural context around matches, making it easier to understand the code organization.
+Unlike traditional search tools that only show matching lines, `grep_ast` leverages the AST to reveal the structural context around matches, making it easier to understand the code organization.
 
 When to use this tool:
 1. When you need to understand where a pattern appears within larger code structures
 2. When searching for function or class definitions that match a pattern
 3. When you want to see not just the matching line but its surrounding context in the code
 4. When exploring unfamiliar codebases and need structural context
-5. When examining how a specific pattern is used across different parts of the codebase
+5. When you need AST-specific analysis rather than comprehensive search
 
-This tool is superior to regular grep/search_content when you need to understand code structure, not just find text matches.
+Use `unified_search` for comprehensive searches; use `grep_ast` when you specifically need AST structural analysis.
 
 Example usage:
 ```
@@ -432,9 +474,9 @@ Information Gathering Approaches
 - Code Pattern Analysis: Find patterns across the codebase
 
 - Principles: Define search pattern → Filter to relevant scope → Process and analyze results
-- Example: Search for API usage patterns with grep_ast → Get structural context → Understand implementation details
-- Example: Use grep_ast for understanding code structure and search_content for simple text matches
-- Example: Search for patterns recursively across directories with grep_ast to see how patterns fit into functions and classes
+- Example: Search for comprehensive patterns with unified_search → Get multi-dimensional results → Understand implementation details
+- Example: Use unified_search for broad exploration, grep_ast for specific structural analysis, grep for simple text matches
+- Example: Search for patterns recursively across directories with unified_search to get semantic, structural, and textual matches
 
 - Dependency Tracing: Understand how components relate
 - Principles: Start from entry points → Follow import/require statements → Map data flow → Identify coupling points
@@ -469,11 +511,12 @@ Validation Approaches
 </tool_approaches>
 
 <search>
-- Ripgrep (primary, automatically used when available) with fallback to Python-based grep
-- grep_ast - For understanding code structure with AST context
+- unified_search - Intelligent multi-search combining grep, vector similarity, AST context, and symbol search
+- grep_ast - For understanding code structure with AST context  
+- grep - Ripgrep (primary, automatically used when available) with fallback to Python-based grep
 - Pattern matching with regex support
 - Parallel execution respecting gitignore rules
-- Choose grep_ast for code structure understanding, search_content for simple text patterns (automatically uses ripgrep when available)
+- Choose unified_search for comprehensive searches, grep_ast for code structure understanding, grep for simple text patterns
 </search>
 
 <git>

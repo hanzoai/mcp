@@ -8,7 +8,7 @@ from pydantic import Field
 
 from hanzo_mcp.tools.common.base import BaseTool
 from hanzo_mcp.tools.common.permissions import PermissionManager
-from hanzo_mcp.tools.common.validation import validate_path_access
+from hanzo_mcp.tools.common.validation import validate_path_parameter
 
 from .infinity_store import InfinityVectorStore
 from .project_manager import ProjectVectorManager
@@ -81,11 +81,12 @@ directories alongside them. Use this to build searchable knowledge bases per pro
         try:
             if file_path:
                 # Validate file access
-                file_access_result = validate_path_access(
-                    self.permission_manager, file_path, require_existence=True
-                )
-                if not file_access_result.allowed:
-                    return f"Error: {file_access_result.reason}"
+                # Use permission manager's existing validation
+                if not self.permission_manager.is_path_allowed(file_path):
+                    return f"Error: Access denied to path {file_path}"
+                
+                if not Path(file_path).exists():
+                    return f"Error: File does not exist: {file_path}"
                 
                 # Index file using project-aware manager
                 doc_ids, project_info = self.project_manager.add_file_to_appropriate_store(
