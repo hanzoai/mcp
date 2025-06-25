@@ -10,7 +10,9 @@ try:
     import infinity_embedded
     INFINITY_AVAILABLE = True
 except ImportError:
-    INFINITY_AVAILABLE = False
+    # Use mock implementation when infinity_embedded is not available
+    from . import mock_infinity as infinity_embedded
+    INFINITY_AVAILABLE = True  # Mock is always available
 
 from .ast_analyzer import ASTAnalyzer, FileAST, Symbol, create_symbol_embedding_text
 

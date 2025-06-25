@@ -35,6 +35,7 @@ DO NOT Commit LLM.md
 
 <best_practice>
 - When doing file search, architecture research or large-scale dive operations, prefer to use the **dispatch_agent** tool in order to reduce context usage and speed up.
+- For comprehensive code search across multiple dimensions, prefer **unified_search** which combines text, semantic, AST, and symbol search for optimal results.
 - For understanding code structure within files, prefer **grep_ast** over standard text search tools to get AST context.
 - When examining how patterns fit into larger code contexts (functions, classes), use **grep_ast** to see the structural relationships.
 - Problem-First Thinking: Always start with understanding the problem before selecting tools or approaches

@@ -77,12 +77,35 @@ def register_all_tools(
         "grep": is_tool_enabled("grep", not disable_search_tools),
         "grep_ast": is_tool_enabled("grep_ast", not disable_search_tools),
         "content_replace": is_tool_enabled("content_replace", not disable_write_tools),
+        "unified_search": is_tool_enabled("unified_search", not disable_search_tools),
     }
+    
+    # Vector tools setup (needed for unified search)
+    project_manager = None
+    vector_enabled = {
+        "vector_index": is_tool_enabled("vector_index", False),
+        "vector_search": is_tool_enabled("vector_search", False),
+    }
+    
+    # Create project manager if vector tools or unified search are enabled
+    if any(vector_enabled.values()) or filesystem_enabled.get("unified_search", False):
+        if vector_config:
+            from hanzo_mcp.tools.vector.project_manager import ProjectVectorManager
+            search_paths = [str(path) for path in permission_manager.allowed_paths]
+            project_manager = ProjectVectorManager(
+                global_db_path=vector_config.get("data_path"),
+                embedding_model=vector_config.get("embedding_model", "text-embedding-3-small"),
+                dimension=vector_config.get("dimension", 1536),
+            )
+            # Auto-detect projects from search paths
+            detected_projects = project_manager.detect_projects(search_paths)
+            print(f"Detected {len(detected_projects)} projects with LLM.md files")
     
     filesystem_tools = register_filesystem_tools(
         mcp_server, 
         permission_manager, 
         enabled_tools=filesystem_enabled,
+        project_manager=project_manager,
     )
     for tool in filesystem_tools:
         all_tools[tool.name] = tool
@@ -137,22 +160,14 @@ def register_all_tools(
         for tool in thinking_tool:
             all_tools[tool.name] = tool
 
-    # Register vector tools if enabled
-    vector_enabled = {
-        "vector_index": is_tool_enabled("vector_index", False),
-        "vector_search": is_tool_enabled("vector_search", False),
-    }
-    
-    if any(vector_enabled.values()) and vector_config:
-        # Get allowed paths for project detection
-        search_paths = [str(path) for path in permission_manager.allowed_paths]
-        
+    # Register vector tools if enabled (reuse project_manager if available)
+    if any(vector_enabled.values()) and project_manager:
         vector_tools = register_vector_tools(
             mcp_server, 
             permission_manager, 
             vector_config=vector_config,
             enabled_tools=vector_enabled,
-            search_paths=search_paths,
+            project_manager=project_manager,
         )
         for tool in vector_tools:
             all_tools[tool.name] = tool

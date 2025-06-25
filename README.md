@@ -26,23 +26,50 @@ This project provides an MCP server that implements Hanzo-like functionality, al
 
 ## Tools Implemented
 
-| Tool                   | Description                                                                                   |
-| ---------------------- | --------------------------------------------------------------------------------------------- |
-| `read_files`           | Read one or multiple files with encoding detection                                            |
-| `write_file`           | Create or overwrite files                                                                     |
-| `edit_file`            | Make line-based edits to text files                                                           |
-| `directory_tree`       | Get a recursive tree view of directories                                                      |
-| `get_file_info`        | Get metadata about a file or directory                                                        |
-| `search_content`       | Search for patterns in file contents                                                          |
-| `content_replace`      | Replace patterns in file contents                                                             |
-| `run_command`          | Execute shell commands (also used for directory creation, file moving, and directory listing) |
-| `run_script`           | Execute scripts with specified interpreters                                                   |
-| `script_tool`          | Execute scripts in specific programming languages                                             |
-| `project_analyze_tool` | Analyze project structure and dependencies                                                    |
-| `read_notebook`        | Extract and read source code from all cells in a Jupyter notebook with outputs                |
-| `edit_notebook`        | Edit, insert, or delete cells in a Jupyter notebook                                           |
-| `think`                | Structured space for complex reasoning and analysis without making changes                    |
-| `dispatch_agent`       | Launch one or more agents that can perform tasks using read-only tools concurrently           |
+### Core File Operations
+| Tool              | Description                                                                         |
+| ----------------- | ----------------------------------------------------------------------------------- |
+| `read`            | Read one or multiple files with encoding detection and line range support           |
+| `write`           | Create or overwrite files with content                                              |
+| `edit`            | Make precise line-based edits to existing files                                     |
+| `multi_edit`      | Make multiple edits to a single file in one atomic operation                        |
+| `directory_tree`  | Get a recursive tree view of directories with customizable depth and filters        |
+| `content_replace` | Replace patterns in file contents using regex                                       |
+
+### Search & Analysis
+| Tool              | Description                                                                         |
+| ----------------- | ----------------------------------------------------------------------------------- |
+| `grep`            | Fast pattern search across files using ripgrep                                      |
+| `grep_ast`        | AST-aware code search that understands code structure                               |
+| `unified_search`  | Intelligent multi-modal search combining text, vector, AST, and symbol search       |
+| `vector_search`   | Semantic search across indexed documents and code                                   |
+| `vector_index`    | Index documents and code in project-aware vector databases                          |
+
+### Shell & Commands
+| Tool              | Description                                                                         |
+| ----------------- | ----------------------------------------------------------------------------------- |
+| `run_command`     | Execute shell commands with timeout, environment control, and session support       |
+
+### Jupyter Support
+| Tool              | Description                                                                         |
+| ----------------- | ----------------------------------------------------------------------------------- |
+| `notebook_read`   | Read Jupyter notebook cells with outputs and metadata                               |
+| `notebook_edit`   | Edit, insert, or delete cells in Jupyter notebooks                                  |
+
+### Task Management
+| Tool              | Description                                                                         |
+| ----------------- | ----------------------------------------------------------------------------------- |
+| `todo_read`       | Read the current task list for tracking progress                                    |
+| `todo_write`      | Create and manage structured task lists with status and priority                    |
+
+### Advanced Tools
+| Tool              | Description                                                                         |
+| ----------------- | ----------------------------------------------------------------------------------- |
+| `think`           | Structured space for complex reasoning and analysis without making changes          |
+| `dispatch_agent`  | Launch specialized sub-agents for concurrent task execution                         |
+| `batch`           | Execute multiple tool calls in a single operation for performance                   |
+
+For detailed documentation on all tools, see [TOOLS_DOCUMENTATION.md](./TOOLS_DOCUMENTATION.md).
 
 ## Getting Started
 

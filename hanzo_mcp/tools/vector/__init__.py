@@ -26,6 +26,7 @@ try:
         vector_config: dict | None = None,
         enabled_tools: dict[str, bool] | None = None,
         search_paths: list[str] | None = None,
+        project_manager: 'ProjectVectorManager | None' = None,
     ) -> list[BaseTool]:
         """Register vector database tools with the MCP server.
         
@@ -35,6 +36,7 @@ try:
             vector_config: Vector store configuration
             enabled_tools: Dictionary of individual tool enable states
             search_paths: Paths to search for projects (default: None, uses allowed paths)
+            project_manager: Optional existing project manager to reuse
             
         Returns:
             List of registered tools
@@ -46,18 +48,20 @@ try:
         tool_enabled = enabled_tools or {}
         tools = []
         
-        # Initialize project-aware vector manager
-        store_config = vector_config.copy()
-        project_manager = ProjectVectorManager(
-            global_db_path=store_config.get("data_path"),
-            embedding_model=store_config.get("embedding_model", "text-embedding-3-small"),
-            dimension=store_config.get("dimension", 1536),
-        )
-        
-        # Auto-detect projects from search paths
-        if search_paths:
-            detected_projects = project_manager.detect_projects(search_paths)
-            print(f"Detected {len(detected_projects)} projects with LLM.md files")
+        # Use provided project manager or create new one
+        if project_manager is None:
+            # Initialize project-aware vector manager
+            store_config = vector_config.copy()
+            project_manager = ProjectVectorManager(
+                global_db_path=store_config.get("data_path"),
+                embedding_model=store_config.get("embedding_model", "text-embedding-3-small"),
+                dimension=store_config.get("dimension", 1536),
+            )
+            
+            # Auto-detect projects from search paths for new manager
+            if search_paths:
+                detected_projects = project_manager.detect_projects(search_paths)
+                print(f"Detected {len(detected_projects)} projects with LLM.md files")
         
         # Register individual tools if enabled
         if tool_enabled.get("vector_index", True):

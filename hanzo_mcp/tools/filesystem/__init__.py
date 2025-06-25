@@ -17,6 +17,7 @@ from hanzo_mcp.tools.filesystem.grep_ast_tool import GrepAstTool
 from hanzo_mcp.tools.filesystem.multi_edit import MultiEdit
 from hanzo_mcp.tools.filesystem.read import ReadTool
 from hanzo_mcp.tools.filesystem.write import Write
+from hanzo_mcp.tools.filesystem.unified_search import UnifiedSearchTool
 
 # Export all tool classes
 __all__ = [
@@ -28,6 +29,7 @@ __all__ = [
     "Grep",
     "ContentReplaceTool",
     "GrepAstTool",
+    "UnifiedSearchTool",
     "get_filesystem_tools",
     "register_filesystem_tools",
 ]
@@ -79,6 +81,7 @@ def register_filesystem_tools(
     disable_write_tools: bool = False,
     disable_search_tools: bool = False,
     enabled_tools: dict[str, bool] | None = None,
+    project_manager=None,
 ) -> list[BaseTool]:
     """Register filesystem tools with the MCP server.
 
@@ -88,6 +91,7 @@ def register_filesystem_tools(
         disable_write_tools: Whether to disable write tools (default: False)
         disable_search_tools: Whether to disable search tools (default: False)
         enabled_tools: Dictionary of individual tool enable states (default: None)
+        project_manager: Optional project manager for unified search (default: None)
 
     Returns:
         List of registered tools
@@ -102,6 +106,7 @@ def register_filesystem_tools(
         "grep": Grep,
         "grep_ast": GrepAstTool,
         "content_replace": ContentReplaceTool,
+        "unified_search": UnifiedSearchTool,
     }
     
     tools = []
@@ -111,7 +116,11 @@ def register_filesystem_tools(
         for tool_name, enabled in enabled_tools.items():
             if enabled and tool_name in tool_classes:
                 tool_class = tool_classes[tool_name]
-                tools.append(tool_class(permission_manager))
+                if tool_name == "unified_search":
+                    # Unified search requires project_manager
+                    tools.append(tool_class(permission_manager, project_manager))
+                else:
+                    tools.append(tool_class(permission_manager))
     else:
         # Use category-level configuration (backward compatibility)
         if disable_write_tools and disable_search_tools:
