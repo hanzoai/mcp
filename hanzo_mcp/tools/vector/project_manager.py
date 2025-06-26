@@ -8,6 +8,7 @@ import asyncio
 from concurrent.futures import ThreadPoolExecutor
 
 from .infinity_store import InfinityVectorStore, SearchResult
+from hanzo_mcp.tools.config.index_config import IndexConfig, IndexScope
 
 
 @dataclass
@@ -38,12 +39,14 @@ class ProjectVectorManager:
         self.embedding_model = embedding_model
         self.dimension = dimension
         
+        # Set up index configuration
+        self.index_config = IndexConfig()
+        
         # Set up global database path
         if global_db_path:
             self.global_db_path = Path(global_db_path)
         else:
-            from hanzo_mcp.config.settings import get_config_dir
-            self.global_db_path = get_config_dir() / "db"
+            self.global_db_path = self.index_config.get_index_path("vector")
         
         self.global_db_path.mkdir(parents=True, exist_ok=True)
         
@@ -158,14 +161,25 @@ class ProjectVectorManager:
         Returns:
             Vector store instance
         """
-        if project_info is None:
+        # Check indexing scope
+        if project_info:
+            scope = self.index_config.get_scope(str(project_info.root_path))
+            if scope == IndexScope.GLOBAL:
+                # Even for project files, use global store if configured
+                return self._get_global_store()
+        else:
             return self._get_global_store()
         
+        # Use project-specific store
         project_key = str(project_info.root_path)
         
         if project_key not in self.vector_stores:
+            # Get index path based on configuration
+            index_path = self.index_config.get_index_path("vector", str(project_info.root_path))
+            index_path.mkdir(parents=True, exist_ok=True)
+            
             self.vector_stores[project_key] = InfinityVectorStore(
-                data_path=str(project_info.db_path),
+                data_path=str(index_path),
                 embedding_model=self.embedding_model,
                 dimension=self.dimension,
             )
@@ -190,10 +204,14 @@ class ProjectVectorManager:
         Returns:
             Tuple of (document IDs, project info or None for global)
         """
+        # Check if indexing is enabled
+        if not self.index_config.is_indexing_enabled("vector"):
+            return [], None
+            
         # Find project for this file
         project_info = self.get_project_for_path(file_path)
         
-        # Get appropriate vector store
+        # Get appropriate vector store based on scope configuration
         vector_store = self.get_vector_store(project_info)
         
         # Add file metadata
@@ -201,8 +219,12 @@ class ProjectVectorManager:
         if project_info:
             file_metadata["project_name"] = project_info.name
             file_metadata["project_root"] = str(project_info.root_path)
+            # Check actual scope used
+            scope = self.index_config.get_scope(str(project_info.root_path))
+            file_metadata["index_scope"] = scope.value
         else:
             file_metadata["project_name"] = "global"
+            file_metadata["index_scope"] = "global"
         
         # Add file to store
         doc_ids = vector_store.add_file(

@@ -146,6 +146,12 @@ def main() -> None:
     )
 
     _ = parser.add_argument(
+        "--dev",
+        action="store_true",
+        help="Run in development mode with hot reload",
+    )
+    
+    _ = parser.add_argument(
         "--install",
         action="store_true",
         help="Install server configuration in Claude Desktop",
@@ -156,6 +162,7 @@ def main() -> None:
     # Cast args attributes to appropriate types to avoid 'Any' warnings
     name: str = cast(str, args.name)
     install: bool = cast(bool, args.install)
+    dev: bool = cast(bool, args.dev)
     transport: str = cast(str, args.transport)
     agent_model: str | None = cast(str | None, args.agent_model)
     agent_max_tokens: int | None = cast(int | None, args.agent_max_tokens)
@@ -199,6 +206,31 @@ def main() -> None:
     # If no allowed paths are specified, use the current directory
     if not allowed_paths:
         allowed_paths = [os.getcwd()]
+
+    # Run in dev mode if requested
+    if dev:
+        from hanzo_mcp.dev_server import DevServer
+        
+        dev_server = DevServer(
+            name=name,
+            allowed_paths=allowed_paths,
+            project_paths=project_paths,
+            project_dir=project_dir,
+            agent_model=agent_model,
+            agent_max_tokens=agent_max_tokens,
+            agent_api_key=agent_api_key,
+            agent_base_url=agent_base_url,
+            agent_max_iterations=agent_max_iterations,
+            agent_max_tool_uses=agent_max_tool_uses,
+            enable_agent_tool=enable_agent_tool,
+            command_timeout=command_timeout,
+            disable_write_tools=disable_write_tools,
+            disable_search_tools=disable_search_tools,
+            host=host,
+            port=port,
+        )
+        dev_server.run(transport=transport)
+        return
 
     # Run the server
     server = HanzoMCPServer(

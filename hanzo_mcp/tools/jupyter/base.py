@@ -10,7 +10,7 @@ import re
 from pathlib import Path
 from typing import Any, final
 
-from fastmcp import Context as MCPContext
+from mcp.server.fastmcp import Context as MCPContext
 
 from hanzo_mcp.tools.common.base import FileSystemTool
 from hanzo_mcp.tools.common.context import ToolContext, create_tool_context

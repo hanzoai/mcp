@@ -9,18 +9,27 @@ space for structured thinking. It also includes an "agent" tool that enables Cla
 to delegate tasks to sub-agents for concurrent execution and specialized processing.
 """
 
-from fastmcp import FastMCP
+from mcp.server import FastMCP
 
 from hanzo_mcp.tools.agent import register_agent_tools
 from hanzo_mcp.tools.common import register_batch_tool, register_thinking_tool
 from hanzo_mcp.tools.common.base import BaseTool
-
 from hanzo_mcp.tools.common.permissions import PermissionManager
+from hanzo_mcp.tools.common.tool_enable import ToolEnableTool
+from hanzo_mcp.tools.common.tool_disable import ToolDisableTool
+from hanzo_mcp.tools.common.tool_list import ToolListTool
+from hanzo_mcp.tools.common.stats import StatsTool
 from hanzo_mcp.tools.filesystem import register_filesystem_tools
 from hanzo_mcp.tools.jupyter import register_jupyter_tools
 from hanzo_mcp.tools.shell import register_shell_tools
 from hanzo_mcp.tools.todo import register_todo_tools
 from hanzo_mcp.tools.vector import register_vector_tools
+from hanzo_mcp.tools.database import register_database_tools, DatabaseManager
+from hanzo_mcp.tools.mcp import UnifiedMCPTool, McpAddTool, McpRemoveTool, McpStatsTool
+from hanzo_mcp.tools.editor import NeovimEditTool, NeovimCommandTool, NeovimSessionTool
+from hanzo_mcp.tools.llm import UnifiedLLMTool, LLMTool, ConsensusTool, LLMManageTool, create_provider_tools
+from hanzo_mcp.tools.config.palette_tool import palette_tool
+from hanzo_mcp.tools.common.palette_loader import PaletteLoader
 
 
 def register_all_tools(
@@ -37,6 +46,8 @@ def register_all_tools(
     disable_search_tools: bool = False,
     enabled_tools: dict[str, bool] | None = None,
     vector_config: dict | None = None,
+    use_palette: bool = True,
+    force_palette: str | None = None,
 ) -> None:
     """Register all Hanzo tools with the MCP server.
 
@@ -54,12 +65,23 @@ def register_all_tools(
         disable_search_tools: Whether to disable search tools (default: False)
         enabled_tools: Dictionary of individual tool enable/disable states (default: None)
         vector_config: Vector store configuration (default: None)
+        use_palette: Whether to use palette system for tool configuration (default: True)
+        force_palette: Force a specific palette to be active (default: None)
     """
     # Dictionary to store all registered tools
     all_tools: dict[str, BaseTool] = {}
     
-    # Use individual tool configuration if provided, otherwise fall back to category-level flags
-    tool_config = enabled_tools or {}
+    # Apply palette configuration if enabled
+    if use_palette:
+        tool_config = PaletteLoader.get_enabled_tools_from_palette(
+            base_enabled_tools=enabled_tools,
+            force_palette=force_palette
+        )
+        # Apply palette environment variables
+        PaletteLoader.apply_palette_environment()
+    else:
+        # Use individual tool configuration if provided, otherwise fall back to category-level flags
+        tool_config = enabled_tools or {}
     
     def is_tool_enabled(tool_name: str, category_enabled: bool = True) -> bool:
         """Check if a specific tool should be enabled."""
@@ -76,7 +98,10 @@ def register_all_tools(
         "directory_tree": is_tool_enabled("directory_tree", True),
         "grep": is_tool_enabled("grep", not disable_search_tools),
         "grep_ast": is_tool_enabled("grep_ast", not disable_search_tools),
+        "git_search": is_tool_enabled("git_search", not disable_search_tools),
         "content_replace": is_tool_enabled("content_replace", not disable_write_tools),
+        "batch_search": is_tool_enabled("batch_search", not disable_search_tools),
+        "find_files": is_tool_enabled("find_files", True),
         "unified_search": is_tool_enabled("unified_search", not disable_search_tools),
     }
     
@@ -87,8 +112,8 @@ def register_all_tools(
         "vector_search": is_tool_enabled("vector_search", False),
     }
     
-    # Create project manager if vector tools or unified search are enabled
-    if any(vector_enabled.values()) or filesystem_enabled.get("unified_search", False):
+    # Create project manager if vector tools, batch_search, or unified_search are enabled
+    if any(vector_enabled.values()) or filesystem_enabled.get("batch_search", False) or filesystem_enabled.get("unified_search", False):
         if vector_config:
             from hanzo_mcp.tools.vector.project_manager import ProjectVectorManager
             search_paths = [str(path) for path in permission_manager.allowed_paths]
@@ -175,3 +200,140 @@ def register_all_tools(
     # Register batch tool if enabled (batch tool is typically always enabled)
     if is_tool_enabled("batch", True):
         register_batch_tool(mcp_server, all_tools)
+    
+    # Register database tools if enabled
+    db_manager = None
+    database_enabled = {
+        "sql_query": is_tool_enabled("sql_query", True),
+        "sql_search": is_tool_enabled("sql_search", True),
+        "sql_stats": is_tool_enabled("sql_stats", True),
+        "graph_add": is_tool_enabled("graph_add", True),
+        "graph_remove": is_tool_enabled("graph_remove", True),
+        "graph_query": is_tool_enabled("graph_query", True),
+        "graph_search": is_tool_enabled("graph_search", True),
+        "graph_stats": is_tool_enabled("graph_stats", True),
+    }
+    
+    if any(database_enabled.values()):
+        db_manager = DatabaseManager(permission_manager)
+        database_tools = register_database_tools(
+            mcp_server,
+            permission_manager,
+            db_manager=db_manager,
+        )
+        # Filter based on enabled state
+        for tool in database_tools:
+            if database_enabled.get(tool.name, True):
+                all_tools[tool.name] = tool
+    
+    # Register unified MCP tool if enabled
+    if is_tool_enabled("mcp", True):
+        tool = UnifiedMCPTool()
+        tool.register(mcp_server)
+        all_tools[tool.name] = tool
+    
+    # Register legacy MCP tools if explicitly enabled (disabled by default)
+    legacy_mcp_enabled = {
+        "mcp_add": is_tool_enabled("mcp_add", False),
+        "mcp_remove": is_tool_enabled("mcp_remove", False),
+        "mcp_stats": is_tool_enabled("mcp_stats", False),
+    }
+    
+    if legacy_mcp_enabled.get("mcp_add", False):
+        tool = McpAddTool()
+        tool.register(mcp_server)
+        all_tools[tool.name] = tool
+    
+    if legacy_mcp_enabled.get("mcp_remove", False):
+        tool = McpRemoveTool()
+        tool.register(mcp_server)
+        all_tools[tool.name] = tool
+    
+    if legacy_mcp_enabled.get("mcp_stats", False):
+        tool = McpStatsTool()
+        tool.register(mcp_server)
+        all_tools[tool.name] = tool
+    
+    # Register system tools (always enabled)
+    # Tool enable/disable tools
+    tool_enable = ToolEnableTool()
+    tool_enable.register(mcp_server)
+    all_tools[tool_enable.name] = tool_enable
+    
+    tool_disable = ToolDisableTool()
+    tool_disable.register(mcp_server)
+    all_tools[tool_disable.name] = tool_disable
+    
+    tool_list = ToolListTool()
+    tool_list.register(mcp_server)
+    all_tools[tool_list.name] = tool_list
+    
+    # Stats tool
+    stats_tool = StatsTool(db_manager=db_manager)
+    stats_tool.register(mcp_server)
+    all_tools[stats_tool.name] = stats_tool
+    
+    # Palette tool (always enabled for managing tool sets)
+    palette_tool.register(mcp_server)
+    all_tools[palette_tool.name] = palette_tool
+    
+    # Register editor tools if enabled
+    editor_enabled = {
+        "neovim_edit": is_tool_enabled("neovim_edit", True),
+        "neovim_command": is_tool_enabled("neovim_command", True),
+        "neovim_session": is_tool_enabled("neovim_session", True),
+    }
+    
+    if editor_enabled.get("neovim_edit", True):
+        tool = NeovimEditTool(permission_manager)
+        tool.register(mcp_server)
+        all_tools[tool.name] = tool
+    
+    if editor_enabled.get("neovim_command", True):
+        tool = NeovimCommandTool(permission_manager)
+        tool.register(mcp_server)
+        all_tools[tool.name] = tool
+    
+    if editor_enabled.get("neovim_session", True):
+        tool = NeovimSessionTool()
+        tool.register(mcp_server)
+        all_tools[tool.name] = tool
+    
+    # Register unified LLM tool if enabled
+    if is_tool_enabled("llm", True):
+        tool = UnifiedLLMTool()
+        if tool.available_providers:  # Only register if API keys found
+            tool.register(mcp_server)
+            all_tools[tool.name] = tool
+    
+    # Register legacy LLM tools if explicitly enabled (disabled by default)
+    legacy_llm_enabled = {
+        "llm_legacy": is_tool_enabled("llm_legacy", False),
+        "consensus": is_tool_enabled("consensus", False),
+        "llm_manage": is_tool_enabled("llm_manage", False),
+    }
+    
+    if legacy_llm_enabled.get("llm_legacy", False):
+        tool = LLMTool()
+        if tool.available_providers:
+            tool.register(mcp_server)
+            all_tools["llm_legacy"] = tool
+    
+    if legacy_llm_enabled.get("consensus", False):
+        tool = ConsensusTool()
+        if tool.llm_tool.available_providers:
+            tool.register(mcp_server)
+            all_tools[tool.name] = tool
+    
+    if legacy_llm_enabled.get("llm_manage", False):
+        tool = LLMManageTool()
+        tool.register(mcp_server)
+        all_tools[tool.name] = tool
+    
+    # Register provider-specific LLM tools (disabled by default)
+    if is_tool_enabled("provider_specific_llm", False):
+        provider_tools = create_provider_tools()
+        for tool in provider_tools:
+            if is_tool_enabled(tool.name, False):
+                tool.register(mcp_server)
+                all_tools[tool.name] = tool

@@ -3,14 +3,17 @@
 This package provides tools for executing shell commands and scripts.
 """
 
-import shutil
-
-from fastmcp import FastMCP
+from mcp.server import FastMCP
 
 from hanzo_mcp.tools.common.base import BaseTool, ToolRegistry
 from hanzo_mcp.tools.common.permissions import PermissionManager
-from hanzo_mcp.tools.shell.bash_session_executor import BashSessionExecutor
-from hanzo_mcp.tools.shell.command_executor import CommandExecutor
+
+# Import unified tools
+from hanzo_mcp.tools.shell.bash_unified import bash_tool
+from hanzo_mcp.tools.shell.npx_unified import npx_tool
+from hanzo_mcp.tools.shell.uvx_unified import uvx_tool
+from hanzo_mcp.tools.shell.process_unified import process_tool
+from hanzo_mcp.tools.shell.open import open_tool
 
 # Export all tool classes
 __all__ = [
@@ -30,23 +33,18 @@ def get_shell_tools(
     Returns:
         List of shell tool instances
     """
-    # Detect tmux availability and choose appropriate implementation
-    if shutil.which("tmux") is not None:
-        # Use tmux-based implementation for interactive sessions
-        from hanzo_mcp.tools.shell.run_command import RunCommandTool
-
-        command_executor = BashSessionExecutor(permission_manager)
-        return [
-            RunCommandTool(permission_manager, command_executor),
-        ]
-    else:
-        # Use Windows-compatible implementation
-        from hanzo_mcp.tools.shell.run_command_windows import RunCommandTool
-
-        command_executor = CommandExecutor(permission_manager)
-        return [
-            RunCommandTool(permission_manager, command_executor),
-        ]
+    # Set permission manager for tools that need it
+    bash_tool.permission_manager = permission_manager
+    npx_tool.permission_manager = permission_manager
+    uvx_tool.permission_manager = permission_manager
+    
+    return [
+        bash_tool,
+        npx_tool,
+        uvx_tool,
+        process_tool,
+        open_tool,
+    ]
 
 
 def register_shell_tools(

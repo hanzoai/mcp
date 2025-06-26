@@ -12,8 +12,8 @@ import shutil
 from pathlib import Path
 from typing import Annotated, TypedDict, Unpack, final, override
 
-from fastmcp import Context as MCPContext
-from fastmcp import FastMCP
+from mcp.server.fastmcp import Context as MCPContext
+from mcp.server import FastMCP
 from pydantic import Field
 
 from hanzo_mcp.tools.common.context import ToolContext

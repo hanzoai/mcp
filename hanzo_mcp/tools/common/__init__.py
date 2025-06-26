@@ -1,6 +1,6 @@
 """Common utilities for Hanzo MCP tools."""
 
-from fastmcp import FastMCP
+from mcp.server import FastMCP
 
 from hanzo_mcp.tools.common.base import BaseTool, ToolRegistry
 from hanzo_mcp.tools.common.batch_tool import BatchTool

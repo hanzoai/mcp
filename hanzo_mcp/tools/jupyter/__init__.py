@@ -4,17 +4,15 @@ This package provides tools for working with Jupyter notebooks (.ipynb files),
 including reading and editing notebook cells.
 """
 
-from fastmcp import FastMCP
+from mcp.server import FastMCP
 
 from hanzo_mcp.tools.common.base import BaseTool, ToolRegistry
 from hanzo_mcp.tools.common.permissions import PermissionManager
-from hanzo_mcp.tools.jupyter.notebook_edit import NoteBookEditTool
-from hanzo_mcp.tools.jupyter.notebook_read import NotebookReadTool
+from hanzo_mcp.tools.jupyter.jupyter import JupyterTool
 
 # Export all tool classes
 __all__ = [
-    "NotebookReadTool",
-    "NoteBookEditTool",
+    "JupyterTool",
     "get_jupyter_tools",
     "register_jupyter_tools",
 ]
@@ -31,9 +29,7 @@ def get_read_only_jupyter_tools(
     Returns:
         List of Jupyter notebook tool instances
     """
-    return [
-        NotebookReadTool(permission_manager),
-    ]
+    return []  # Unified tool handles both read and write
 
 
 def get_jupyter_tools(permission_manager: PermissionManager) -> list[BaseTool]:
@@ -46,8 +42,7 @@ def get_jupyter_tools(permission_manager: PermissionManager) -> list[BaseTool]:
         List of Jupyter notebook tool instances
     """
     return [
-        NotebookReadTool(permission_manager),
-        NoteBookEditTool(permission_manager),
+        JupyterTool(permission_manager),
     ]
 
 
@@ -68,8 +63,10 @@ def register_jupyter_tools(
     """
     # Define tool mapping
     tool_classes = {
-        "notebook_read": NotebookReadTool,
-        "notebook_edit": NoteBookEditTool,
+        "jupyter": JupyterTool,
+        # Legacy names for backward compatibility
+        "notebook_read": JupyterTool,
+        "notebook_edit": JupyterTool,
     }
     
     tools = []

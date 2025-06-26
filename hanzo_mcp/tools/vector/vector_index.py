@@ -3,7 +3,7 @@
 from typing import Dict, List, Optional, TypedDict, Unpack, final
 from pathlib import Path
 
-from fastmcp import Context as MCPContext
+from mcp.server.fastmcp import Context as MCPContext
 from pydantic import Field
 
 from hanzo_mcp.tools.common.base import BaseTool

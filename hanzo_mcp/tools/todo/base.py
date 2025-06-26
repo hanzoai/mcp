@@ -9,7 +9,7 @@ import time
 from abc import ABC
 from typing import Any, final
 
-from fastmcp import Context as MCPContext
+from mcp.server.fastmcp import Context as MCPContext
 
 from hanzo_mcp.tools.common.base import BaseTool
 from hanzo_mcp.tools.common.context import ToolContext, create_tool_context

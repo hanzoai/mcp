@@ -1,5 +1,6 @@
 # Hanzo MCP
 
+[![Documentation](https://img.shields.io/badge/docs-mcp.hanzo.ai-blue?style=for-the-badge)](https://mcp.hanzo.ai)
 [![Open in Hanzo.App](https://img.shields.io/badge/Open%20in-Hanzo.App-8A2BE2?style=for-the-badge&logo=rocket)](https://hanzo.app/launch?repo=https://github.com/hanzoai/mcp)
 [![Add Feature with Hanzo Dev](https://img.shields.io/badge/Add%20Feature-Hanzo%20Dev-00D4AA?style=for-the-badge&logo=plus)](https://hanzo.app/dev?repo=https://github.com/hanzoai/mcp&action=feature)
 [![Fix Bugs with Hanzo Dev](https://img.shields.io/badge/Fix%20Bugs-Hanzo%20Dev-FF6B6B?style=for-the-badge&logo=wrench)](https://hanzo.app/dev?repo=https://github.com/hanzoai/mcp&action=bugfix)
@@ -8,68 +9,90 @@ An implementation of Hanzo capabilities using the Model Context Protocol (MCP).
 
 ## Overview
 
-This project provides an MCP server that implements Hanzo-like functionality, allowing Claude to directly execute instructions for modifying and improving project files. By leveraging the Model Context Protocol, this implementation enables seamless integration with various MCP clients including Claude Desktop.
+Hanzo MCP is the most comprehensive Model Context Protocol implementation available, featuring **65+ professional tools** that transform Claude into a powerhouse development environment. Built for real-world software development, it provides everything from basic file operations to advanced AI orchestration in a single, unified interface.
 
 ![example](./docs/example.gif)
 
 ## Features
 
-- **Code Understanding**: Analyze and understand codebases through file access and pattern searching
-- **Code Modification**: Make targeted edits to files with proper permission handling
-- **Enhanced Command Execution**: Run commands and scripts in various languages with improved error handling and shell support
-- **File Operations**: Manage files with proper security controls through shell commands
-- **Code Discovery**: Find relevant files and code patterns across your project
-- **Project Analysis**: Understand project structure, dependencies, and frameworks
-- **Agent Delegation**: Delegate complex tasks to specialized sub-agents that can work concurrently
-- **Multiple LLM Provider Support**: Configure any LiteLLM-compatible model for agent operations
-- **Jupyter Notebook Support**: Read and edit Jupyter notebooks with full cell and output handling
+### 🚀 65+ Professional Tools
+- **File Operations**: read, write, edit, multi_edit, tree, find
+- **Search & Analysis**: grep, symbols, search, git_search, vector_search
+- **Shell & Process**: run_command, processes, pkill, npx, uvx
+- **Development**: jupyter, neovim, todo, database tools
+- **AI & Automation**: agent orchestration, LLM consensus, MCP servers
+- **And many more**: All following the Unix philosophy of doing one thing well
 
-## Tools Implemented
+### 🎯 Key Capabilities
+- **Intelligent Search**: Multi-modal search combining text, AST, vector embeddings, and git history
+- **Action-Based Architecture**: Tools like `sql`, `graph`, `llm` support multiple actions through a unified interface
+- **Enterprise Security**: Fine-grained permissions, secure command execution, and comprehensive audit trails
+- **Parallel Execution**: Run multiple operations concurrently for maximum performance
+- **Smart Defaults**: Automatic encoding detection, backend selection, and error recovery
+
+## Tools Overview
+
+Hanzo MCP provides 65+ tools organized by category, following the principle of **one tool per orthogonal task** with multiple actions where appropriate.
 
 ### Core File Operations
 | Tool              | Description                                                                         |
 | ----------------- | ----------------------------------------------------------------------------------- |
-| `read`            | Read one or multiple files with encoding detection and line range support           |
-| `write`           | Create or overwrite files with content                                              |
-| `edit`            | Make precise line-based edits to existing files                                     |
-| `multi_edit`      | Make multiple edits to a single file in one atomic operation                        |
-| `directory_tree`  | Get a recursive tree view of directories with customizable depth and filters        |
-| `content_replace` | Replace patterns in file contents using regex                                       |
+| `read`            | Read files with encoding detection and pagination                                   |
+| `write`           | Create or overwrite files                                                           |
+| `edit`            | Precise line-based edits with pattern matching                                      |
+| `multi_edit`      | Batch edits to a single file                                                        |
+| `tree`            | Unix-style directory tree visualization                                             |
+| `find`            | Fast file finding (rg > ag > ack > grep)                                            |
 
-### Search & Analysis
+### Search Tools
 | Tool              | Description                                                                         |
 | ----------------- | ----------------------------------------------------------------------------------- |
-| `grep`            | Fast pattern search across files using ripgrep                                      |
-| `grep_ast`        | AST-aware code search that understands code structure                               |
-| `unified_search`  | Intelligent multi-modal search combining text, vector, AST, and symbol search       |
-| `vector_search`   | Semantic search across indexed documents and code                                   |
-| `vector_index`    | Index documents and code in project-aware vector databases                          |
+| `grep`            | Fast pattern search using ripgrep                                                   |
+| `symbols`         | AST-aware symbol search using tree-sitter                                           |
+| `search`          | Multi-modal search (text, vector, AST, git, symbols)                                |
+| `git_search`      | Search git history (commits, diffs, logs, blame)                                    |
+| `vector_search`   | Semantic similarity search using embeddings                                         |
 
-### Shell & Commands
+### Shell & Process Tools
 | Tool              | Description                                                                         |
 | ----------------- | ----------------------------------------------------------------------------------- |
-| `run_command`     | Execute shell commands with timeout, environment control, and session support       |
+| `run_command`     | Execute shell commands with timeout and environment control                         |
+| `run_background`  | Background process execution                                                        |
+| `processes`       | List and monitor running processes                                                  |
+| `pkill`           | Terminate processes by name/pattern                                                 |
+| `npx`/`uvx`       | Run Node.js/Python packages directly                                                |
 
-### Jupyter Support
+### Database Tools
 | Tool              | Description                                                                         |
 | ----------------- | ----------------------------------------------------------------------------------- |
-| `notebook_read`   | Read Jupyter notebook cells with outputs and metadata                               |
-| `notebook_edit`   | Edit, insert, or delete cells in Jupyter notebooks                                  |
+| `sql`             | SQL database operations (actions: query, search, stats)                             |
+| `graph`           | Graph database operations (actions: add, remove, query, search, stats)              |
 
-### Task Management
+### Development Tools
 | Tool              | Description                                                                         |
 | ----------------- | ----------------------------------------------------------------------------------- |
-| `todo_read`       | Read the current task list for tracking progress                                    |
-| `todo_write`      | Create and manage structured task lists with status and priority                    |
+| `jupyter`         | Jupyter notebook operations (actions: read, edit)                                   |
+| `neovim`          | Advanced text editing with Vim                                                      |
+| `todo`            | Task management (actions: read, write)                                              |
 
-### Advanced Tools
+### AI/Agent Tools
 | Tool              | Description                                                                         |
 | ----------------- | ----------------------------------------------------------------------------------- |
-| `think`           | Structured space for complex reasoning and analysis without making changes          |
-| `dispatch_agent`  | Launch specialized sub-agents for concurrent task execution                         |
-| `batch`           | Execute multiple tool calls in a single operation for performance                   |
+| `agent`           | Launch specialized sub-agents for task delegation                                   |
+| `llm`             | Query multiple LLM providers (actions: query, list, consensus)                      |
+| `mcp`             | Manage MCP server connections (actions: add, remove, list, stats)                   |
 
-For detailed documentation on all tools, see [TOOLS_DOCUMENTATION.md](./TOOLS_DOCUMENTATION.md).
+### System Tools
+| Tool              | Description                                                                         |
+| ----------------- | ----------------------------------------------------------------------------------- |
+| `config`          | Git-style configuration management                                                  |
+| `stats`           | System and usage statistics                                                         |
+| `tool_enable`     | Enable tools at runtime                                                             |
+| `tool_disable`    | Disable tools at runtime                                                            |
+| `batch`           | Execute multiple operations atomically                                              |
+| `think`           | Structured reasoning space                                                          |
+
+For detailed documentation on all tools, see [mcp.hanzo.ai/tools](https://mcp.hanzo.ai/tools) or [TOOLS_DOCUMENTATION.md](./TOOLS_DOCUMENTATION.md).
 
 ## Getting Started
 
@@ -135,7 +158,9 @@ This implementation follows best practices for securing access to your filesyste
 
 ## Documentation
 
-Comprehensive documentation is available in the [docs](./docs/) directory. You can build and view the documentation locally:
+📚 **Full documentation is available at [mcp.hanzo.ai](https://mcp.hanzo.ai)**
+
+You can also build and view the documentation locally:
 
 ```bash
 # Build the documentation
@@ -144,6 +169,13 @@ make docs
 # Start a local server to view the documentation
 make docs-serve
 ```
+
+The documentation includes:
+- Detailed tool references for all 65+ tools
+- Step-by-step tutorials and guides
+- Architecture and design philosophy
+- Integration examples
+- API reference
 
 Then open http://localhost:8000/ in your browser to view the documentation.
 

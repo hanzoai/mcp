@@ -4,7 +4,7 @@ This package provides tools for managing todo lists across different Claude Desk
 using in-memory storage to maintain separate task lists for each conversation.
 """
 
-from fastmcp import FastMCP
+from mcp.server import FastMCP
 
 from hanzo_mcp.tools.common.base import BaseTool, ToolRegistry
 from hanzo_mcp.tools.todo.todo_read import TodoReadTool

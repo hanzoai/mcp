@@ -5,9 +5,8 @@ This module provides the RunCommandTool for running shell commands.
 
 from typing import Annotated, Any, TypedDict, Unpack, final, override
 
-from fastmcp import Context as MCPContext
-from fastmcp import FastMCP
-from fastmcp.server.dependencies import get_context
+from mcp.server.fastmcp import Context as MCPContext
+from mcp.server import FastMCP
 from pydantic import Field
 
 from hanzo_mcp.tools.common.base import handle_connection_errors
@@ -345,8 +344,8 @@ Important:
             time_out: TimeOut,
             is_input: IsInput,
             blocking: Blocking,
+            ctx: MCPContext
         ) -> str:
-            ctx = get_context()
             return await tool_self.call(
                 ctx,
                 command=command,

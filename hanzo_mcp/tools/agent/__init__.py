@@ -4,7 +4,7 @@ This module provides tools that allow Claude to delegate tasks to sub-agents,
 enabling concurrent execution of multiple operations and specialized processing.
 """
 
-from fastmcp import FastMCP
+from mcp.server import FastMCP
 
 from hanzo_mcp.tools.agent.agent_tool import AgentTool
 from hanzo_mcp.tools.common.base import BaseTool, ToolRegistry

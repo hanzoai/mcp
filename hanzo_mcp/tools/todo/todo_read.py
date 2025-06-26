@@ -6,9 +6,8 @@ This module provides the TodoRead tool for reading the current todo list for a s
 import json
 from typing import Annotated, TypedDict, Unpack, final, override
 
-from fastmcp import Context as MCPContext
-from fastmcp import FastMCP
-from fastmcp.server.dependencies import get_context
+from mcp.server.fastmcp import Context as MCPContext
+from mcp.server import FastMCP
 from pydantic import Field
 
 from hanzo_mcp.tools.todo.base import TodoBaseTool, TodoStorage
@@ -141,8 +140,7 @@ Usage:
 
         @mcp_server.tool(name=self.name, description=self.description)
         async def todo_read(
-            ctx: MCPContext,
             session_id: SessionId,
+            ctx: MCPContext
         ) -> str:
-            ctx = get_context()
             return await tool_self.call(ctx, session_id=session_id)
