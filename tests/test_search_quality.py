@@ -377,9 +377,9 @@ if __name__ == "__main__":
 
     def _test_ast_relevance(self, test_codebase, test_cases, permission_manager):
         """Test AST search relevance."""
-        from hanzo_mcp.tools.filesystem.grep_ast_tool import GrepAstTool
+        from hanzo_mcp.tools.filesystem.symbols import SymbolsTool
         
-        ast_tool = GrepAstTool(permission_manager)
+        ast_tool = SymbolsTool(permission_manager)
         results = {}
         
         class MockContext:
@@ -499,10 +499,10 @@ if __name__ == "__main__":
         queries = ["error", "DataProcessor", "def.*process", "import.*typing"]
         
         from hanzo_mcp.tools.filesystem.grep import Grep
-        from hanzo_mcp.tools.filesystem.grep_ast_tool import GrepAstTool
+        from hanzo_mcp.tools.filesystem.symbols import SymbolsTool
         
         grep_tool = Grep(permission_manager)
-        ast_tool = GrepAstTool(permission_manager)
+        ast_tool = SymbolsTool(permission_manager)
         
         class MockContext:
             def __init__(self):

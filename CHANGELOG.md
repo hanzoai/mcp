@@ -1,5 +1,26 @@
 # Changelog
 
+## v0.5.2 (2025-06-26)
+
+### Added
+- New `unified_search` tool that runs multiple search strategies in parallel:
+  - Combines grep (fast pattern search), AST search, vector search, git history search, and symbol search
+  - Automatically determines the best search strategies based on the query pattern
+  - Results are deduplicated and ranked by relevance
+  - Provides comprehensive search results across all dimensions
+- `git_search` tool for searching through git history (commits, diffs, logs, blame)
+- Documentation updates for all search tools
+
+### Changed
+- `batch_search` tool is now deprecated in favor of `unified_search`
+- Improved search tool organization and parallel execution
+
+## v0.5.1 (Earlier)
+
+### Added
+- Vector search capabilities with project-aware indexing
+- Improved documentation and tool descriptions
+
 ## v0.4.1 (2025-05-10)
 
 ### Added

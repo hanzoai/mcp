@@ -9,14 +9,13 @@ from typing import List, Dict, Any
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from fastmcp import Context as MCPContext
+from mcp.server.fastmcp import Context as MCPContext
 
 from hanzo_mcp.tools.common.permissions import PermissionManager
 from hanzo_mcp.tools.filesystem.unified_search import (
     UnifiedSearchTool,
     SearchResult,
-    SearchType,
-    UnifiedSearchResults
+    SearchType
 )
 
 

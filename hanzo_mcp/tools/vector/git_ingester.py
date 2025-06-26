@@ -89,9 +89,11 @@ class GitIngester:
             "repository": str(repo_path),
             "branch": branch,
             "commits_processed": 0,
+            "commits_indexed": 0,
             "files_indexed": 0,
             "symbols_extracted": 0,
             "diffs_indexed": 0,
+            "blame_entries": 0,
             "errors": []
         }
         
@@ -125,6 +127,7 @@ class GitIngester:
                 
                 for commit in commits:
                     self._index_commit(commit, include_diffs=include_diffs)
+                    results["commits_indexed"] = results.get("commits_indexed", 0) + 1
                     
                     if include_diffs:
                         results["diffs_indexed"] += len(commit.files)

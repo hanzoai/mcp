@@ -4,7 +4,7 @@ from typing import Dict, List, Optional, TypedDict, Unpack, final
 import json
 import asyncio
 
-from fastmcp import Context as MCPContext
+from mcp.server.fastmcp import Context as MCPContext
 from pydantic import Field
 
 from hanzo_mcp.tools.common.base import BaseTool
@@ -48,13 +48,18 @@ class VectorSearchTool(BaseTool):
     @property
     def description(self) -> str:
         """Get the tool description."""
-        return """Search for documents using semantic similarity across project-aware vector databases.
-        
-Performs intelligent text search that understands meaning and context, not just keywords.
-Can search across all projects, specific projects, or just the global database. Projects are
-automatically detected based on LLM.md files.
+        return """Pure semantic/vector search using Infinity embedded database.
 
-Returns ranked results with similarity scores, project context, and document metadata."""
+Searches indexed documents using vector embeddings to find semantically similar content.
+This is NOT keyword search - it finds documents based on meaning and context similarity.
+
+Features:
+- Searches across project-specific vector databases
+- Returns similarity scores (0-1, higher is better)
+- Supports filtering by project or file
+- Automatically detects projects via LLM.md files
+
+Use 'grep' for exact text/pattern matching, 'vector_search' for semantic similarity."""
     
     async def call(
         self,

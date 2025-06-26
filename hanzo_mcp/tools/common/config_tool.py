@@ -4,7 +4,7 @@ from typing import Dict, List, Optional, TypedDict, Unpack, Any, final
 import json
 from pathlib import Path
 
-from fastmcp import Context as MCPContext
+from mcp.server.fastmcp import Context as MCPContext
 
 from hanzo_mcp.tools.common.base import BaseTool
 from hanzo_mcp.tools.common.permissions import PermissionManager

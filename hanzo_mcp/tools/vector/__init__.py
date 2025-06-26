@@ -9,7 +9,7 @@ Supported backends:
 
 from hanzo_mcp.tools.common.base import BaseTool
 from hanzo_mcp.tools.common.permissions import PermissionManager
-from fastmcp import FastMCP
+from mcp.server import FastMCP
 
 # Try to import vector dependencies
 try:
@@ -17,6 +17,7 @@ try:
     from .project_manager import ProjectVectorManager
     from .vector_index import VectorIndexTool
     from .vector_search import VectorSearchTool
+    from .index_tool import IndexTool
     
     VECTOR_AVAILABLE = True
     
@@ -64,6 +65,9 @@ try:
                 print(f"Detected {len(detected_projects)} projects with LLM.md files")
         
         # Register individual tools if enabled
+        if tool_enabled.get("index", True):
+            tools.append(IndexTool(permission_manager))
+        
         if tool_enabled.get("vector_index", True):
             tools.append(VectorIndexTool(permission_manager, project_manager))
         
@@ -94,6 +98,7 @@ if VECTOR_AVAILABLE:
     __all__.extend([
         "InfinityVectorStore",
         "ProjectVectorManager",
+        "IndexTool",
         "VectorIndexTool", 
         "VectorSearchTool",
     ])

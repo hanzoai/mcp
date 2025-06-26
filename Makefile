@@ -131,6 +131,25 @@ endif
 check: build
 	$(call run_in_venv, python -m twine check $(DIST_DIR)/*)
 
+# Documentation targets
+docs: venv install-docs-deps
+	@echo "$(YELLOW)Building documentation...$(NC)"
+	$(call run_in_venv, cd docs && python -m sphinx -M html . _build)
+	@echo "$(GREEN)Documentation built successfully! Open docs/_build/html/index.html$(NC)"
+
+docs-serve: docs
+	@echo "$(YELLOW)Starting documentation server on http://localhost:8000...$(NC)"
+	@cd docs/_build/html && python -m http.server 8000
+
+docs-clean:
+	@echo "$(YELLOW)Cleaning documentation build...$(NC)"
+	@rm -rf docs/_build
+	@echo "$(GREEN)Documentation cleaned!$(NC)"
+
+install-docs-deps: venv
+	@echo "$(YELLOW)Installing documentation dependencies...$(NC)"
+	$(call run_in_venv, $(UV) pip install -e ".[docs]")
+
 # Update dependencies
 update-deps:
 	@command -v $(UV) >/dev/null 2>&1 || { echo "Error: uv is not installed. Install it with 'pip install uv'."; exit 1; }

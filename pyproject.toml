@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "hanzo-mcp"
-version = "0.5.1"
+version = "0.6.0"
 description = "MCP implementation of Hanzo capabilities"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -16,15 +16,31 @@ classifiers = [
   "Operating System :: OS Independent",
 ]
 keywords = ["mcp", "claude", "hanzo", "code", "agent"]
-dependencies = ["mcp>=1.6.0", "httpx>=0.27.0", "uvicorn>=0.23.1", "openai>=1.50.0", "python-dotenv>=1.0.0", "litellm>=1.40.14", "grep-ast>=0.8.1"]
+dependencies = [
+    "mcp>=1.6.0",
+    "httpx>=0.27.0",
+    "uvicorn>=0.23.1",
+    "openai>=1.50.0",
+    "python-dotenv>=1.0.0",
+    "litellm>=1.40.14",
+    "grep-ast>=0.8.1",
+    "bashlex>=0.18",
+    "libtmux>=0.39.0",
+    "nbformat>=5.10.4",
+    "psutil>=6.1.0",
+    "pydantic>=2.10.0",
+    "typing-extensions>=4.12.2",
+    "watchdog>=3.0.0"
+]
 
 [project.urls]
 "Homepage" = "https://github.com/hanzoai/mcp"
 "Bug Tracker" = "https://github.com/hanzoai/mcp/issues"
-"Documentation" = "https://github.com/hanzoai/mcp/tree/main/docs"
+"Documentation" = "https://mcp.hanzo.ai"
 
 [project.optional-dependencies]
-dev = ["pytest>=7.0.0", "pytest-cov>=4.1.0", "ruff>=0.1.0", "black>=23.3.0", "sphinx>=8.0.0", "sphinx-rtd-theme>=1.3.0", "myst-parser>=2.0.0"]
+dev = ["pytest>=7.0.0", "pytest-cov>=4.1.0", "ruff>=0.1.0", "black>=23.3.0", "sphinx>=8.0.0", "sphinx-rtd-theme>=3.0.0", "myst-parser>=4.0.0", "sphinx-copybutton>=0.5.0"]
+docs = ["sphinx>=8.0.0", "sphinx-rtd-theme>=3.0.0", "myst-parser>=4.0.0", "sphinx-copybutton>=0.5.0"]
 test = [
   "pytest>=7.0.0",
   "pytest-cov>=4.1.0",
@@ -37,6 +53,7 @@ publish = ["twine>=4.0.2", "build>=1.0.3"]
 
 [project.scripts]
 hanzo-mcp = "hanzo_mcp.cli:main"
+hanzo-mcp-dev = "hanzo_mcp.dev_server:run_dev_server"
 
 [tool.setuptools.packages.find]
 where = ["."]

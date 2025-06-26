@@ -1,0 +1,199 @@
+/* Hanzo MCP Documentation - Black Theme with Inter Font */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+/* Base styles */
+* {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
+}
+
+body {
+    background-color: #000000 !important;
+    color: #ffffff !important;
+}
+
+/* Navigation */
+.wy-nav-side {
+    background-color: #000000 !important;
+    border-right: 1px solid #1a1a1a !important;
+}
+
+.wy-nav-content-wrap {
+    background-color: #000000 !important;
+}
+
+.wy-nav-content {
+    background-color: #000000 !important;
+    max-width: 100% !important;
+}
+
+/* Menu items */
+.wy-menu-vertical a {
+    color: #cccccc !important;
+}
+
+.wy-menu-vertical a:hover {
+    background-color: #1a1a1a !important;
+    color: #ffffff !important;
+}
+
+.wy-menu-vertical li.current > a {
+    background-color: #1a1a1a !important;
+    color: #ffffff !important;
+    border-right: 2px solid #ffffff !important;
+}
+
+/* Headers */
+h1, h2, h3, h4, h5, h6 {
+    color: #ffffff !important;
+    font-weight: 600 !important;
+}
+
+/* Links */
+a {
+    color: #888888 !important;
+    text-decoration: none !important;
+}
+
+a:hover {
+    color: #ffffff !important;
+}
+
+/* Code blocks */
+.highlight {
+    background-color: #0a0a0a !important;
+    border: 1px solid #1a1a1a !important;
+    border-radius: 4px !important;
+}
+
+.highlight pre {
+    background-color: #0a0a0a !important;
+    color: #ffffff !important;
+    font-family: 'JetBrains Mono', 'Consolas', 'Monaco', monospace !important;
+}
+
+code, .rst-content tt, .rst-content code {
+    background-color: #1a1a1a !important;
+    color: #ffffff !important;
+    border: 1px solid #2a2a2a !important;
+    font-family: 'JetBrains Mono', 'Consolas', 'Monaco', monospace !important;
+}
+
+/* Tables */
+.wy-table-responsive table td, .wy-table-responsive table th {
+    background-color: #000000 !important;
+    color: #ffffff !important;
+    border-color: #1a1a1a !important;
+}
+
+.wy-table-odd td, .wy-table-striped tr:nth-child(2n-1) td {
+    background-color: #0a0a0a !important;
+}
+
+/* Search */
+.wy-side-nav-search {
+    background-color: #000000 !important;
+    border-bottom: 1px solid #1a1a1a !important;
+}
+
+.wy-side-nav-search input[type="text"] {
+    background-color: #1a1a1a !important;
+    color: #ffffff !important;
+    border: 1px solid #2a2a2a !important;
+}
+
+/* Admonitions */
+.admonition {
+    background-color: #0a0a0a !important;
+    border: 1px solid #1a1a1a !important;
+}
+
+.admonition-title {
+    background-color: #1a1a1a !important;
+    color: #ffffff !important;
+}
+
+/* Notes */
+.note {
+    background-color: #0a0a0a !important;
+    border-left: 4px solid #444444 !important;
+}
+
+/* Warnings */
+.warning {
+    background-color: #0a0a0a !important;
+    border-left: 4px solid #666666 !important;
+}
+
+/* Footer */
+footer {
+    background-color: #000000 !important;
+    color: #666666 !important;
+    border-top: 1px solid #1a1a1a !important;
+}
+
+/* Breadcrumbs */
+.wy-breadcrumbs {
+    color: #666666 !important;
+}
+
+.wy-breadcrumbs a {
+    color: #888888 !important;
+}
+
+/* Version selector */
+.rst-versions {
+    background-color: #000000 !important;
+    border-top: 1px solid #1a1a1a !important;
+}
+
+/* Mobile menu */
+.wy-nav-top {
+    background-color: #000000 !important;
+}
+
+/* Logo styling */
+.wy-side-nav-search img {
+    filter: invert(1) !important;
+}
+
+/* Button styling */
+.btn {
+    background-color: #1a1a1a !important;
+    color: #ffffff !important;
+    border: 1px solid #2a2a2a !important;
+}
+
+.btn:hover {
+    background-color: #2a2a2a !important;
+}
+
+/* Copy button for code blocks */
+.copybtn {
+    background-color: #1a1a1a !important;
+    color: #ffffff !important;
+    opacity: 0.3;
+}
+
+.copybtn:hover {
+    opacity: 1;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: #0a0a0a;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #2a2a2a;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #3a3a3a;
+}

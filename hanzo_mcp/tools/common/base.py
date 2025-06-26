@@ -10,8 +10,8 @@ from abc import ABC, abstractmethod
 from collections.abc import Awaitable
 from typing import Any, Callable, final
 
-from fastmcp import FastMCP
-from fastmcp import Context as MCPContext
+from mcp.server import FastMCP
+from mcp.server.fastmcp import Context as MCPContext
 
 
 from hanzo_mcp.tools.common.permissions import PermissionManager
@@ -170,8 +170,13 @@ class ToolRegistry:
             mcp_server: The FastMCP server instance
             tool: The tool to register
         """
-        # Use the tool's register method which handles all the details
-        tool.register(mcp_server)
+        # Check if tool is enabled before registering
+        # Import here to avoid circular imports
+        from hanzo_mcp.tools.common.tool_enable import ToolEnableTool
+        
+        if ToolEnableTool.is_tool_enabled(tool.name):
+            # Use the tool's register method which handles all the details
+            tool.register(mcp_server)
 
     @staticmethod
     def register_tools(mcp_server: FastMCP, tools: list[BaseTool]) -> None:

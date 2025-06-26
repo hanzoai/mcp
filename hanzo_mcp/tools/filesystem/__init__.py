@@ -4,7 +4,7 @@ This package provides tools for interacting with the filesystem, including readi
 and editing files, directory navigation, and content searching.
 """
 
-from fastmcp import FastMCP
+from mcp.server import FastMCP
 
 from hanzo_mcp.tools.common.base import BaseTool, ToolRegistry
 
@@ -13,11 +13,16 @@ from hanzo_mcp.tools.filesystem.content_replace import ContentReplaceTool
 from hanzo_mcp.tools.filesystem.directory_tree import DirectoryTreeTool
 from hanzo_mcp.tools.filesystem.edit import Edit
 from hanzo_mcp.tools.filesystem.grep import Grep
-from hanzo_mcp.tools.filesystem.grep_ast_tool import GrepAstTool
+from hanzo_mcp.tools.filesystem.symbols import SymbolsTool
+from hanzo_mcp.tools.filesystem.git_search import GitSearchTool
 from hanzo_mcp.tools.filesystem.multi_edit import MultiEdit
 from hanzo_mcp.tools.filesystem.read import ReadTool
 from hanzo_mcp.tools.filesystem.write import Write
+from hanzo_mcp.tools.filesystem.batch_search import BatchSearchTool
+from hanzo_mcp.tools.filesystem.find_files import FindFilesTool
 from hanzo_mcp.tools.filesystem.unified_search import UnifiedSearchTool
+from hanzo_mcp.tools.filesystem.watch import watch_tool
+from hanzo_mcp.tools.filesystem.diff import create_diff_tool
 
 # Export all tool classes
 __all__ = [
@@ -28,7 +33,10 @@ __all__ = [
     "DirectoryTreeTool",
     "Grep",
     "ContentReplaceTool",
-    "GrepAstTool",
+    "SymbolsTool",
+    "GitSearchTool",
+    "BatchSearchTool",
+    "FindFilesTool",
     "UnifiedSearchTool",
     "get_filesystem_tools",
     "register_filesystem_tools",
@@ -37,33 +45,46 @@ __all__ = [
 
 def get_read_only_filesystem_tools(
     permission_manager: PermissionManager,
+    project_manager=None,
 ) -> list[BaseTool]:
     """Create instances of read-only filesystem tools.
 
     Args:
         permission_manager: Permission manager for access control
+        project_manager: Optional project manager for unified search
 
     Returns:
         List of read-only filesystem tool instances
     """
-    return [
+    tools = [
         ReadTool(permission_manager),
         DirectoryTreeTool(permission_manager),
         Grep(permission_manager),
-        GrepAstTool(permission_manager),
+        SymbolsTool(permission_manager),
+        GitSearchTool(permission_manager),
+        FindFilesTool(permission_manager),
+        watch_tool,
+        create_diff_tool(permission_manager),
     ]
+    
+    # Add unified search if project manager is available
+    if project_manager:
+        tools.append(UnifiedSearchTool(permission_manager, project_manager))
+    
+    return tools
 
 
-def get_filesystem_tools(permission_manager: PermissionManager) -> list[BaseTool]:
+def get_filesystem_tools(permission_manager: PermissionManager, project_manager=None) -> list[BaseTool]:
     """Create instances of all filesystem tools.
 
     Args:
         permission_manager: Permission manager for access control
+        project_manager: Optional project manager for unified search
 
     Returns:
         List of filesystem tool instances
     """
-    return [
+    tools = [
         ReadTool(permission_manager),
         Write(permission_manager),
         Edit(permission_manager),
@@ -71,8 +92,18 @@ def get_filesystem_tools(permission_manager: PermissionManager) -> list[BaseTool
         DirectoryTreeTool(permission_manager),
         Grep(permission_manager),
         ContentReplaceTool(permission_manager),
-        GrepAstTool(permission_manager),
+        SymbolsTool(permission_manager),
+        GitSearchTool(permission_manager),
+        FindFilesTool(permission_manager),
+        watch_tool,
+        create_diff_tool(permission_manager),
     ]
+    
+    # Add unified search if project manager is available
+    if project_manager:
+        tools.append(UnifiedSearchTool(permission_manager, project_manager))
+    
+    return tools
 
 
 def register_filesystem_tools(
@@ -104,9 +135,14 @@ def register_filesystem_tools(
         "multi_edit": MultiEdit,
         "directory_tree": DirectoryTreeTool,
         "grep": Grep,
-        "grep_ast": GrepAstTool,
+        "grep_ast": SymbolsTool,  # Using correct import name
+        "git_search": GitSearchTool,
         "content_replace": ContentReplaceTool,
+        "batch_search": BatchSearchTool,
+        "find_files": FindFilesTool,
         "unified_search": UnifiedSearchTool,
+        "watch": lambda pm: watch_tool,  # Singleton instance
+        "diff": create_diff_tool,
     }
     
     tools = []
@@ -116,9 +152,12 @@ def register_filesystem_tools(
         for tool_name, enabled in enabled_tools.items():
             if enabled and tool_name in tool_classes:
                 tool_class = tool_classes[tool_name]
-                if tool_name == "unified_search":
-                    # Unified search requires project_manager
+                if tool_name in ["batch_search", "unified_search"]:
+                    # Batch search and unified search require project_manager
                     tools.append(tool_class(permission_manager, project_manager))
+                elif tool_name == "watch":
+                    # Watch tool is a singleton
+                    tools.append(tool_class(permission_manager))
                 else:
                     tools.append(tool_class(permission_manager))
     else:
@@ -131,7 +170,7 @@ def register_filesystem_tools(
             ]
         elif disable_write_tools:
             # Read-only tools including search
-            tools = get_read_only_filesystem_tools(permission_manager)
+            tools = get_read_only_filesystem_tools(permission_manager, project_manager)
         elif disable_search_tools:
             # Write tools but no search
             tools = [
@@ -144,7 +183,7 @@ def register_filesystem_tools(
             ]
         else:
             # All tools
-            tools = get_filesystem_tools(permission_manager)
+            tools = get_filesystem_tools(permission_manager, project_manager)
     
     ToolRegistry.register_tools(mcp_server, tools)
     return tools

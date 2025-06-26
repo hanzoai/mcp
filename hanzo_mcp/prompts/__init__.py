@@ -1,6 +1,6 @@
 import os
 
-from fastmcp import FastMCP
+from mcp.server import FastMCP
 
 from hanzo_mcp.prompts.compact_conversation import COMPACT_CONVERSATION_PROMPT
 from hanzo_mcp.prompts.create_release import CREATE_RELEASE_PROMPT

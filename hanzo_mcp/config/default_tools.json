@@ -1,0 +1,113 @@
+{
+  "_comment": "Default tool configuration for Hanzo MCP. Tools not listed here default to enabled.",
+  "_version": "1.0.0",
+  
+  "tools": {
+    "_comment_tools": "Core tools - typically always enabled",
+    "read": true,
+    "write": true,
+    "edit": true,
+    "multi_edit": true,
+    "directory_tree": true,
+    "grep": true,
+    "find_files": true,
+    "run_command": true,
+    "stats": true,
+    "tool_list": true,
+    "tool_enable": true,
+    "tool_disable": true,
+    
+    "_comment_search": "Advanced search tools - can be disabled to reduce complexity",
+    "grep_ast": true,
+    "git_search": true,
+    "batch_search": true,
+    "vector_search": false,
+    "vector_index": false,
+    
+    "_comment_process": "Process management tools",
+    "run_background": true,
+    "processes": true,
+    "pkill": true,
+    "logs": true,
+    
+    "_comment_packages": "Package runner tools",
+    "uvx": true,
+    "uvx_background": true,
+    "npx": true,
+    "npx_background": true,
+    
+    "_comment_database": "Database tools - enable if needed",
+    "sql_query": true,
+    "sql_search": true,
+    "sql_stats": true,
+    "graph_add": true,
+    "graph_remove": true,
+    "graph_query": true,
+    "graph_search": true,
+    "graph_stats": true,
+    
+    "_comment_mcp": "MCP management tools",
+    "mcp_add": true,
+    "mcp_remove": true,
+    "mcp_stats": true,
+    
+    "_comment_specialized": "Specialized tools - enable as needed",
+    "dispatch_agent": false,
+    "think": true,
+    "todo_read": true,
+    "todo_write": true,
+    "notebook_read": true,
+    "notebook_edit": true,
+    "batch": true,
+    "content_replace": true
+  },
+  
+  "categories": {
+    "_comment": "Tool categories for easier management",
+    "essential": [
+      "read", "write", "edit", "directory_tree", "grep", 
+      "run_command", "stats", "tool_list", "tool_enable", "tool_disable"
+    ],
+    "search": [
+      "grep", "grep_ast", "git_search", "batch_search", 
+      "vector_search", "vector_index", "find_files"
+    ],
+    "process": [
+      "run_background", "processes", "pkill", "logs"
+    ],
+    "packages": [
+      "uvx", "uvx_background", "npx", "npx_background"
+    ],
+    "database": [
+      "sql_query", "sql_search", "sql_stats",
+      "graph_add", "graph_remove", "graph_query", "graph_search", "graph_stats"
+    ],
+    "mcp": [
+      "mcp_add", "mcp_remove", "mcp_stats"
+    ],
+    "advanced": [
+      "dispatch_agent", "think", "batch", "content_replace",
+      "todo_read", "todo_write", "notebook_read", "notebook_edit"
+    ]
+  },
+  
+  "presets": {
+    "_comment": "Predefined tool configurations",
+    "minimal": {
+      "_enable_categories": ["essential"],
+      "_disable_all_others": true
+    },
+    "standard": {
+      "_enable_categories": ["essential", "search", "process"],
+      "_disable_tools": ["vector_search", "vector_index", "dispatch_agent"]
+    },
+    "full": {
+      "_enable_all": true,
+      "_except": ["dispatch_agent"]
+    },
+    "development": {
+      "_enable_categories": ["essential", "search", "process", "packages", "database"],
+      "_disable_tools": ["dispatch_agent"]
+    }
+  }
+}

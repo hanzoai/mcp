@@ -1,6 +1,6 @@
 # Hanzo MCP Documentation
 
-This directory contains documentation for the Hanzo MCP project.
+This directory contains the source files for the Hanzo MCP documentation, which is published at [mcp.hanzo.ai](https://mcp.hanzo.ai).
 
 ## Documentation Structure
 
@@ -9,6 +9,15 @@ This directory contains documentation for the Hanzo MCP project.
 - [**TESTING.md**](./TESTING.md) - Testing guidelines and procedures
 - [**MCP_SECURITY.md**](./MCP_SECURITY.md) - Security information and best practices
 - [**SYSTEM_PROMPTS.md**](./SYSTEM_PROMPTS.md) - Guide to system prompts and their usage
+- [**TOOLS_DOCUMENTATION.md**](../TOOLS_DOCUMENTATION.md) - Complete tool reference
+
+### New Sphinx Documentation
+- `getting-started/` - Installation and quick start guides
+- `concepts/` - Core concepts and philosophy
+- `tools/` - Detailed tool documentation
+- `advanced/` - Advanced usage and customization
+- `guides/` - Integration and workflow guides
+- `reference/` - API and CLI reference
 
 ### Integration Guides
 - [**IDE_INTEGRATION.md**](./IDE_INTEGRATION.md) - Integrating with IDEs
@@ -19,15 +28,8 @@ This directory contains documentation for the Hanzo MCP project.
 - [**USEFUL_PROMPTS.md**](./USEFUL_PROMPTS.md) - Collection of useful prompts
 - [**prompts/**](./prompts/) - System prompt templates for different use cases
 
-### Building Documentation
-- [**source/**](./source/) - Source files for Sphinx documentation
-- [**Makefile**](./Makefile) and [**make.bat**](./make.bat) - Build scripts
-
 ### Media
 - [**media/example.gif**](./media/example.gif) - Example usage animation
-
-### Archived Files
-- [**archive/**](./archive/) - Previous versions and outdated documentation
 
 ## Building the Documentation
 
@@ -38,7 +40,7 @@ You can build the documentation using the Makefile at the project root:
 make docs
 ```
 
-This will generate the HTML documentation in the `docs/build/html` directory.
+This will generate the HTML documentation in the `docs/_build/html` directory.
 
 ## Viewing the Documentation Locally
 
@@ -51,13 +53,50 @@ make docs-serve
 
 This will start a local web server at http://localhost:8000/. Open this URL in your browser to view the documentation.
 
-## Adding New Documentation
+## Deployment to Cloudflare Pages
 
-1. Create a new Markdown (`.md`) file in the appropriate directory
-2. Add the file to the table of contents in `source/index.rst` if needed
+Documentation is automatically deployed to [mcp.hanzo.ai](https://mcp.hanzo.ai) when changes are pushed to the main branch.
+
+### Cloudflare Pages Setup
+
+1. Connect your GitHub repository to Cloudflare Pages
+2. Set the build command: `./build-docs.sh`
+3. Set the build output directory: `docs/_build/html`
+4. Configure custom domain: `mcp.hanzo.ai`
+
+### Required Environment Variables
+
+Set these in your GitHub repository secrets:
+
+- `CLOUDFLARE_API_TOKEN` - Your Cloudflare API token with Pages permissions
+- `CLOUDFLARE_ACCOUNT_ID` - Your Cloudflare account ID
+
+## Writing Documentation
+
+We use Sphinx with MyST parser for Markdown support. You can write documentation in either:
+
+- `.rst` files (reStructuredText)
+- `.md` files (Markdown with MyST extensions)
+
+### Adding New Documentation
+
+1. Create a new file in the appropriate directory (`.rst` or `.md`)
+2. Add the file to the table of contents in `index.rst`
 3. Update this README.md to reference the new documentation
 4. Rebuild the documentation with `make docs`
 
-## Documentation Format
+## Theme and Styling
 
-The documentation uses Markdown with MyST extensions for easier writing. Sphinx converts these into HTML when building the documentation.
+The documentation uses a customized Sphinx RTD theme with:
+
+- Black background for Hanzo branding
+- Inter font for consistency
+- Custom CSS in `_static/custom.css`
+
+## Documentation Standards
+
+- Use clear, concise language
+- Include code examples for all tools
+- Provide both basic and advanced usage examples
+- Cross-reference related tools and concepts
+- Keep the table of contents organized and intuitive

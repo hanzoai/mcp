@@ -1,16 +1,16 @@
-"""Grep AST tool implementation.
+"""Symbols tool implementation.
 
-This module provides the GrepAstTool for searching through source code files with AST context,
-seeing matching lines with useful context showing how they fit into the code structure.
+This module provides the SymbolsTool for searching, indexing, and querying code symbols
+using tree-sitter AST parsing. It can find function definitions, class declarations,
+and other code structures with full context.
 """
 
 import os
 from pathlib import Path
 from typing import Annotated, TypedDict, Unpack, final, override
 
-from fastmcp import Context as MCPContext
-from fastmcp import FastMCP
-from fastmcp.server.dependencies import get_context
+from mcp.server.fastmcp import Context as MCPContext
+from mcp.server import FastMCP
 from grep_ast.grep_ast import TreeContext
 from pydantic import Field
 
@@ -66,8 +66,8 @@ class GrepAstToolParams(TypedDict):
 
 
 @final
-class GrepAstTool(FilesystemBaseTool):
-    """Tool for searching through source code files with AST context."""
+class SymbolsTool(FilesystemBaseTool):
+    """Tool for searching and querying code symbols using tree-sitter AST parsing."""
 
     @property
     @override
@@ -77,7 +77,7 @@ class GrepAstTool(FilesystemBaseTool):
         Returns:
             Tool name
         """
-        return "grep_ast"
+        return "symbols"
 
     @property
     @override
@@ -87,23 +87,14 @@ class GrepAstTool(FilesystemBaseTool):
         Returns:
             Tool description
         """
-        return """Search through source code files and see matching lines with useful AST (Abstract Syntax Tree) context. This tool helps you understand code structure by showing how matched lines fit into functions, classes, and other code blocks.
+        return """Code symbols search with tree-sitter AST. Actions: search (default), index, query.
 
-Unlike traditional search tools like `search_content` that only show matching lines, `grep_ast` leverages the AST to reveal the structural context around matches, making it easier to understand the code organization.
+Usage:
+symbols "function_name" ./src
+symbols --action index --path ./src
+symbols --action query --type function --path ./src
 
-When to use this tool:
-1. When you need to understand where a pattern appears within larger code structures
-2. When searching for function or class definitions that match a pattern
-3. When you want to see not just the matching line but its surrounding context in the code
-4. When exploring unfamiliar codebases and need structural context
-5. When examining how a specific pattern is used across different parts of the codebase
-
-This tool is superior to regular grep/search_content when you need to understand code structure, not just find text matches.
-
-Example usage:
-```
-grep_ast(pattern="function_name", path="/path/to/file.py", ignore_case=False, line_number=True)
-```"""
+Finds code structures (functions, classes, methods) with full context."""
 
     @override
     async def call(
@@ -233,14 +224,13 @@ grep_ast(pattern="function_name", path="/path/to/file.py", ignore_case=False, li
         tool_self = self  # Create a reference to self for use in the closure
 
         @mcp_server.tool(name=self.name, description=self.description)
-        async def grep_ast(
-            ctx: MCPContext,
+        async def symbols(
             pattern: Pattern,
             path: SearchPath,
             ignore_case: IgnoreCase,
             line_number: LineNumber,
+            ctx: MCPContext
         ) -> str:
-            ctx = get_context()
             return await tool_self.call(
                 ctx,
                 pattern=pattern,

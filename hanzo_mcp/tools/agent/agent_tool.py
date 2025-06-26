@@ -12,9 +12,8 @@ from collections.abc import Iterable
 from typing import Annotated, TypedDict, Unpack, final, override
 
 import litellm
-from fastmcp import Context as MCPContext
-from fastmcp import FastMCP
-from fastmcp.server.dependencies import get_context
+from mcp.server.fastmcp import Context as MCPContext
+from mcp.server import FastMCP
 from openai.types.chat import ChatCompletionMessageParam, ChatCompletionToolParam
 from pydantic import Field
 
@@ -535,6 +534,6 @@ AGENT RESPONSE:
         @mcp_server.tool(name=self.name, description=self.description)
         async def dispatch_agent(
             prompts: str | list[str],
+            ctx: MCPContext
         ) -> str:
-            ctx = get_context()
             return await tool_self.call(ctx, prompts=prompts)

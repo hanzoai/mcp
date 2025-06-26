@@ -725,6 +725,104 @@ class InfinityVectorStore:
         import random
         return [random.random() for _ in range(self.dimension)]
     
+    async def get_stats(self) -> Dict[str, Any]:
+        """Get statistics about the vector store.
+        
+        Returns:
+            Dictionary with statistics
+        """
+        try:
+            # Get document count
+            doc_count_result = self.documents_table.output(["count(*)"]).to_pl()
+            doc_count = doc_count_result.item(0, 0) if len(doc_count_result) > 0 else 0
+            
+            # Get unique file count
+            file_result = self.documents_table.output(["file_path"]).to_pl()
+            unique_files = set()
+            for row in file_result.iter_rows():
+                if row[0]:
+                    unique_files.add(row[0])
+            
+            # Get symbol count
+            symbol_count = 0
+            try:
+                symbol_result = self.symbols_table.output(["count(*)"]).to_pl()
+                symbol_count = symbol_result.item(0, 0) if len(symbol_result) > 0 else 0
+            except:
+                pass
+            
+            # Get AST count
+            ast_count = 0
+            try:
+                ast_result = self.ast_table.output(["count(*)"]).to_pl()
+                ast_count = ast_result.item(0, 0) if len(ast_result) > 0 else 0
+            except:
+                pass
+            
+            return {
+                "document_count": doc_count,
+                "vector_count": doc_count,  # Each document has a vector
+                "unique_files": len(unique_files),
+                "symbol_count": symbol_count,
+                "ast_count": ast_count,
+                "database_name": self.db_name,
+                "table_name": "documents",
+                "dimension": self.dimension,
+            }
+        except Exception as e:
+            return {
+                "error": str(e),
+                "document_count": 0,
+                "vector_count": 0,
+            }
+    
+    async def clear(self) -> bool:
+        """Clear all data from the vector store.
+        
+        Returns:
+            True if successful
+        """
+        try:
+            # Delete all records from all tables
+            self.documents_table.delete()
+            
+            try:
+                self.symbols_table.delete()
+            except:
+                pass
+            
+            try:
+                self.ast_table.delete()
+            except:
+                pass
+            
+            try:
+                self.references_table.delete()
+            except:
+                pass
+            
+            return True
+        except Exception as e:
+            print(f"Error clearing vector store: {e}")
+            return False
+    
+    async def index_document(
+        self,
+        content: str,
+        metadata: Dict[str, Any] = None,
+    ) -> str:
+        """Async version of add_document for consistency.
+        
+        Args:
+            content: Document content
+            metadata: Additional metadata
+            
+        Returns:
+            Document ID
+        """
+        file_path = metadata.get("path") if metadata else None
+        return self.add_document(content, metadata, file_path)
+    
     def close(self):
         """Close the database connection."""
         if hasattr(self, 'infinity'):
