@@ -6,6 +6,7 @@ from mcp.server.fastmcp import Context as MCPContext
 
 from hanzo_mcp.tools.common.base import BaseTool
 from hanzo_mcp.tools.common.palette import PaletteRegistry, register_default_palettes
+from mcp.server import FastMCP
 
 
 class PaletteTool(BaseTool):
@@ -151,6 +152,14 @@ palette --action current"""
         
         else:
             return f"Unknown action: {action}. Use 'list', 'activate', 'show', or 'current'"
+
+    def register(self, server: FastMCP) -> None:
+        """Register the tool with the MCP server."""
+        server.tool(name=self.name, description=self.description)(self.call)
+    
+    async def call(self, **kwargs) -> str:
+        """Call the tool with arguments."""
+        return await self.run(None, **kwargs)
 
 
 # Create tool instance

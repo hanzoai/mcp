@@ -189,7 +189,11 @@ def test_dev_mode():
     try:
         # Test watchdog import
         import watchdog
-        print(f"✅ Watchdog available: v{watchdog.__version__}")
+        try:
+            version = watchdog.__version__
+            print(f"✅ Watchdog available: v{version}")
+        except AttributeError:
+            print("✅ Watchdog available (version unknown)")
         
         # Test dev server availability
         from hanzo_mcp.dev_server import DevServer

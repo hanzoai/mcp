@@ -8,6 +8,7 @@ from mcp.server.fastmcp import Context as MCPContext
 
 from hanzo_mcp.tools.common.base import BaseTool
 from hanzo_mcp.tools.common.permissions import PermissionManager
+from mcp.server import FastMCP
 
 
 class DiffTool(BaseTool):
@@ -66,8 +67,10 @@ diff a.json b.json --ignore-whitespace"""
         path2 = Path(file2).expanduser().resolve()
         
         # Check permissions
-        self.permission_manager.check_permission(path1)
-        self.permission_manager.check_permission(path2)
+        if not self.permission_manager.is_path_allowed(str(path1)):
+            raise PermissionError(f"Access denied to path: {path1}")
+        if not self.permission_manager.is_path_allowed(str(path2)):
+            raise PermissionError(f"Access denied to path: {path2}")
         
         # Check if files exist
         if not path1.exists():
@@ -167,6 +170,14 @@ diff a.json b.json --ignore-whitespace"""
         output.append(f"Summary: {additions} additions, {deletions} deletions")
         
         return '\n'.join(output)
+
+    def register(self, server: FastMCP) -> None:
+        """Register the tool with the MCP server."""
+        server.tool(name=self.name, description=self.description)(self.call)
+    
+    async def call(self, **kwargs) -> str:
+        """Call the tool with arguments."""
+        return await self.run(None, **kwargs)
 
 
 # Create tool instance (requires permission manager to be set)

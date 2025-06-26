@@ -1,4 +1,4 @@
-"""Unified Bash/Shell tool for command execution."""
+"""Bash/Shell tool for command execution."""
 
 import os
 import platform
@@ -11,8 +11,8 @@ from hanzo_mcp.tools.shell.base_process import BaseScriptTool
 from mcp.server import FastMCP
 
 
-class BashUnifiedTool(BaseScriptTool):
-    """Unified tool for running shell commands."""
+class BashTool(BaseScriptTool):
+    """Tool for running shell commands."""
     
     name = "bash"
     
@@ -131,4 +131,4 @@ bash --action background "npm run dev" --cwd ./frontend"""
 
 
 # Create tool instance
-bash_tool = BashUnifiedTool()
+bash_tool = BashTool()
