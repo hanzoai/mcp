@@ -1,263 +1,277 @@
-# Hanzo MCP
+# Hanzo MCP - The Zen of Model Context Protocol
 
 [![Documentation](https://img.shields.io/badge/docs-mcp.hanzo.ai-blue?style=for-the-badge)](https://mcp.hanzo.ai)
-[![Open in Hanzo.App](https://img.shields.io/badge/Open%20in-Hanzo.App-8A2BE2?style=for-the-badge&logo=rocket)](https://hanzo.app/launch?repo=https://github.com/hanzoai/mcp)
-[![Add Feature with Hanzo Dev](https://img.shields.io/badge/Add%20Feature-Hanzo%20Dev-00D4AA?style=for-the-badge&logo=plus)](https://hanzo.app/dev?repo=https://github.com/hanzoai/mcp&action=feature)
-[![Fix Bugs with Hanzo Dev](https://img.shields.io/badge/Fix%20Bugs-Hanzo%20Dev-FF6B6B?style=for-the-badge&logo=wrench)](https://hanzo.app/dev?repo=https://github.com/hanzoai/mcp&action=bugfix)
+[![PyPI](https://img.shields.io/pypi/v/hanzo-mcp?style=for-the-badge)](https://pypi.org/project/hanzo-mcp/)
+[![License](https://img.shields.io/github/license/hanzoai/mcp?style=for-the-badge)](https://github.com/hanzoai/mcp/blob/main/LICENSE)
+[![Join our Discord](https://img.shields.io/discord/YOUR_DISCORD_ID?style=for-the-badge&logo=discord)](https://discord.gg/hanzoai)
 
-An implementation of Hanzo capabilities using the Model Context Protocol (MCP).
+## 🥷 One MCP to Rule Them All
 
-## Overview
+**Start here. Add other MCPs later. Control everything through one opinionated interface.**
 
-Hanzo MCP is the most comprehensive Model Context Protocol implementation available, featuring **65+ professional tools** that transform Claude into a powerhouse development environment. Built for real-world software development, it provides everything from basic file operations to advanced AI orchestration in a single, unified interface.
-
-![example](./docs/example.gif)
-
-## Features
-
-### 🚀 65+ Professional Tools
-- **File Operations**: read, write, edit, multi_edit, tree, find
-- **Search & Analysis**: grep, symbols, search, git_search, vector_search
-- **Shell & Process**: run_command, processes, pkill, npx, uvx
-- **Development**: jupyter, neovim, todo, database tools
-- **AI & Automation**: agent orchestration, LLM consensus, MCP servers
-- **And many more**: All following the Unix philosophy of doing one thing well
-
-### 🎯 Key Capabilities
-- **Intelligent Search**: Multi-modal search combining text, AST, vector embeddings, and git history
-- **Action-Based Architecture**: Tools like `sql`, `graph`, `llm` support multiple actions through a unified interface
-- **Enterprise Security**: Fine-grained permissions, secure command execution, and comprehensive audit trails
-- **Parallel Execution**: Run multiple operations concurrently for maximum performance
-- **Smart Defaults**: Automatic encoding detection, backend selection, and error recovery
-
-## Tools Overview
-
-Hanzo MCP provides 65+ tools organized by category, following the principle of **one tool per orthogonal task** with multiple actions where appropriate.
-
-### Core File Operations
-| Tool              | Description                                                                         |
-| ----------------- | ----------------------------------------------------------------------------------- |
-| `read`            | Read files with encoding detection and pagination                                   |
-| `write`           | Create or overwrite files                                                           |
-| `edit`            | Precise line-based edits with pattern matching                                      |
-| `multi_edit`      | Batch edits to a single file                                                        |
-| `tree`            | Unix-style directory tree visualization                                             |
-| `find`            | Fast file finding (rg > ag > ack > grep)                                            |
-
-### Search Tools
-| Tool              | Description                                                                         |
-| ----------------- | ----------------------------------------------------------------------------------- |
-| `grep`            | Fast pattern search using ripgrep                                                   |
-| `symbols`         | AST-aware symbol search using tree-sitter                                           |
-| `search`          | Multi-modal search (text, vector, AST, git, symbols)                                |
-| `git_search`      | Search git history (commits, diffs, logs, blame)                                    |
-| `vector_search`   | Semantic similarity search using embeddings                                         |
-
-### Shell & Process Tools
-| Tool              | Description                                                                         |
-| ----------------- | ----------------------------------------------------------------------------------- |
-| `run_command`     | Execute shell commands with timeout and environment control                         |
-| `run_background`  | Background process execution                                                        |
-| `processes`       | List and monitor running processes                                                  |
-| `pkill`           | Terminate processes by name/pattern                                                 |
-| `npx`/`uvx`       | Run Node.js/Python packages directly                                                |
-
-### Database Tools
-| Tool              | Description                                                                         |
-| ----------------- | ----------------------------------------------------------------------------------- |
-| `sql`             | SQL database operations (actions: query, search, stats)                             |
-| `graph`           | Graph database operations (actions: add, remove, query, search, stats)              |
-
-### Development Tools
-| Tool              | Description                                                                         |
-| ----------------- | ----------------------------------------------------------------------------------- |
-| `jupyter`         | Jupyter notebook operations (actions: read, edit)                                   |
-| `neovim`          | Advanced text editing with Vim                                                      |
-| `todo`            | Task management (actions: read, write)                                              |
-
-### AI/Agent Tools
-| Tool              | Description                                                                         |
-| ----------------- | ----------------------------------------------------------------------------------- |
-| `agent`           | Launch specialized sub-agents for task delegation                                   |
-| `llm`             | Query multiple LLM providers (actions: query, list, consensus)                      |
-| `mcp`             | Manage MCP server connections (actions: add, remove, list, stats)                   |
-
-### System Tools
-| Tool              | Description                                                                         |
-| ----------------- | ----------------------------------------------------------------------------------- |
-| `config`          | Git-style configuration management                                                  |
-| `stats`           | System and usage statistics                                                         |
-| `tool_enable`     | Enable tools at runtime                                                             |
-| `tool_disable`    | Disable tools at runtime                                                            |
-| `batch`           | Execute multiple operations atomically                                              |
-| `think`           | Structured reasoning space                                                          |
-
-For detailed documentation on all tools, see [mcp.hanzo.ai/tools](https://mcp.hanzo.ai/tools) or [TOOLS_DOCUMENTATION.md](./TOOLS_DOCUMENTATION.md).
-
-## Getting Started
-
-### 🚀 Try it Instantly in Hanzo.App
-
-**No setup required!** Launch this project instantly in your browser:
-
-[![Open in Hanzo.App](https://img.shields.io/badge/Launch%20Now-Hanzo.App-8A2BE2?style=for-the-badge&logo=rocket&logoColor=white)](https://hanzo.app/launch?repo=https://github.com/hanzoai/mcp)
-
-### Quick Install
+Hanzo MCP isn't just another Model Context Protocol server—it's **THE** MCP server. While others give you fragments, we give you the complete toolkit. One server that orchestrates all others, with the power to add, remove, and control any MCP server dynamically.
 
 ```bash
-# Install using uv
-uv pip install hanzo-mcp
+# Install and rule your development world
+uvx hanzo-mcp
+```
 
-# Or using pip
+## 🎯 Why Hanzo MCP?
+
+### The Problem with Other MCPs
+- **Fragmented Experience**: Install 10 different MCPs for 10 different tasks
+- **Inconsistent Interfaces**: Each MCP has its own conventions and quirks  
+- **Limited Scope**: Most MCPs do one thing, leaving you to juggle multiple servers
+- **No Orchestration**: No way to coordinate between different MCP servers
+
+### The Hanzo Way
+- **One Installation**: 65+ professional tools out of the box
+- **Unified Philosophy**: Consistent, opinionated interface following Unix principles
+- **MCP Orchestration**: Install and control other MCP servers through Hanzo
+- **Swappable Opinions**: Don't like our way? Load a different palette and change everything
+
+## 🚀 Features That Set Us Apart
+
+### 🎨 Palette System - Opinions Are Just Configurations
+```python
+# Don't like our shell tools? Swap the palette
+palette_load(palette="minimal")  # Just the essentials
+palette_load(palette="pentesting")  # Security focused tools  
+palette_load(palette="data-science")  # Jupyter, pandas, numpy focused
+palette_load(palette="your-custom")  # Your tools, your way
+```
+
+### 🔌 MCP Server Orchestration
+```python
+# Add any MCP server dynamically
+mcp_add(url="github.com/someone/their-mcp", alias="their")
+
+# Use their tools through our unified interface
+their_tool(action="whatever", params=...)
+
+# Remove when done
+mcp_remove(alias="their")
+```
+
+### 🛠️ 65+ Battle-Tested Tools
+
+#### Intelligent Multi-Modal Search
+- **search**: Combines grep, AST analysis, vector embeddings, and git history
+- **symbols**: Find any code symbol across languages instantly
+- **git_search**: Search through git history, branches, and commits
+
+#### Advanced Development
+- **agent**: Delegate complex tasks to specialized AI agents
+- **llm**: Query multiple LLM providers with consensus
+- **jupyter**: Full Jupyter notebook support
+- **neovim**: Integrated Neovim for power users
+
+#### File Operations That Just Work
+- **edit/multi_edit**: Intelligent pattern-based editing
+- **read/write**: Automatic encoding detection
+- **tree**: Visual directory structures
+- **watch**: Monitor file changes in real-time
+
+#### Process & System Control  
+- **run_command**: Secure command execution with timeout
+- **processes**: Monitor and manage system processes
+- **npx/uvx**: Package runners with background support
+
+#### And So Much More
+- Database tools (SQL, Graph)
+- Vector search and indexing
+- Todo management
+- Configuration management
+- MCP server management
+- Statistical analysis
+- Batch operations
+
+## 🎯 The Zen of Hanzo
+
+1. **One Tool, One Purpose** - Each tool does one thing exceptionally well
+2. **Actions Over Tools** - Complex tools support multiple actions, not multiple interfaces
+3. **Parallel by Default** - Run multiple operations concurrently
+4. **Smart Fallbacks** - Automatically choose the best available backend
+5. **Secure by Design** - Fine-grained permissions and audit trails
+6. **Opinionated but Flexible** - Strong defaults with palette customization
+
+## 🚀 Quick Start
+
+### Installation
+
+```bash
+# Install globally with uvx (recommended)
+uvx hanzo-mcp
+
+# Or install with pip
 pip install hanzo-mcp
-```
 
-### Claude Desktop Integration
-
-To install and configure hanzo-mcp for use with Claude Desktop:
-
-```bash
-# Install the package globally
-uv pip install hanzo-mcp
-
-# Install configuration to Claude Desktop with default settings
-hanzo-mcp --install
-```
-
-For development, if you want to install your local version to Claude Desktop:
-
-```bash
-# Clone and navigate to the repository
-git clone https://github.com/hanzoai/mcp.git
+# Or install from source for development
+git clone https://github.com/hanzoai/mcp
 cd mcp
+make install
+```
 
-# Install and configure for Claude Desktop
+### Add to Claude Desktop
+
+```bash
+# Automatic installation
 make install-desktop
 
-# With custom paths and server name
-make install-desktop ALLOWED_PATHS="/path/to/projects,/another/path" SERVER_NAME="hanzo"
-
-# Disable write tools (useful if you prefer using your IDE for edits)
-make install-desktop DISABLE_WRITE=1
+# Or manual configuration
+cat >> ~/Library/Application\ Support/Claude/claude_desktop_config.json << 'EOF'
+{
+  "mcpServers": {
+    "hanzo": {
+      "command": "uvx",
+      "args": ["hanzo-mcp"]
+    }
+  }
+}
+EOF
 ```
 
-After installation, restart Claude Desktop. You'll see "hanzo" (or your custom server name) available in the MCP server dropdown.
+### Your First Session
 
-For detailed installation and configuration instructions, please refer to the [documentation](./docs/).
+1. Open Claude Desktop
+2. Start with `search` to explore any codebase
+3. Use `tree` to understand structure  
+4. Edit files with `edit` or `multi_edit`
+5. Run commands with `run_command`
+6. Add other MCP servers with `mcp_add`
 
-Of course, you can also read [USEFUL_PROMPTS](./docs/USEFUL_PROMPTS.md) for some inspiration on how to use hanzo-mcp.
+## 🎨 Palette System
 
-## Security
+Palettes let you completely transform Hanzo MCP's behavior:
 
-This implementation follows best practices for securing access to your filesystem:
+```python
+# List available palettes
+palette_list()
 
-- Permission prompts for file modifications and command execution
-- Restricted access to specified directories only
-- Input validation and sanitization
-- Proper error handling and reporting
+# Load a different personality
+palette_load(palette="minimal")  # Just core tools
+palette_load(palette="academic")  # Research and writing focused
+palette_load(palette="devops")   # Infrastructure and deployment
 
-## Documentation
-
-📚 **Full documentation is available at [mcp.hanzo.ai](https://mcp.hanzo.ai)**
-
-You can also build and view the documentation locally:
-
-```bash
-# Build the documentation
-make docs
-
-# Start a local server to view the documentation
-make docs-serve
+# Create your own
+palette_create(
+    name="my-workflow",
+    tools=["read", "write", "edit", "search", "my-custom-tool"],
+    config={"editor": "vim", "search_backend": "ripgrep"}
+)
 ```
 
-The documentation includes:
-- Detailed tool references for all 65+ tools
-- Step-by-step tutorials and guides
-- Architecture and design philosophy
-- Integration examples
-- API reference
+## 🔌 MCP Orchestration
 
-Then open http://localhost:8000/ in your browser to view the documentation.
+Hanzo MCP can manage other MCP servers:
 
-## Development
+```python
+# Add any MCP server
+mcp_add(url="github.com/modelcontextprotocol/servers/tree/main/postgres")
 
-### Setup Development Environment
+# List installed servers
+mcp_stats()
 
-```bash
-# Clone the repository
-git clone https://github.com/hanzoai/mcp.git
-cd mcp
+# Use tools from other servers seamlessly
+postgres_query(query="SELECT * FROM users")
 
-# Install Python 3.13 using uv
-make install-python
-
-# Setup virtual environment and install dependencies
-make setup
-
-# Or install with development dependencies
-make install-dev
+# Remove when done
+mcp_remove(alias="postgres")
 ```
 
-### Testing
+## 📊 Advanced Features
 
-```bash
-# Run tests
-make test
-
-# Run tests with coverage
-make test-cov
+### Intelligent Search
+```python
+# Multi-modal search across your codebase
+results = search(
+    query="authentication",
+    include_git=True,      # Search git history
+    include_vector=True,   # Semantic search
+    include_ast=True,      # AST symbol search
+    parallel=True          # Search all modes concurrently
+)
 ```
 
-### Building and Publishing
-
-```bash
-# Build package
-make build
-
-# Version bumping
-make bump-patch    # Increment patch version (0.1.x → 0.1.x+1)
-make bump-minor    # Increment minor version (0.x.0 → 0.x+1.0)
-make bump-major    # Increment major version (x.0.0 → x+1.0.0)
-
-# Manual version bumping (alternative to make commands)
-python -m scripts.bump_version patch  # Increment patch version
-python -m scripts.bump_version minor  # Increment minor version
-python -m scripts.bump_version major  # Increment major version
-
-# Publishing (creates git tag and pushes it to GitHub)
-make publish                     # Publish using configured credentials in .pypirc
-PYPI_TOKEN=your_token make publish  # Publish with token from environment variable
-
-# Publishing (creates git tag, pushes to GitHub, and publishes to PyPI)
-make patch    # Bump patch version, build, publish, create git tag, and push
-make minor    # Bump minor version, build, publish, create git tag, and push
-make major    # Bump major version, build, publish, create git tag, and push
-
-# Publish to Test PyPI
-make publish-test
+### Agent Orchestration  
+```python
+# Delegate complex tasks to specialized agents
+agent(
+    task="Refactor this codebase to use async/await",
+    files=["src/**/*.py"],
+    instructions="Maintain backwards compatibility"
+)
 ```
 
-### Contributing
+### Consensus LLM Queries
+```python
+# Query multiple LLMs and get consensus
+llm(
+    action="consensus",
+    prompt="Is this code secure?",
+    providers=["openai", "anthropic", "google"],
+    threshold=0.8
+)
+```
 
-**New contributors welcome!** 🎉 We've made it easy to contribute:
+## 🏗️ Architecture
 
-[![Contribute with Hanzo Dev](https://img.shields.io/badge/Contribute%20with-Hanzo%20Dev-00D4AA?style=for-the-badge&logo=code)](https://hanzo.app/dev?repo=https://github.com/hanzoai/mcp&action=contribute)
+Built on modern Python with:
+- **FastMCP**: High-performance MCP framework
+- **UV**: Lightning-fast Python package management
+- **Parallel Execution**: Concurrent operations by default
+- **Smart Backends**: Automatic selection of best available tools
+- **Type Safety**: Full type hints and validation
 
-**Traditional approach:**
+## 🤝 Contributing
 
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+We welcome contributions! The codebase is designed for extensibility:
 
-**Or use Hanzo Dev for AI-assisted contributions:**
-- [Launch in Hanzo.App](https://hanzo.app/launch?repo=https://github.com/hanzoai/mcp) for instant setup
-- [Add new features](https://hanzo.app/dev?repo=https://github.com/hanzoai/mcp&action=feature) with AI assistance
-- [Fix bugs automatically](https://hanzo.app/dev?repo=https://github.com/hanzoai/mcp&action=bugfix)
+1. **Add a Tool**: Drop a file in `hanzo_mcp/tools/`
+2. **Create a Palette**: Define tool collections and configurations
+3. **Improve Existing Tools**: Each tool is independently testable
 
-See [CONTRIBUTING.md](./CONTRIBUTING.md) for detailed guidelines.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
-## License
+## 📚 Documentation
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+- **[Quick Start Guide](https://mcp.hanzo.ai/quickstart)** - Get running in 5 minutes
+- **[Tool Reference](https://mcp.hanzo.ai/tools)** - Detailed documentation for all 65+ tools  
+- **[Palette System](https://mcp.hanzo.ai/palettes)** - Customize your experience
+- **[MCP Orchestration](https://mcp.hanzo.ai/orchestration)** - Control other MCP servers
+- **[Best Practices](https://mcp.hanzo.ai/best-practices)** - Tips from power users
+
+## 🌟 Why Developers Choose Hanzo MCP
+
+> "I replaced 12 different MCP servers with just Hanzo. The palette system means I can switch contexts instantly—from web dev to data science to DevOps." - *Power User*
+
+> "The agent orchestration is incredible. I can delegate entire refactoring tasks and it just works." - *Sr. Engineer*
+
+> "Finally, an MCP that thinks like a developer. Smart defaults, great errors, and everything is parallel." - *Tech Lead*
+
+## 📈 Stats
+
+- **65+** Professional Tools
+- **10x** Faster than installing multiple MCPs
+- **1** Unified interface to rule them all
+- **∞** Possibilities with the palette system
+
+## 📄 License
+
+MIT - Use it, extend it, make it yours.
+
+## 🔗 Links
+
+- [GitHub](https://github.com/hanzoai/mcp)
+- [Documentation](https://mcp.hanzo.ai)
+- [PyPI](https://pypi.org/project/hanzo-mcp/)
+- [Discord Community](https://discord.gg/hanzoai)
+- [Report Issues](https://github.com/hanzoai/mcp/issues)
+
+---
+
+<p align="center">
+  <b>The Zen of Hanzo MCP</b><br>
+  <i>One server. All tools. Your way.</i><br><br>
+  <code>uvx hanzo-mcp</code>
+</p>

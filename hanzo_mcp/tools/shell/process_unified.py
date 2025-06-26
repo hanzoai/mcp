@@ -1,4 +1,4 @@
-"""Unified process management tool."""
+"""Process management tool."""
 
 import signal
 from typing import Optional, override
@@ -7,10 +7,11 @@ from mcp.server.fastmcp import Context as MCPContext
 
 from hanzo_mcp.tools.common.base import BaseTool
 from hanzo_mcp.tools.shell.base_process import ProcessManager
+from mcp.server import FastMCP
 
 
-class ProcessUnifiedTool(BaseTool):
-    """Unified tool for process management."""
+class ProcessTool(BaseTool):
+    """Tool for process management."""
     
     name = "process"
     
@@ -117,6 +118,14 @@ process --action logs --id bash_ghi789 --lines 50"""
         else:
             return f"Unknown action: {action}. Use 'list', 'kill', or 'logs'"
 
+    def register(self, server: FastMCP) -> None:
+        """Register the tool with the MCP server."""
+        server.tool(name=self.name, description=self.description)(self.call)
+    
+    async def call(self, **kwargs) -> str:
+        """Call the tool with arguments."""
+        return await self.run(None, **kwargs)
+
 
 # Create tool instance
-process_tool = ProcessUnifiedTool()
+process_tool = ProcessTool()

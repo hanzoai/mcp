@@ -101,94 +101,128 @@ python_palette = ToolPalette(
 # Ruby palette - Yukihiro Matsumoto (Matz) style
 ruby_palette = ToolPalette(
     name="ruby",
-    description="Ruby development tools for programmer happiness",
+    description="Ruby development tools for programmer happiness by Yukihiro Matsumoto",
     author="Yukihiro Matsumoto",
     tools=[
         # Core tools
         "bash", "read", "write", "edit", "grep", "tree", "find",
         # Ruby specific
         "process",
-        # Ruby tooling
-        "rubocop",   # Linting
-        "rspec",     # Testing
-        "bundler",   # Dependency management
-        "rake",      # Task automation
-        "pry",       # REPL and debugging
-        "yard",      # Documentation
-        "rails",     # Web framework
+        # Ruby tooling - optimized for happiness
+        "ruby",          # Ruby interpreter
+        "gem",           # Package manager
+        "bundler",       # Dependency management
+        "rake",          # Task automation
+        "irb",           # Interactive Ruby
+        "pry",           # Enhanced REPL and debugging
+        "rubocop",       # Style guide enforcement
+        "rspec",         # Behavior-driven testing
+        "minitest",      # Lightweight testing
+        "yard",          # Documentation generator
+        "rails",         # Web application framework
+        "sinatra",       # Lightweight web framework
+        "sidekiq",       # Background processing
+        "capistrano",    # Deployment automation
     ],
     environment={
         "RUBYOPT": "-W:deprecated",
+        "BUNDLE_JOBS": "4",
+        "BUNDLE_RETRY": "3",
     }
 )
 
 # JavaScript/Node palette - Brendan Eich / Ryan Dahl style
 javascript_palette = ToolPalette(
     name="javascript",
-    description="JavaScript/Node.js development tools",
+    description="JavaScript/Node.js development tools by Brendan Eich / Ryan Dahl",
     author="Brendan Eich / Ryan Dahl",
     tools=[
         # Core tools
         "bash", "read", "write", "edit", "grep", "tree", "find",
         # JavaScript specific
         "npx", "process",
-        # JS tooling via npx
-        "prettier",      # Code formatting
-        "eslint",        # Linting
-        "jest",          # Testing
-        "webpack",       # Bundling
-        "vite",          # Fast dev server
-        "typescript",    # TypeScript compiler
+        # Package managers
+        "npm", "yarn", "pnpm", "bun",
+        # Core tooling via npx
+        "node",              # Node.js runtime
+        "prettier",          # Code formatting
+        "eslint",            # Linting and static analysis
+        "typescript",        # TypeScript compiler
+        "jest",              # Testing framework
+        "vitest",            # Fast testing with Vite
+        "playwright",        # End-to-end testing
+        # Build tools
+        "webpack",           # Module bundler
+        "vite",              # Fast dev server and bundler
+        "rollup",            # Module bundler
+        "esbuild",           # Fast bundler
+        # Frameworks and scaffolding
         "create-react-app",  # React scaffolding
-        "next",          # Next.js
+        "create-next-app",   # Next.js scaffolding
+        "nuxt",              # Vue.js framework
+        "svelte",            # Component framework
     ],
     environment={
         "NODE_ENV": "development",
+        "NPM_CONFIG_PROGRESS": "false",
+        "FORCE_COLOR": "1",
     }
 )
 
 # Go palette - Rob Pike / Ken Thompson style
 go_palette = ToolPalette(
     name="go",
-    description="Go development tools emphasizing simplicity",
+    description="Go development tools emphasizing simplicity by Rob Pike / Ken Thompson",
     author="Rob Pike / Ken Thompson",
     tools=[
         # Core tools
         "bash", "read", "write", "edit", "grep", "tree", "find",
         # Go specific
         "process",
-        # Go tooling
-        "gofmt",     # Code formatting
-        "golint",    # Linting
-        "go",        # Compiler and tools
-        "godoc",     # Documentation
-        "delve",     # Debugger
+        # Go tooling - emphasizing simplicity
+        "go",            # Compiler and standard tools (go build, go test, go mod)
+        "gofmt",         # Code formatting
+        "goimports",     # Import management
+        "golangci-lint", # Modern linting (replaces golint)
+        "godoc",         # Documentation
+        "delve",         # Debugger (dlv)
+        "go-outline",    # Code outline
+        "guru",          # Code analysis
+        "goreleaser",    # Release automation
     ],
     environment={
         "GO111MODULE": "on",
         "GOPROXY": "https://proxy.golang.org,direct",
+        "GOSUMDB": "sum.golang.org",
+        "CGO_ENABLED": "0",  # Rob Pike prefers pure Go when possible
     }
 )
 
-# Rust palette - Graydon Hoare style
+# Rust palette - Graydon Hoare style  
 rust_palette = ToolPalette(
     name="rust",
-    description="Rust development tools for systems programming",
+    description="Rust development tools for systems programming by Graydon Hoare",
     author="Graydon Hoare",
     tools=[
         # Core tools
         "bash", "read", "write", "edit", "grep", "tree", "find",
         # Rust specific
         "process",
-        # Rust tooling
-        "cargo",     # Build system and package manager
-        "rustfmt",   # Code formatting
-        "clippy",    # Linting
-        "rustdoc",   # Documentation
-        "rust-analyzer",  # Language server
+        # Rust tooling - all via cargo/rustup
+        "cargo",         # Build system and package manager
+        "rustfmt",       # Code formatting (cargo fmt)
+        "clippy",        # Linting (cargo clippy)
+        "rustdoc",       # Documentation (cargo doc)
+        "rust-analyzer", # Language server
+        "miri",          # Interpreter for unsafe code checking
+        "rustup",        # Rust toolchain manager
+        "sccache",       # Shared compilation cache
+        "wasm-pack",     # WebAssembly workflow
     ],
     environment={
         "RUST_BACKTRACE": "1",
+        "RUSTFLAGS": "-D warnings",
+        "CARGO_INCREMENTAL": "1",
     }
 )
 
@@ -239,6 +273,59 @@ minimal_palette = ToolPalette(
     ]
 )
 
+# C/C++ palette - Dennis Ritchie / Bjarne Stroustrup style
+cpp_palette = ToolPalette(
+    name="cpp",
+    description="C/C++ development tools for systems programming by Dennis Ritchie / Bjarne Stroustrup",
+    author="Dennis Ritchie / Bjarne Stroustrup",
+    tools=[
+        # Core tools
+        "bash", "read", "write", "edit", "grep", "tree", "find",
+        # C/C++ specific
+        "process",
+        # Compilers and build systems
+        "gcc", "clang", "g++", "clang++",
+        "make", "cmake", "ninja",
+        # Debugging and analysis
+        "gdb", "lldb", "valgrind",
+        "clang-format", "clang-tidy",
+        # Package management
+        "conan", "vcpkg",
+        # Documentation
+        "doxygen",
+    ],
+    environment={
+        "CC": "clang",
+        "CXX": "clang++",
+        "CFLAGS": "-Wall -Wextra",
+        "CXXFLAGS": "-Wall -Wextra -std=c++20",
+    }
+)
+
+# Data Science palette - Scientific computing
+datascience_palette = ToolPalette(
+    name="datascience",
+    description="Data science and machine learning tools",
+    author="Scientific Computing Community",
+    tools=[
+        # Core tools
+        "bash", "read", "write", "edit", "grep", "tree", "find",
+        # Python for data science
+        "uvx", "process", "jupyter",
+        # Data science tooling via uvx/pip
+        "pandas", "numpy", "scipy", "matplotlib", "seaborn",
+        "scikit-learn", "tensorflow", "pytorch",
+        "plotly", "bokeh", "streamlit",
+        "dvc", "mlflow", "wandb",
+        "black", "isort", "mypy",
+    ],
+    environment={
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "PYTHONUNBUFFERED": "1",
+        "JUPYTER_ENABLE_LAB": "yes",
+    }
+)
+
 # Register all pre-defined palettes
 def register_default_palettes():
     """Register all default tool palettes."""
@@ -248,6 +335,8 @@ def register_default_palettes():
         javascript_palette,
         go_palette,
         rust_palette,
+        cpp_palette,
+        datascience_palette,
         devops_palette,
         fullstack_palette,
         minimal_palette,

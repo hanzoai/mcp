@@ -229,6 +229,20 @@ Usage:
             await tool_ctx.error(f"Error reading file: {str(e)}")
             return f"Error: {str(e)}"
 
+    async def run(self, ctx: MCPContext, file_path: str, offset: int = 0, limit: int = 2000) -> str:
+        """Run method for backwards compatibility with test scripts.
+        
+        Args:
+            ctx: MCP context
+            file_path: Path to file to read
+            offset: Line offset to start reading
+            limit: Maximum lines to read
+            
+        Returns:
+            File contents
+        """
+        return await self.call(ctx, file_path=file_path, offset=offset, limit=limit)
+
     @override
     def register(self, mcp_server: FastMCP) -> None:
         """Register this tool with the MCP server.

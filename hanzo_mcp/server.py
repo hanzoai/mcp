@@ -6,7 +6,11 @@ import threading
 import time
 from typing import Literal, cast, final
 
-from mcp.server import FastMCP
+try:
+    from fastmcp import FastMCP
+except ImportError:
+    # Fallback for older MCP versions
+    from mcp.server import FastMCP
 
 from hanzo_mcp.prompts import register_all_prompts
 from hanzo_mcp.tools import register_all_tools

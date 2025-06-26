@@ -1,4 +1,4 @@
-"""Unified UVX tool for both sync and background execution."""
+"""UVX tool for both sync and background execution."""
 
 from pathlib import Path
 from typing import Optional, override
@@ -6,10 +6,11 @@ from typing import Optional, override
 from mcp.server.fastmcp import Context as MCPContext
 
 from hanzo_mcp.tools.shell.base_process import BaseBinaryTool
+from mcp.server import FastMCP
 
 
-class UvxUnifiedTool(BaseBinaryTool):
-    """Unified tool for running uvx commands."""
+class UvxTool(BaseBinaryTool):
+    """Tool for running uvx commands."""
     
     name = "uvx"
     
@@ -87,6 +88,14 @@ uvx --action background jupyter lab --port 8888"""
                 timeout=300  # 5 minute timeout for uvx
             )
 
+    def register(self, server: FastMCP) -> None:
+        """Register the tool with the MCP server."""
+        server.tool(name=self.name, description=self.description)(self.call)
+    
+    async def call(self, **kwargs) -> str:
+        """Call the tool with arguments."""
+        return await self.run(None, **kwargs)
+
 
 # Create tool instance
-uvx_tool = UvxUnifiedTool()
+uvx_tool = UvxTool()
