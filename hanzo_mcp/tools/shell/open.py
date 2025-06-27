@@ -20,11 +20,18 @@ class OpenTool(BaseTool):
     
     def register(self, server: FastMCP) -> None:
         """Register the tool with the MCP server."""
-        server.tool(name=self.name, description=self.description)(self.call)
+        tool_self = self
+        
+        @server.tool(name=self.name, description=self.description)
+        async def open(
+            ctx: MCPContext,
+            path: str
+        ) -> str:
+            return await tool_self.run(ctx, path)
     
-    async def call(self, **kwargs) -> str:
+    async def call(self, ctx: MCPContext, **params) -> str:
         """Call the tool with arguments."""
-        return await self.run(None, **kwargs)
+        return await self.run(ctx, params["path"])
 
     @property
     @override

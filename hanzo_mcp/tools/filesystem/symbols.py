@@ -225,11 +225,11 @@ Finds code structures (functions, classes, methods) with full context."""
 
         @mcp_server.tool(name=self.name, description=self.description)
         async def symbols(
+            ctx: MCPContext,
             pattern: Pattern,
             path: SearchPath,
-            ignore_case: IgnoreCase,
-            line_number: LineNumber,
-            ctx: MCPContext
+            ignore_case: IgnoreCase = False,
+            line_number: LineNumber = False
         ) -> str:
             return await tool_self.call(
                 ctx,

@@ -257,10 +257,10 @@ Usage:
 
         @mcp_server.tool(name=self.name, description=self.description)
         async def read(
+            ctx: MCPContext,
             file_path: FilePath,
-            offset: Offset,
-            limit: Limit,
-            ctx: MCPContext
+            offset: Offset = 0,
+            limit: Limit = 2000
         ) -> str:
             return await tool_self.call(
                 ctx, file_path=file_path, offset=offset, limit=limit

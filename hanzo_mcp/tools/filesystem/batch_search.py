@@ -84,7 +84,7 @@ class BatchSearchResults:
         }
 
 
-Queries = Annotated[List[Dict[str, Any]], Field(description="List of search queries with types", min_items=1)]
+Queries = Annotated[List[Dict[str, Any]], Field(description="List of search queries with types", min_length=1)]
 SearchPath = Annotated[str, Field(description="Path to search in", default=".")]
 Include = Annotated[str, Field(description="File pattern to include", default="*")]
 MaxResults = Annotated[int, Field(description="Maximum results per query", default=20)]
@@ -784,29 +784,25 @@ Perfect for comprehensive code analysis and refactoring tasks."""
     
     @override
     def register(self, mcp_server: FastMCP) -> None:
-        """Register the unified search tool with the MCP server."""
+        """Register the batch search tool with the MCP server."""
         tool_self = self
         
         @mcp_server.tool(name=self.name, description=self.description)
-        async def unified_search(
+        async def batch_search(
             ctx: MCPContext,
-            pattern: Pattern,
+            queries: Queries,
             path: SearchPath = ".",
             include: Include = "*",
             max_results: MaxResults = 20,
-            enable_vector: EnableVector = True,
-            enable_ast: EnableAST = True,  
-            enable_symbol: EnableSymbol = True,
             include_context: IncludeContext = True,
+            combine_results: CombineResults = True
         ) -> str:
             return await tool_self.call(
                 ctx,
-                pattern=pattern,
+                queries=queries,
                 path=path,
                 include=include,
                 max_results=max_results,
-                enable_vector=enable_vector,
-                enable_ast=enable_ast,
-                enable_symbol=enable_symbol,
                 include_context=include_context,
+                combine_results=combine_results
             )

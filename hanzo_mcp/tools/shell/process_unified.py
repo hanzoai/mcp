@@ -120,11 +120,33 @@ process --action logs --id bash_ghi789 --lines 50"""
 
     def register(self, server: FastMCP) -> None:
         """Register the tool with the MCP server."""
-        server.tool(name=self.name, description=self.description)(self.call)
+        tool_self = self
+        
+        @server.tool(name=self.name, description=self.description)
+        async def process(
+            ctx: MCPContext,
+            action: str = "list",
+            id: Optional[str] = None,
+            signal_type: str = "TERM",
+            lines: int = 100,
+        ) -> str:
+            return await tool_self.run(
+                ctx,
+                action=action,
+                id=id,
+                signal_type=signal_type,
+                lines=lines
+            )
     
-    async def call(self, **kwargs) -> str:
+    async def call(self, ctx: MCPContext, **params) -> str:
         """Call the tool with arguments."""
-        return await self.run(None, **kwargs)
+        return await self.run(
+            ctx,
+            action=params.get("action", "list"),
+            id=params.get("id"),
+            signal_type=params.get("signal_type", "TERM"),
+            lines=params.get("lines", 100)
+        )
 
 
 # Create tool instance

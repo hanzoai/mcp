@@ -262,11 +262,11 @@ Usage:
 
         @mcp_server.tool(name=self.name, description=self.description)
         async def edit(
+            ctx: MCPContext,
             file_path: FilePath,
             old_string: OldString,
             new_string: NewString,
-            expected_replacements: ExpectedReplacements,
-            ctx: MCPContext
+            expected_replacements: ExpectedReplacements = 1
         ) -> str:
             return await tool_self.call(
                 ctx,

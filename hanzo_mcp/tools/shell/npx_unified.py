@@ -90,11 +90,36 @@ npx --action background json-server db.json"""
 
     def register(self, server: FastMCP) -> None:
         """Register the tool with the MCP server."""
-        server.tool(name=self.name, description=self.description)(self.call)
+        tool_self = self
+        
+        @server.tool(name=self.name, description=self.description)
+        async def npx(
+            ctx: MCPContext,
+            package: str,
+            args: str = "",
+            action: str = "run",
+            cwd: Optional[str] = None,
+            yes: bool = True,
+        ) -> str:
+            return await tool_self.run(
+                ctx,
+                package=package,
+                args=args,
+                action=action,
+                cwd=cwd,
+                yes=yes
+            )
     
-    async def call(self, **kwargs) -> str:
+    async def call(self, ctx: MCPContext, **params) -> str:
         """Call the tool with arguments."""
-        return await self.run(None, **kwargs)
+        return await self.run(
+            ctx,
+            package=params["package"],
+            args=params.get("args", ""),
+            action=params.get("action", "run"),
+            cwd=params.get("cwd"),
+            yes=params.get("yes", True)
+        )
 
 
 # Create tool instance
