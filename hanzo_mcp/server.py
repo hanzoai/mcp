@@ -4,7 +4,16 @@ import atexit
 import signal
 import threading
 import time
+import warnings
 from typing import Literal, cast, final
+
+# Suppress deprecation warnings from litellm about Pydantic v1 style configs
+warnings.filterwarnings(
+    "ignore", 
+    category=DeprecationWarning,
+    message=".*class-based `config`.*",
+    module="pydantic.*"
+)
 
 try:
     from fastmcp import FastMCP
