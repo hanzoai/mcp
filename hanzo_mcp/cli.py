@@ -5,8 +5,17 @@ import json
 import os
 import signal
 import sys
+import warnings
 from pathlib import Path
 from typing import Any, cast
+
+# Suppress deprecation warnings from litellm about Pydantic v1 style configs
+warnings.filterwarnings(
+    "ignore", 
+    category=DeprecationWarning,
+    message=".*class-based `config`.*",
+    module="pydantic.*"
+)
 
 from hanzo_mcp.server import HanzoMCPServer
 
