@@ -47,6 +47,7 @@ DO NOT Commit LLM.md
 - Tool Flexibility: Use tools as means to an end rather than following prescribed tool sequences
 - Learning Integration: Continuously incorporate what you learn about the project into your approach
 - Structured Reasoning: Use the `think` tool before and after tool calls to improve multi-step operations, process tool outputs effectively, and verify actions against project policies
+- Dependency Management: When updating dependencies, ensure all deps are up to date. NEVER downgrade dependencies without asking the user first. For upgrades that have serious repercussions or breaking changes, always ask the user before making version changes. Only update dependencies when explicitly requested or when fixing security vulnerabilities.
 </best_practice>
 
 <tools>

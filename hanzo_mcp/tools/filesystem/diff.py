@@ -173,11 +173,40 @@ diff a.json b.json --ignore-whitespace"""
 
     def register(self, server: FastMCP) -> None:
         """Register the tool with the MCP server."""
-        server.tool(name=self.name, description=self.description)(self.call)
+        tool_self = self
+        
+        @server.tool(name=self.name, description=self.description)
+        async def diff_handler(
+            ctx: MCPContext,
+            file1: str,
+            file2: str,
+            unified: bool = True,
+            context: int = 3,
+            ignore_whitespace: bool = False,
+            show_line_numbers: bool = True,
+        ) -> str:
+            """Handle diff tool calls."""
+            return await tool_self.run(
+                ctx,
+                file1=file1,
+                file2=file2,
+                unified=unified,
+                context=context,
+                ignore_whitespace=ignore_whitespace,
+                show_line_numbers=show_line_numbers,
+            )
     
-    async def call(self, **kwargs) -> str:
+    async def call(self, ctx: MCPContext, **params) -> str:
         """Call the tool with arguments."""
-        return await self.run(None, **kwargs)
+        return await self.run(
+            ctx,
+            file1=params["file1"],
+            file2=params["file2"],
+            unified=params.get("unified", True),
+            context=params.get("context", 3),
+            ignore_whitespace=params.get("ignore_whitespace", False),
+            show_line_numbers=params.get("show_line_numbers", True)
+        )
 
 
 # Create tool instance (requires permission manager to be set)

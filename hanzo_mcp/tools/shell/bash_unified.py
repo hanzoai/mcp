@@ -18,11 +18,36 @@ class BashTool(BaseScriptTool):
     
     def register(self, server: FastMCP) -> None:
         """Register the tool with the MCP server."""
-        server.tool(name=self.name, description=self.description)(self.call)
+        tool_self = self
+        
+        @server.tool(name=self.name, description=self.description)
+        async def bash(
+            ctx: MCPContext,
+            command: str,
+            action: str = "run",
+            cwd: Optional[str] = None,
+            env: Optional[dict[str, str]] = None,
+            timeout: Optional[int] = None,
+        ) -> str:
+            return await tool_self.run(
+                ctx,
+                command=command,
+                action=action,
+                cwd=cwd,
+                env=env,
+                timeout=timeout
+            )
     
-    async def call(self, **kwargs) -> str:
+    async def call(self, ctx: MCPContext, **params) -> str:
         """Call the tool with arguments."""
-        return await self.run(None, **kwargs)
+        return await self.run(
+            ctx,
+            command=params["command"],
+            action=params.get("action", "run"),
+            cwd=params.get("cwd"),
+            env=params.get("env"),
+            timeout=params.get("timeout")
+        )
     
     @property
     @override

@@ -155,11 +155,24 @@ palette --action current"""
 
     def register(self, server: FastMCP) -> None:
         """Register the tool with the MCP server."""
-        server.tool(name=self.name, description=self.description)(self.call)
+        tool_self = self
+        
+        @server.tool(name=self.name, description=self.description)
+        async def palette_handler(
+            ctx: MCPContext,
+            action: str = "list",
+            name: Optional[str] = None,
+        ) -> str:
+            """Handle palette tool calls."""
+            return await tool_self.run(ctx, action=action, name=name)
     
-    async def call(self, **kwargs) -> str:
+    async def call(self, ctx: MCPContext, **params) -> str:
         """Call the tool with arguments."""
-        return await self.run(None, **kwargs)
+        return await self.run(
+            ctx,
+            action=params.get("action", "list"),
+            name=params.get("name")
+        )
 
 
 # Create tool instance

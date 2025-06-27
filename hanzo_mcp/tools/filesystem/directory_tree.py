@@ -298,10 +298,10 @@ requested. Only works within allowed directories."""
 
         @mcp_server.tool(name=self.name, description=self.description)
         async def directory_tree(
+            ctx: MCPContext,
             path: DirectoryPath,
-            depth: Depth,
-            include_filtered: IncludeFiltered,
-            ctx: MCPContext
+            depth: Depth = 3,
+            include_filtered: IncludeFiltered = False
         ) -> str:
             return await tool_self.call(
                 ctx, path=path, depth=depth, include_filtered=include_filtered

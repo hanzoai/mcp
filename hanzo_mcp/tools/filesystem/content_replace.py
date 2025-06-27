@@ -275,12 +275,12 @@ Only works within allowed directories."""
 
         @mcp_server.tool(name=self.name, description=self.description)
         async def content_replace(
+            ctx: MCPContext,
             pattern: Pattern,
             replacement: Replacement,
             path: SearchPath,
-            file_pattern: FilePattern,
-            dry_run: DryRun,
-            ctx: MCPContext
+            file_pattern: FilePattern = "*",
+            dry_run: DryRun = False
         ) -> str:
             return await tool_self.call(
                 ctx,

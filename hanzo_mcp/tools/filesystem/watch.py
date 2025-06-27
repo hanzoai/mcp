@@ -20,11 +20,38 @@ class WatchTool(BaseTool):
     
     def register(self, server: FastMCP) -> None:
         """Register the tool with the MCP server."""
-        server.tool(name=self.name, description=self.description)(self.call)
+        
+        @server.tool(name=self.name, description=self.description)
+        async def watch_handler(
+            path: str,
+            pattern: str = "*",
+            interval: int = 1,
+            recursive: bool = True,
+            exclude: str = "",
+            duration: int = 30,
+        ) -> str:
+            """Handle watch tool calls."""
+            return await self.run(
+                None,
+                path=path,
+                pattern=pattern,
+                interval=interval,
+                recursive=recursive,
+                exclude=exclude,
+                duration=duration,
+            )
     
-    async def call(self, **kwargs) -> str:
+    async def call(self, ctx: MCPContext, **params) -> str:
         """Call the tool with arguments."""
-        return await self.run(None, **kwargs)
+        return await self.run(
+            ctx,
+            path=params["path"],
+            pattern=params.get("pattern", "*"),
+            interval=params.get("interval", 1),
+            recursive=params.get("recursive", True),
+            exclude=params.get("exclude", ""),
+            duration=params.get("duration", 30)
+        )
 
     @property
     @override
