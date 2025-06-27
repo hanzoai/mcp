@@ -150,8 +150,11 @@ class HanzoMCPServer:
 
         # Register signal handlers for graceful shutdown
         def signal_handler(signum, frame):
+            import sys
+            print("\nShutting down gracefully...")
             self._cleanup_sessions()
             self._shutdown_event.set()
+            sys.exit(0)
 
         signal.signal(signal.SIGTERM, signal_handler)
         signal.signal(signal.SIGINT, signal_handler)

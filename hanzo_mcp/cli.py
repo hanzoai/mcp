@@ -3,6 +3,7 @@
 import argparse
 import json
 import os
+import signal
 import sys
 from pathlib import Path
 from typing import Any, cast
@@ -12,6 +13,14 @@ from hanzo_mcp.server import HanzoMCPServer
 
 def main() -> None:
     """Run the CLI for the Hanzo MCP server."""
+    # Set up signal handler to ensure clean exit
+    def signal_handler(signum, frame):
+        print("\nReceived interrupt signal, shutting down...")
+        sys.exit(0)
+    
+    signal.signal(signal.SIGINT, signal_handler)
+    signal.signal(signal.SIGTERM, signal_handler)
+    
     parser = argparse.ArgumentParser(
         description="MCP server implementing Hanzo AI capabilities"
     )
@@ -249,8 +258,16 @@ def main() -> None:
         host=host,
         port=port,
     )
-    # Transport will be automatically cast to Literal['stdio', 'sse'] by the server
-    server.run(transport=transport)
+    
+    try:
+        # Transport will be automatically cast to Literal['stdio', 'sse'] by the server
+        server.run(transport=transport)
+    except KeyboardInterrupt:
+        print("\nShutting down...")
+        sys.exit(0)
+    except Exception as e:
+        print(f"Server error: {e}", file=sys.stderr)
+        sys.exit(1)
 
 
 def install_claude_desktop_config(
