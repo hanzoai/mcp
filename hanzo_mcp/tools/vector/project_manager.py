@@ -294,7 +294,9 @@ class ProjectVectorManager:
             project_name = project_names[i]
             if isinstance(result, Exception):
                 # Log error but continue
-                print(f"Error searching project {project_name}: {result}")
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.error(f"Error searching project {project_name}: {result}")
                 combined_results[project_name] = []
             else:
                 combined_results[project_name] = result

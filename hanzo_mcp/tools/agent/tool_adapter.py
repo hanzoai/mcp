@@ -7,7 +7,12 @@ and outputs for agent execution.
 
 from openai.types import FunctionParameters
 from openai.types.chat import ChatCompletionToolParam
-import litellm
+
+# Import litellm with warnings suppressed
+import warnings
+with warnings.catch_warnings():
+    warnings.simplefilter("ignore", DeprecationWarning)
+    import litellm
 
 from hanzo_mcp.tools.common.base import BaseTool
 

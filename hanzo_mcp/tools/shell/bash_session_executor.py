@@ -5,6 +5,7 @@ implementation with the new BashSession-based approach for better persistent exe
 """
 
 import asyncio
+import logging
 import os
 import shlex
 import subprocess
@@ -64,16 +65,18 @@ class BashSessionExecutor:
         if data is not None:
             try:
                 import json
-
+                logger = logging.getLogger(__name__)
                 if isinstance(data, (dict, list)):
                     data_str = json.dumps(data)
                 else:
                     data_str = str(data)
-                print(f"DEBUG: {message}: {data_str}")
+                logger.debug(f"{message}: {data_str}")
             except Exception:
-                print(f"DEBUG: {message}: {data}")
+                logger = logging.getLogger(__name__)
+                logger.debug(f"{message}: {data}")
         else:
-            print(f"DEBUG: {message}")
+            logger = logging.getLogger(__name__)
+            logger.debug(f"{message}")
 
     def allow_command(self, command: str) -> None:
         """Allow a specific command that might otherwise be excluded.

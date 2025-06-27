@@ -12,7 +12,11 @@ import uuid
 from typing import Annotated, TypedDict, Unpack, final, override, Optional, Dict, Any, List
 from collections.abc import Iterable
 
-import litellm
+# Import litellm with warnings suppressed
+import warnings
+with warnings.catch_warnings():
+    warnings.simplefilter("ignore", DeprecationWarning)
+    import litellm
 from mcp.server.fastmcp import Context as MCPContext
 from openai.types.chat import ChatCompletionMessageParam, ChatCompletionToolParam
 from pydantic import Field

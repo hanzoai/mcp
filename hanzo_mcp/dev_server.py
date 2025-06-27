@@ -1,6 +1,7 @@
 """Development server with hot reload for Hanzo MCP."""
 
 import asyncio
+import logging
 import os
 import sys
 import time
@@ -67,8 +68,9 @@ class MCPReloadHandler(FileSystemEventHandler):
         
         self.last_reload = current_time
         
-        print(f"\n🔄 File changed: {event.src_path}")
-        print("🔄 Reloading MCP server...")
+        logger = logging.getLogger(__name__)
+        logger.info(f"\n🔄 File changed: {event.src_path}")
+        logger.info("🔄 Reloading MCP server...")
         
         self.restart_callback()
 
@@ -133,9 +135,10 @@ class DevServer:
                 self.observer.schedule(handler, path, recursive=True)
         
         self.observer.start()
-        print(f"👀 Watching for changes in: {package_dir}")
+        logger = logging.getLogger(__name__)
+        logger.info(f"👀 Watching for changes in: {package_dir}")
         if self.project_dir:
-            print(f"👀 Also watching: {self.project_dir}")
+            logger.info(f"👀 Also watching: {self.project_dir}")
     
     def stop_file_watcher(self):
         """Stop the file watcher."""
@@ -146,18 +149,20 @@ class DevServer:
     def restart_server(self):
         """Restart the MCP server."""
         # Since MCP servers run in the same process, we need to handle this differently
-        # For now, we'll print a message indicating a restart is needed
-        print("\n⚠️  Server restart required. Please restart the MCP client to reload changes.")
-        print("💡 Tip: In development, consider using the MCP test client for easier reloading.")
+        # For now, we'll log a message indicating a restart is needed
+        logger = logging.getLogger(__name__)
+        logger.warning("\n⚠️  Server restart required. Please restart the MCP client to reload changes.")
+        logger.info("💡 Tip: In development, consider using the MCP test client for easier reloading.")
     
     async def run_async(self, transport: str = "stdio"):
         """Run the development server asynchronously."""
         self.running = True
         
-        print(f"\n🚀 Starting Hanzo MCP in development mode...")
-        print(f"🔧 Hot reload enabled - watching for file changes")
-        print(f"📁 Project: {self.project_dir or 'current directory'}")
-        print(f"🌐 Transport: {transport}\n")
+        logger = logging.getLogger(__name__)
+        logger.info(f"\n🚀 Starting Hanzo MCP in development mode...")
+        logger.info(f"🔧 Hot reload enabled - watching for file changes")
+        logger.info(f"📁 Project: {self.project_dir or 'current directory'}")
+        logger.info(f"🌐 Transport: {transport}\n")
         
         # Start file watcher
         self.start_file_watcher()
@@ -170,11 +175,11 @@ class DevServer:
             server.run(transport=transport)
             
         except KeyboardInterrupt:
-            print("\n\n🛑 Shutting down development server...")
+            logger.info("\n\n🛑 Shutting down development server...")
         finally:
             self.running = False
             self.stop_file_watcher()
-            print("👋 Development server stopped")
+            logger.info("👋 Development server stopped")
     
     def run(self, transport: str = "stdio"):
         """Run the development server."""

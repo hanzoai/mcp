@@ -1,19 +1,14 @@
 """MCP server implementing Hanzo capabilities."""
 
 import atexit
+import logging
 import signal
 import threading
 import time
 import warnings
 from typing import Literal, cast, final
 
-# Suppress deprecation warnings from litellm about Pydantic v1 style configs
-warnings.filterwarnings(
-    "ignore", 
-    category=DeprecationWarning,
-    message=".*class-based `config`.*",
-    module="pydantic.*"
-)
+# No need for warning suppression here as it's handled in the imports
 
 try:
     from fastmcp import FastMCP
@@ -160,7 +155,10 @@ class HanzoMCPServer:
         # Register signal handlers for graceful shutdown
         def signal_handler(signum, frame):
             import sys
-            print("\nShutting down gracefully...")
+            # Only log if not stdio transport
+            if hasattr(self, '_transport') and self._transport != 'stdio':
+                logger = logging.getLogger(__name__)
+                logger.info("\nShutting down gracefully...")
             self._cleanup_sessions()
             self._shutdown_event.set()
             sys.exit(0)
@@ -195,7 +193,10 @@ class HanzoMCPServer:
         try:
             cleared_count = SessionStorage.clear_all_sessions()
             if cleared_count > 0:
-                print(f"Cleaned up {cleared_count} tmux sessions on shutdown")
+                # Only log if not stdio transport
+                if hasattr(self, '_transport') and self._transport != 'stdio':
+                    logger = logging.getLogger(__name__)
+                    logger.info(f"Cleaned up {cleared_count} tmux sessions on shutdown")
         except Exception:
             # Ignore cleanup errors during shutdown
             pass
@@ -207,6 +208,9 @@ class HanzoMCPServer:
             transport: The transport to use (stdio or sse)
             allowed_paths: list of paths that the server is allowed to access
         """
+        # Store transport for later use
+        self._transport = transport
+        
         # Add allowed paths if provided
         allowed_paths_list = allowed_paths or []
         for path in allowed_paths_list:

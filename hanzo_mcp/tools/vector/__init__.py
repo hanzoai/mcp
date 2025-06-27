@@ -62,7 +62,9 @@ try:
             # Auto-detect projects from search paths for new manager
             if search_paths:
                 detected_projects = project_manager.detect_projects(search_paths)
-                print(f"Detected {len(detected_projects)} projects with LLM.md files")
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.info(f"Detected {len(detected_projects)} projects with LLM.md files")
         
         # Register individual tools if enabled
         if tool_enabled.get("index", True):
@@ -85,7 +87,9 @@ except ImportError:
     
     def register_vector_tools(*args, **kwargs) -> list[BaseTool]:
         """Vector tools not available - missing dependencies."""
-        print("Warning: Vector tools not available. Install infinity-embedded: pip install infinity-embedded")
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.warning("Vector tools not available. Install infinity-embedded: pip install infinity-embedded")
         return []
 
 

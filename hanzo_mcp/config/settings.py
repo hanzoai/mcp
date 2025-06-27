@@ -364,7 +364,9 @@ def load_settings(
                 global_config = json.load(f)
                 settings = _merge_config(settings, global_config)
         except Exception as e:
-            print(f"Warning: Failed to load global config: {e}")
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.warning(f"Failed to load global config: {e}")
     
     # Load project config
     project_config_path = get_project_config_path(project_dir)
@@ -374,7 +376,9 @@ def load_settings(
                 project_config = json.load(f)
                 settings = _merge_config(settings, project_config)
         except Exception as e:
-            print(f"Warning: Failed to load project config: {e}")
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.warning(f"Failed to load project config: {e}")
     
     # Apply CLI overrides
     if config_overrides:
