@@ -16,6 +16,8 @@ Hanzo MCP isn't just another Model Context Protocol server—it's **THE** MCP se
 uvx hanzo-mcp
 ```
 
+> **Note on Deprecation Warnings**: If you see Pydantic deprecation warnings, clear your uvx cache with `rm -rf ~/.cache/uv/` and run again. This is due to litellm using old Pydantic v1 config style in cached environments.
+
 ## 🎯 Why Hanzo MCP?
 
 ### The Problem with Other MCPs

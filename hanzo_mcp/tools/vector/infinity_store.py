@@ -528,7 +528,9 @@ class InfinityVectorStore:
             return file_ast
             
         except Exception as e:
-            print(f"Error searching AST nodes: {e}")
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Error searching AST nodes: {e}")
             return None
     
     def get_file_references(self, file_path: str) -> List[Dict[str, Any]]:
@@ -555,7 +557,9 @@ class InfinityVectorStore:
             return references
             
         except Exception as e:
-            print(f"Error getting file references: {e}")
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Error getting file references: {e}")
             return []
     
     def search(
@@ -803,7 +807,9 @@ class InfinityVectorStore:
             
             return True
         except Exception as e:
-            print(f"Error clearing vector store: {e}")
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Error clearing vector store: {e}")
             return False
     
     async def index_document(

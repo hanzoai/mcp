@@ -94,7 +94,9 @@ class ASTAnalyzer:
                 # Python parser
                 self.parsers['python'] = tree_sitter.Language(tspython.language())
             except Exception as e:
-                print(f"Warning: Could not initialize Python parser: {e}")
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.warning(f"Could not initialize Python parser: {e}")
     
     def analyze_file(self, file_path: str) -> Optional[FileAST]:
         """Analyze a file and extract AST information and symbols.
@@ -127,7 +129,9 @@ class ASTAnalyzer:
                 return self._analyze_generic_file(file_path, content, file_hash, language)
                 
         except Exception as e:
-            print(f"Error analyzing file {file_path}: {e}")
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Error analyzing file {file_path}: {e}")
             return None
     
     def _detect_language(self, path: Path) -> Optional[str]:
@@ -194,9 +198,13 @@ class ASTAnalyzer:
                 ast_nodes = self._extract_tree_sitter_nodes(ts_tree.root_node, content)
             
         except SyntaxError as e:
-            print(f"Syntax error in {file_path}: {e}")
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Syntax error in {file_path}: {e}")
         except Exception as e:
-            print(f"Error parsing Python file {file_path}: {e}")
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Error parsing Python file {file_path}: {e}")
         
         return FileAST(
             file_path=file_path,

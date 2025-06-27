@@ -183,16 +183,18 @@ class CommandExecutor:
         if data is not None:
             try:
                 import json
-
+                logger = logging.getLogger(__name__)
                 if isinstance(data, (dict, list)):
                     data_str = json.dumps(data)
                 else:
                     data_str = str(data)
-                print(f"DEBUG: {message}: {data_str}", file=sys.stderr)
+                logger.debug(f"{message}: {data_str}")
             except Exception:
-                print(f"DEBUG: {message}: {data}", file=sys.stderr)
+                logger = logging.getLogger(__name__)
+                logger.debug(f"{message}: {data}")
         else:
-            print(f"DEBUG: {message}", file=sys.stderr)
+            logger = logging.getLogger(__name__)
+            logger.debug(f"{message}")
 
     def is_command_allowed(self, command: str) -> bool:
         """Check if a command is allowed based on exclusion lists.

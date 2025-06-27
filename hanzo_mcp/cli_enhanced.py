@@ -2,6 +2,7 @@
 
 import argparse
 import json
+import logging
 import os
 import sys
 from pathlib import Path
@@ -344,8 +345,9 @@ def apply_cli_overrides(args: argparse.Namespace) -> Dict[str, Any]:
 
 def list_tools(settings: HanzoMCPSettings) -> None:
     """List all tools and their current status."""
-    print("Hanzo MCP Tools Status:")
-    print("=" * 50)
+    logger = logging.getLogger(__name__)
+    logger.info("Hanzo MCP Tools Status:")
+    logger.info("=" * 50)
     
     categories = {}
     for tool_name, tool_config in TOOL_REGISTRY.items():
@@ -358,14 +360,14 @@ def list_tools(settings: HanzoMCPSettings) -> None:
         categories[category].append((tool_name, status, tool_config.description))
     
     for category, tools in categories.items():
-        print(f"\n{category.upper()} TOOLS:")
-        print("-" * 30)
+        logger.info(f"\n{category.upper()} TOOLS:")
+        logger.info("-" * 30)
         for tool_name, status, description in tools:
-            print(f"  {status} {tool_name:<15} - {description}")
+            logger.info(f"  {status} {tool_name:<15} - {description}")
     
-    print(f"\nTotal: {len(TOOL_REGISTRY)} tools")
+    logger.info(f"\nTotal: {len(TOOL_REGISTRY)} tools")
     enabled_count = len(settings.get_enabled_tools())
-    print(f"Enabled: {enabled_count}, Disabled: {len(TOOL_REGISTRY) - enabled_count}")
+    logger.info(f"Enabled: {enabled_count}, Disabled: {len(TOOL_REGISTRY) - enabled_count}")
 
 
 def main() -> None:
@@ -385,14 +387,15 @@ def main() -> None:
     settings = load_settings(project_dir=project_dir, config_overrides=config_overrides)
 
     # Handle configuration saving
+    logger = logging.getLogger(__name__)
     if hasattr(args, 'save_config') and args.save_config:
         saved_path = save_settings(settings, global_config=True)
-        print(f"Configuration saved to: {saved_path}")
+        logger.info(f"Configuration saved to: {saved_path}")
         return
     
     if hasattr(args, 'save_project_config') and args.save_project_config:
         saved_path = save_settings(settings, global_config=False)
-        print(f"Project configuration saved to: {saved_path}")
+        logger.info(f"Project configuration saved to: {saved_path}")
         return
 
     # Handle installation

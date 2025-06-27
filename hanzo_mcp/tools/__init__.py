@@ -124,7 +124,9 @@ def register_all_tools(
             )
             # Auto-detect projects from search paths
             detected_projects = project_manager.detect_projects(search_paths)
-            print(f"Detected {len(detected_projects)} projects with LLM.md files")
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.info(f"Detected {len(detected_projects)} projects with LLM.md files")
     
     filesystem_tools = register_filesystem_tools(
         mcp_server, 

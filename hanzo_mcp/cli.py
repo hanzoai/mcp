@@ -2,33 +2,45 @@
 
 import argparse
 import json
+import logging
 import os
 import signal
 import sys
-import warnings
 from pathlib import Path
 from typing import Any, cast
-
-# Suppress deprecation warnings from litellm about Pydantic v1 style configs
-warnings.filterwarnings(
-    "ignore", 
-    category=DeprecationWarning,
-    message=".*class-based `config`.*",
-    module="pydantic.*"
-)
 
 from hanzo_mcp.server import HanzoMCPServer
 
 
 def main() -> None:
     """Run the CLI for the Hanzo MCP server."""
-    # Set up signal handler to ensure clean exit
-    def signal_handler(signum, frame):
-        print("\nReceived interrupt signal, shutting down...")
-        sys.exit(0)
     
-    signal.signal(signal.SIGINT, signal_handler)
-    signal.signal(signal.SIGTERM, signal_handler)
+    # Pre-parse arguments to check transport type early
+    import sys
+    early_parser = argparse.ArgumentParser(add_help=False)
+    early_parser.add_argument("--transport", choices=["stdio", "sse"], default="stdio")
+    early_args, _ = early_parser.parse_known_args()
+    
+    # Configure logging VERY early based on transport
+    if early_args.transport == "stdio":
+        # Set environment variable for server to detect stdio mode
+        import os
+        os.environ["HANZO_MCP_TRANSPORT"] = "stdio"
+        
+        # For stdio transport, disable ALL logging immediately
+        from fastmcp.utilities.logging import configure_logging
+        # Set to ERROR to suppress INFO/WARNING messages from FastMCP
+        configure_logging(level="ERROR")
+        
+        # Also configure standard logging to ERROR level
+        logging.basicConfig(
+            level=logging.ERROR,  # Only show errors
+            handlers=[]  # No handlers for stdio to prevent protocol corruption
+        )
+        
+        # Redirect stderr to devnull for stdio transport to prevent any output
+        import sys
+        sys.stderr = open(os.devnull, 'w')
     
     parser = argparse.ArgumentParser(
         description="MCP server implementing Hanzo AI capabilities"
@@ -221,6 +233,32 @@ def main() -> None:
         )
         return
 
+    # Get logger
+    logger = logging.getLogger(__name__)
+    
+    # Set up signal handler to ensure clean exit
+    def signal_handler(signum, frame):
+        if transport != "stdio":
+            logger.info("\nReceived interrupt signal, shutting down...")
+        sys.exit(0)
+    
+    signal.signal(signal.SIGINT, signal_handler)
+    signal.signal(signal.SIGTERM, signal_handler)
+    
+    # Configure logging based on transport (stdio already configured early)
+    if transport != "stdio":
+        # For SSE transport, logging is fine
+        log_level_map = {
+            "DEBUG": logging.DEBUG,
+            "INFO": logging.INFO,
+            "WARNING": logging.WARNING,
+            "ERROR": logging.ERROR
+        }
+        logging.basicConfig(
+            level=log_level_map.get(log_level, logging.INFO),
+            format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+        )
+
     # If no allowed paths are specified, use the current directory
     if not allowed_paths:
         allowed_paths = [os.getcwd()]
@@ -272,10 +310,11 @@ def main() -> None:
         # Transport will be automatically cast to Literal['stdio', 'sse'] by the server
         server.run(transport=transport)
     except KeyboardInterrupt:
-        print("\nShutting down...")
+        if transport != "stdio":
+            logger.info("\nShutting down...")
         sys.exit(0)
     except Exception as e:
-        print(f"Server error: {e}", file=sys.stderr)
+        logger.error(f"Server error: {e}")
         sys.exit(1)
 
 
@@ -351,27 +390,29 @@ def install_claude_desktop_config(
             existing_config["mcpServers"][name] = config["mcpServers"][name]
             config = existing_config
         except Exception as e:
-            print(f"Error reading existing config: {e}")
-            print("Creating new config file.")
+            logger = logging.getLogger(__name__)
+            logger.error(f"Error reading existing config: {e}")
+            logger.info("Creating new config file.")
 
     # Write the config file
     with open(config_file, mode="w") as f:
         json.dump(config, f, indent=2)
 
-    print(f"Successfully installed {name} in Claude Desktop configuration.")
-    print(f"Config file: {config_file}")
+    logger = logging.getLogger(__name__)
+    logger.info(f"Successfully installed {name} in Claude Desktop configuration.")
+    logger.info(f"Config file: {config_file}")
 
     if allowed_paths:
-        print("\nAllowed paths:")
+        logger.info("\nAllowed paths:")
         for path in allowed_paths:
-            print(f"- {path}")
+            logger.info(f"- {path}")
     else:
-        print(f"\nDefault allowed path: {home}")
+        logger.info(f"\nDefault allowed path: {home}")
 
-    print(
+    logger.info(
         "\nYou can modify allowed paths in the config file directly."
     )
-    print("Restart Claude Desktop for changes to take effect.")
+    logger.info("Restart Claude Desktop for changes to take effect.")
 
 
 if __name__ == "__main__":
