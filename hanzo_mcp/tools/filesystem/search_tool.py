@@ -1,4 +1,4 @@
-"""Unified search tool that runs multiple search types in parallel.
+"""Search tool that runs multiple search types in parallel.
 
 This tool consolidates all search capabilities and runs them concurrently:
 - grep: Fast pattern/regex search using ripgrep
@@ -41,7 +41,7 @@ class SearchType(Enum):
 
 @dataclass
 class SearchResult:
-    """Unified search result from any search type."""
+    """Search result from any search type."""
     file_path: str
     line_number: Optional[int]
     content: str
@@ -133,7 +133,7 @@ IncludeContext = Annotated[
 
 
 class UnifiedSearchParams(TypedDict):
-    """Parameters for unified search."""
+    """Parameters for search."""
     pattern: Pattern
     path: SearchPath
     include: Include
@@ -147,12 +147,12 @@ class UnifiedSearchParams(TypedDict):
 
 
 @final
-class UnifiedSearchTool(FilesystemBaseTool):
-    """Unified search tool that runs multiple search types in parallel."""
+class SearchTool(FilesystemBaseTool):
+    """Search tool that runs multiple search types in parallel."""
     
     def __init__(self, permission_manager: PermissionManager, 
                  project_manager: Optional[ProjectVectorManager] = None):
-        """Initialize the unified search tool.
+        """Initialize the search tool.
         
         Args:
             permission_manager: Permission manager for access control
@@ -175,13 +175,13 @@ class UnifiedSearchTool(FilesystemBaseTool):
     @override
     def name(self) -> str:
         """Get the tool name."""
-        return "unified_search"
+        return "search"
     
     @property
     @override
     def description(self) -> str:
         """Get the tool description."""
-        return """Unified search that runs multiple search strategies in parallel.
+        return """Search that runs multiple search strategies in parallel.
 
 Automatically runs the most appropriate search types based on your pattern:
 - Pattern matching (grep) for exact text/regex
@@ -527,7 +527,7 @@ This is the recommended search tool for comprehensive results."""
         ctx: MCPContext,
         **params: Unpack[UnifiedSearchParams],
     ) -> str:
-        """Execute unified search across all enabled search types."""
+        """Execute search across all enabled search types."""
         import time
         start_time = time.time()
         
@@ -559,7 +559,7 @@ This is the recommended search tool for comprehensive results."""
         # Analyze pattern to determine best search strategies
         pattern_analysis = self._analyze_pattern(pattern)
         
-        await tool_ctx.info(f"Starting unified search for '{pattern}' in {path}")
+        await tool_ctx.info(f"Starting search for '{pattern}' in {path}")
         
         # Build list of search tasks based on enabled types and pattern analysis
         search_tasks = []
@@ -679,11 +679,11 @@ This is the recommended search tool for comprehensive results."""
     
     @override
     def register(self, mcp_server: FastMCP) -> None:
-        """Register the unified search tool with the MCP server."""
+        """Register the search tool with the MCP server."""
         tool_self = self
         
         @mcp_server.tool(name=self.name, description=self.description)
-        async def unified_search(
+        async def search(
             ctx: MCPContext,
             pattern: Pattern,
             path: SearchPath = ".",

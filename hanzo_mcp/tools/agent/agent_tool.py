@@ -1,4 +1,4 @@
-"""Agent tool implementation for Hanzo MCP.
+"""Agent tool implementation for Hanzo AI.
 
 This module implements the AgentTool that allows Claude to delegate tasks to sub-agents,
 enabling concurrent execution of multiple operations and specialized processing.
@@ -75,7 +75,7 @@ class AgentTool(BaseTool):
         Returns:
             Tool name
         """
-        return "dispatch_agent"
+        return "agent"
 
     @property
     @override

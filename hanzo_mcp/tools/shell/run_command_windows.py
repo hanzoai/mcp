@@ -123,7 +123,7 @@ Important notes:
 git commit -m \"$(cat <<'EOF'
    Commit message here.
 
-   🤖 Generated with [Hanzo MCP](https://github.com/SDGLBL/hanzo-mcp)
+   🤖 Generated with [Hanzo AI](https://github.com/SDGLBL/hanzo-mcp)
 
    EOF
    )\"

@@ -130,7 +130,8 @@ class BaseProcessTool(BaseTool):
         """
         # Check permissions if manager is available
         if self.permission_manager and cwd:
-            self.permission_manager.check_permission(cwd)
+            if not self.permission_manager.is_path_allowed(str(cwd)):
+                raise PermissionError(f"Access denied to path: {cwd}")
         
         # Get command arguments
         cmd_args = self.get_command_args(command, **kwargs)
@@ -179,7 +180,8 @@ class BaseProcessTool(BaseTool):
         """
         # Check permissions if manager is available
         if self.permission_manager and cwd:
-            self.permission_manager.check_permission(cwd)
+            if not self.permission_manager.is_path_allowed(str(cwd)):
+                raise PermissionError(f"Access denied to path: {cwd}")
         
         # Generate process ID and log file
         process_id = f"{self.get_tool_name()}_{uuid.uuid4().hex[:8]}"

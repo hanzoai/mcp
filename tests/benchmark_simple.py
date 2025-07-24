@@ -1,4 +1,4 @@
-"""Simplified benchmark script for testing unified search on this project."""
+"""Simplified benchmark script for testing search on this project."""
 
 import asyncio
 import time
@@ -10,7 +10,7 @@ import sys
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from hanzo_mcp.tools.common.permissions import PermissionManager
-from hanzo_mcp.tools.filesystem.unified_search import UnifiedSearchTool
+from hanzo_mcp.tools.filesystem.search_tool import SearchTool
 from hanzo_mcp.tools.filesystem.grep import Grep
 from hanzo_mcp.tools.filesystem.symbols import SymbolsTool
 from hanzo_mcp.tools.vector.ast_analyzer import ASTAnalyzer
@@ -77,7 +77,7 @@ async def simple_benchmark():
     print("-" * 30)
     
     # Initialize tools (without vector search for simplicity)
-    unified_tool = UnifiedSearchTool(permission_manager, None)
+    unified_tool = SearchTool(permission_manager, None)
     grep_tool = Grep(permission_manager)
     ast_tool = SymbolsTool(permission_manager)
     
@@ -88,7 +88,7 @@ async def simple_benchmark():
     
     # Test queries
     queries = [
-        "UnifiedSearchTool",
+        "SearchTool",
         "def.*search",
         "error.handling", 
         "import.*typing",
@@ -131,7 +131,7 @@ async def simple_benchmark():
         except Exception as e:
             print(f"  AST: FAILED - {e}")
         
-        # Test unified search (without vector)
+        # Test search (without vector)
         start_time = time.time()
         try:
             unified_result = await unified_tool.call(

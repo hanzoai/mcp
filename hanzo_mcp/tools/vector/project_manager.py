@@ -1,4 +1,4 @@
-"""Project-aware vector database management for Hanzo MCP."""
+"""Project-aware vector database management for Hanzo AI."""
 
 import os
 from pathlib import Path

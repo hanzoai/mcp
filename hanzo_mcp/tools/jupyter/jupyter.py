@@ -81,7 +81,7 @@ class NotebookParams(TypedDict, total=False):
 
 @final
 class JupyterTool(JupyterBaseTool):
-    """Unified tool for Jupyter notebook operations."""
+    """Tool for Jupyter notebook operations."""
 
     @property
     @override

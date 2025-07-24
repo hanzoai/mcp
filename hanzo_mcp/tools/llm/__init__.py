@@ -1,6 +1,6 @@
-"""LLM tools for Hanzo MCP."""
+"""LLM tools for Hanzo AI."""
 
-from hanzo_mcp.tools.llm.llm_unified import UnifiedLLMTool
+from hanzo_mcp.tools.llm.llm_tool import LLMTool
 
 # Legacy imports for backwards compatibility
 from hanzo_mcp.tools.llm.llm_tool import LLMTool
@@ -17,7 +17,7 @@ from hanzo_mcp.tools.llm.provider_tools import (
 )
 
 __all__ = [
-    "UnifiedLLMTool",
+    "LLMTool",
     "LLMTool",
     "ConsensusTool",
     "LLMManageTool",

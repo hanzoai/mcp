@@ -1,4 +1,4 @@
-"""Tests for new tools added to Hanzo MCP."""
+"""Tests for new tools added to Hanzo AI."""
 
 import pytest
 import tempfile

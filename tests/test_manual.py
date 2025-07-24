@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Manual test script for Hanzo MCP functionality."""
+"""Manual test script for Hanzo AI functionality."""
 
 import asyncio
 import os
@@ -8,7 +8,7 @@ from pathlib import Path
 
 from hanzo_mcp.server import HanzoMCPServer
 from hanzo_mcp.tools.common.palette import PaletteRegistry
-from hanzo_mcp.tools.shell.bash_unified import bash_tool
+from hanzo_mcp.tools.shell.bash_tool import bash_tool
 from hanzo_mcp.tools.filesystem.read import ReadTool
 from hanzo_mcp.tools.filesystem.diff import create_diff_tool
 from hanzo_mcp.tools.common.permissions import PermissionManager
@@ -16,7 +16,7 @@ from hanzo_mcp.tools.common.permissions import PermissionManager
 
 async def test_basic_functionality():
     """Test basic MCP functionality."""
-    print("🧪 Testing Hanzo MCP Basic Functionality\n")
+    print("🧪 Testing Hanzo AI Basic Functionality\n")
     
     # Create a temporary directory for testing
     with tempfile.TemporaryDirectory() as temp_dir:
@@ -54,7 +54,7 @@ async def test_basic_functionality():
             print(f"✅ Shell detected: {interpreter} (tool: {tool_name})")
             
             # Test simple command
-            result = await bash_tool.execute_sync("echo 'Hello from Hanzo MCP!'", timeout=5)
+            result = await bash_tool.execute_sync("echo 'Hello from Hanzo AI!'", timeout=5)
             print(f"✅ Command result: {result.strip()}")
         except Exception as e:
             print(f"❌ Shell test failed: {e}")
@@ -165,7 +165,7 @@ def test_dev_mode():
 
 def main():
     """Run all manual tests."""
-    print("🚀 Hanzo MCP Manual Test Suite")
+    print("🚀 Hanzo AI Manual Test Suite")
     print("=" * 50)
     print()
     

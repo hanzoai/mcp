@@ -1,4 +1,4 @@
-"""Parameter validation utilities for Hanzo MCP tools.
+"""Parameter validation utilities for Hanzo AI tools.
 
 This module provides utilities for validating parameters in tool functions.
 """

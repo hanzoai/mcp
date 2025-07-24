@@ -1,7 +1,28 @@
-# MCP Project Architecture
+# Hanzo AI Architecture
 
 ## Project Overview
-Hanzo MCP (Machine Comprehension Platform) is a framework that provides tools for AI assistants to interact with the local file system, run commands, and perform various operations in a secure and controlled manner. It's designed to be used with LLMs (Large Language Models) to extend their capabilities beyond just text generation.
+Hanzo AI is a comprehensive development platform that provides tools for AI assistants to interact with the local file system, run commands, and perform various operations in a secure and controlled manner. It's designed to be used with LLMs (Large Language Models) to extend their capabilities beyond just text generation.
+
+## Recent Major Updates
+
+### Modern AI Features (v0.6.x)
+1. **Auto-install for uvx**: Tools now automatically install uvx if missing, improving user experience
+2. **Critic Tool**: New tool for code review and quality enforcement
+3. **Agent Tool Renamed**: `dispatch_agent` is now simply `agent`
+4. **Consensus Tool Enabled**: Multi-LLM consensus now enabled by default
+5. **Rules Tool**: Reads project preferences from .cursor and .claude config files
+6. **Unified Todo Tool**: Single `todo` tool replaces separate read/write tools
+7. **Enhanced Symbols Tool**: Now includes `grep_ast` functionality as an action
+8. **Comprehensive Search**: The `search` tool runs all search types in parallel automatically
+
+## Desktop Extension (DXT) Support
+The project supports packaging as a Desktop Extension (.dxt) file for easy one-click installation in Claude Desktop. The DXT packaging includes:
+- `dxt/manifest.json`: Extension metadata and tool definitions
+- `dxt/icon.png`: macOS-style rounded corner icon
+- `dxt/build_dxt.py`: Build script to create .dxt packages
+- `make build-dxt`: Makefile target to build the extension
+
+DXT files are ZIP archives that include the MCP server, dependencies, and installation scripts for all platforms.
 
 ## Core Components
 
@@ -96,6 +117,22 @@ Specifically, we skipped the following tests:
 - The test environment requires `unittest.mock` module which might be missing in some Python environments.
 - When running tests directly with pytest (bypassing the Makefile), dependencies might not be properly set up.
 - The Makefile uses a virtual environment for testing which ensures all dependencies are available.
+
+### 4. Fixed bash tool permission issue
+The bash tool was calling `check_permission()` method on PermissionManager, but the correct method name is `is_path_allowed()`. This was causing an AttributeError when trying to execute bash commands with a working directory. Fixed in `base_process.py`.
+
+### 5. Cleanup of "unified" naming
+All tools previously named with "unified" suffix have been renamed for clarity:
+- `unified_search` → `search` - Comprehensive search across multiple methods
+- All `*_unified.py` files renamed to their base names
+- Updated all imports and references throughout the codebase
+- This makes the codebase cleaner and removes confusion about whether these are alternative implementations
+
+### 6. Icon Processing
+Added macOS-style icon processing with:
+- 10% crop on all sides
+- Rounded corners with 17.6% radius (standard for macOS Big Sur+ icons)
+- Maintains 512x512 resolution for high-quality display
 
 ## Key Observations
 1. The project uses a structured approach to tool implementation with base classes and interfaces.

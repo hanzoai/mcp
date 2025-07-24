@@ -1,4 +1,4 @@
-"""Batch tool implementation for Hanzo MCP.
+"""Batch tool implementation for Hanzo AI.
 
 This module provides the BatchTool that allows for executing multiple tools in
 parallel or serial depending on their characteristics.

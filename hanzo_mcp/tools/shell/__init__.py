@@ -1,4 +1,4 @@
-"""Shell tools package for Hanzo MCP.
+"""Shell tools package for Hanzo AI.
 
 This package provides tools for executing shell commands and scripts.
 """
@@ -8,11 +8,11 @@ from mcp.server import FastMCP
 from hanzo_mcp.tools.common.base import BaseTool, ToolRegistry
 from hanzo_mcp.tools.common.permissions import PermissionManager
 
-# Import unified tools
-from hanzo_mcp.tools.shell.bash_unified import bash_tool
-from hanzo_mcp.tools.shell.npx_unified import npx_tool
-from hanzo_mcp.tools.shell.uvx_unified import uvx_tool
-from hanzo_mcp.tools.shell.process_unified import process_tool
+# Import tools
+from hanzo_mcp.tools.shell.bash_tool import bash_tool
+from hanzo_mcp.tools.shell.npx_tool import npx_tool
+from hanzo_mcp.tools.shell.uvx_tool import uvx_tool
+from hanzo_mcp.tools.shell.process_tool import process_tool
 from hanzo_mcp.tools.shell.open import open_tool
 
 # Export all tool classes

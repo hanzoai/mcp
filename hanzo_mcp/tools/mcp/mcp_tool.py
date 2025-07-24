@@ -74,7 +74,7 @@ ConfigValue = Annotated[
 AutoStart = Annotated[
     bool,
     Field(
-        description="Auto-start server when Hanzo MCP starts",
+        description="Auto-start server when Hanzo AI starts",
         default=True,
     ),
 ]
@@ -93,8 +93,8 @@ class MCPParams(TypedDict, total=False):
 
 
 @final
-class UnifiedMCPTool(BaseTool):
-    """Unified tool for managing MCP servers."""
+class MCPTool(BaseTool):
+    """Tool for managing MCP servers."""
     
     # Config file
     CONFIG_FILE = Path.home() / ".hanzo" / "mcp" / "servers.json"

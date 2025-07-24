@@ -1,4 +1,4 @@
-"""Database tools for Hanzo MCP.
+"""Database tools for Hanzo AI.
 
 This package provides tools for working with embedded SQLite databases
 and graph databases in projects.

@@ -16,6 +16,9 @@ except ImportError:
     # Fallback for older MCP versions
     from mcp.server import FastMCP
 
+# Import our enhanced server
+from hanzo_mcp.server_enhanced import EnhancedFastMCP
+
 from hanzo_mcp.prompts import register_all_prompts
 from hanzo_mcp.tools import register_all_tools
 
@@ -49,7 +52,7 @@ class HanzoMCPServer:
         enabled_tools: dict[str, bool] | None = None,
         disabled_tools: list[str] | None = None,
     ):
-        """Initialize the Hanzo MCP server.
+        """Initialize the Hanzo AI server.
 
         Args:
             name: The name of the server
@@ -72,7 +75,8 @@ class HanzoMCPServer:
             enabled_tools: Dictionary of individual tool enable states (default: None)
             disabled_tools: List of tool names to disable (default: None)
         """
-        self.mcp = mcp_instance if mcp_instance is not None else FastMCP(name)
+        # Use enhanced server for automatic context normalization
+        self.mcp = mcp_instance if mcp_instance is not None else EnhancedFastMCP(name)
 
         # Initialize permissions and command executor
         self.permission_manager = PermissionManager()

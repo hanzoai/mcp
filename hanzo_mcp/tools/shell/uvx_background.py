@@ -150,11 +150,56 @@ Use 'processes' to list running processes and 'pkill' to stop them.
 
         # Check if uvx is available
         if not shutil.which("uvx"):
-            return """Error: uvx is not installed. Install it with:
+            await tool_ctx.info("uvx not found, attempting to install...")
+            
+            # Try to auto-install uvx
+            install_cmd = "curl -LsSf https://astral.sh/uv/install.sh | sh"
+            
+            try:
+                # Run installation
+                install_result = subprocess.run(
+                    install_cmd,
+                    shell=True,
+                    capture_output=True,
+                    text=True,
+                    timeout=60
+                )
+                
+                if install_result.returncode == 0:
+                    await tool_ctx.info("uvx installed successfully!")
+                    
+                    # Add to PATH for current session
+                    import os
+                    home = os.path.expanduser("~")
+                    os.environ["PATH"] = f"{home}/.cargo/bin:{os.environ.get('PATH', '')}"
+                    
+                    # Check again
+                    if not shutil.which("uvx"):
+                        return """Error: uvx installed but not found in PATH. 
+Please add ~/.cargo/bin to your PATH and restart your shell.
+
+Add to ~/.zshrc or ~/.bashrc:
+export PATH="$HOME/.cargo/bin:$PATH"
+"""
+                else:
+                    return f"""Error: Failed to install uvx automatically.
+                    
+Install manually with:
 curl -LsSf https://astral.sh/uv/install.sh | sh
 
 Or on macOS:
-brew install uv"""
+brew install uv
+
+Error details: {install_result.stderr}"""
+                    
+            except subprocess.TimeoutExpired:
+                return """Error: Installation timed out. Install uvx manually with:
+curl -LsSf https://astral.sh/uv/install.sh | sh"""
+            except Exception as e:
+                return f"""Error: Failed to auto-install uvx: {str(e)}
+                
+Install manually with:
+curl -LsSf https://astral.sh/uv/install.sh | sh"""
 
         # Build command
         cmd = ["uvx"]

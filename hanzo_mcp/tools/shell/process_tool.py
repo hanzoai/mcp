@@ -128,7 +128,7 @@ process --action logs --id bash_ghi789 --lines 50"""
             action: str = "list",
             id: Optional[str] = None,
             signal_type: str = "TERM",
-            lines: int = 100,
+            lines: int = 100
         ) -> str:
             return await tool_self.run(
                 ctx,

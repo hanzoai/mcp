@@ -1,10 +1,11 @@
-"""Common utilities for Hanzo MCP tools."""
+"""Common utilities for Hanzo AI tools."""
 
 from mcp.server import FastMCP
 
 from hanzo_mcp.tools.common.base import BaseTool, ToolRegistry
 from hanzo_mcp.tools.common.batch_tool import BatchTool
 from hanzo_mcp.tools.common.thinking_tool import ThinkingTool
+from hanzo_mcp.tools.common.critic_tool import CriticTool
 
 
 def register_thinking_tool(
@@ -18,6 +19,19 @@ def register_thinking_tool(
     thinking_tool = ThinkingTool()
     ToolRegistry.register_tool(mcp_server, thinking_tool)
     return [thinking_tool]
+
+
+def register_critic_tool(
+    mcp_server: FastMCP,
+) -> list[BaseTool]:
+    """Register critic tool with the MCP server.
+
+    Args:
+        mcp_server: The FastMCP server instance
+    """
+    critic_tool = CriticTool()
+    ToolRegistry.register_tool(mcp_server, critic_tool)
+    return [critic_tool]
 
 
 def register_batch_tool(mcp_server: FastMCP, tools: dict[str, BaseTool]) -> None:

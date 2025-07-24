@@ -1,4 +1,4 @@
-"""Filesystem tools package for Hanzo MCP.
+"""Filesystem tools package for Hanzo AI.
 
 This package provides tools for interacting with the filesystem, including reading, writing,
 and editing files, directory navigation, and content searching.
@@ -20,7 +20,8 @@ from hanzo_mcp.tools.filesystem.read import ReadTool
 from hanzo_mcp.tools.filesystem.write import Write
 from hanzo_mcp.tools.filesystem.batch_search import BatchSearchTool
 from hanzo_mcp.tools.filesystem.find_files import FindFilesTool
-from hanzo_mcp.tools.filesystem.unified_search import UnifiedSearchTool
+from hanzo_mcp.tools.filesystem.rules_tool import RulesTool
+from hanzo_mcp.tools.filesystem.search_tool import SearchTool
 from hanzo_mcp.tools.filesystem.watch import watch_tool
 from hanzo_mcp.tools.filesystem.diff import create_diff_tool
 
@@ -37,7 +38,8 @@ __all__ = [
     "GitSearchTool",
     "BatchSearchTool",
     "FindFilesTool",
-    "UnifiedSearchTool",
+    "RulesTool",
+    "SearchTool",
     "get_filesystem_tools",
     "register_filesystem_tools",
 ]
@@ -51,7 +53,7 @@ def get_read_only_filesystem_tools(
 
     Args:
         permission_manager: Permission manager for access control
-        project_manager: Optional project manager for unified search
+        project_manager: Optional project manager for search
 
     Returns:
         List of read-only filesystem tool instances
@@ -63,13 +65,14 @@ def get_read_only_filesystem_tools(
         SymbolsTool(permission_manager),
         GitSearchTool(permission_manager),
         FindFilesTool(permission_manager),
+        RulesTool(permission_manager),
         watch_tool,
         create_diff_tool(permission_manager),
     ]
     
-    # Add unified search if project manager is available
+    # Add search if project manager is available
     if project_manager:
-        tools.append(UnifiedSearchTool(permission_manager, project_manager))
+        tools.append(SearchTool(permission_manager, project_manager))
     
     return tools
 
@@ -79,7 +82,7 @@ def get_filesystem_tools(permission_manager: PermissionManager, project_manager=
 
     Args:
         permission_manager: Permission manager for access control
-        project_manager: Optional project manager for unified search
+        project_manager: Optional project manager for search
 
     Returns:
         List of filesystem tool instances
@@ -95,13 +98,14 @@ def get_filesystem_tools(permission_manager: PermissionManager, project_manager=
         SymbolsTool(permission_manager),
         GitSearchTool(permission_manager),
         FindFilesTool(permission_manager),
+        RulesTool(permission_manager),
         watch_tool,
         create_diff_tool(permission_manager),
     ]
     
-    # Add unified search if project manager is available
+    # Add search if project manager is available
     if project_manager:
-        tools.append(UnifiedSearchTool(permission_manager, project_manager))
+        tools.append(SearchTool(permission_manager, project_manager))
     
     return tools
 
@@ -122,7 +126,7 @@ def register_filesystem_tools(
         disable_write_tools: Whether to disable write tools (default: False)
         disable_search_tools: Whether to disable search tools (default: False)
         enabled_tools: Dictionary of individual tool enable states (default: None)
-        project_manager: Optional project manager for unified search (default: None)
+        project_manager: Optional project manager for search (default: None)
 
     Returns:
         List of registered tools
@@ -135,12 +139,13 @@ def register_filesystem_tools(
         "multi_edit": MultiEdit,
         "directory_tree": DirectoryTreeTool,
         "grep": Grep,
-        "grep_ast": SymbolsTool,  # Using correct import name
+        "symbols": SymbolsTool,  # Unified symbols tool with grep_ast functionality
         "git_search": GitSearchTool,
         "content_replace": ContentReplaceTool,
         "batch_search": BatchSearchTool,
         "find_files": FindFilesTool,
-        "unified_search": UnifiedSearchTool,
+        "rules": RulesTool,
+        "search": SearchTool,
         "watch": lambda pm: watch_tool,  # Singleton instance
         "diff": create_diff_tool,
     }
@@ -152,8 +157,8 @@ def register_filesystem_tools(
         for tool_name, enabled in enabled_tools.items():
             if enabled and tool_name in tool_classes:
                 tool_class = tool_classes[tool_name]
-                if tool_name in ["batch_search", "unified_search"]:
-                    # Batch search and unified search require project_manager
+                if tool_name in ["batch_search", "search"]:
+                    # Batch search and search require project_manager
                     tools.append(tool_class(permission_manager, project_manager))
                 elif tool_name == "watch":
                     # Watch tool is a singleton

@@ -57,7 +57,7 @@ class ToolListTool(BaseTool):
             ("tree", "Directory tree visualization (Unix-style)"),
             ("find", "Find text in files (rg/ag/ack/grep)"),
             ("symbols", "Code symbols search with tree-sitter"),
-            ("search", "Unified search (parallel grep/symbols/vector/git)"),
+            ("search", "Search (parallel grep/symbols/vector/git)"),
             ("git_search", "Search git history"),
             ("glob", "Find files by name pattern"),
             ("content_replace", "Replace content across files"),

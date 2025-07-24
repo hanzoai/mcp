@@ -30,7 +30,7 @@ Recent commits:
 </project_info>
 
 <available_tools>
-Hanzo MCP provides 65+ tools organized by category. Key tools include:
+Hanzo AI provides 65+ tools organized by category. Key tools include:
 
 # File Operations
 - read, write, edit, multi_edit: File manipulation

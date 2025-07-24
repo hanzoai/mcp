@@ -1,4 +1,4 @@
-"""Test search result quality and relevance scoring for unified search."""
+"""Test search result quality and relevance scoring for search."""
 
 import asyncio
 import tempfile
@@ -10,7 +10,7 @@ import sys
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from hanzo_mcp.tools.common.permissions import PermissionManager
-from hanzo_mcp.tools.filesystem.unified_search import UnifiedSearchTool, SearchResult, SearchType
+from hanzo_mcp.tools.filesystem.search_tool import SearchTool, SearchResult, SearchType
 from hanzo_mcp.tools.vector.ast_analyzer import ASTAnalyzer, Symbol
 
 

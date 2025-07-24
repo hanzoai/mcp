@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 """
-Script to install Hanzo MCP to Claude Desktop.
+Script to install Hanzo AI to Claude Desktop.
 
 Usage:
     python -m scripts.install_desktop [allowed_paths] [server_name] [disable_write] [disable_search]
@@ -11,7 +11,7 @@ import sys
 
 
 def main():
-    """Install Hanzo MCP to Claude Desktop."""
+    """Install Hanzo AI to Claude Desktop."""
     # Get arguments from command line
     allowed_paths = sys.argv[1] if len(sys.argv) > 1 else ""
     server_name = sys.argv[2] if len(sys.argv) > 2 else "hanzo"

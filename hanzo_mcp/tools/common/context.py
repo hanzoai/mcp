@@ -1,4 +1,4 @@
-"""Enhanced Context for Hanzo MCP tools.
+"""Enhanced Context for Hanzo AI tools.
 
 This module provides an enhanced Context class that wraps the MCP Context
 and adds additional functionality specific to Hanzo tools.
@@ -17,7 +17,7 @@ from mcp.server.lowlevel.helper_types import ReadResourceContents
 
 @final
 class ToolContext:
-    """Enhanced context for Hanzo MCP tools.
+    """Enhanced context for Hanzo AI tools.
 
     This class wraps the MCP Context and adds additional functionality
     for tracking tool execution, progress reporting, and resource access.

@@ -1,4 +1,4 @@
-"""Hanzo MCP - Implementation of Hanzo capabilities using MCP."""
+"""Hanzo AI - Implementation of Hanzo capabilities using MCP."""
 
 # Configure FastMCP logging globally for stdio transport
 import os
@@ -9,4 +9,4 @@ if os.environ.get("HANZO_MCP_TRANSPORT") == "stdio":
     except ImportError:
         pass
 
-__version__ = "0.6.12"
+__version__ = "0.6.13"

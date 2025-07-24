@@ -1,7 +1,7 @@
-"""Tools package for Hanzo MCP.
+"""Tools package for Hanzo AI.
 
-This package contains all the tools for the Hanzo MCP server.
-It provides a unified interface for registering all tools with an MCP server.
+This package contains all the tools for the Hanzo AI server.
+It provides a interface for registering all tools with an MCP server.
 
 This includes a "think" tool implementation based on Anthropic's research showing
 improved performance for complex tool-based interactions when Claude has a dedicated
@@ -12,7 +12,7 @@ to delegate tasks to sub-agents for concurrent execution and specialized process
 from mcp.server import FastMCP
 
 from hanzo_mcp.tools.agent import register_agent_tools
-from hanzo_mcp.tools.common import register_batch_tool, register_thinking_tool
+from hanzo_mcp.tools.common import register_batch_tool, register_thinking_tool, register_critic_tool
 from hanzo_mcp.tools.common.base import BaseTool
 from hanzo_mcp.tools.common.permissions import PermissionManager
 from hanzo_mcp.tools.common.tool_enable import ToolEnableTool
@@ -25,11 +25,13 @@ from hanzo_mcp.tools.shell import register_shell_tools
 from hanzo_mcp.tools.todo import register_todo_tools
 from hanzo_mcp.tools.vector import register_vector_tools
 from hanzo_mcp.tools.database import register_database_tools, DatabaseManager
-from hanzo_mcp.tools.mcp import UnifiedMCPTool, McpAddTool, McpRemoveTool, McpStatsTool
+from hanzo_mcp.tools.mcp import MCPTool, McpAddTool, McpRemoveTool, McpStatsTool
 from hanzo_mcp.tools.editor import NeovimEditTool, NeovimCommandTool, NeovimSessionTool
-from hanzo_mcp.tools.llm import UnifiedLLMTool, LLMTool, ConsensusTool, LLMManageTool, create_provider_tools
-from hanzo_mcp.tools.config.palette_tool import palette_tool
-from hanzo_mcp.tools.common.palette_loader import PaletteLoader
+from hanzo_mcp.tools.llm import LLMTool, LLMTool, ConsensusTool, LLMManageTool, create_provider_tools
+from hanzo_mcp.tools.config.mode_tool import mode_tool
+from hanzo_mcp.tools.common.mode_loader import ModeLoader
+from hanzo_mcp.tools.common.mode import activate_mode_from_env
+from hanzo_mcp.tools.common.plugin_loader import load_user_plugins
 
 
 def register_all_tools(
@@ -46,8 +48,8 @@ def register_all_tools(
     disable_search_tools: bool = False,
     enabled_tools: dict[str, bool] | None = None,
     vector_config: dict | None = None,
-    use_palette: bool = True,
-    force_palette: str | None = None,
+    use_mode: bool = True,
+    force_mode: str | None = None,
 ) -> None:
     """Register all Hanzo tools with the MCP server.
 
@@ -65,20 +67,36 @@ def register_all_tools(
         disable_search_tools: Whether to disable search tools (default: False)
         enabled_tools: Dictionary of individual tool enable/disable states (default: None)
         vector_config: Vector store configuration (default: None)
-        use_palette: Whether to use palette system for tool configuration (default: True)
-        force_palette: Force a specific palette to be active (default: None)
+        use_mode: Whether to use mode system for tool configuration (default: True)
+        force_mode: Force a specific mode to be active (default: None)
     """
     # Dictionary to store all registered tools
     all_tools: dict[str, BaseTool] = {}
     
-    # Apply palette configuration if enabled
-    if use_palette:
-        tool_config = PaletteLoader.get_enabled_tools_from_palette(
+    # Load user plugins early
+    try:
+        plugins = load_user_plugins()
+        import logging
+        logger = logging.getLogger(__name__)
+        if plugins:
+            logger.info(f"Loaded {len(plugins)} user plugin tools: {', '.join(plugins.keys())}")
+    except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.warning(f"Failed to load user plugins: {e}")
+        plugins = {}
+    
+    # Apply mode configuration if enabled
+    if use_mode:
+        # First check for mode activation from environment
+        activate_mode_from_env()
+        
+        tool_config = ModeLoader.get_enabled_tools_from_mode(
             base_enabled_tools=enabled_tools,
-            force_palette=force_palette
+            force_mode=force_mode
         )
-        # Apply palette environment variables
-        PaletteLoader.apply_palette_environment()
+        # Apply mode environment variables
+        ModeLoader.apply_environment_from_mode()
     else:
         # Use individual tool configuration if provided, otherwise fall back to category-level flags
         tool_config = enabled_tools or {}
@@ -97,15 +115,16 @@ def register_all_tools(
         "multi_edit": is_tool_enabled("multi_edit", not disable_write_tools),
         "directory_tree": is_tool_enabled("directory_tree", True),
         "grep": is_tool_enabled("grep", not disable_search_tools),
-        "grep_ast": is_tool_enabled("grep_ast", not disable_search_tools),
+        "symbols": is_tool_enabled("symbols", not disable_search_tools),
         "git_search": is_tool_enabled("git_search", not disable_search_tools),
         "content_replace": is_tool_enabled("content_replace", not disable_write_tools),
         "batch_search": is_tool_enabled("batch_search", not disable_search_tools),
         "find_files": is_tool_enabled("find_files", True),
-        "unified_search": is_tool_enabled("unified_search", not disable_search_tools),
+        "rules": is_tool_enabled("rules", True),
+        "search": is_tool_enabled("search", not disable_search_tools),
     }
     
-    # Vector tools setup (needed for unified search)
+    # Vector tools setup (needed for search)
     project_manager = None
     vector_enabled = {
         "vector_index": is_tool_enabled("vector_index", False),
@@ -113,7 +132,7 @@ def register_all_tools(
     }
     
     # Create project manager if vector tools, batch_search, or unified_search are enabled
-    if any(vector_enabled.values()) or filesystem_enabled.get("batch_search", False) or filesystem_enabled.get("unified_search", False):
+    if any(vector_enabled.values()) or filesystem_enabled.get("batch_search", False) or filesystem_enabled.get("search", False):
         if vector_config:
             from hanzo_mcp.tools.vector.project_manager import ProjectVectorManager
             search_paths = [str(path) for path in permission_manager.allowed_paths]
@@ -155,7 +174,7 @@ def register_all_tools(
             all_tools[tool.name] = tool
 
     # Register agent tools if enabled
-    agent_enabled = enable_agent_tool or is_tool_enabled("dispatch_agent", False)
+    agent_enabled = enable_agent_tool or is_tool_enabled("agent", False) or is_tool_enabled("dispatch_agent", False)
     if agent_enabled:
         agent_tools = register_agent_tools(
             mcp_server,
@@ -172,12 +191,15 @@ def register_all_tools(
 
     # Register todo tools if enabled
     todo_enabled = {
+        "todo": is_tool_enabled("todo", True),
+        # Backward compatibility - if old names are used, enable the unified tool
         "todo_read": is_tool_enabled("todo_read", True),
         "todo_write": is_tool_enabled("todo_write", True),
     }
     
+    # Enable unified todo if any of the todo tools are enabled
     if any(todo_enabled.values()):
-        todo_tools = register_todo_tools(mcp_server, enabled_tools=todo_enabled)
+        todo_tools = register_todo_tools(mcp_server, enabled_tools={"todo": True})
         for tool in todo_tools:
             all_tools[tool.name] = tool
 
@@ -185,6 +207,12 @@ def register_all_tools(
     if is_tool_enabled("think", True):
         thinking_tool = register_thinking_tool(mcp_server)
         for tool in thinking_tool:
+            all_tools[tool.name] = tool
+    
+    # Register critic tool if enabled
+    if is_tool_enabled("critic", True):
+        critic_tools = register_critic_tool(mcp_server)
+        for tool in critic_tools:
             all_tools[tool.name] = tool
 
     # Register vector tools if enabled (reuse project_manager if available)
@@ -230,7 +258,7 @@ def register_all_tools(
     
     # Register unified MCP tool if enabled
     if is_tool_enabled("mcp", True):
-        tool = UnifiedMCPTool()
+        tool = MCPTool()
         tool.register(mcp_server)
         all_tools[tool.name] = tool
     
@@ -275,9 +303,9 @@ def register_all_tools(
     stats_tool.register(mcp_server)
     all_tools[stats_tool.name] = stats_tool
     
-    # Palette tool (always enabled for managing tool sets)
-    palette_tool.register(mcp_server)
-    all_tools[palette_tool.name] = palette_tool
+    # Mode tool (always enabled for managing tool sets)
+    mode_tool.register(mcp_server)
+    all_tools[mode_tool.name] = mode_tool
     
     # Register editor tools if enabled
     editor_enabled = {
@@ -303,11 +331,18 @@ def register_all_tools(
     
     # Register unified LLM tool if enabled
     if is_tool_enabled("llm", True):
-        tool = UnifiedLLMTool()
+        tool = LLMTool()
         if tool.available_providers:  # Only register if API keys found
             tool.register(mcp_server)
             all_tools[tool.name] = tool
     
+    # Register consensus tool if enabled (enabled by default)
+    if is_tool_enabled("consensus", True):
+        tool = ConsensusTool()
+        if tool.llm_tool.available_providers:
+            tool.register(mcp_server)
+            all_tools[tool.name] = tool
+
     # Register legacy LLM tools if explicitly enabled (disabled by default)
     legacy_llm_enabled = {
         "llm_legacy": is_tool_enabled("llm_legacy", False),
@@ -339,3 +374,14 @@ def register_all_tools(
             if is_tool_enabled(tool.name, False):
                 tool.register(mcp_server)
                 all_tools[tool.name] = tool
+    
+    # Register user plugins last (so they can override built-in tools)
+    for plugin_name, plugin in plugins.items():
+        if is_tool_enabled(plugin_name, True):
+            try:
+                tool = plugin.tool_class()
+                tool.register(mcp_server)
+                all_tools[tool.name] = tool
+                logger.info(f"Registered plugin tool: {plugin_name}")
+            except Exception as e:
+                logger.error(f"Failed to register plugin tool {plugin_name}: {e}")

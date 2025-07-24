@@ -1,4 +1,4 @@
-"""Enhanced command-line interface for the Hanzo MCP server with full tool configuration."""
+"""Enhanced command-line interface for the Hanzo AI server with full tool configuration."""
 
 import argparse
 import json
@@ -15,7 +15,7 @@ from hanzo_mcp.server import HanzoMCPServer
 def create_parser() -> argparse.ArgumentParser:
     """Create the argument parser with all tool configuration options."""
     parser = argparse.ArgumentParser(
-        description="Hanzo MCP server with comprehensive tool configuration",
+        description="Hanzo AI server with comprehensive tool configuration",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Tool Configuration:
@@ -346,7 +346,7 @@ def apply_cli_overrides(args: argparse.Namespace) -> Dict[str, Any]:
 def list_tools(settings: HanzoMCPSettings) -> None:
     """List all tools and their current status."""
     logger = logging.getLogger(__name__)
-    logger.info("Hanzo MCP Tools Status:")
+    logger.info("Hanzo AI Tools Status:")
     logger.info("=" * 50)
     
     categories = {}
@@ -371,7 +371,7 @@ def list_tools(settings: HanzoMCPSettings) -> None:
 
 
 def main() -> None:
-    """Run the enhanced CLI for the Hanzo MCP server."""
+    """Run the enhanced CLI for the Hanzo AI server."""
     parser = create_parser()
     args = parser.parse_args()
 

@@ -1,1 +1,1 @@
-"""Test suite for Hanzo MCP."""
+"""Test suite for Hanzo AI."""

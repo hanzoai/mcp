@@ -21,7 +21,7 @@ from hanzo_mcp.tools.filesystem.base import FilesystemBaseTool
 Action = Annotated[
     str,
     Field(
-        description="Action: search (default), index, query, list",
+        description="Action: search (default), ast, index, query, list",
         default="search",
     ),
 ]
@@ -88,7 +88,7 @@ class SymbolsParams(TypedDict, total=False):
 
 @final
 class SymbolsTool(FilesystemBaseTool):
-    """Unified tool for code symbol operations using tree-sitter."""
+    """Tool for code symbol operations using tree-sitter."""
     
     def __init__(self, permission_manager):
         """Initialize the symbols tool."""
@@ -105,13 +105,16 @@ class SymbolsTool(FilesystemBaseTool):
     @override
     def description(self) -> str:
         """Get the tool description."""
-        return """Code symbols with tree-sitter. Actions: search (default), index, query, list.
+        return """Code symbols search with tree-sitter AST. Actions: search (default), ast, index, query, list.
 
 Usage:
 symbols "function_name"
+symbols --action ast --pattern "TODO" --path ./src
 symbols --action query --symbol-type function --path ./src
 symbols --action index --path ./project
-symbols --action list --path ./src --symbol-type class"""
+symbols --action list --path ./src --symbol-type class
+
+Finds code structures (functions, classes, methods) with full context."""
 
     @override
     async def call(
@@ -129,6 +132,8 @@ symbols --action list --path ./src --symbol-type class"""
         # Route to appropriate handler
         if action == "search":
             return await self._handle_search(params, tool_ctx)
+        elif action == "ast" or action == "grep_ast":  # Support both for backward compatibility
+            return await self._handle_ast(params, tool_ctx)
         elif action == "index":
             return await self._handle_index(params, tool_ctx)
         elif action == "query":
@@ -136,7 +141,7 @@ symbols --action list --path ./src --symbol-type class"""
         elif action == "list":
             return await self._handle_list(params, tool_ctx)
         else:
-            return f"Error: Unknown action '{action}'. Valid actions: search, index, query, list"
+            return f"Error: Unknown action '{action}'. Valid actions: search, ast, index, query, list"
 
     async def _handle_search(self, params: Dict[str, Any], tool_ctx) -> str:
         """Search for pattern in code with AST context."""
@@ -220,6 +225,100 @@ symbols --action list --path ./src --symbol-type class"""
         if match_count >= limit:
             output.append(f"\n(Results limited to {limit} matches)")
         
+        return "\n".join(output)
+
+    async def _handle_ast(self, params: Dict[str, Any], tool_ctx) -> str:
+        """AST-aware grep - shows code structure context around matches."""
+        pattern = params.get("pattern")
+        if not pattern:
+            return "Error: pattern required for ast action"
+
+        path = params.get("path", ".")
+        ignore_case = params.get("ignore_case", False)
+        show_context = params.get("show_context", True)
+        limit = params.get("limit", 50)
+
+        # Validate path
+        path_validation = self.validate_path(path)
+        if not path_validation.is_valid:
+            await tool_ctx.error(f"Invalid path: {path_validation.error_message}")
+            return f"Error: Invalid path: {path_validation.error_message}"
+
+        # Check permissions
+        is_allowed, error_message = await self.check_path_allowed(path, tool_ctx)
+        if not is_allowed:
+            return error_message
+
+        # Check existence
+        is_exists, error_message = await self.check_path_exists(path, tool_ctx)
+        if not is_exists:
+            return error_message
+
+        await tool_ctx.info(f"Running AST-aware grep for '{pattern}' in {path}")
+
+        # Get files to process
+        files_to_process = self._get_source_files(path)
+        if not files_to_process:
+            return f"No source code files found in {path}"
+
+        # Process files
+        results = []
+        match_count = 0
+        
+        for file_path in files_to_process:
+            if match_count >= limit:
+                break
+
+            try:
+                with open(file_path, "r", encoding="utf-8") as f:
+                    code = f.read()
+
+                # Create TreeContext for AST parsing
+                tc = TreeContext(
+                    file_path,
+                    code,
+                    color=False,
+                    verbose=False,
+                    line_number=True,
+                )
+
+                # Find matches with case sensitivity option
+                if ignore_case:
+                    import re
+                    loi = tc.grep(pattern, ignore_case=True)
+                else:
+                    loi = tc.grep(pattern, ignore_case=False)
+
+                if loi:
+                    # Always show AST context for grep_ast
+                    tc.add_lines_of_interest(loi)
+                    tc.add_context()
+                    
+                    # Get the formatted output with structure
+                    output = tc.format()
+                    
+                    # Add section separator and file info
+                    results.append(f"\n{'='*60}")
+                    results.append(f"File: {file_path}")
+                    results.append(f"Matches: {len(loi)}")
+                    results.append(f"{'='*60}\n")
+                    results.append(output)
+                    
+                    match_count += len(loi)
+
+            except Exception as e:
+                await tool_ctx.warning(f"Could not parse {file_path}: {str(e)}")
+
+        if not results:
+            return f"No matches found for '{pattern}' in {path}"
+
+        output = [f"=== AST-aware Grep Results for '{pattern}' ==="]
+        output.append(f"Total matches: {match_count} in {len([r for r in results if '===' in str(r)])//4} files\n")
+        output.extend(results)
+
+        if match_count >= limit:
+            output.append(f"\n(Results limited to {limit} matches)")
+
         return "\n".join(output)
 
     async def _handle_index(self, params: Dict[str, Any], tool_ctx) -> str:

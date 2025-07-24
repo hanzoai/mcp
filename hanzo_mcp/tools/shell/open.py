@@ -24,8 +24,8 @@ class OpenTool(BaseTool):
         
         @server.tool(name=self.name, description=self.description)
         async def open(
-            ctx: MCPContext,
-            path: str
+            path: str,
+            ctx: MCPContext
         ) -> str:
             return await tool_self.run(ctx, path)
     

@@ -1,7 +1,7 @@
-"""Base classes for Hanzo MCP tools.
+"""Base classes for Hanzo AI tools.
 
 This module provides abstract base classes that define interfaces and common functionality
-for all tools used in Hanzo MCP. These abstractions help ensure consistent tool
+for all tools used in Hanzo AI. These abstractions help ensure consistent tool
 behavior and provide a foundation for tool registration and management.
 """
 
@@ -62,7 +62,7 @@ def handle_connection_errors(
 
 
 class BaseTool(ABC):
-    """Abstract base class for all Hanzo MCP tools.
+    """Abstract base class for all Hanzo AI tools.
 
     This class defines the core interface that all tools must implement, ensuring
     consistency in how tools are registered, documented, and called.
@@ -156,7 +156,7 @@ class FileSystemTool(BaseTool, ABC):
 
 @final
 class ToolRegistry:
-    """Registry for Hanzo MCP tools.
+    """Registry for Hanzo AI tools.
 
     Provides functionality for registering tool implementations with an MCP server,
     handling the conversion between tool classes and MCP tool functions.

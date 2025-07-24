@@ -1,4 +1,4 @@
-"""Settings management for Hanzo MCP.
+"""Settings management for Hanzo AI.
 
 Handles loading and saving configuration from multiple sources:
 1. Default settings
@@ -59,6 +59,7 @@ class AgentConfig:
     enabled: bool = False
     model: Optional[str] = None
     api_key: Optional[str] = None
+    hanzo_api_key: Optional[str] = None  # HANZO_API_KEY support
     base_url: Optional[str] = None
     max_tokens: Optional[int] = None
     max_iterations: int = 10
@@ -78,7 +79,7 @@ class ServerConfig:
 
 @dataclass
 class HanzoMCPSettings:
-    """Complete configuration for Hanzo MCP."""
+    """Complete configuration for Hanzo AI."""
     # Server settings
     server: ServerConfig = field(default_factory=ServerConfig)
     
@@ -105,6 +106,9 @@ class HanzoMCPSettings:
     # Project-specific configurations
     projects: Dict[str, ProjectConfig] = field(default_factory=dict)
     current_project: Optional[str] = None
+    
+    # Mode configuration
+    active_mode: Optional[str] = None
     
     def __post_init__(self):
         """Initialize default tool states if not specified."""
@@ -250,7 +254,7 @@ class HanzoMCPSettings:
 
 
 def get_config_dir() -> Path:
-    """Get the configuration directory for Hanzo MCP."""
+    """Get the configuration directory for Hanzo AI."""
     if os.name == "nt":  # Windows
         config_dir = Path(os.environ.get("APPDATA", "")) / "hanzo"
     else:  # Unix/macOS
@@ -341,6 +345,59 @@ def detect_project_from_path(file_path: str) -> Optional[Dict[str, str]]:
     return None
 
 
+def _load_from_env() -> Dict[str, Any]:
+    """Load configuration from environment variables."""
+    config = {}
+    
+    # Check for agent API keys
+    has_api_keys = False
+    
+    # HANZO_API_KEY
+    if hanzo_key := os.environ.get("HANZO_API_KEY"):
+        config.setdefault("agent", {})["hanzo_api_key"] = hanzo_key
+        config["agent"]["enabled"] = True
+        has_api_keys = True
+    
+    # Check for other API keys
+    api_key_env_vars = [
+        ("OPENAI_API_KEY", "openai"),
+        ("ANTHROPIC_API_KEY", "anthropic"), 
+        ("GOOGLE_API_KEY", "google"),
+        ("GROQ_API_KEY", "groq"),
+        ("TOGETHER_API_KEY", "together"),
+        ("MISTRAL_API_KEY", "mistral"),
+        ("PERPLEXITY_API_KEY", "perplexity"),
+    ]
+    
+    for env_var, provider in api_key_env_vars:
+        if os.environ.get(env_var):
+            has_api_keys = True
+            break
+    
+    # Auto-enable agent and consensus tools if API keys present
+    if has_api_keys:
+        config.setdefault("enabled_tools", {})
+        config["enabled_tools"]["agent"] = True
+        config["enabled_tools"]["consensus"] = True
+        config.setdefault("agent", {})["enabled"] = True
+    
+    # Check for MODE/PERSONALITY/HANZO_MODE
+    if mode := os.environ.get("HANZO_MODE") or os.environ.get("PERSONALITY") or os.environ.get("MODE"):
+        config["active_mode"] = mode
+    
+    # Check for other environment overrides
+    if project_dir := os.environ.get("HANZO_PROJECT_DIR"):
+        config["project_dir"] = project_dir
+    
+    if log_level := os.environ.get("HANZO_LOG_LEVEL"):
+        config.setdefault("server", {})["log_level"] = log_level
+    
+    if allowed_paths := os.environ.get("HANZO_ALLOWED_PATHS"):
+        config["allowed_paths"] = allowed_paths.split(":")
+    
+    return config
+
+
 def load_settings(
     project_dir: Optional[str] = None,
     config_overrides: Optional[Dict[str, Any]] = None
@@ -349,9 +406,10 @@ def load_settings(
     
     Priority (highest to lowest):
     1. config_overrides (usually from CLI)
-    2. Project-specific config file
-    3. Global config file
-    4. Defaults
+    2. Environment variables
+    3. Project-specific config file
+    4. Global config file
+    5. Defaults
     """
     # Start with defaults
     settings = HanzoMCPSettings()
@@ -379,6 +437,11 @@ def load_settings(
             import logging
             logger = logging.getLogger(__name__)
             logger.warning(f"Failed to load project config: {e}")
+    
+    # Apply environment variables
+    env_config = _load_from_env()
+    if env_config:
+        settings = _merge_config(settings, env_config)
     
     # Apply CLI overrides
     if config_overrides:

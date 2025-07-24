@@ -1,4 +1,4 @@
-"""Command-line interface for the Hanzo MCP server."""
+"""Command-line interface for the Hanzo AI server."""
 
 import argparse
 import json
@@ -13,7 +13,7 @@ from hanzo_mcp.server import HanzoMCPServer
 
 
 def main() -> None:
-    """Run the CLI for the Hanzo MCP server."""
+    """Run the CLI for the Hanzo AI server."""
     
     # Pre-parse arguments to check transport type early
     import sys

@@ -1,0 +1,53 @@
+name: Build DXT Package
+
+on:
+  release:
+    types: [created]
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'dxt/**'
+      - 'hanzo_mcp/**'
+      - 'pyproject.toml'
+      - 'setup.py'
+
+jobs:
+  build-dxt:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.12'
+    
+    - name: Install UV
+      run: |
+        pip install uv
+    
+    - name: Install dependencies
+      run: |
+        make install
+    
+    - name: Build DXT package
+      run: |
+        make build-dxt
+    
+    - name: Upload DXT artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: hanzo-mcp-dxt
+        path: dist/*.dxt
+    
+    - name: Upload to Release
+      if: github.event_name == 'release'
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ github.event.release.upload_url }}
+        asset_path: dist/*.dxt
+        asset_name: hanzo-mcp-${{ github.event.release.tag_name }}.dxt
+        asset_content_type: application/zip

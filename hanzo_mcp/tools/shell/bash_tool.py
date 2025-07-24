@@ -27,7 +27,7 @@ class BashTool(BaseScriptTool):
             action: str = "run",
             cwd: Optional[str] = None,
             env: Optional[dict[str, str]] = None,
-            timeout: Optional[int] = None,
+            timeout: Optional[int] = None
         ) -> str:
             return await tool_self.run(
                 ctx,
