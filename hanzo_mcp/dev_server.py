@@ -1,4 +1,4 @@
-"""Development server with hot reload for Hanzo MCP."""
+"""Development server with hot reload for Hanzo AI."""
 
 import asyncio
 import logging
@@ -159,7 +159,7 @@ class DevServer:
         self.running = True
         
         logger = logging.getLogger(__name__)
-        logger.info(f"\n🚀 Starting Hanzo MCP in development mode...")
+        logger.info(f"\n🚀 Starting Hanzo AI in development mode...")
         logger.info(f"🔧 Hot reload enabled - watching for file changes")
         logger.info(f"📁 Project: {self.project_dir or 'current directory'}")
         logger.info(f"🌐 Transport: {transport}\n")
@@ -194,7 +194,7 @@ def run_dev_server():
     """Entry point for development server."""
     import argparse
     
-    parser = argparse.ArgumentParser(description="Run Hanzo MCP in development mode with hot reload")
+    parser = argparse.ArgumentParser(description="Run Hanzo AI in development mode with hot reload")
     parser.add_argument(
         "--name",
         type=str,

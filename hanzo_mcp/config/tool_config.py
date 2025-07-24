@@ -1,4 +1,4 @@
-"""Tool configuration definitions for Hanzo MCP."""
+"""Tool configuration definitions for Hanzo AI."""
 
 from enum import Enum
 from typing import Dict, List, Optional
@@ -6,7 +6,7 @@ from dataclasses import dataclass
 
 
 class ToolCategory(str, Enum):
-    """Categories of tools available in Hanzo MCP."""
+    """Categories of tools available in Hanzo AI."""
     FILESYSTEM = "filesystem"
     SHELL = "shell"
     JUPYTER = "jupyter"

@@ -1,4 +1,4 @@
-"""Configuration tool for Hanzo MCP.
+"""Configuration tool for Hanzo AI.
 
 Git-style config tool for managing settings.
 """

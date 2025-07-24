@@ -99,7 +99,7 @@ uvx --action background jupyter lab --port 8888"""
             args: str = "",
             action: str = "run",
             cwd: Optional[str] = None,
-            python: Optional[str] = None,
+            python: Optional[str] = None
         ) -> str:
             return await tool_self.run(
                 ctx,

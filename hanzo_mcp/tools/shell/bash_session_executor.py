@@ -1,4 +1,4 @@
-"""Bash session executor for Hanzo MCP.
+"""Bash session executor for Hanzo AI.
 
 This module provides a BashSessionExecutor class that replaces the old CommandExecutor
 implementation with the new BashSession-based approach for better persistent execution.

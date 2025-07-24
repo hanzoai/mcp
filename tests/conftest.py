@@ -1,4 +1,4 @@
-"""Pytest configuration for the Hanzo MCP project."""
+"""Pytest configuration for the Hanzo AI project."""
 
 import os
 import tempfile

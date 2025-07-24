@@ -23,16 +23,17 @@ class WatchTool(BaseTool):
         
         @server.tool(name=self.name, description=self.description)
         async def watch_handler(
+            ctx: MCPContext,
             path: str,
             pattern: str = "*",
             interval: int = 1,
             recursive: bool = True,
             exclude: str = "",
-            duration: int = 30,
+            duration: int = 30
         ) -> str:
             """Handle watch tool calls."""
             return await self.run(
-                None,
+                ctx,
                 path=path,
                 pattern=pattern,
                 interval=interval,

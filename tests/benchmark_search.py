@@ -1,4 +1,4 @@
-"""Benchmark suite for unified search and database storage performance."""
+"""Benchmark suite for search and database storage performance."""
 
 import asyncio
 import os
@@ -14,14 +14,14 @@ import sys
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from hanzo_mcp.tools.common.permissions import PermissionManager
-from hanzo_mcp.tools.filesystem.unified_search import UnifiedSearchTool
+from hanzo_mcp.tools.filesystem.search_tool import SearchTool
 from hanzo_mcp.tools.vector.project_manager import ProjectVectorManager
 from hanzo_mcp.tools.vector.vector_index import VectorIndexTool
 from hanzo_mcp.tools.vector.ast_analyzer import ASTAnalyzer
 
 
-class UnifiedSearchBenchmark:
-    """Comprehensive benchmark suite for unified search performance."""
+class SearchBenchmark:
+    """Comprehensive benchmark suite for search performance."""
     
     def __init__(self, project_root: str):
         """Initialize benchmark with project root."""
@@ -61,7 +61,7 @@ class UnifiedSearchBenchmark:
         llm_md = test_dir / "LLM.md"
         llm_md.write_text(f"""# Test Project ({size})
 
-This is a test project for benchmarking unified search performance.
+This is a test project for benchmarking search performance.
 
 ## Project Structure
 - {config['files']} Python modules
@@ -272,7 +272,7 @@ def apply_transformations(record: Any, params: Dict[str, Any]) -> Any:
             dimension=self.db_config["dimension"],
         )
         
-        unified_tool = UnifiedSearchTool(self.permission_manager, project_manager)
+        unified_tool = SearchTool(self.permission_manager, project_manager)
         
         class MockContext:
             def __init__(self):
@@ -435,7 +435,7 @@ def apply_transformations(record: Any, params: Dict[str, Any]) -> Any:
     def generate_report(self, results: Dict[str, Any]) -> str:
         """Generate a comprehensive benchmark report."""
         report = []
-        report.append("# Unified Search Benchmark Report")
+        report.append("#  Search Benchmark Report")
         report.append(f"Generated at: {time.ctime(results['timestamp'])}")
         report.append(f"Project: {results['project_root']}")
         report.append("")
@@ -512,13 +512,13 @@ async def main():
     """Run the benchmark suite."""
     import argparse
     
-    parser = argparse.ArgumentParser(description="Benchmark unified search performance")
+    parser = argparse.ArgumentParser(description="Benchmark search performance")
     parser.add_argument("--project-root", default=".", help="Project root directory")
     parser.add_argument("--output", help="Output file for results")
     args = parser.parse_args()
     
     # Initialize benchmark
-    benchmark = UnifiedSearchBenchmark(args.project_root)
+    benchmark = SearchBenchmark(args.project_root)
     
     try:
         # Run comprehensive benchmark

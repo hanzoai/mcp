@@ -45,7 +45,7 @@ class SearchType(Enum):
 
 @dataclass 
 class SearchResult:
-    """Unified search result combining different search types."""
+    """Search result combining different search types."""
     file_path: str
     line_number: Optional[int]
     content: str
@@ -112,11 +112,11 @@ class BatchSearchParams(TypedDict):
 
 @final
 class BatchSearchTool(FilesystemBaseTool):
-    """Unified search tool combining multiple search strategies."""
+    """Search tool combining multiple search strategies."""
     
     def __init__(self, permission_manager: PermissionManager, 
                  project_manager: Optional[ProjectVectorManager] = None):
-        """Initialize the unified search tool."""
+        """Initialize the search tool."""
         super().__init__(permission_manager)
         self.project_manager = project_manager
         

@@ -1,7 +1,7 @@
 # Set test as the default target
 .DEFAULT_GOAL := test
 
-.PHONY: install test test-debug test-quick test-cov lint clean dev venv build _publish publish setup bump-patch bump-minor bump-major publish-patch publish-minor publish-major tag-version docs docs-serve install-desktop
+.PHONY: install test coverage lint clean dev venv build _publish publish setup bump-patch bump-minor bump-major publish-patch publish-minor publish-major tag-version docs docs-serve install-desktop build-dxt
 
 # Virtual environment settings
 VENV_NAME ?= .venv
@@ -48,29 +48,27 @@ install-python:
 	@command -v $(UV) >/dev/null 2>&1 || { echo "Error: uv is not installed. Install it with 'pip install uv'."; exit 1; }
 	$(UV) python install 3.12
 
-# Create virtual environment using uv and install package
+# Create virtual environment using uv
 venv:
 	@command -v $(UV) >/dev/null 2>&1 || { echo "Error: uv is not installed. Install it with 'pip install uv'."; exit 1; }
 	$(UV) venv $(VENV_NAME) --python=3.12
-	$(call run_in_venv, $(UV) pip install -e ".")
 
 # Install the package
-install:
+install: venv
 	@command -v $(UV) >/dev/null 2>&1 || { echo "Error: uv is not installed. Install it with 'pip install uv'."; exit 1; }
-	$(call run_in_venv, $(UV) pip install -e ".")
+	. $(VENV_ACTIVATE) && $(UV) pip install -e ".[dev,test]"
 
 uninstall:
 	$(call run_in_venv, $(UV) pip uninstall -y hanzo-mcp)
 
 reinstall: uninstall install
 
+# Make test target depend on the venv existing
+.venv:
+	$(MAKE) venv
 
-# Run tests
-test:
-	$(call run_in_venv, python -m pytest $(TEST_DIR) -v --disable-warnings)
-
-# Quick test - run without installing dependencies (assumes they're already installed)
-test-quick:
+# Run tests, always ensure venv first
+test: .venv
 	$(call run_in_venv, python -m pytest $(TEST_DIR) -v --disable-warnings)
 
 # Run tests with coverage
@@ -83,15 +81,6 @@ lint: install
 
 # Format code
 format: install
-	$(call run_in_venv, ruff format $(SRC_DIR) $(TEST_DIR))
-
-# Documentation targets
-docs: install
-	$(call run_in_venv, cd docs && make html)
-
-# Start documentation server
-docs-serve:
-	$(call run_in_venv, cd docs && python -m http.server -d build/html)
 
 # Clean documentation build
 clean-docs:
@@ -197,6 +186,13 @@ install-desktop: install
 	$(call run_in_venv, python scripts/install_desktop.py "$(ALLOWED_PATHS)" "$(SERVER_NAME)" "$(DISABLE_WRITE)" "$(DISABLE_SEARCH)")
 	@echo "Installation complete. Restart Claude Desktop for changes to take effect."
 
+# Build DXT package for Claude Desktop
+# Creates a .dxt file that can be installed by double-clicking
+build-dxt: install
+	@echo "Building Hanzo MCP Desktop Extension (.dxt)..."
+	$(call run_in_venv, python dxt/build_dxt.py)
+	@echo "DXT package built successfully. Check the dist/ directory."
+
 # Display help information
 help:
 	@echo "Hanzo MCP Makefile Commands:"
@@ -205,14 +201,14 @@ help:
 	@echo "  make               Run tests (default target)"
 	@echo "  make setup         Setup everything at once"
 	@echo "  make test          Run tests (installs test dependencies first)"
-	@echo "  make test-quick    Run tests quickly (without reinstalling dependencies)"
-	@echo "  make test-cov      Run tests with coverage report"
+	@echo "  make coverage      Run test coverage report"
 	@echo "  make lint          Run linting checks"
 	@echo "  make format        Format code"
 	@echo ""
 	@echo "Installation:"
 	@echo "  make install       Install dependencies and package"
 	@echo "  make install-desktop [ALLOWED_PATHS=/path1,/path2] [SERVER_NAME=hanzo]  Install to Claude Desktop"
+	@echo "  make build-dxt     Build .dxt package for easy Claude Desktop installation"
 	@echo ""
 	@echo "Documentation:"
 	@echo "  make docs          Build documentation"

@@ -558,7 +558,7 @@ Users can trigger your specific actions using the following commands:
  /rollback: Revert to previous state
  /security: Execute security assessment
  /status: Check repository status
- /version: Use version tool to return current Hanzo MCP version
+ /version: Use version tool to return current Hanzo AI version
 </commands>
 
 <special_format>

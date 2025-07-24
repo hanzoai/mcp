@@ -1,8 +1,8 @@
-# Hanzo MCP Tools Documentation
+# Hanzo AI Tools Documentation
 
 ## Overview
 
-Hanzo MCP provides a comprehensive suite of 65+ tools designed for AI-assisted software development. The tools follow a unified design philosophy: **one tool per orthogonal task** with multiple actions where appropriate.
+Hanzo AI provides a comprehensive suite of 65+ tools designed for AI-assisted software development. The tools follow a unified design philosophy: **one tool per orthogonal task** with multiple actions where appropriate.
 
 ## Design Principles
 

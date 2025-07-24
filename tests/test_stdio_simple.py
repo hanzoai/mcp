@@ -88,4 +88,5 @@ if violations == 0 and output_lines:
 else:
     print(f"❌ Found {violations} protocol violations")
 
-sys.exit(0 if violations == 0 else 1)
+if __name__ == "__main__":
+    sys.exit(0 if violations == 0 else 1)

@@ -1,19 +1,17 @@
-"""Todo tools package for Hanzo MCP.
+"""Todo tools package for Hanzo AI.
 
-This package provides tools for managing todo lists across different Claude Desktop sessions,
-using in-memory storage to maintain separate task lists for each conversation.
+This package provides a unified todo management tool for organizing tasks
+within Claude Desktop sessions.
 """
 
 from mcp.server import FastMCP
 
 from hanzo_mcp.tools.common.base import BaseTool, ToolRegistry
-from hanzo_mcp.tools.todo.todo_read import TodoReadTool
-from hanzo_mcp.tools.todo.todo_write import TodoWriteTool
+from hanzo_mcp.tools.todo.todo import TodoTool
 
 # Export all tool classes
 __all__ = [
-    "TodoReadTool",
-    "TodoWriteTool",
+    "TodoTool",
     "get_todo_tools",
     "register_todo_tools",
 ]
@@ -26,8 +24,7 @@ def get_todo_tools() -> list[BaseTool]:
         List of todo tool instances
     """
     return [
-        TodoReadTool(),
-        TodoWriteTool(),
+        TodoTool(),
     ]
 
 
@@ -44,23 +41,21 @@ def register_todo_tools(
     Returns:
         List of registered tools
     """
-    # Define tool mapping
+    # Define tool mapping - single unified todo tool
     tool_classes = {
-        "todo_read": TodoReadTool,
-        "todo_write": TodoWriteTool,
+        "todo": TodoTool,
     }
-    
+
     tools = []
-    
+
     if enabled_tools:
         # Use individual tool configuration
-        for tool_name, enabled in enabled_tools.items():
-            if enabled and tool_name in tool_classes:
-                tool_class = tool_classes[tool_name]
-                tools.append(tool_class())
+        # Support both old names and new name for backward compatibility
+        if enabled_tools.get("todo", True) or enabled_tools.get("todo_read", True) or enabled_tools.get("todo_write", True):
+            tools.append(TodoTool())
     else:
         # Use all tools (backward compatibility)
         tools = get_todo_tools()
-    
+
     ToolRegistry.register_tools(mcp_server, tools)
     return tools

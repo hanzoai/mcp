@@ -1,4 +1,4 @@
-"""Agent tools for Hanzo MCP.
+"""Agent tools for Hanzo AI.
 
 This module provides tools that allow Claude to delegate tasks to sub-agents,
 enabling concurrent execution of multiple operations and specialized processing.

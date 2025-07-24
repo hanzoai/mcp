@@ -1,12 +1,12 @@
-Hanzo MCP Documentation
+Hanzo AI Documentation
 =======================
 
 The Ultimate AI-Powered Development Toolkit
 -------------------------------------------
 
-**65+ Professional Tools. One Unified Interface. Infinite Possibilities.**
+**65+ Professional Tools. One Interface. Infinite Possibilities.**
 
-Hanzo MCP transforms Claude into a powerhouse development environment with enterprise-grade tools for every aspect of modern software development.
+Hanzo AI transforms Claude into a powerhouse development environment with enterprise-grade tools for every aspect of modern software development.
 
 .. toctree::
    :maxdepth: 2
@@ -88,7 +88,7 @@ Hanzo MCP transforms Claude into a powerhouse development environment with enter
 Quick Start
 -----------
 
-Install Hanzo MCP in seconds::
+Install Hanzo AI in seconds::
 
     # Install with uv
     uv pip install hanzo-mcp
@@ -117,7 +117,7 @@ Key Features
 📊 **Database Support**
    Native SQL and graph database operations
 
-Why Choose Hanzo MCP?
+Why Choose Hanzo AI?
 ---------------------
 
 - **Comprehensive**: 65+ tools covering every development need

@@ -327,9 +327,9 @@ class TestVectorStoreIntegration:
         result_types = {r.document.metadata.get("type") for r in results}
         assert "code" in result_types or "docs" in result_types
     
-    def test_unified_search_results(self, integrated_store):
-        """Test creating unified search results."""
-        # This would integrate with the UnifiedSearchTool
+    def test_search_results(self, integrated_store):
+        """Test creating search results."""
+        # This would integrate with the SearchTool
         # but we can test the data structure
         result = UnifiedSearchResult(
             type="document",

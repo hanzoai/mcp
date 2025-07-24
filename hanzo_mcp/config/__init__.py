@@ -1,4 +1,4 @@
-"""Configuration management for Hanzo MCP.
+"""Configuration management for Hanzo AI.
 
 This module provides a comprehensive configuration system that supports:
 - CLI arguments for individual tool control

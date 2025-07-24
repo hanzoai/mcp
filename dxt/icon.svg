@@ -1,0 +1,33 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Hanzo Ninja Star Background -->
+  <g transform="translate(256, 256)">
+    <!-- Outer circle -->
+    <circle cx="0" cy="0" r="240" fill="#1a1a1a"/>
+    
+    <!-- Ninja star shape -->
+    <path d="M0,-200 L50,-50 L200,0 L50,50 L0,200 L-50,50 L-200,0 L-50,-50 Z" 
+          fill="#e53e3e" 
+          stroke="#fff" 
+          stroke-width="4"/>
+    
+    <!-- Inner details -->
+    <circle cx="0" cy="0" r="60" fill="#1a1a1a"/>
+    <circle cx="0" cy="0" r="40" fill="#e53e3e"/>
+    
+    <!-- Hanzo "H" in the center -->
+    <text x="0" y="15" 
+          font-family="Arial, sans-serif" 
+          font-size="48" 
+          font-weight="bold" 
+          text-anchor="middle" 
+          fill="#ffffff">H</text>
+  </g>
+  
+  <!-- Hanzo text at bottom -->
+  <text x="256" y="460" 
+        font-family="Arial, sans-serif" 
+        font-size="64" 
+        font-weight="bold" 
+        text-anchor="middle" 
+        fill="#e53e3e">HANZO</text>
+</svg>

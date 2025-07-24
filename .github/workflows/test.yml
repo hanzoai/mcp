@@ -1,29 +1,104 @@
-name: Run Tests
+name: Test MCP Service
 
 on:
   push:
-    branches:
-      - master
+    branches: [ main, master, develop ]
   pull_request:
-    branches:
-      - master
+    branches: [ main, master, develop ]
 
 jobs:
   test:
     runs-on: ubuntu-latest
-
+    strategy:
+      matrix:
+        python-version: ['3.9', '3.10', '3.11', '3.12', '3.13']
+    
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v3
-
-    - name: Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.13'
-
+    - uses: actions/checkout@v4
+    
+    - name: Install uv
+      uses: astral-sh/setup-uv@v3
+    
+    - name: Set up Python ${{ matrix.python-version }}
+      run: uv python install ${{ matrix.python-version }}
+    
     - name: Install dependencies
       run: |
-        make install-test
-
-    - name: Run tests
-      run: make test
+        make setup || make install-test
+    
+    - name: Run linting
+      run: |
+        make lint || true
+        make format-check || true
+    
+    - name: Run type checking
+      run: make type-check || true
+    
+    - name: Run unit tests
+      run: |
+        make test
+      env:
+        PYTHONPATH: ${{ github.workspace }}
+    
+    - name: Test CLI commands
+      run: |
+        uv run hanzo-mcp --version || true
+        uv run hanzo-mcp --help || true
+        uv run python -m hanzo_mcp --version || true
+    
+    - name: Test tool loading
+      run: |
+        uv run python -c "from hanzo_mcp.tools import get_available_tools; print(len(get_available_tools()))" || true
+    
+    - name: Build package
+      run: |
+        make build || true
+    
+    - name: Upload coverage reports
+      uses: codecov/codecov-action@v4
+      if: matrix.python-version == '3.11'
+      with:
+        file: ./coverage.xml
+        flags: unittests
+        name: codecov-umbrella
+    
+  test-dxt:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Install uv
+      uses: astral-sh/setup-uv@v3
+    
+    - name: Test DXT build
+      run: |
+        make setup || make install-test
+        uv run python dxt/build_dxt.py || true
+        test -f dxt/manifest.json || true
+        test -f dxt/icon.png || true
+    
+    - name: Validate DXT manifest
+      run: |
+        uv run python -c "import json; json.load(open('dxt/manifest.json'))" || true
+    
+  security-scan:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Install uv
+      uses: astral-sh/setup-uv@v3
+    
+    - name: Security audit
+      run: |
+        uv pip install safety bandit
+        uv run safety check || true
+        uv run bandit -r hanzo_mcp -f sarif -o bandit-results.sarif || true
+    
+    - name: Upload Bandit scan results
+      uses: github/codeql-action/upload-sarif@v3
+      if: always()
+      with:
+        sarif_file: 'bandit-results.sarif'

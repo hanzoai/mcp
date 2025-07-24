@@ -1,4 +1,4 @@
-"""Jupyter notebook tools package for Hanzo MCP.
+"""Jupyter notebook tools package for Hanzo AI.
 
 This package provides tools for working with Jupyter notebooks (.ipynb files),
 including reading and editing notebook cells.
@@ -29,7 +29,7 @@ def get_read_only_jupyter_tools(
     Returns:
         List of Jupyter notebook tool instances
     """
-    return []  # Unified tool handles both read and write
+    return []  # Tool handles both read and write
 
 
 def get_jupyter_tools(permission_manager: PermissionManager) -> list[BaseTool]:

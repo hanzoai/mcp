@@ -43,7 +43,7 @@ class StatsTool(BaseTool):
     @override
     def description(self) -> str:
         """Get the tool description."""
-        return """Show comprehensive system and Hanzo MCP statistics.
+        return """Show comprehensive system and Hanzo AI statistics.
 
 Displays:
 - System resources (CPU, memory, disk)
@@ -79,7 +79,7 @@ Example:
         warnings = []
         
         # Header
-        output.append("=== Hanzo MCP System Statistics ===")
+        output.append("=== Hanzo AI System Statistics ===")
         output.append(f"Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
         output.append("")
         
@@ -205,8 +205,8 @@ Example:
         
         output.append("")
         
-        # Hanzo MCP Specifics
-        output.append("=== Hanzo MCP ===")
+        # Hanzo AI Specifics
+        output.append("=== Hanzo AI ===")
         
         # Log directory size
         log_dir = Path.home() / ".hanzo" / "logs"

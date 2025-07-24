@@ -1,4 +1,4 @@
-"""Infinity vector database integration for Hanzo MCP."""
+"""Infinity vector database integration for Hanzo AI."""
 
 import json
 import hashlib
@@ -45,7 +45,7 @@ class SymbolSearchResult:
 
 @dataclass
 class UnifiedSearchResult:
-    """Unified search result combining text, vector, and symbol search."""
+    """Search result combining text, vector, and symbol search."""
     type: str  # 'document', 'symbol', 'reference'
     content: str
     file_path: str

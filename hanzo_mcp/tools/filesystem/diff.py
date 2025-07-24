@@ -98,7 +98,7 @@ diff a.json b.json --ignore-whitespace"""
         
         # Generate diff
         if unified:
-            # Unified diff format
+            #  diff format
             diff_lines = list(difflib.unified_diff(
                 lines1,
                 lines2,
@@ -183,7 +183,7 @@ diff a.json b.json --ignore-whitespace"""
             unified: bool = True,
             context: int = 3,
             ignore_whitespace: bool = False,
-            show_line_numbers: bool = True,
+            show_line_numbers: bool = True
         ) -> str:
             """Handle diff tool calls."""
             return await tool_self.run(

@@ -1,4 +1,4 @@
-"""Command executor tools for Hanzo MCP.
+"""Command executor tools for Hanzo AI.
 
 This module provides tools for executing shell commands and scripts with
 comprehensive error handling, permissions checking, and progress tracking.
@@ -22,7 +22,7 @@ from hanzo_mcp.tools.shell.base import CommandResult
 
 @final
 class CommandExecutor:
-    """Command executor tools for Hanzo MCP.
+    """Command executor tools for Hanzo AI.
 
     This class provides tools for executing shell commands and scripts with
     comprehensive error handling, permissions checking, and progress tracking.

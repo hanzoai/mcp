@@ -6,7 +6,7 @@
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
-project = 'Hanzo MCP'
+project = 'Hanzo AI'
 copyright = '2025, Hanzo AI'
 author = 'Hanzo AI'
 

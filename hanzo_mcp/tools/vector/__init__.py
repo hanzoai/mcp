@@ -1,4 +1,4 @@
-"""Vector database tools for Hanzo MCP.
+"""Vector database tools for Hanzo AI.
 
 This package provides tools for working with local vector databases for semantic search,
 document indexing, and retrieval-augmented generation (RAG) workflows.

@@ -1,4 +1,4 @@
-"""Editor integration tools for Hanzo MCP."""
+"""Editor integration tools for Hanzo AI."""
 
 from hanzo_mcp.tools.editor.neovim_edit import NeovimEditTool
 from hanzo_mcp.tools.editor.neovim_command import NeovimCommandTool

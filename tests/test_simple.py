@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Simple test script for core Hanzo MCP functionality."""
+"""Simple test script for core Hanzo AI functionality."""
 
 import asyncio
 import os
@@ -12,9 +12,6 @@ def test_imports():
     print("🧪 Testing Core Imports\n")
     
     try:
-        from hanzo_mcp.tools.common.palette import PaletteRegistry
-        print("✅ Palette system imported")
-        
         from hanzo_mcp.tools.common.permissions import PermissionManager
         print("✅ Permission manager imported")
         
@@ -24,13 +21,11 @@ def test_imports():
         from hanzo_mcp.tools.filesystem.diff import create_diff_tool
         print("✅ Diff tool imported")
         
-        # Test palette initialization
-        from hanzo_mcp.tools.common.palette_loader import PaletteLoader
-        PaletteLoader.initialize_palettes()
-        palettes = PaletteRegistry.list()
-        print(f"✅ {len(palettes)} palettes loaded:")
-        for palette in palettes[:3]:
-            print(f"   - {palette.name}: {palette.description}")
+        from hanzo_mcp.tools.common.decorators import with_context_normalization
+        print("✅ Context normalization imported")
+        
+        from hanzo_mcp.server_enhanced import EnhancedFastMCP
+        print("✅ Enhanced server imported")
         
         return True
         
@@ -215,7 +210,7 @@ def test_dev_mode():
 
 async def main():
     """Run all tests."""
-    print("🚀 Hanzo MCP Simple Test Suite")
+    print("🚀 Hanzo AI Simple Test Suite")
     print("=" * 50)
     
     results = []

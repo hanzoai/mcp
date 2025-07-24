@@ -1,4 +1,4 @@
-"""Permission system for the Hanzo MCP server."""
+"""Permission system for the Hanzo AI server."""
 
 import json
 import os

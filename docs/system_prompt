@@ -50,8 +50,8 @@ DO NOT Commit LLM.md
 </best_practice>
 
 <tools>
-<unified_search_tool>
-Intelligent unified search combining grep, vector similarity, AST context, and symbol search for comprehensive code exploration.
+<search_tool>
+Intelligent search combining grep, vector similarity, AST context, and symbol search for comprehensive code exploration.
 
 This is the most powerful search tool available, providing optimal search results by:
 1. Always starting with fast grep search for immediate results
@@ -75,9 +75,9 @@ When to use this tool:
 
 Example usage:
 ```
-unified_search(pattern="error handling", path="/project/src", max_results=20, include_context=True)
-unified_search(pattern="UserService", path=".", enable_vector=True, enable_symbol=True)
-unified_search(pattern="def.*process", path="/app", enable_ast=True)
+search(pattern="error handling", path="/project/src", max_results=20, include_context=True)
+search(pattern="UserService", path=".", enable_vector=True, enable_symbol=True)
+search(pattern="def.*process", path="/app", enable_ast=True)
 ```
 
 Parameters:
@@ -89,7 +89,7 @@ Parameters:
 - enable_ast: Enable AST context search (default: True)  
 - enable_symbol: Enable symbol search (default: True)
 - include_context: Include function/method context (default: True)
-</unified_search_tool>
+</search_tool>
 
 <grep_ast_tool>
 Search through source code files and see matching lines with useful AST (Abstract Syntax Tree) context. This tool helps you understand code structure by showing how matched lines fit into functions, classes, and other code blocks.
@@ -599,7 +599,7 @@ Users can trigger your specific actions using the following commands:
  /rollback: Revert to previous state
  /security: Execute security assessment
  /status: Check repository status
- /version: Use version tool to return current Hanzo MCP version
+ /version: Use version tool to return current Hanzo AI version
 </commands>
 
 <special_format>

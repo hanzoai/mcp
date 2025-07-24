@@ -260,6 +260,27 @@ todo --filter in_progress
             self.write_todos([])
             return f"Cleared all {count} todo(s)"
 
+    @override
     def register(self, mcp_server) -> None:
         """Register this tool with the MCP server."""
-        pass
+        tool_self = self  # Create a reference to self for use in the closure
+
+        @mcp_server.tool(name=self.name, description=self.description)
+        async def todo(
+            action: Action = "list",
+            content: Content = None,
+            id: TodoId = None,
+            status: Status = None,
+            priority: Priority = None,
+            filter: Filter = None,
+            ctx: MCPContext = None,
+        ) -> str:
+            return await tool_self.call(
+                ctx,
+                action=action,
+                content=content,
+                id=id,
+                status=status,
+                priority=priority,
+                filter=filter,
+            )

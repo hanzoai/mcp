@@ -1,0 +1,184 @@
+{
+  "dxt_version": "0.1",
+  "name": "hanzo-ai",
+  "display_name": "Hanzo AI",
+  "version": "0.6.12",
+  "description": "Advanced AI development server with comprehensive tools for file operations, code analysis, and development workflows",
+  "long_description": "Hanzo AI provides 36 professional UNIX-style tools including file system operations, code search with AST awareness, shell command execution, process management, and more. Features a mode system with 100 programmer personalities for customizing tool configurations and supports dynamic MCP server orchestration.",
+  "author": {
+    "name": "Hanzo AI",
+    "url": "https://hanzo.ai"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/hanzoai/mcp"
+  },
+  "homepage": "https://github.com/hanzoai/mcp",
+  "documentation": "https://mcp.hanzo.ai",
+  "support": "https://github.com/hanzoai/mcp/issues",
+  "icon": "icon.png",
+  "server": {
+    "type": "python",
+    "entry_point": "launcher.py",
+    "mcp_config": {
+      "command": "python",
+      "args": ["${__dirname}/launcher.py"],
+      "env": {
+        "PYTHONPATH": "${__dirname}",
+        "ALLOWED_PATHS": "${user_config.allowed_paths}",
+        "DISABLE_WRITE_TOOLS": "${user_config.disable_write_tools}",
+        "DISABLE_SEARCH_TOOLS": "${user_config.disable_search_tools}",
+        "ENABLE_AGENT_TOOL": "${user_config.enable_agent_tool}",
+        "HANZO_MODE": "${user_config.hanzo_mode}",
+        "HANZO_API_KEY": "${user_config.hanzo_api_key}",
+        "DISABLE_HANZO_LOGIN": "${user_config.disable_hanzo_login}"
+      }
+    }
+  },
+  "tools": [
+    {
+      "name": "read",
+      "description": "Read file contents"
+    },
+    {
+      "name": "write",
+      "description": "Write content to files"
+    },
+    {
+      "name": "edit",
+      "description": "Edit existing files"
+    },
+    {
+      "name": "multi_edit",
+      "description": "Make multiple edits to a single file"
+    },
+    {
+      "name": "directory_tree",
+      "description": "Display directory structure"
+    },
+    {
+      "name": "grep",
+      "description": "Search file contents with regex"
+    },
+    {
+      "name": "symbols",
+      "description": "Code symbols search with AST awareness (includes ast action)"
+    },
+    {
+      "name": "search",
+      "description": "Comprehensive search across multiple methods"
+    },
+    {
+      "name": "bash",
+      "description": "Execute bash commands"
+    },
+    {
+      "name": "npx",
+      "description": "Execute npx commands"
+    },
+    {
+      "name": "uvx",
+      "description": "Execute uvx commands"
+    },
+    {
+      "name": "process",
+      "description": "Manage processes"
+    },
+    {
+      "name": "agent",
+      "description": "Delegate tasks to AI agents for concurrent execution"
+    },
+    {
+      "name": "todo",
+      "description": "Manage todo lists for tracking tasks"
+    },
+    {
+      "name": "think",
+      "description": "Structured thinking space"
+    },
+    {
+      "name": "batch",
+      "description": "Execute multiple tool calls in sequence"
+    },
+    {
+      "name": "mode",
+      "description": "Manage development modes with 100 programmer personalities"
+    },
+    {
+      "name": "critic",
+      "description": "Critical code review and quality enforcement"
+    },
+    {
+      "name": "consensus",
+      "description": "Multi-LLM consensus for better decisions"
+    },
+    {
+      "name": "rules",
+      "description": "Read project preferences and coding rules"
+    }
+  ],
+  "tools_generated": true,
+  "keywords": ["mcp", "file-system", "code-search", "shell", "development", "productivity"],
+  "license": "MIT",
+  "compatibility": {
+    "claude_desktop": ">=0.11.0",
+    "platforms": ["darwin", "win32", "linux"],
+    "runtimes": {
+      "python": ">=3.10.0"
+    }
+  },
+  "user_config": {
+    "allowed_paths": {
+      "type": "directory",
+      "title": "Allowed Directories",
+      "description": "Directories the server can access",
+      "multiple": true,
+      "required": true,
+      "default": ["${HOME}"]
+    },
+    "disable_write_tools": {
+      "type": "boolean",
+      "title": "Disable Write Tools",
+      "description": "Disable all file write operations for safety",
+      "default": false,
+      "required": false
+    },
+    "disable_search_tools": {
+      "type": "boolean",
+      "title": "Disable Search Tools",
+      "description": "Disable search tools (grep, grep_ast, etc.)",
+      "default": false,
+      "required": false
+    },
+    "enable_agent_tool": {
+      "type": "boolean",
+      "title": "Enable Agent Tool",
+      "description": "Enable the agent delegation tool (requires API key)",
+      "default": false,
+      "required": false
+    },
+    "hanzo_mode": {
+      "type": "string",
+      "title": "Development Mode",
+      "description": "Choose a programmer personality mode (e.g., guido, linus, minimal, fullstack)",
+      "default": "hanzo",
+      "required": false,
+      "enum": ["hanzo", "minimal", "fullstack", "guido", "linus", "security", "devops", "data_scientist"]
+    },
+    "hanzo_api_key": {
+      "type": "string",
+      "title": "Hanzo API Key (Optional)",
+      "description": "Your Hanzo API key for AI features (automatically enables agent tools). Not required to use the extension.",
+      "default": "",
+      "required": false,
+      "secret": true
+    },
+    "disable_hanzo_login": {
+      "type": "boolean",
+      "title": "Disable Login Prompts",
+      "description": "Disable prompts to login to Hanzo (use extension without account)",
+      "default": true,
+      "required": false
+    }
+  }
+}

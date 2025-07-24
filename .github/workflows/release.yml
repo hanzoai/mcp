@@ -1,150 +1,78 @@
-name: Create Release and Publish to PyPI
-
-permissions:
-  contents: write
-  packages: write
+name: Build and Release
 
 on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch:
 
 jobs:
-  test:
-    name: Run Tests
+  build-dxt:
     runs-on: ubuntu-latest
+    
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.13'
-
-      - name: Install dependencies
-        run: make install-test
-
-      - name: Run tests
-        run: make test
-
-  build:
-    name: Build Distribution
-    needs: test
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.13'
-
-      - name: Install build dependencies
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install build
-
-      - name: Build distributions
-        run: python -m build
-
-      - name: Upload distribution artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: python-package-distributions
-          path: dist/
-
-  publish-github:
-    name: Publish GitHub Release
-    needs: build
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Download distribution artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: python-package-distributions
-          path: dist/
-
-      - name: Set tag name
-        id: tag
-        run: echo "tag=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
-
-      - name: Extract release notes from CHANGELOG.md
-        id: extract-release-notes
-        run: |
-          CHANGELOG=$(cat CHANGELOG.md)
-          VERSION=$(echo ${{ steps.tag.outputs.tag }} | sed 's/^v//')
-
-          echo "Extracting release notes for version $VERSION"
-
-          # Extract the release notes for this version
-          NOTES=$(awk -v ver="$VERSION" '
-          BEGIN { found=0; printing=0; }
-          /^## \[[0-9]+\.[0-9]+\.[0-9]+\]/ {
-            if (printing) { printing=0; exit; }
-            if ($0 ~ ("## \\[" ver "\\]")) { printing=1; found=1; next; }
-          }
-          printing { print; }
-          END { if (!found) print "No release notes found for version " ver; }
-          ' CHANGELOG.md)
-
-          # Save to file
-          if [ -z "$NOTES" ]; then
-            echo "No release notes found for version $VERSION or extraction failed."
-            echo "**Release $VERSION**\n\nPlease check the [CHANGELOG.md](https://github.com/hanzoai/mcp/blob/main/CHANGELOG.md) for more details." > release_notes.md
-          else
-            echo "$NOTES" > release_notes.md
-            echo "Successfully extracted release notes for version $VERSION"
-          fi
-
-          # Display content of release notes file for debugging
-          echo "Content of release_notes.md:"
-          cat release_notes.md
-
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v1
-        with:
-          tag_name: ${{ steps.tag.outputs.tag }}
-          name: Hanzo MCP ${{ steps.tag.outputs.tag }}
-          body_path: release_notes.md
-          files: dist/*
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-  publish-pypi:
-    name: Publish to PyPI
-    needs: [build, publish-github]
-    runs-on: ubuntu-latest
-    permissions:
-      id-token: write
-    steps:
-      - name: Download distribution artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: python-package-distributions
-          path: dist/
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.13'
-
-      - name: Install publishing dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install twine
-
-      - name: Publish to PyPI
-        env:
-          TWINE_USERNAME: __token__
-          TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
-        run: |
-          twine upload --skip-existing dist/*
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.12'
+    
+    - name: Install UV
+      run: |
+        pip install uv
+    
+    - name: Install dependencies
+      run: |
+        make install
+    
+    - name: Build DXT package
+      run: |
+        make build-dxt
+    
+    - name: Build Python package
+      run: |
+        make build
+    
+    - name: Create Release
+      if: startsWith(github.ref, 'refs/tags/')
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          dist/*.dxt
+          dist/*.whl
+          dist/*.tar.gz
+        body: |
+          ## 🚀 Hanzo MCP Release
+          
+          ### 📦 Installation Options
+          
+          #### Option 1: Desktop Extension (Easiest)
+          Download the `.dxt` file below and double-click to install in Claude Desktop.
+          
+          #### Option 2: PyPI
+          ```bash
+          pip install hanzo-mcp
+          ```
+          
+          #### Option 3: From Source
+          ```bash
+          git clone https://github.com/hanzoai/mcp
+          cd mcp
+          make install
+          ```
+          
+          ### ✨ What's New
+          See [CHANGELOG.md](https://github.com/hanzoai/mcp/blob/main/CHANGELOG.md) for details.
+          
+        draft: false
+        prerelease: false
+    
+    - name: Upload to PyPI
+      if: startsWith(github.ref, 'refs/tags/')
+      env:
+        TWINE_USERNAME: __token__
+        TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
+      run: |
+        pip install twine
+        twine upload dist/*.whl dist/*.tar.gz

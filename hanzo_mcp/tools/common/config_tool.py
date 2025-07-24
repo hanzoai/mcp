@@ -34,7 +34,7 @@ class ConfigToolParams(TypedDict, total=False):
 
 @final
 class ConfigTool(BaseTool):
-    """Tool for managing Hanzo MCP configuration dynamically."""
+    """Tool for managing Hanzo AI configuration dynamically."""
     
     def __init__(self, permission_manager: PermissionManager):
         """Initialize the configuration tool.
@@ -52,7 +52,7 @@ class ConfigTool(BaseTool):
     @property
     def description(self) -> str:
         """Get the tool description."""
-        return """Dynamically manage Hanzo MCP configuration settings through conversation.
+        return """Dynamically manage Hanzo AI configuration settings through conversation.
 
 Can get/set global settings, project-specific settings, manage MCP servers, configure tools,
 and handle project workflows. Supports dot-notation for nested settings like 'agent.enabled'.

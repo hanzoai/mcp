@@ -1,7 +1,7 @@
 Tools Philosophy
 ================
 
-Hanzo MCP follows a carefully designed philosophy that makes it powerful yet simple to use.
+Hanzo AI follows a carefully designed philosophy that makes it powerful yet simple to use.
 
 Core Principles
 ---------------
@@ -9,7 +9,7 @@ Core Principles
 One Tool, One Purpose
 ~~~~~~~~~~~~~~~~~~~~~
 
-Each tool in Hanzo MCP does exactly one thing well:
+Each tool in Hanzo AI does exactly one thing well:
 
 - ``read`` - reads files
 - ``write`` - writes files  
@@ -26,7 +26,7 @@ This Unix-inspired approach means:
 Action-Based Architecture
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Complex tools support multiple actions through a unified interface:
+Complex tools support multiple actions through a interface:
 
 .. code-block:: yaml
 
@@ -225,7 +225,7 @@ Tool development follows user needs:
 Summary
 -------
 
-The Hanzo MCP philosophy creates a system that is:
+The Hanzo AI philosophy creates a system that is:
 
 - **Simple** - One tool per task
 - **Powerful** - Tools compose naturally  
@@ -233,4 +233,4 @@ The Hanzo MCP philosophy creates a system that is:
 - **Secure** - Safe by default
 - **Extensible** - Easy to enhance
 
-This philosophy ensures Hanzo MCP remains the most effective way to enhance Claude's capabilities for software development.
+This philosophy ensures Hanzo AI remains the most effective way to enhance Claude's capabilities for software development.

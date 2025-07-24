@@ -99,7 +99,7 @@ npx --action background json-server db.json"""
             args: str = "",
             action: str = "run",
             cwd: Optional[str] = None,
-            yes: bool = True,
+            yes: bool = True
         ) -> str:
             return await tool_self.run(
                 ctx,
