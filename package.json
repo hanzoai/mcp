@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "Hanzo MCP Server - Model Context Protocol tools for AI development",
   "main": "dist/index.js",
+  "type": "module",
   "bin": {
     "hanzo-mcp": "./dist/cli.js"
   },
