@@ -1,0 +1,13 @@
+This is a sample text file for MCP testing.
+It contains multiple lines of text.
+Used for testing file operations like read_file, grep, etc.
+
+Features to test:
+- File reading
+- Text searching
+- Pattern matching
+- Line counting
+
+Special characters: éñ中文🎉
+Numbers: 123456
+Symbols: !@#$%^&*()

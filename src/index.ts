@@ -21,11 +21,15 @@ export * from './types/index.js';
 // Export tools
 export * from './tools/index.js';
 
+// Export UI tools
+export * from './ui/index.js';
+
 // Export prompts
 export { getSystemPrompt } from './prompts/system.js';
 
-// Import Tool type for use in the function signature
+// Import Tool type and tool configuration for use in function signatures
 import { Tool } from './types/index.js';
+import { ToolConfig } from './tools/index.js';
 
 // Main server factory
 export async function createMCPServer(config?: {
@@ -33,20 +37,26 @@ export async function createMCPServer(config?: {
   version?: string;
   projectPath?: string;
   customTools?: Tool[];
+  toolConfig?: ToolConfig;
 }) {
   const { 
     name = 'hanzo-mcp',
     version = '1.0.0',
     projectPath = process.cwd(),
-    customTools = []
+    customTools = [],
+    toolConfig = { enableCore: true, enableUI: false }
   } = config || {};
   
   // Import tools
-  const { allTools, toolMap } = await import('./tools/index.js');
+  const { getConfiguredTools } = await import('./tools/index.js');
   
-  // Combine built-in and custom tools
-  const combinedTools = [...allTools, ...customTools];
-  const combinedToolMap = new Map(combinedTools.map(t => [t.name, t]));
+  // Get configured tools based on toolConfig
+  const configuredTools = getConfiguredTools({
+    ...toolConfig,
+    customTools: [...(toolConfig.customTools || []), ...customTools]
+  });
+  
+  const combinedToolMap = new Map(configuredTools.map(t => [t.name, t]));
   
   const server = new Server(
     { name, version },
@@ -61,7 +71,7 @@ export async function createMCPServer(config?: {
   // Handle tool listing
   server.setRequestHandler(ListToolsRequestSchema, async () => {
     return {
-      tools: combinedTools.map(tool => ({
+      tools: configuredTools.map(tool => ({
         name: tool.name,
         description: tool.description,
         inputSchema: tool.inputSchema
@@ -99,23 +109,23 @@ export async function createMCPServer(config?: {
   
   return {
     server,
-    tools: combinedTools,
+    tools: configuredTools,
     
     async start() {
       const transport = new StdioServerTransport();
       await server.connect(transport);
-      console.error(`${name} MCP server started with ${combinedTools.length} tools`);
+      console.error(`${name} MCP server started with ${configuredTools.length} tools`);
     },
     
     addTool(tool: Tool) {
-      combinedTools.push(tool);
+      configuredTools.push(tool);
       combinedToolMap.set(tool.name, tool);
     },
     
     removeTool(name: string) {
-      const index = combinedTools.findIndex(t => t.name === name);
+      const index = configuredTools.findIndex(t => t.name === name);
       if (index >= 0) {
-        combinedTools.splice(index, 1);
+        configuredTools.splice(index, 1);
         combinedToolMap.delete(name);
       }
     }

@@ -24,7 +24,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 // Import our tools
-import { allTools, toolMap } from './tools/index.js';
+import { getConfiguredTools, ToolConfig } from './tools/index.js';
 import { getSystemPrompt } from './prompts/system.js';
 
 // Version from package.json
@@ -45,12 +45,39 @@ program
   .option('-t, --transport <type>', 'Transport type (stdio, http)', 'stdio')
   .option('-p, --port <port>', 'Port for HTTP transport', '3000')
   .option('--project <path>', 'Project path for context', process.cwd())
+  .option('--disable-ui', 'Disable UI tools for component development')
+  .option('--disable-autogui', 'Disable AutoGUI tools for computer control')
+  .option('--disable-orchestration', 'Disable orchestration tools for agent management')
+  .option('--core-only', 'Enable only core tools (files, search, shell, edit)')
+  .option('--disable-tools <tools>', 'Comma-separated list of tools to disable')
+  .option('--enable-categories <categories>', 'Comma-separated list of categories to enable (files,search,shell,edit)')
   .action(async (options) => {
+    // Configure tools based on options
+    const toolConfig: ToolConfig = {
+      enableCore: !options.coreOnly || options.enableCategories,
+      enableUI: options.coreOnly ? false : !options.disableUi,  // Enable by default unless disabled
+      enableAutoGUI: options.coreOnly ? false : !options.disableAutogui,  // Enable by default unless disabled
+      enableOrchestration: options.coreOnly ? false : !options.disableOrchestration,  // Enable by default
+      enabledCategories: options.enableCategories ? options.enableCategories.split(',') : [],
+      disabledTools: options.disableTools ? options.disableTools.split(',') : []
+    };
+
+    const tools = getConfiguredTools(toolConfig);
+    
     console.error(`Starting Hanzo MCP server v${packageJson.version}...`);
-    console.error(`Loaded ${allTools.length} tools`);
+    console.error(`Loaded ${tools.length} tools`);
+    if (toolConfig.enableUI) {
+      console.error('UI tools enabled');
+    }
+    if (toolConfig.enableAutoGUI) {
+      console.error('AutoGUI tools enabled');
+    }
+    if (toolConfig.enableOrchestration) {
+      console.error('Orchestration tools enabled');
+    }
     
     if (options.transport === 'stdio') {
-      await startStdioServer(options);
+      await startStdioServer(options, toolConfig);
     } else {
       console.error('HTTP transport not yet implemented');
       process.exit(1);
@@ -60,18 +87,66 @@ program
 program
   .command('list-tools')
   .description('List available MCP tools')
-  .action(async () => {
-    console.log(`\nHanzo MCP Tools (${allTools.length} total):\n`);
+  .option('--disable-ui', 'Exclude UI tools from listing')
+  .option('--disable-autogui', 'Exclude AutoGUI tools from listing')
+  .option('--disable-orchestration', 'Exclude orchestration tools from listing')
+  .option('--core-only', 'Show only core tools')
+  .option('--category <category>', 'Filter by category (files, search, shell, edit, ui, autogui)')
+  .action(async (options) => {
+    // Configure tools based on options
+    const toolConfig: ToolConfig = {
+      enableCore: true,
+      enableUI: options.coreOnly ? false : !options.disableUi,  // Enable by default
+      enableAutoGUI: options.coreOnly ? false : !options.disableAutogui,  // Enable by default
+      enableOrchestration: options.coreOnly ? false : !options.disableOrchestration,  // Enable by default
+    };
+
+    const tools = getConfiguredTools(toolConfig);
+    const toolMap = new Map(tools.map(t => [t.name, t]));
+    
+    console.log(`\nHanzo MCP Tools (${tools.length} total):\n`);
     
     // Group tools by category
-    const categories = {
+    const categories: Record<string, string[]> = {
       'File Operations': ['read_file', 'write_file', 'list_files', 'create_file', 'delete_file', 'move_file', 'get_file_info', 'directory_tree'],
       'Search': ['grep', 'find_files', 'search'],
       'Editing': ['edit_file', 'multi_edit'],
       'Shell': ['bash', 'run_command', 'run_background', 'list_processes', 'get_process_output', 'kill_process']
     };
     
-    for (const [category, toolNames] of Object.entries(categories)) {
+    // Add UI tools category if enabled
+    if (toolConfig.enableUI) {
+      categories['UI Tools'] = [
+        'ui_init', 'ui_list_components', 'ui_get_component', 'ui_get_component_source',
+        'ui_get_component_demo', 'ui_add_component', 'ui_list_blocks', 'ui_get_block',
+        'ui_list_styles', 'ui_search_registry', 'ui_get_installation_guide'
+      ];
+    }
+    
+    // Add AutoGUI tools category if enabled
+    if (toolConfig.enableAutoGUI) {
+      categories['AutoGUI Tools'] = [
+        'autogui_status', 'autogui_configure', 'autogui_get_screen_size', 'autogui_get_screens',
+        'autogui_get_mouse_position', 'autogui_move_mouse', 'autogui_click', 'autogui_drag', 'autogui_scroll',
+        'autogui_type', 'autogui_press_key', 'autogui_hotkey', 'autogui_screenshot', 'autogui_get_pixel',
+        'autogui_locate_image', 'autogui_get_windows', 'autogui_control_window', 'autogui_sleep'
+      ];
+    }
+    
+    // Add Orchestration tools category if enabled
+    if (toolConfig.enableOrchestration) {
+      categories['Orchestration Tools'] = [
+        'spawn_agent', 'swarm_orchestration', 'critic_agent',
+        'hanzo_node', 'llm_router', 'consensus'
+      ];
+    }
+    
+    // Filter by category if specified
+    const categoriesToShow = options.category 
+      ? Object.entries(categories).filter(([cat]) => cat.toLowerCase().includes(options.category.toLowerCase()))
+      : Object.entries(categories);
+    
+    for (const [category, toolNames] of categoriesToShow) {
       console.log(`${category}:`);
       for (const toolName of toolNames) {
         const tool = toolMap.get(toolName);
@@ -128,7 +203,7 @@ program
     }
   });
 
-async function startStdioServer(options: any) {
+async function startStdioServer(options: any, toolConfig: ToolConfig) {
   const server = new Server(
     {
       name: 'hanzo-mcp',
@@ -142,13 +217,17 @@ async function startStdioServer(options: any) {
     }
   );
 
+  // Get configured tools
+  const configuredTools = getConfiguredTools(toolConfig);
+  const toolMap = new Map(configuredTools.map(t => [t.name, t]));
+  
   // Register all tools
-  console.error(`Registering ${allTools.length} tools...`);
+  console.error(`Registering ${configuredTools.length} tools...`);
 
   // Handle tool listing
   server.setRequestHandler(ListToolsRequestSchema, async () => {
     return {
-      tools: allTools.map(tool => ({
+      tools: configuredTools.map(tool => ({
         name: tool.name,
         description: tool.description,
         inputSchema: tool.inputSchema
