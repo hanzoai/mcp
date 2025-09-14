@@ -4,7 +4,7 @@
  */
 
 import { z } from 'zod';
-import { Tool } from '@modelcontextprotocol/sdk/types.js';
+import { Tool } from '../types/index.js';
 import { spawn } from 'child_process';
 import { promises as fs } from 'fs';
 import path from 'path';
@@ -44,7 +44,7 @@ export const spawnAgentTool: Tool = {
   name: 'spawn_agent',
   description: 'Spawn a new AI agent to handle a specific task with optional model selection and constraints',
   inputSchema: {
-    type: 'object',
+    type: 'object' as const,
     properties: {
       prompt: {
         type: 'string',
@@ -80,6 +80,12 @@ export const spawnAgentTool: Tool = {
       }
     },
     required: ['prompt']
+  },
+  handler: async (args: any) => {
+    const result = await spawnAgent(args);
+    return {
+      content: [{ type: 'text', text: JSON.stringify(result, null, 2) }]
+    };
   }
 };
 
@@ -516,7 +522,7 @@ async function achieveConsensus(args: any) {
   const { question, agents, mechanism, rounds } = args;
   
   // Collect votes from each agent
-  const votes = [];
+  const votes: Array<Array<{ agentId: string; vote: string; round: number }>> = [];
   for (let round = 1; round <= rounds; round++) {
     const roundVotes = await Promise.all(
       agents.map(async (agentId: string) => {
@@ -524,7 +530,7 @@ async function achieveConsensus(args: any) {
         if (!agent) throw new Error(`Agent ${agentId} not found`);
         
         // Get agent's vote
-        const voteResult = await spawnAgent({
+        const voteResult: { agentId: string; status: string; result: string } = await spawnAgent({
           model: agent.model,
           prompt: `${question}\n\nProvide your answer/vote.`,
           context: round > 1 ? `Previous round votes: ${JSON.stringify(votes[round-2])}` : undefined
@@ -532,7 +538,7 @@ async function achieveConsensus(args: any) {
         
         return {
           agentId,
-          vote: voteResult.result,
+          vote: (voteResult as any).result || 'no result',
           round
         };
       })

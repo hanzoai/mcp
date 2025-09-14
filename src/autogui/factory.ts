@@ -52,7 +52,7 @@ export class HanzoAutoGUIFactory implements AutoGUIFactory {
 
     try {
       const adapter = new AdapterClass(config);
-      await adapter.configure({ implementation: targetImplementation, ...config });
+      await adapter.configure({ implementation: targetImplementation as 'auto' | 'rust' | 'js' | 'python', ...config });
       
       this.log(`Successfully created ${targetImplementation} adapter`);
       return adapter;

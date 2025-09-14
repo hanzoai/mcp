@@ -139,7 +139,6 @@ export const findFilesTool: Tool = {
       const globPattern = path.join(args.path || '.', '**', args.pattern);
       const files = await glob(globPattern, {
         nodir: args.type === 'file',
-        onlyDirectories: args.type === 'directory',
         maxDepth: args.maxDepth
       });
       
