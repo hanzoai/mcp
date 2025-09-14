@@ -27,7 +27,7 @@ export class PlaywrightControlTool implements Tool {
   description = 'High-level automation control for Hanzo Desktop app using Playwright-compatible methods';
   
   inputSchema = {
-    type: 'object',
+    type: 'object' as const,
     properties: {
       action: {
         type: 'string',
@@ -111,6 +111,10 @@ export class PlaywrightControlTool implements Tool {
   constructor() {
     // Initialize with some common sequences
     this.initializeCommonSequences();
+  }
+
+  async handler(params: any): Promise<any> {
+    return this.execute(params);
   }
 
   async execute(params: any): Promise<any> {
@@ -206,7 +210,7 @@ export class PlaywrightControlTool implements Tool {
       return {
         success: false,
         message: 'Connection failed',
-        error: error.message,
+        error: (error as any).message,
         hint: 'Start Hanzo Desktop app and ensure MCP server is running'
       };
     }
@@ -445,7 +449,7 @@ export class PlaywrightControlTool implements Tool {
             results
           };
         }
-      } catch (error) {
+      } catch (error: any) {
         results.push({ step: i + 1, action: action.type, error: error.message });
         return {
           success: false,
@@ -546,8 +550,8 @@ export class PlaywrightControlTool implements Tool {
       if (response.ok) {
         const result = await response.json();
         return {
-          success: !result.error,
-          data: result.result || result.error
+          success: !(result as any).error,
+          data: (result as any).result || (result as any).error
         };
       } else {
         return {
@@ -555,7 +559,7 @@ export class PlaywrightControlTool implements Tool {
           error: `HTTP ${response.status}`
         };
       }
-    } catch (error) {
+    } catch (error: any) {
       return {
         success: false,
         error: error.message

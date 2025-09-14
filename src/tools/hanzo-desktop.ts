@@ -36,7 +36,7 @@ export class HanzoDesktopTool implements Tool {
   description = 'Control and debug the Hanzo Desktop application';
   
   inputSchema = {
-    type: 'object',
+    type: 'object' as const,
     properties: {
       action: {
         type: 'string',
@@ -84,6 +84,10 @@ export class HanzoDesktopTool implements Tool {
     },
     required: ['action']
   };
+  
+  async handler(params: any): Promise<any> {
+    return this.execute(params);
+  }
   
   async execute(params: any): Promise<any> {
     const { action, window = 'main', selector, script, visible, port } = params;
@@ -211,7 +215,7 @@ export class HanzoDesktopTool implements Tool {
     try {
       await execAsync(`osascript -e '${script}'`);
       return { success: true, message: `Clicked button in window ${window}` };
-    } catch (error) {
+    } catch (error: any) {
       return { success: false, error: error.message };
     }
   }
@@ -302,7 +306,7 @@ export class HanzoDesktopTool implements Tool {
     try {
       await execAsync(`osascript -e '${script}'`);
       return { success: true, message: 'Pressed Enter key to trigger button' };
-    } catch (error) {
+    } catch (error: any) {
       return { success: false, error: error.message };
     }
   }
@@ -363,7 +367,7 @@ export class HanzoDesktopTool implements Tool {
         screenshot: `data:image/png;base64,${screenshot}`,
         message: 'Screenshot captured'
       };
-    } catch (error) {
+    } catch (error: any) {
       return {
         success: false,
         error: error.message,
@@ -464,7 +468,7 @@ export class HanzoDesktopTool implements Tool {
       
       if (response.ok) {
         const result = await response.json();
-        return result.result || result;
+        return (result as any).result || result;
       } else {
         return {
           success: false,
@@ -503,7 +507,7 @@ export class HanzoDesktopTool implements Tool {
           message: `Connected to MCP server on port ${mcpPort}`,
           port: mcpPort,
           url: `http://localhost:${mcpPort}`,
-          serverInfo: result.result,
+          serverInfo: (result as any).result,
           availableMethods: [
             'Runtime.evaluate',
             'DOM.getDocument', 
