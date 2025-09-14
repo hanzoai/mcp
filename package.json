@@ -13,6 +13,7 @@
     "build:cli": "esbuild src/cli.ts --bundle --platform=node --target=node16 --format=esm --outfile=dist/cli.js --external:@modelcontextprotocol/sdk --external:glob --external:commander --external:zod --external:zod-to-json-schema && chmod +x dist/cli.js",
     "dev": "tsc --watch",
     "test": "jest",
+    "lint": "echo 'No linter configured'",
     "prepublishOnly": "npm run build"
   },
   "keywords": [
