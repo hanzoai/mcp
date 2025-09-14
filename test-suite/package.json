@@ -1,0 +1,53 @@
+{
+  "name": "@hanzo/mcp-test-suite",
+  "version": "1.0.0",
+  "description": "Language-agnostic test suite for MCP implementations",
+  "type": "module",
+  "main": "src/index.ts",
+  "bin": {
+    "mcp-test-suite": "./src/cli.ts"
+  },
+  "scripts": {
+    "test": "node src/cli.js test",
+    "test:quick": "node src/cli.js test --quick",
+    "test:verbose": "node src/cli.js test --verbose",
+    "validate": "node src/cli.js validate typescript",
+    "list": "node src/cli.js list-implementations",
+    "tools": "node src/cli.js list-tools --stats",
+    "build": "tsc",
+    "dev": "ts-node src/cli.ts",
+    "clean": "rm -rf dist test-results"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "testing",
+    "language-agnostic",
+    "parity",
+    "automation",
+    "validation"
+  ],
+  "author": "Hanzo AI",
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "commander": "^11.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.5",
+    "ts-node": "^10.9.1",
+    "typescript": "^5.3.3"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/hanzoai/mcp.git",
+    "directory": "test-suite"
+  },
+  "homepage": "https://hanzo.ai",
+  "bugs": {
+    "url": "https://github.com/hanzoai/mcp/issues"
+  }
+}
