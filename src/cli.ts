@@ -37,17 +37,7 @@ const program = new Command();
 program
   .name('hanzo-mcp')
   .description('Hanzo MCP Server - Model Context Protocol tools for AI development')
-  .version(packageJson.version)
-  .option('--version', 'Display version number')
-  .action((options) => {
-    // Default action when no command is specified
-    if (options.version) {
-      console.log(packageJson.version);
-      process.exit(0);
-    }
-    // If no options, show help
-    program.outputHelp();
-  });
+  .version(packageJson.version);
 
 program
   .command('serve', { isDefault: true })
@@ -169,48 +159,200 @@ program
   });
 
 program
-  .command('install-desktop')
-  .description('Install MCP server for Claude Desktop')
-  .action(async () => {
-    console.log('Installing Hanzo MCP for Claude Desktop...');
+  .command('install')
+  .description('Install MCP server for various applications')
+  .option('--claude-desktop', 'Install for Claude Desktop')
+  .option('--claude-code', 'Install for Claude Code')
+  .option('--cursor', 'Install for Cursor IDE')
+  .option('--vscode', 'Install for VS Code')
+  .option('--all', 'Install for all supported applications')
+  .action(async (options) => {
+    const installations: Array<{ name: string; install: () => Promise<void> }> = [];
     
-    const configDir = path.join(process.env.HOME || '', 'Library', 'Application Support', 'Claude');
-    const configFile = path.join(configDir, 'claude_desktop_config.json');
-    
-    try {
-      // Ensure config directory exists
-      await fs.mkdir(configDir, { recursive: true });
+    // Helper function to install for Claude Desktop
+    const installClaudeDesktop = async () => {
+      console.log('📦 Installing for Claude Desktop...');
+      const configDir = path.join(process.env.HOME || '', 'Library', 'Application Support', 'Claude');
+      const configFile = path.join(configDir, 'claude_desktop_config.json');
       
-      // Read existing config or create new one
-      let config: any = {};
       try {
-        const configContent = await fs.readFile(configFile, 'utf-8');
-        config = JSON.parse(configContent);
-      } catch {
-        // Config doesn't exist yet
+        await fs.mkdir(configDir, { recursive: true });
+        let config: any = {};
+        try {
+          const configContent = await fs.readFile(configFile, 'utf-8');
+          config = JSON.parse(configContent);
+        } catch {
+          // Config doesn't exist yet
+        }
+        
+        if (!config.mcpServers) {
+          config.mcpServers = {};
+        }
+        
+        config.mcpServers['hanzo-mcp'] = {
+          command: 'npx',
+          args: ['-y', '@hanzo/mcp', 'serve'],
+          env: {}
+        };
+        
+        await fs.writeFile(configFile, JSON.stringify(config, null, 2));
+        console.log(`✓ Claude Desktop configured: ${configFile}`);
+      } catch (error: any) {
+        console.error(`✗ Claude Desktop installation failed: ${error.message}`);
       }
+    };
+    
+    // Helper function to install for Claude Code
+    const installClaudeCode = async () => {
+      console.log('📦 Installing for Claude Code...');
+      const configDir = path.join(process.env.HOME || '', '.config', 'claude-code');
+      const configFile = path.join(configDir, 'mcp.json');
       
-      // Add our MCP server
-      if (!config.mcpServers) {
-        config.mcpServers = {};
+      try {
+        await fs.mkdir(configDir, { recursive: true });
+        let config: any = {};
+        try {
+          const configContent = await fs.readFile(configFile, 'utf-8');
+          config = JSON.parse(configContent);
+        } catch {
+          // Config doesn't exist yet
+        }
+        
+        if (!config.servers) {
+          config.servers = {};
+        }
+        
+        config.servers['hanzo-mcp'] = {
+          command: 'npx',
+          args: ['-y', '@hanzo/mcp', 'serve'],
+          env: {}
+        };
+        
+        await fs.writeFile(configFile, JSON.stringify(config, null, 2));
+        console.log(`✓ Claude Code configured: ${configFile}`);
+      } catch (error: any) {
+        console.error(`✗ Claude Code installation failed: ${error.message}`);
       }
+    };
+    
+    // Helper function to install for Cursor
+    const installCursor = async () => {
+      console.log('📦 Installing for Cursor IDE...');
+      const configDir = path.join(process.env.HOME || '', '.cursor', 'mcp');
+      const configFile = path.join(configDir, 'config.json');
       
-      config.mcpServers['hanzo-mcp'] = {
-        command: 'npx',
-        args: ['-y', '@hanzo/mcp', 'serve'],
-        env: {}
-      };
+      try {
+        await fs.mkdir(configDir, { recursive: true });
+        let config: any = {};
+        try {
+          const configContent = await fs.readFile(configFile, 'utf-8');
+          config = JSON.parse(configContent);
+        } catch {
+          // Config doesn't exist yet
+        }
+        
+        if (!config.servers) {
+          config.servers = {};
+        }
+        
+        config.servers['hanzo-mcp'] = {
+          command: 'npx',
+          args: ['-y', '@hanzo/mcp', 'serve'],
+          env: {}
+        };
+        
+        await fs.writeFile(configFile, JSON.stringify(config, null, 2));
+        console.log(`✓ Cursor configured: ${configFile}`);
+      } catch (error: any) {
+        console.error(`✗ Cursor installation failed: ${error.message}`);
+      }
+    };
+    
+    // Helper function to install for VS Code
+    const installVSCode = async () => {
+      console.log('📦 Installing for VS Code...');
+      const configDir = path.join(process.env.HOME || '', '.vscode', 'mcp');
+      const configFile = path.join(configDir, 'servers.json');
       
-      // Write config
-      await fs.writeFile(configFile, JSON.stringify(config, null, 2));
-      
-      console.log('✓ Successfully installed Hanzo MCP for Claude Desktop');
-      console.log(`✓ Configuration saved to: ${configFile}`);
-      console.log('\nRestart Claude Desktop to use Hanzo MCP tools.');
-    } catch (error: any) {
-      console.error(`Error installing: ${error.message}`);
+      try {
+        await fs.mkdir(configDir, { recursive: true });
+        let config: any = {};
+        try {
+          const configContent = await fs.readFile(configFile, 'utf-8');
+          config = JSON.parse(configContent);
+        } catch {
+          // Config doesn't exist yet
+        }
+        
+        if (!config.servers) {
+          config.servers = {};
+        }
+        
+        config.servers['hanzo-mcp'] = {
+          command: 'npx',
+          args: ['-y', '@hanzo/mcp', 'serve'],
+          env: {}
+        };
+        
+        await fs.writeFile(configFile, JSON.stringify(config, null, 2));
+        console.log(`✓ VS Code configured: ${configFile}`);
+      } catch (error: any) {
+        console.error(`✗ VS Code installation failed: ${error.message}`);
+      }
+    };
+    
+    // Determine what to install
+    if (options.all) {
+      installations.push(
+        { name: 'Claude Desktop', install: installClaudeDesktop },
+        { name: 'Claude Code', install: installClaudeCode },
+        { name: 'Cursor', install: installCursor },
+        { name: 'VS Code', install: installVSCode }
+      );
+    } else {
+      if (options.claudeDesktop) {
+        installations.push({ name: 'Claude Desktop', install: installClaudeDesktop });
+      }
+      if (options.claudeCode) {
+        installations.push({ name: 'Claude Code', install: installClaudeCode });
+      }
+      if (options.cursor) {
+        installations.push({ name: 'Cursor', install: installCursor });
+      }
+      if (options.vscode) {
+        installations.push({ name: 'VS Code', install: installVSCode });
+      }
+    }
+    
+    if (installations.length === 0) {
+      console.log('No installation target specified. Use one of:');
+      console.log('  --claude-desktop  Install for Claude Desktop');
+      console.log('  --claude-code     Install for Claude Code');
+      console.log('  --cursor          Install for Cursor IDE');
+      console.log('  --vscode          Install for VS Code');
+      console.log('  --all             Install for all supported applications');
       process.exit(1);
     }
+    
+    console.log(`\n🚀 Installing Hanzo MCP v${packageJson.version}...\n`);
+    
+    // Run all installations
+    for (const { name, install } of installations) {
+      await install();
+    }
+    
+    console.log('\n✅ Installation complete!');
+    console.log('Restart the respective applications to use Hanzo MCP tools.');
+  });
+
+// Keep the legacy command for backward compatibility
+program
+  .command('install-desktop')
+  .description('Install MCP server for Claude Desktop (deprecated, use "install --claude-desktop")')
+  .action(async () => {
+    console.log('Note: This command is deprecated. Use "hanzo-mcp install --claude-desktop" instead.\n');
+    // Call the new install command with claude-desktop flag
+    await program.parseAsync(['node', 'cli', 'install', '--claude-desktop'], { from: 'user' });
   });
 
 async function startStdioServer(options: any, toolConfig: ToolConfig) {
