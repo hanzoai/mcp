@@ -37,10 +37,20 @@ const program = new Command();
 program
   .name('hanzo-mcp')
   .description('Hanzo MCP Server - Model Context Protocol tools for AI development')
-  .version(packageJson.version);
+  .version(packageJson.version)
+  .option('--version', 'Display version number')
+  .action((options) => {
+    // Default action when no command is specified
+    if (options.version) {
+      console.log(packageJson.version);
+      process.exit(0);
+    }
+    // If no options, show help
+    program.outputHelp();
+  });
 
 program
-  .command('serve')
+  .command('serve', { isDefault: true })
   .description('Start the MCP server')
   .option('-t, --transport <type>', 'Transport type (stdio, http)', 'stdio')
   .option('-p, --port <port>', 'Port for HTTP transport', '3000')

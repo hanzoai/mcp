@@ -1,12 +1,19 @@
 {
   "name": "@hanzo/mcp",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "Hanzo MCP Server - Unified search, TreeSitter AST, vector store, and agent orchestration",
   "main": "dist/index.js",
   "type": "module",
   "bin": {
     "hanzo-mcp": "./dist/cli.js"
   },
+  "files": [
+    "dist/",
+    "server.js",
+    "package.json",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
     "build": "npm run build:lib && npm run build:cli",
     "build:lib": "esbuild src/index.ts --bundle --platform=node --target=node16 --format=esm --outfile=dist/index.js --external:@modelcontextprotocol/sdk --external:glob --external:commander --external:zod --external:zod-to-json-schema --external:mime-types --external:path --external:fs --external:url",
