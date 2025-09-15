@@ -163,8 +163,12 @@ program
   .description('Install MCP server for various applications')
   .option('--claude-desktop', 'Install for Claude Desktop')
   .option('--claude-code', 'Install for Claude Code')
+  .option('--gemini', 'Install for Google Gemini')
+  .option('--codex', 'Install for OpenAI Codex')
   .option('--cursor', 'Install for Cursor IDE')
+  .option('--windsurf', 'Install for Windsurf IDE')
   .option('--vscode', 'Install for VS Code')
+  .option('--jetbrains', 'Install for JetBrains IDEs (IntelliJ, WebStorm, etc.)')
   .option('--all', 'Install for all supported applications')
   .action(async (options) => {
     const installations: Array<{ name: string; install: () => Promise<void> }> = [];
@@ -301,13 +305,151 @@ program
       }
     };
     
+    // Helper function to install for Gemini
+    const installGemini = async () => {
+      console.log('📦 Installing for Google Gemini...');
+      const configDir = path.join(process.env.HOME || '', '.gemini', 'mcp');
+      const configFile = path.join(configDir, 'servers.json');
+      
+      try {
+        await fs.mkdir(configDir, { recursive: true });
+        let config: any = {};
+        try {
+          const configContent = await fs.readFile(configFile, 'utf-8');
+          config = JSON.parse(configContent);
+        } catch {
+          // Config doesn't exist yet
+        }
+        
+        if (!config.servers) {
+          config.servers = {};
+        }
+        
+        config.servers['hanzo-mcp'] = {
+          command: 'npx',
+          args: ['-y', '@hanzo/mcp', 'serve'],
+          env: {}
+        };
+        
+        await fs.writeFile(configFile, JSON.stringify(config, null, 2));
+        console.log(`✓ Gemini configured: ${configFile}`);
+      } catch (error: any) {
+        console.error(`✗ Gemini installation failed: ${error.message}`);
+      }
+    };
+    
+    // Helper function to install for Codex
+    const installCodex = async () => {
+      console.log('📦 Installing for OpenAI Codex...');
+      const configDir = path.join(process.env.HOME || '', '.openai', 'codex', 'mcp');
+      const configFile = path.join(configDir, 'config.json');
+      
+      try {
+        await fs.mkdir(configDir, { recursive: true });
+        let config: any = {};
+        try {
+          const configContent = await fs.readFile(configFile, 'utf-8');
+          config = JSON.parse(configContent);
+        } catch {
+          // Config doesn't exist yet
+        }
+        
+        if (!config.servers) {
+          config.servers = {};
+        }
+        
+        config.servers['hanzo-mcp'] = {
+          command: 'npx',
+          args: ['-y', '@hanzo/mcp', 'serve'],
+          env: {}
+        };
+        
+        await fs.writeFile(configFile, JSON.stringify(config, null, 2));
+        console.log(`✓ Codex configured: ${configFile}`);
+      } catch (error: any) {
+        console.error(`✗ Codex installation failed: ${error.message}`);
+      }
+    };
+    
+    // Helper function to install for Windsurf
+    const installWindsurf = async () => {
+      console.log('📦 Installing for Windsurf IDE...');
+      const configDir = path.join(process.env.HOME || '', '.windsurf', 'mcp');
+      const configFile = path.join(configDir, 'config.json');
+      
+      try {
+        await fs.mkdir(configDir, { recursive: true });
+        let config: any = {};
+        try {
+          const configContent = await fs.readFile(configFile, 'utf-8');
+          config = JSON.parse(configContent);
+        } catch {
+          // Config doesn't exist yet
+        }
+        
+        if (!config.servers) {
+          config.servers = {};
+        }
+        
+        config.servers['hanzo-mcp'] = {
+          command: 'npx',
+          args: ['-y', '@hanzo/mcp', 'serve'],
+          env: {}
+        };
+        
+        await fs.writeFile(configFile, JSON.stringify(config, null, 2));
+        console.log(`✓ Windsurf configured: ${configFile}`);
+      } catch (error: any) {
+        console.error(`✗ Windsurf installation failed: ${error.message}`);
+      }
+    };
+    
+    // Helper function to install for JetBrains IDEs
+    const installJetBrains = async () => {
+      console.log('📦 Installing for JetBrains IDEs...');
+      // JetBrains uses a common config location for all their IDEs
+      const configDir = path.join(process.env.HOME || '', '.jetbrains', 'mcp');
+      const configFile = path.join(configDir, 'servers.json');
+      
+      try {
+        await fs.mkdir(configDir, { recursive: true });
+        let config: any = {};
+        try {
+          const configContent = await fs.readFile(configFile, 'utf-8');
+          config = JSON.parse(configContent);
+        } catch {
+          // Config doesn't exist yet
+        }
+        
+        if (!config.servers) {
+          config.servers = {};
+        }
+        
+        config.servers['hanzo-mcp'] = {
+          command: 'npx',
+          args: ['-y', '@hanzo/mcp', 'serve'],
+          env: {}
+        };
+        
+        await fs.writeFile(configFile, JSON.stringify(config, null, 2));
+        console.log(`✓ JetBrains IDEs configured: ${configFile}`);
+        console.log('  (Works with IntelliJ IDEA, WebStorm, PyCharm, etc.)');
+      } catch (error: any) {
+        console.error(`✗ JetBrains installation failed: ${error.message}`);
+      }
+    };
+    
     // Determine what to install
     if (options.all) {
       installations.push(
         { name: 'Claude Desktop', install: installClaudeDesktop },
         { name: 'Claude Code', install: installClaudeCode },
+        { name: 'Gemini', install: installGemini },
+        { name: 'Codex', install: installCodex },
         { name: 'Cursor', install: installCursor },
-        { name: 'VS Code', install: installVSCode }
+        { name: 'Windsurf', install: installWindsurf },
+        { name: 'VS Code', install: installVSCode },
+        { name: 'JetBrains IDEs', install: installJetBrains }
       );
     } else {
       if (options.claudeDesktop) {
@@ -316,20 +458,39 @@ program
       if (options.claudeCode) {
         installations.push({ name: 'Claude Code', install: installClaudeCode });
       }
+      if (options.gemini) {
+        installations.push({ name: 'Gemini', install: installGemini });
+      }
+      if (options.codex) {
+        installations.push({ name: 'Codex', install: installCodex });
+      }
       if (options.cursor) {
         installations.push({ name: 'Cursor', install: installCursor });
       }
+      if (options.windsurf) {
+        installations.push({ name: 'Windsurf', install: installWindsurf });
+      }
       if (options.vscode) {
         installations.push({ name: 'VS Code', install: installVSCode });
+      }
+      if (options.jetbrains) {
+        installations.push({ name: 'JetBrains IDEs', install: installJetBrains });
       }
     }
     
     if (installations.length === 0) {
       console.log('No installation target specified. Use one of:');
+      console.log('\n📱 AI Assistants:');
       console.log('  --claude-desktop  Install for Claude Desktop');
       console.log('  --claude-code     Install for Claude Code');
+      console.log('  --gemini          Install for Google Gemini');
+      console.log('  --codex           Install for OpenAI Codex');
+      console.log('\n💻 IDEs & Editors:');
       console.log('  --cursor          Install for Cursor IDE');
+      console.log('  --windsurf        Install for Windsurf IDE');
       console.log('  --vscode          Install for VS Code');
+      console.log('  --jetbrains       Install for JetBrains IDEs (IntelliJ, WebStorm, etc.)');
+      console.log('\n🎯 Quick Options:');
       console.log('  --all             Install for all supported applications');
       process.exit(1);
     }
