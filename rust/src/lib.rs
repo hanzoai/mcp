@@ -60,7 +60,7 @@ impl ToolRegistry {
     
     /// Initialize with all default tools
     pub fn with_defaults() -> Self {
-        let mut registry = Self::new();
+        let registry = Self::new();
         
         // Register computer control tool
         #[cfg(feature = "computer-control")]
