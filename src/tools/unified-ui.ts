@@ -97,7 +97,7 @@ const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
  * Get GitHub client for current framework
  */
 function getGitHubClient(): GitHubAPIClient {
-  return GitHubAPIClient.getInstance();
+  return new GitHubAPIClient();
 }
 
 /**

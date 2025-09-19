@@ -16,6 +16,8 @@ import { searchTools as standardSearchTools } from '../search/index.js';
 import HanzoDesktopTool from './hanzo-desktop.js';
 import PlaywrightControlTool from './playwright-control.js';
 import { unifiedUITool } from './unified-ui.js';
+import { uiRegistryTools } from './ui-registry.js';
+import { githubUITools } from './ui-github-api.js';
 
 // Desktop automation tools
 export const desktopTools: Tool[] = [
@@ -109,6 +111,7 @@ export function getConfiguredTools(config: ToolConfig = {}): Tool[] {
   // Add UI tools if enabled
   if (enableUI) {
     tools.push(...uiTools);
+    tools.push(...multiFrameworkTools);
   }
 
   // Add AutoGUI tools if enabled
