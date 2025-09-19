@@ -3,6 +3,40 @@
 ## Overview
 This document provides comprehensive context for AI assistants working with the Hanzo MCP (Model Context Protocol) implementation. The system provides unified, multi-modal search capabilities, UI component management, and secure remote access for AI tools like ChatGPT.
 
+## Latest Updates
+
+### UI Tool Consolidation (2025-01-18)
+
+Successfully consolidated 14+ separate UI tools into a single unified `ui` tool with method-based routing.
+
+#### Architecture Changes
+- **Before**: 14 separate tools (ui_init, ui_list_components, ui_get_component, etc.)
+- **After**: 1 unified tool with method parameter
+- **Reduction**: 93% fewer tools in MCP surface
+
+#### Implementation
+- **Main Tool**: `/src/ui/unified-ui-tool.ts` - Single tool with 13 methods
+- **Migration Guide**: `/docs/UI_TOOL_MIGRATION.md` - Complete migration instructions
+- **Tests**: `/test/ui/unified-ui-tool.test.ts` - 33 tests with full coverage
+- **Examples**: `/examples/unified-ui-integration.ts` - Integration patterns
+
+#### Usage
+```typescript
+// Single tool with method-based routing
+await ui({
+  method: 'list_components',  // or get_component, search, etc.
+  type: 'ui',
+  category: 'Forms'
+});
+```
+
+#### Benefits
+- Reduced complexity for AI assistants
+- Better discoverability
+- Consistent interface
+- Easier maintenance
+- Full backward compatibility
+
 ## Architecture
 
 ### Core Components

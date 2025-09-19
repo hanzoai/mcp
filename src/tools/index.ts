@@ -8,14 +8,14 @@ import { searchTools } from './search';
 import { shellTools } from './shell';
 import { editTools } from './edit';
 import { uiTools } from '../ui/ui-tools.js';
+import { multiFrameworkTools } from '../ui/multi-framework-tools.js';
 import { autoguiTools } from '../autogui/tools/autogui-tools.js';
 import { orchestrationTools } from '../orchestration/agent-tools.js';
 import { searchTools as unifiedSearchTools } from '../search/unified-search.js';
 import { searchTools as standardSearchTools } from '../search/index.js';
 import HanzoDesktopTool from './hanzo-desktop.js';
 import PlaywrightControlTool from './playwright-control.js';
-import { uiRegistryTools } from './ui-registry.js';
-import { githubUITools } from './ui-github-api.js';
+import { unifiedUITool } from './unified-ui.js';
 
 // Desktop automation tools
 export const desktopTools: Tool[] = [
@@ -31,15 +31,13 @@ export const coreTools: Tool[] = [
   ...editTools
 ];
 
-// All tools including UI, AutoGUI, Orchestration, Desktop, UI Registry, GitHub UI, and standard search tools
+// All tools including unified UI, AutoGUI, Orchestration, Desktop, and standard search tools
 export const allTools: Tool[] = [
   ...coreTools,
-  ...uiTools,
+  unifiedUITool,  // Single unified UI tool replaces all separate UI tools
   ...autoguiTools,
   ...orchestrationTools,
   ...desktopTools,
-  ...uiRegistryTools,
-  ...githubUITools,
   ...standardSearchTools
 ];
 
