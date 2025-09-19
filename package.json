@@ -1,7 +1,7 @@
 {
   "name": "@hanzo/mcp",
-  "version": "2.1.0",
-  "description": "Hanzo MCP Server - Full shadcn/ui parity, GitHub UI components, multi-framework support",
+  "version": "2.2.0",
+  "description": "Hanzo MCP Server - Unified UI tool with Hanzo-first multi-framework support",
   "main": "dist/index.js",
   "type": "module",
   "bin": {
