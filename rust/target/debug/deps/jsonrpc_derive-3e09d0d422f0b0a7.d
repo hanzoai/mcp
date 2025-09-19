@@ -1,0 +1,11 @@
+/Users/z/work/hanzo/mcp/rust/target/debug/deps/jsonrpc_derive-3e09d0d422f0b0a7.d: /Users/z/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/jsonrpc-derive-18.0.0/src/lib.rs /Users/z/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/jsonrpc-derive-18.0.0/src/options.rs /Users/z/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/jsonrpc-derive-18.0.0/src/params_style.rs /Users/z/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/jsonrpc-derive-18.0.0/src/rpc_attr.rs /Users/z/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/jsonrpc-derive-18.0.0/src/rpc_trait.rs /Users/z/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/jsonrpc-derive-18.0.0/src/to_client.rs /Users/z/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/jsonrpc-derive-18.0.0/src/to_delegate.rs
+
+/Users/z/work/hanzo/mcp/rust/target/debug/deps/libjsonrpc_derive-3e09d0d422f0b0a7.dylib: /Users/z/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/jsonrpc-derive-18.0.0/src/lib.rs /Users/z/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/jsonrpc-derive-18.0.0/src/options.rs /Users/z/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/jsonrpc-derive-18.0.0/src/params_style.rs /Users/z/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/jsonrpc-derive-18.0.0/src/rpc_attr.rs /Users/z/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/jsonrpc-derive-18.0.0/src/rpc_trait.rs /Users/z/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/jsonrpc-derive-18.0.0/src/to_client.rs /Users/z/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/jsonrpc-derive-18.0.0/src/to_delegate.rs
+
+/Users/z/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/jsonrpc-derive-18.0.0/src/lib.rs:
+/Users/z/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/jsonrpc-derive-18.0.0/src/options.rs:
+/Users/z/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/jsonrpc-derive-18.0.0/src/params_style.rs:
+/Users/z/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/jsonrpc-derive-18.0.0/src/rpc_attr.rs:
+/Users/z/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/jsonrpc-derive-18.0.0/src/rpc_trait.rs:
+/Users/z/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/jsonrpc-derive-18.0.0/src/to_client.rs:
+/Users/z/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/jsonrpc-derive-18.0.0/src/to_delegate.rs:

@@ -14,6 +14,8 @@ import { searchTools as unifiedSearchTools } from '../search/unified-search.js';
 import { searchTools as standardSearchTools } from '../search/index.js';
 import HanzoDesktopTool from './hanzo-desktop.js';
 import PlaywrightControlTool from './playwright-control.js';
+import { uiRegistryTools } from './ui-registry.js';
+import { githubUITools } from './ui-github-api.js';
 
 // Desktop automation tools
 export const desktopTools: Tool[] = [
@@ -29,13 +31,15 @@ export const coreTools: Tool[] = [
   ...editTools
 ];
 
-// All tools including UI, AutoGUI, Orchestration, Desktop, and standard search tools
+// All tools including UI, AutoGUI, Orchestration, Desktop, UI Registry, GitHub UI, and standard search tools
 export const allTools: Tool[] = [
   ...coreTools,
   ...uiTools,
   ...autoguiTools,
   ...orchestrationTools,
   ...desktopTools,
+  ...uiRegistryTools,
+  ...githubUITools,
   ...standardSearchTools
 ];
 
@@ -56,6 +60,8 @@ export { editTools } from './edit';
 export { uiTools } from '../ui/ui-tools.js';
 export { autoguiTools } from '../autogui/tools/autogui-tools.js';
 export { orchestrationTools } from '../orchestration/agent-tools.js';
+export { uiRegistryTools } from './ui-registry.js';
+export { githubUITools } from './ui-github-api.js';
 
 // Tool configuration interface
 export interface ToolConfig {
@@ -63,6 +69,8 @@ export interface ToolConfig {
   enableUI?: boolean;
   enableAutoGUI?: boolean;
   enableOrchestration?: boolean;
+  enableUIRegistry?: boolean;
+  enableGitHubUI?: boolean;
   enabledCategories?: string[];
   disabledTools?: string[];
   customTools?: Tool[];
@@ -77,6 +85,8 @@ export function getConfiguredTools(config: ToolConfig = {}): Tool[] {
     enableUI = false,
     enableAutoGUI = false,
     enableOrchestration = true,  // Enable by default for agent capabilities
+    enableUIRegistry = true,     // Enable by default for UI development
+    enableGitHubUI = true,        // Enable by default for GitHub UI fetching
     enabledCategories = [],
     disabledTools = [],
     customTools = []
@@ -111,6 +121,16 @@ export function getConfiguredTools(config: ToolConfig = {}): Tool[] {
   // Add Orchestration tools if enabled
   if (enableOrchestration) {
     tools.push(...orchestrationTools);
+  }
+
+  // Add UI Registry tools if enabled
+  if (enableUIRegistry) {
+    tools.push(...uiRegistryTools);
+  }
+
+  // Add GitHub UI tools if enabled
+  if (enableGitHubUI) {
+    tools.push(...githubUITools);
   }
 
   // Add custom tools

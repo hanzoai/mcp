@@ -1,7 +1,7 @@
-# MCP Search Implementation - AI Assistant Guide
+# MCP Implementation - AI Assistant Guide
 
 ## Overview
-This document provides comprehensive context for AI assistants working with the Hanzo MCP (Model Context Protocol) search implementation. The system provides unified, multi-modal search capabilities with secure remote access for AI tools like ChatGPT.
+This document provides comprehensive context for AI assistants working with the Hanzo MCP (Model Context Protocol) implementation. The system provides unified, multi-modal search capabilities, UI component management, and secure remote access for AI tools like ChatGPT.
 
 ## Architecture
 
@@ -401,6 +401,154 @@ Body: {"id": "file_id_from_search"}
 - Compatibility: Works with various AI tools
 - Migration: Easy to switch auth methods
 
+## GitHub UI Component Integration
+
+### Overview
+The MCP includes a comprehensive GitHub API integration for fetching UI components from multiple framework repositories. This enables AI assistants to access and use UI components from popular frameworks.
+
+### Supported Frameworks
+
+| Framework | Repository | Owner | Components Path |
+|-----------|------------|-------|-----------------|
+| **Hanzo** (default) | hanzoai/ui | hanzoai | packages/ui/src/components |
+| **React** | shadcn/ui | shadcn-ui | apps/v4/registry/new-york-v4/ui |
+| **Svelte** | shadcn-svelte | huntabyte | apps/www/src/lib/registry/new-york/ui |
+| **Vue** | shadcn-vue | unovue | apps/www/src/lib/registry/new-york/ui |
+| **React Native** | react-native-reusables | founded-labs | packages/reusables/src |
+
+### Features
+
+#### Core Capabilities
+- **Multi-framework support**: Fetch components from 5 different UI frameworks
+- **Component fetching**: Get source code for any component
+- **Demo retrieval**: Access component demos and examples
+- **Block fetching**: Get complete UI blocks/sections
+- **Metadata access**: Retrieve component metadata
+- **Directory browsing**: Explore repository structure
+
+#### Production Features
+- **Rate limit handling**: Tracks and respects GitHub API limits
+- **Authentication**: Supports GITHUB_TOKEN or GITHUB_PERSONAL_ACCESS_TOKEN
+- **Caching**: 15-minute TTL cache for repeated requests
+- **Circuit breaker**: Automatic failure recovery pattern
+- **Error handling**: Graceful degradation and clear error messages
+
+### Configuration
+
+#### Environment Variables
+```bash
+# GitHub Authentication (optional but recommended)
+GITHUB_TOKEN=your-github-token
+# or
+GITHUB_PERSONAL_ACCESS_TOKEN=your-personal-access-token
+```
+
+### Available MCP Tools
+
+| Tool | Description | Parameters |
+|------|-------------|------------|
+| `ui_fetch_component` | Fetch component source code | name, framework |
+| `ui_fetch_demo` | Get component demo/example | name, framework |
+| `ui_fetch_block` | Fetch UI block/section | name, framework |
+| `ui_get_block` | Get UI block with multi-file support | name, framework, includeFiles |
+| `ui_list_github_components` | List available components | framework |
+| `ui_list_github_blocks` | List available blocks (basic) | framework |
+| `ui_list_blocks` | List blocks with categories | framework, category |
+| `ui_component_metadata` | Get component metadata | name, framework |
+| `ui_get_component_demo` | Get component demo code | name, framework |
+| `ui_get_component_metadata` | Get registry info | name, framework |
+| `ui_directory_structure` | Browse repository structure (basic) | path, framework |
+| `ui_get_directory_structure` | Browse with tree view | path, framework, depth |
+| `ui_github_rate_limit` | Check API rate limit status | - |
+
+### Usage Examples
+
+#### Fetching a Component
+```typescript
+// Fetch button component from Hanzo UI (default)
+await githubClient.fetchComponent('button');
+
+// Fetch from specific framework
+await githubClient.fetchComponent('dialog', 'react');
+await githubClient.fetchComponent('card', 'svelte');
+```
+
+#### Listing Components
+```typescript
+// List all components from a framework
+const components = await githubClient.listComponents('vue');
+console.log(components); // ['button', 'card', 'dialog', ...]
+```
+
+#### Getting Component Demo
+```typescript
+// Fetch demo for a component
+const demo = await githubClient.fetchComponentDemo('carousel', 'react');
+```
+
+#### Working with UI Blocks
+```typescript
+// Get a simple block
+const block = await githubClient.fetchBlock('dashboard-01', 'react');
+
+// Get a block with all its files (for complex multi-file blocks)
+const blockWithFiles = await getBlockTool.handler({
+  name: 'authentication-01',
+  framework: 'react',
+  includeFiles: true
+});
+
+// List blocks with categories
+const categorizedBlocks = await listBlocksTool2.handler({
+  framework: 'react',
+  category: 'dashboard'  // Optional filter
+});
+```
+
+#### Browsing Repository Structure
+```typescript
+// Basic directory listing
+const structure = await githubClient.getDirectoryStructure(
+  'apps/www/src/lib/registry/new-york/ui',
+  'react'
+);
+
+// Enhanced tree view with depth control
+const treeView = await getDirectoryStructureTool2.handler({
+  path: 'packages/ui/src/components',
+  framework: 'hanzo',
+  depth: 2  // Traverse 2 levels deep
+});
+```
+
+### Implementation Details
+
+#### Caching Strategy
+- Cache key: URL-based
+- TTL: 15 minutes
+- Automatic cleanup on expiry
+- Manual cache clearing available
+
+#### Circuit Breaker Pattern
+- Threshold: 5 failures
+- Timeout: 60 seconds
+- States: closed, open, half-open
+- Automatic recovery
+
+#### Rate Limiting
+- Tracks X-RateLimit headers
+- Prevents requests when limit exceeded
+- Provides reset time information
+- Graceful degradation
+
+### Integration with MCP Tools
+
+The GitHub UI tools are automatically included in the MCP tool registry and can be:
+- Used by AI assistants through MCP protocol
+- Accessed via CLI commands
+- Integrated into development workflows
+- Combined with other MCP search tools
+
 ## Future Enhancements
 
 ### Planned Features
@@ -410,6 +558,9 @@ Body: {"id": "file_id_from_search"}
 - [ ] Full-text search with Elasticsearch
 - [ ] AI-powered query understanding
 - [ ] Search history and analytics
+- [ ] Extended UI framework support (Angular, Solid, etc.)
+- [ ] Component dependency resolution
+- [ ] Automated component installation
 
 ### Security Roadmap
 - [ ] Hardware security module (HSM) support

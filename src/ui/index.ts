@@ -5,3 +5,4 @@
 export * from './registry-types.js';
 export * from './registry-api.js';
 export * from './ui-tools.js';
+export * from './multi-framework-tools.js';
