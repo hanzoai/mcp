@@ -42,3 +42,13 @@ coverage/
 .cache/
 .temp/
 .tmp/.npmrc
+# Rust build artifacts
+rust/target/
+target/
+# Local symlinks
+AGENTS.md
+CLAUDE.md
+GEMINI.md
+QWEN.md
+# Generated site
+site/
