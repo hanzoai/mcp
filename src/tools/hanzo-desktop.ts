@@ -11,7 +11,7 @@
 
 import { exec } from 'child_process';
 import { promisify } from 'util';
-import * as fs from 'fs';
+import * as fs from 'fs/promises';
 import * as path from 'path';
 import { Tool } from '../types';
 
@@ -357,10 +357,11 @@ export class HanzoDesktopTool implements Tool {
     
     try {
       await execAsync(`screencapture -l $(osascript -e 'tell app "Hanzo AI" to id of window 1') ${screenshotPath}`);
-      
-      // Read and return base64 encoded screenshot
-      const screenshot = fs.readFileSync(screenshotPath, 'base64');
-      fs.unlinkSync(screenshotPath); // Clean up
+
+      // Read and return base64 encoded screenshot (async)
+      const screenshotBuffer = await fs.readFile(screenshotPath);
+      const screenshot = screenshotBuffer.toString('base64');
+      await fs.unlink(screenshotPath); // Clean up
       
       return {
         success: true,

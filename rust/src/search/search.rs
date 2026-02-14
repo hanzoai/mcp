@@ -2,10 +2,8 @@
 /// Provides unified search and fetch capabilities for ChatGPT connectors
 
 use super::{SearchResult as InternalResult, MatchType, SearchModality};
-use super::unified_search::UnifiedSearcher;
-use super::ast_search::ASTSearcher;
+use super::ast_search::AstSearcher;
 use super::symbol_search::SymbolSearcher;
-use super::vector_store::VectorStore;
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 use std::fs;
@@ -42,22 +40,16 @@ pub struct SearchResponse {
 
 /// Search tool implementation
 pub struct Search {
-    unified_searcher: UnifiedSearcher,
-    ast_searcher: ASTSearcher,
+    ast_searcher: AstSearcher,
     symbol_searcher: SymbolSearcher,
-    vector_store: Option<VectorStore>,
 }
 
 impl Search {
     /// Create new search instance
     pub async fn new() -> Result<Self> {
-        let vector_store = VectorStore::new("./hanzo_vectors").await.ok();
-        
         Ok(Self {
-            unified_searcher: UnifiedSearcher::new(),
-            ast_searcher: ASTSearcher::new(),
+            ast_searcher: AstSearcher::new(),
             symbol_searcher: SymbolSearcher::new(),
-            vector_store,
         })
     }
 
@@ -141,35 +133,12 @@ impl Search {
                 })
             }
             "vector" => {
-                // Fetch from vector store
-                if let Some(store) = &self.vector_store {
-                    let results = store.search_documents(&doc_info.id, 1, 0.0).await?;
-                    if let Some(doc) = results.first() {
-                        return Ok(Document {
-                            id: id.to_string(),
-                            title: doc.metadata.get("title")
-                                .and_then(|v| v.as_str())
-                                .unwrap_or("Vector Document")
-                                .to_string(),
-                            text: doc.content.clone(),
-                            url: doc.metadata.get("url")
-                                .and_then(|v| v.as_str())
-                                .unwrap_or(&format!("vector://{}", id))
-                                .to_string(),
-                            metadata: Some(serde_json::to_value(&doc.metadata)?),
-                        });
-                    }
-                }
-                Err(anyhow::anyhow!("Vector document not found"))
+                // Vector store is currently disabled
+                Err(anyhow::anyhow!("Vector store not available"))
             }
             "memory" => {
-                // Fetch from memory/knowledge base
-                if let Some(store) = &self.vector_store {
-                    // Implement memory fetch if needed
-                    Err(anyhow::anyhow!("Memory fetch not yet implemented"))
-                } else {
-                    Err(anyhow::anyhow!("Vector store not available"))
-                }
+                // Memory/knowledge base fetch not yet implemented
+                Err(anyhow::anyhow!("Memory fetch not yet implemented"))
             }
             _ => Err(anyhow::anyhow!("Unknown document type")),
         }
@@ -216,39 +185,25 @@ impl Search {
 
     /// Execute AST search
     async fn execute_ast_search(&self, query: &str) -> Result<Vec<InternalResult>> {
-        self.ast_searcher.search(query, Path::new("."), 20).await
+        match self.ast_searcher.search(query, Path::new("."), None, 20).await {
+            Ok(results) => Ok(results),
+            Err(_) => Ok(vec![]),
+        }
     }
 
     /// Execute symbol search
     async fn execute_symbol_search(&self, query: &str) -> Result<Vec<InternalResult>> {
-        self.symbol_searcher.search(query, Path::new("."), 20).await
+        match self.symbol_searcher.search(query, Path::new("."), 20).await {
+            Ok(results) => Ok(results),
+            Err(_) => Ok(vec![]),
+        }
     }
 
-    /// Execute vector search
-    async fn execute_vector_search(&self, query: &str) -> Result<Vec<InternalResult>> {
-        if let Some(store) = &self.vector_store {
-            let docs = store.search_documents(query, 10, 0.7).await?;
-            Ok(docs.into_iter().enumerate().map(|(idx, doc)| {
-                InternalResult {
-                    file_path: PathBuf::from(doc.metadata.get("file_path")
-                        .and_then(|v| v.as_str())
-                        .unwrap_or("")),
-                    line_number: doc.metadata.get("line_number")
-                        .and_then(|v| v.as_u64())
-                        .unwrap_or(0) as usize,
-                    column: 0,
-                    match_text: doc.content[..200.min(doc.content.len())].to_string(),
-                    context_before: vec![],
-                    context_after: vec![],
-                    match_type: MatchType::Vector,
-                    score: doc.score,
-                    node_type: None,
-                    semantic_context: Some(doc.content),
-                }
-            }).collect())
-        } else {
-            Ok(vec![])
-        }
+    /// Execute vector search (stub - vector store currently disabled)
+    async fn execute_vector_search(&self, _query: &str) -> Result<Vec<InternalResult>> {
+        // Vector search is disabled until lance dependency is fixed
+        // This would use embeddings for semantic search
+        Ok(vec![])
     }
 
     /// Execute file search
