@@ -1,3 +1,5 @@
+[workspace]
+
 [package]
 name = "hanzo-mcp"
 version = "0.1.0"
@@ -34,6 +36,11 @@ glob = "0.3"
 regex = "1.10"
 rayon = "1.8"
 once_cell = "1.19"
+base64 = "0.21"
+shellexpand = "3.1"
+chrono = { version = "0.4", features = ["serde"] }
+which = "6.0"
+shell-escape = "0.1"
 
 # Search and AST
 tree-sitter = "0.20"
@@ -46,29 +53,16 @@ tree-sitter-java = "0.20"
 tree-sitter-cpp = "0.20"
 tree-sitter-c = "0.20"
 
-# Vector store
+# Vector store (optional)
 # lance = "0.10"  # Temporarily disabled due to arrow version conflict
 # arrow = "50.0"   # Temporarily disabled due to build issues
-vectordb = { version = "0.1", optional = true }
+# vectordb = { version = "0.1", optional = true }
 
-# Tool dependencies (optional, loaded from workspace)
-# Commented out until these packages are available
-# computer-control = { path = "../../tools/rust/computer-control", optional = true }
-# blockchain = { path = "../../tools/rust/blockchain", optional = true }
-# vector-store = { path = "../../tools/rust/vector-store", optional = true }
-# file-system = { path = "../../tools/rust/file-system", optional = true }
-# web-search = { path = "../../tools/rust/web-search", optional = true }
-# code-execution = { path = "../../tools/rust/code-execution", optional = true }
+[dev-dependencies]
+tempfile = "3.10"
 
-[features]
-default = []
-# all-tools = ["computer-control", "blockchain", "vector-store", "file-system", "web-search", "code-execution"]
-# computer-control = ["dep:computer-control"]
-# blockchain = ["dep:blockchain"]
-# vector-store = ["dep:vector-store"]
-# file-system = ["dep:file-system"]
-# web-search = ["dep:web-search"]
-# code-execution = ["dep:code-execution"]
+[target.'cfg(unix)'.dependencies]
+nix = { version = "0.29", features = ["signal", "process"] }
 
 # Platform specific
 [target.'cfg(target_os = "macos")'.dependencies]
@@ -80,6 +74,10 @@ winapi = { version = "0.3", features = ["winuser"] }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 x11 = "2.21"
+
+[features]
+default = []
+# all-tools = ["computer-control", "blockchain", "vector-store", "file-system", "web-search", "code-execution"]
 
 [[bin]]
 name = "hanzo-mcp"
