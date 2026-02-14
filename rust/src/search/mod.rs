@@ -37,8 +37,22 @@ pub enum MatchType {
     File,
 }
 
+impl std::fmt::Display for MatchType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            MatchType::Text => write!(f, "text"),
+            MatchType::Ast => write!(f, "ast"),
+            MatchType::Symbol => write!(f, "symbol"),
+            MatchType::Vector => write!(f, "vector"),
+            MatchType::Memory => write!(f, "memory"),
+            MatchType::File => write!(f, "file"),
+        }
+    }
+}
+
 /// Search modality enum
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
 pub enum SearchModality {
     Text,
     Ast,
