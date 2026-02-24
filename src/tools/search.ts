@@ -203,10 +203,11 @@ export const searchTool: Tool = {
   },
   handler: async (args) => {
     const results: string[] = [];
+    const searchType = args.type || 'all';
     
     try {
       // Search in filenames
-      if (args.type === 'all' || args.type === 'filename') {
+      if (searchType === 'all' || searchType === 'filename') {
         const filePattern = `*${args.query}*`;
         const globPattern = path.join(args.path || '.', '**', filePattern);
         const files = await glob(globPattern, { maxDepth: 5 });
@@ -219,7 +220,7 @@ export const searchTool: Tool = {
       }
       
       // Search in file contents
-      if (args.type === 'all' || args.type === 'code' || args.type === 'text') {
+      if (searchType === 'all' || searchType === 'code' || searchType === 'text') {
         const useRipgrep = await hasRipgrep();
         let command: string;
         
