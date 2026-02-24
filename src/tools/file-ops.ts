@@ -221,7 +221,7 @@ export const directoryTreeTool: Tool = {
   },
   handler: async (args) => {
     const buildTree = async (dir: string, prefix = '', depth = 0): Promise<string> => {
-      if (depth > (args.maxDepth || 3)) return '';
+      if (depth >= (args.maxDepth || 3)) return '';
       
       try {
         const entries = await fs.readdir(dir, { withFileTypes: true });
@@ -245,6 +245,7 @@ export const directoryTreeTool: Tool = {
         }
         return tree;
       } catch (error) {
+        if (depth === 0) throw error;
         return prefix + '└── [Error reading directory]\n';
       }
     };

@@ -228,7 +228,7 @@ Your project is ready for Hanzo UI components!`;
 
     content += `## Installation\\n\\n`;
     content += `\`\`\`bash\\n`;
-    content += `npx ${config.package}@latest add ${name}\\n`;
+    content += `npx @hanzo/ui@latest add ${name}\\n`;
     content += `\`\`\`\\n\\n`;
 
     if (component.files && component.files.length > 0) {
@@ -431,7 +431,7 @@ The component will be ready to use in your project!`;
         for (const item of items) {
           content += `### ${item.name}\\n`;
           content += `${item.description || 'No description'}\\n`;
-          content += `**Install:** \`npx ${config.package}@latest add ${item.name}\`\\n\\n`;
+          content += `**Install:** \`npx @hanzo/ui@latest add ${item.name}\`\\n\\n`;
         }
       }
     }
@@ -449,9 +449,8 @@ The component will be ready to use in your project!`;
    */
   async get_block(args: any): Promise<ToolResult> {
     const name = args.name || args.block;
-    const framework = args.framework || DEFAULT_FRAMEWORK;
-    const config = FRAMEWORK_CONFIGS[framework];
-    const registry = await getRegistry(framework);
+    const framework = args.framework || 'react';
+    const registry = await getRegistry();
     const block = registry.items.find(item =>
       item.name === name && (item.type.includes("block") || item.type.includes("section"))
     );
@@ -491,7 +490,7 @@ The component will be ready to use in your project!`;
 
     content += `## Installation\\n\\n`;
     content += `\`\`\`bash\\n`;
-    content += `npx ${config.package}@latest add ${name}\\n`;
+    content += `npx @hanzo/ui@latest add ${name}\\n`;
     content += `\`\`\`\\n\\n`;
 
     if (block.files && block.files.length > 0) {
@@ -555,9 +554,8 @@ Both styles are fully compatible and provide the same components with different 
    */
   async search(args: any): Promise<ToolResult> {
     const query = (args.query || args.search || '').toLowerCase();
-    const framework = args.framework || DEFAULT_FRAMEWORK;
-    const config = FRAMEWORK_CONFIGS[framework];
-    const registry = await getRegistry(framework);
+    const framework = args.framework || 'react';
+    const registry = await getRegistry();
 
     const matches = registry.items.filter(item =>
       item.name.toLowerCase().includes(query) ||
@@ -578,7 +576,7 @@ Both styles are fully compatible and provide the same components with different 
           content += `**Category:** ${item.category}\\n`;
         }
         content += `**Description:** ${item.description || 'No description'}\\n`;
-        content += `**Install:** \`npx ${config.package}@latest add ${item.name}\`\\n\\n`;
+        content += `**Install:** \`npx @hanzo/ui@latest add ${item.name}\`\\n\\n`;
       }
     }
 
