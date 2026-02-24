@@ -128,6 +128,12 @@ export const swarmOrchestrationTool: Tool = {
       }
     },
     required: ['agents']
+  },
+  handler: async (args: any) => {
+    const result = await orchestrateSwarm(args);
+    return {
+      content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }]
+    };
   }
 };
 
@@ -163,6 +169,12 @@ export const criticAgentTool: Tool = {
       }
     },
     required: []
+  },
+  handler: async (args: any) => {
+    const result = await runCriticAgent(args);
+    return {
+      content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }]
+    };
   }
 };
 
@@ -197,6 +209,12 @@ export const hanzoNodeTool: Tool = {
       }
     },
     required: ['action']
+  },
+  handler: async (args: any) => {
+    const result = await manageHanzoNode(args);
+    return {
+      content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }]
+    };
   }
 };
 
@@ -244,6 +262,12 @@ export const llmRouterTool: Tool = {
       }
     },
     required: ['prompt']
+  },
+  handler: async (args: any) => {
+    const result = await routeLLMRequest(args);
+    return {
+      content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }]
+    };
   }
 };
 
@@ -278,6 +302,12 @@ export const consensusTool: Tool = {
       }
     },
     required: ['question', 'agents']
+  },
+  handler: async (args: any) => {
+    const result = await achieveConsensus(args);
+    return {
+      content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }]
+    };
   }
 };
 
@@ -530,7 +560,7 @@ async function achieveConsensus(args: any) {
         if (!agent) throw new Error(`Agent ${agentId} not found`);
         
         // Get agent's vote
-        const voteResult: { agentId: string; status: string; result: string } = await spawnAgent({
+        const voteResult: any = await spawnAgent({
           model: agent.model,
           prompt: `${question}\n\nProvide your answer/vote.`,
           context: round > 1 ? `Previous round votes: ${JSON.stringify(votes[round-2])}` : undefined

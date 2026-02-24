@@ -89,7 +89,7 @@ export const uiCompareFrameworksTool: Tool = {
     const componentName = args.component;
 
     // This would fetch from the actual tracker.json in production
-    const coverage = {
+    const coverage: Record<string, Record<string, string>> = {
       'button': { react: '✅', vue: '✅', svelte: '✅', 'react-native': '✅' },
       'card': { react: '✅', vue: '✅', svelte: '✅', 'react-native': '✅' },
       'dialog': { react: '✅', vue: '✅', svelte: '✅', 'react-native': '✅' },
@@ -269,7 +269,7 @@ function getConversionNotes(from: Framework, to: Framework): string {
 }
 
 function getEventHandlerConversion(from: Framework, to: Framework): string {
-  const conversions = {
+  const conversions: Record<string, string> = {
     'react-vue': 'onClick → @click',
     'react-svelte': 'onClick → on:click',
     'vue-react': '@click → onClick',
@@ -286,7 +286,7 @@ function getStylingConversion(from: Framework, to: Framework): string {
 }
 
 function getRefConversion(from: Framework, to: Framework): string {
-  const conversions = {
+  const conversions: Record<string, string> = {
     'react-vue': 'useRef → ref()',
     'react-svelte': 'useRef → bind:this',
     'vue-react': 'ref() → useRef',

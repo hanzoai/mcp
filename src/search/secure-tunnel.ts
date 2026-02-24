@@ -60,6 +60,9 @@ export class SecureTunnel {
    * Load configuration from environment and params
    */
   private loadConfig(config: SecureTunnelConfig): SecureTunnelConfig {
+    const enablePQ = config.enablePostQuantumTls ?? 
+      (process.env.MCP_POST_QUANTUM_TLS === 'true');
+
     return {
       // Ngrok settings
       ngrokApiKey: config.ngrokApiKey || process.env.NGROK_API_KEY,
@@ -76,10 +79,9 @@ export class SecureTunnel {
       requireAuth: config.requireAuth ?? true,
       
       // Security
-      enablePostQuantumTls: config.enablePostQuantumTls ?? 
-        (process.env.MCP_POST_QUANTUM_TLS === 'true'),
+      enablePostQuantumTls: enablePQ,
       tlsVersion: config.tlsVersion || 'TLSv1.3',
-      cipherSuites: config.cipherSuites || this.getPostQuantumCipherSuites(),
+      cipherSuites: config.cipherSuites || SecureTunnel.getPostQuantumCipherSuitesStatic(enablePQ),
       allowedOrigins: config.allowedOrigins || 
         (process.env.MCP_ALLOWED_ORIGINS?.split(',') || ['*']),
       
@@ -120,6 +122,23 @@ export class SecureTunnel {
    */
   private generateSecureToken(): string {
     return crypto.randomBytes(32).toString('hex');
+  }
+
+  /**
+   * Get post-quantum cipher suites without requiring instance config (for use in loadConfig)
+   */
+  private static getPostQuantumCipherSuitesStatic(enablePQ: boolean): string[] {
+    if (!enablePQ) {
+      return [
+        'TLS_AES_256_GCM_SHA384',
+        'TLS_CHACHA20_POLY1305_SHA256',
+        'TLS_AES_128_GCM_SHA256'
+      ];
+    }
+    return [
+      'TLS_AES_256_GCM_SHA384',
+      'TLS_CHACHA20_POLY1305_SHA256',
+    ];
   }
 
   /**

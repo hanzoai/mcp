@@ -476,7 +476,7 @@ export class HanzoDesktopTool implements Tool {
           message: 'MCP server not available - start Hanzo Desktop app first'
         };
       }
-    } catch (error) {
+    } catch (error: any) {
       return {
         success: false,
         message: 'Could not connect to MCP server',
@@ -527,7 +527,7 @@ export class HanzoDesktopTool implements Tool {
           port: mcpPort
         };
       }
-    } catch (error) {
+    } catch (error: any) {
       return {
         success: false,
         message: `Could not connect to MCP server on port ${mcpPort}`,

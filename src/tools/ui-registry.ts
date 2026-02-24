@@ -3,7 +3,7 @@
  * Provides MCP tools for browsing, searching, and installing UI components
  */
 
-import { Tool } from '../types.js';
+import { Tool } from '../types/index.js';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import { exec } from 'child_process';
@@ -430,7 +430,7 @@ export const createUIComposition: Tool = {
     for (const comp of validComponents) {
       const componentInfo = AVAILABLE_COMPONENTS.find(c => c.name === comp);
       if (componentInfo) {
-        const pascalCase = comp.split('-').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join('');
+        const pascalCase = comp.split('-').map((s: string) => s.charAt(0).toUpperCase() + s.slice(1)).join('');
         code += `import { ${pascalCase} } from "@/components/ui/${comp}"\n`;
       }
     }
@@ -458,7 +458,7 @@ export const createUIComposition: Tool = {
     for (const comp of validComponents) {
       if (comp === 'card') continue;
 
-      const pascalCase = comp.split('-').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join('');
+      const pascalCase = comp.split('-').map((s: string) => s.charAt(0).toUpperCase() + s.slice(1)).join('');
 
       if (comp === 'button') {
         code += `          <Button>Action</Button>\n`;

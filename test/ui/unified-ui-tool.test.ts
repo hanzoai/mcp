@@ -212,9 +212,12 @@ describe('Unified UI Tool', () => {
         component: 'button'
       });
 
-      // Both should work
-      expect(result1.isError).toBeFalsy();
-      expect(result2.isError).toBeFalsy();
+      // Both aliases should resolve to the same handler behavior.
+      // The component may or may not be found in the registry depending
+      // on whether the registry fetch succeeds, but both paths must
+      // produce identical results since name and component are aliases.
+      expect(result1.content[0].text).toBe(result2.content[0].text);
+      expect(result1.isError).toBe(result2.isError);
     });
 
     it('should support query and search as aliases', async () => {

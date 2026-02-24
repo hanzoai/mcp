@@ -4,7 +4,7 @@
  * Supports multiple frameworks and registries with Hanzo as default
  */
 
-import { Tool } from '../types.js';
+import { Tool } from '../types/index.js';
 import { GitHubAPIClient, FRAMEWORK_CONFIGS } from './ui-github-api.js';
 import { exec } from 'child_process';
 import { promisify } from 'util';
@@ -14,7 +14,7 @@ import * as path from 'path';
 const execAsync = promisify(exec);
 
 // Hanzo-first framework configurations
-const HANZO_FRAMEWORKS = {
+const HANZO_FRAMEWORKS: Record<string, { name: string; registry?: string; github: any }> = {
   // Hanzo implementations
   'hanzo': {
     name: 'Hanzo UI (React)',
@@ -230,7 +230,7 @@ const methodHandlers: Record<string, (args: any) => Promise<any>> = {
     }
 
     const client = getGitHubClient();
-    const block = await client.fetchBlock(name, framework, includeFiles);
+    const block = await client.fetchBlock(name, framework);
 
     return {
       framework: HANZO_FRAMEWORKS[framework]?.name || framework,
@@ -271,7 +271,7 @@ const methodHandlers: Record<string, (args: any) => Promise<any>> = {
     const depth = args.depth || 3;
 
     const client = getGitHubClient();
-    const structure = await client.getDirectoryStructure(path, framework, depth);
+    const structure = await client.getDirectoryStructure(path, framework);
 
     return {
       framework: HANZO_FRAMEWORKS[framework]?.name || framework,
