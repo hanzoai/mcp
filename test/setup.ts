@@ -11,7 +11,12 @@ jest.setTimeout(10000);
 
 // Test fixtures directory
 export const TEST_FIXTURES_DIR = path.join(__dirname, 'fixtures');
-export const TEST_TEMP_DIR = path.join(__dirname, 'temp');
+
+// Each suite gets a unique temp directory to prevent parallel suite interference.
+// setupFilesAfterEnv creates a fresh module instance per suite, so this value is
+// unique per suite even though it's module-scoped.
+const suiteId = `${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+export const TEST_TEMP_DIR = path.join(__dirname, 'temp', suiteId);
 
 // Create test directories
 beforeAll(async () => {
@@ -23,7 +28,7 @@ beforeAll(async () => {
   }
 });
 
-// Clean up temp directory after all tests
+// Clean up this suite's unique temp subdirectory
 afterAll(async () => {
   try {
     await fs.rm(TEST_TEMP_DIR, { recursive: true, force: true });
@@ -46,7 +51,7 @@ afterEach(() => {
   // Restore console methods
   console.error = originalConsoleError;
   console.warn = originalConsoleWarn;
-  
+
   // Clear all mocks
   jest.clearAllMocks();
 });

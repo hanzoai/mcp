@@ -549,7 +549,7 @@ async function startStdioServer(options: any, toolConfig: ToolConfig) {
   });
 
   // Handle tool execution
-  server.setRequestHandler(CallToolRequestSchema, async (request) => {
+  server.setRequestHandler(CallToolRequestSchema, async (request, extra) => {
     const tool = toolMap.get(request.params.name);
     
     if (!tool) {

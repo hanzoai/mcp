@@ -40,7 +40,7 @@ export const allTools: Tool[] = [
   ...autoguiTools,
   ...orchestrationTools,
   ...desktopTools,
-  ...standardSearchTools
+  ...(standardSearchTools as unknown as Tool[])
 ];
 
 // Create tool maps for quick lookup

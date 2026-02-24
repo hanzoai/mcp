@@ -7,7 +7,8 @@
 export * from './registry-types.js';
 export * from './registry-api.js';
 
-// Export the unified tool
+// Import and export the unified tool
+import { unifiedUITool } from './unified-ui-tool.js';
 export { unifiedUITool, default as uiTool } from './unified-ui-tool.js';
 
 // For backward compatibility, we can optionally export a tools array with just the unified tool

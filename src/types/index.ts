@@ -14,6 +14,7 @@ export interface Tool {
 }
 
 export interface ToolResult {
+  [key: string]: unknown;
   content: Array<{
     type: 'text' | 'image' | 'resource';
     text?: string;
@@ -22,6 +23,7 @@ export interface ToolResult {
     uri?: string;
   }>;
   isError?: boolean;
+  _meta?: Record<string, unknown>;
 }
 
 export interface MCPServerConfig {

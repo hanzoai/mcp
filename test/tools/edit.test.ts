@@ -193,7 +193,7 @@ console.log(message);`;
         path: filePath,
         content: content
       });
-      
+
       expect(result.isError).toBeFalsy();
       expect(result.content[0].text).toContain('File created');
       

@@ -80,7 +80,7 @@ export async function createMCPServer(config?: {
   });
   
   // Handle tool execution
-  server.setRequestHandler(CallToolRequestSchema, async (request) => {
+  server.setRequestHandler(CallToolRequestSchema, async (request, extra) => {
     const tool = combinedToolMap.get(request.params.name);
     
     if (!tool) {

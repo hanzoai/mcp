@@ -163,3 +163,10 @@ export function configureUrlHelper(config: UrlConfig): void {
     urlHelper.updateConfig(config);
   }
 }
+
+/**
+ * Reset URL helper singleton (for testing)
+ */
+export function resetUrlHelper(): void {
+  urlHelper = null;
+}

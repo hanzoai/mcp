@@ -114,7 +114,7 @@ describe('SecureTunnel', () => {
         socket: {
           remoteAddress: '127.0.0.1'
         } as Socket
-      } as IncomingMessage;
+      } as unknown as IncomingMessage;
       
       mockRes = {
         writeHead: jest.fn(),
@@ -193,7 +193,7 @@ describe('SecureTunnel', () => {
         socket: {
           remoteAddress: '192.168.1.1'
         } as Socket
-      } as IncomingMessage;
+      } as unknown as IncomingMessage;
       
       mockRes = {
         writeHead: jest.fn(),
@@ -243,8 +243,8 @@ describe('SecureTunnel', () => {
     });
 
     it('should track rate limits per IP', () => {
-      const req1 = { ...mockReq, socket: { remoteAddress: '192.168.1.1' } as Socket } as IncomingMessage;
-      const req2 = { ...mockReq, socket: { remoteAddress: '192.168.1.2' } as Socket } as IncomingMessage;
+      const req1 = { ...mockReq, socket: { remoteAddress: '192.168.1.1' } as Socket } as unknown as IncomingMessage;
+      const req2 = { ...mockReq, socket: { remoteAddress: '192.168.1.2' } as Socket } as unknown as IncomingMessage;
       
       // Use up limit for IP 1
       tunnel.checkRateLimit(req1, mockRes);
@@ -267,7 +267,7 @@ describe('SecureTunnel', () => {
       mockReq = {
         headers: {},
         method: 'GET'
-      } as IncomingMessage;
+      } as unknown as IncomingMessage;
       
       mockRes = {
         writeHead: jest.fn(),
@@ -413,7 +413,7 @@ describe('SecureTunnel', () => {
         socket: {
           remoteAddress: '192.168.1.1'
         } as Socket
-      } as IncomingMessage;
+      } as unknown as IncomingMessage;
       
       mockRes = {
         writeHead: jest.fn(),
@@ -456,7 +456,7 @@ describe('SecureTunnel', () => {
       const req2 = { 
         ...mockReq, 
         socket: { remoteAddress: '192.168.1.2' } as Socket 
-      } as IncomingMessage;
+      } as unknown as IncomingMessage;
       tunnel.authenticateRequest(req2, mockRes);
       
       const allLogs = tunnel.getAccessLogs();
@@ -547,7 +547,7 @@ describe('SecureTunnel', () => {
         socket: {
           remoteAddress: '10.0.0.1'
         } as Socket
-      } as IncomingMessage;
+      } as unknown as IncomingMessage;
       
       tunnel = new SecureTunnel();
       const ip = tunnel['getClientIp'](mockReq);
