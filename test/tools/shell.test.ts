@@ -111,7 +111,7 @@ describe('Shell Tools', () => {
 
     test('should handle commands that produce large output', async () => {
       const result = await bashTool.handler({
-        command: 'for i in {1..100}; do echo "Line $i"; done'
+        command: 'for i in $(seq 1 100); do echo "Line $i"; done'
       });
       
       expect(result.isError).toBeFalsy();
