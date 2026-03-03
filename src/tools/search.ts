@@ -14,7 +14,7 @@ const execAsync = promisify(exec);
 // Check if ripgrep is available
 const hasRipgrep = async (): Promise<boolean> => {
   try {
-    await execAsync('which rg');
+    await execAsync(process.platform === 'win32' ? 'where rg' : 'which rg');
     return true;
   } catch {
     return false;

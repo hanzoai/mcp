@@ -7,6 +7,7 @@ import { z } from 'zod';
 import { Tool } from '../types/index.js';
 import { spawn } from 'child_process';
 import { promises as fs } from 'fs';
+import os from 'os';
 import path from 'path';
 
 // Agent status enum matching dev CLI
@@ -485,7 +486,7 @@ async function runCriticAgent(args: any) {
   
   if (args.code) {
     // Write code to temp file for review
-    const tempFile = path.join('/tmp', `critic-${Date.now()}.code`);
+    const tempFile = path.join(os.tmpdir(), `critic-${Date.now()}.code`);
     await fs.writeFile(tempFile, args.code);
     criticArgs.push('--file', tempFile);
   } else if (args.files) {
@@ -619,14 +620,15 @@ async function findHanzoCommand(): Promise<string> {
   // Try different Hanzo command locations
   const commands = [
     'hanzo',
-    path.join(process.env.HOME || '', '.local', 'bin', 'hanzo'),
-    path.join(process.env.HOME || '', 'work', 'hanzo', 'python-sdk', 'hanzo'),
+    path.join(os.homedir(), '.local', 'bin', 'hanzo'),
+    path.join(os.homedir(), 'work', 'hanzo', 'python-sdk', 'hanzo'),
     'python -m hanzo.cli'
   ];
   
   for (const cmd of commands) {
     try {
-      await executeCommand(`which ${cmd.split(' ')[0]}`);
+      const whichCmd = process.platform === 'win32' ? 'where' : 'which';
+      await executeCommand(`${whichCmd} ${cmd.split(' ')[0]}`);
       return cmd;
     } catch {
       continue;

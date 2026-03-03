@@ -15,6 +15,7 @@ import {
   ReadResourceRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js';
 import * as fs from 'fs/promises';
+import * as os from 'os';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
@@ -227,7 +228,9 @@ program
     // Helper function to install for Claude Desktop
     const installClaudeDesktop = async () => {
       console.log('📦 Installing for Claude Desktop...');
-      const configDir = path.join(process.env.HOME || '', 'Library', 'Application Support', 'Claude');
+      const configDir = process.platform === 'win32'
+        ? path.join(process.env.APPDATA || os.homedir(), 'Claude')
+        : path.join(os.homedir(), 'Library', 'Application Support', 'Claude');
       const configFile = path.join(configDir, 'claude_desktop_config.json');
       
       try {
@@ -260,7 +263,7 @@ program
     // Helper function to install for Claude Code
     const installClaudeCode = async () => {
       console.log('📦 Installing for Claude Code...');
-      const configDir = path.join(process.env.HOME || '', '.config', 'claude-code');
+      const configDir = path.join(os.homedir(), '.config', 'claude-code');
       const configFile = path.join(configDir, 'mcp.json');
       
       try {
@@ -293,7 +296,7 @@ program
     // Helper function to install for Cursor
     const installCursor = async () => {
       console.log('📦 Installing for Cursor IDE...');
-      const configDir = path.join(process.env.HOME || '', '.cursor', 'mcp');
+      const configDir = path.join(os.homedir(), '.cursor', 'mcp');
       const configFile = path.join(configDir, 'config.json');
       
       try {
@@ -326,7 +329,7 @@ program
     // Helper function to install for VS Code
     const installVSCode = async () => {
       console.log('📦 Installing for VS Code...');
-      const configDir = path.join(process.env.HOME || '', '.vscode', 'mcp');
+      const configDir = path.join(os.homedir(), '.vscode', 'mcp');
       const configFile = path.join(configDir, 'servers.json');
       
       try {
@@ -359,7 +362,7 @@ program
     // Helper function to install for Gemini
     const installGemini = async () => {
       console.log('📦 Installing for Google Gemini...');
-      const configDir = path.join(process.env.HOME || '', '.gemini', 'mcp');
+      const configDir = path.join(os.homedir(), '.gemini', 'mcp');
       const configFile = path.join(configDir, 'servers.json');
       
       try {
@@ -392,7 +395,7 @@ program
     // Helper function to install for Codex
     const installCodex = async () => {
       console.log('📦 Installing for OpenAI Codex...');
-      const configDir = path.join(process.env.HOME || '', '.openai', 'codex', 'mcp');
+      const configDir = path.join(os.homedir(), '.openai', 'codex', 'mcp');
       const configFile = path.join(configDir, 'config.json');
       
       try {
@@ -425,7 +428,7 @@ program
     // Helper function to install for Windsurf
     const installWindsurf = async () => {
       console.log('📦 Installing for Windsurf IDE...');
-      const configDir = path.join(process.env.HOME || '', '.windsurf', 'mcp');
+      const configDir = path.join(os.homedir(), '.windsurf', 'mcp');
       const configFile = path.join(configDir, 'config.json');
       
       try {
@@ -459,7 +462,7 @@ program
     const installJetBrains = async () => {
       console.log('📦 Installing for JetBrains IDEs...');
       // JetBrains uses a common config location for all their IDEs
-      const configDir = path.join(process.env.HOME || '', '.jetbrains', 'mcp');
+      const configDir = path.join(os.homedir(), '.jetbrains', 'mcp');
       const configFile = path.join(configDir, 'servers.json');
       
       try {

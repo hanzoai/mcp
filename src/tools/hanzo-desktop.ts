@@ -10,6 +10,7 @@
  */
 
 import { exec } from 'child_process';
+import * as os from 'os';
 import { promisify } from 'util';
 import * as fs from 'fs/promises';
 import * as path from 'path';
@@ -90,8 +91,11 @@ export class HanzoDesktopTool implements Tool {
   }
   
   async execute(params: any): Promise<any> {
+    if (process.platform !== 'darwin') {
+      return { error: 'Hanzo Desktop control is currently macOS-only. Windows/Linux support coming soon.' };
+    }
     const { action, window = 'main', selector, script, visible, port } = params;
-    
+
     switch (action) {
       case 'get_state':
         return this.getAppState();
@@ -353,7 +357,7 @@ export class HanzoDesktopTool implements Tool {
   private async takeScreenshot(): Promise<any> {
     // Take a screenshot of the app
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const screenshotPath = `/tmp/hanzo-desktop-${timestamp}.png`;
+    const screenshotPath = path.join(os.tmpdir(), `hanzo-desktop-${timestamp}.png`);
     
     try {
       await execAsync(`screencapture -l $(osascript -e 'tell app "Hanzo AI" to id of window 1') ${screenshotPath}`);
