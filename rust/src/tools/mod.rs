@@ -66,6 +66,11 @@ pub fn list_tools() -> Vec<ToolEntry> {
             category: ToolCategory::FileSystem,
         },
         ToolEntry {
+            name: "search".to_string(),
+            description: "Top-level content search (aliases fs action=search)".to_string(),
+            category: ToolCategory::FileSystem,
+        },
+        ToolEntry {
             name: "plan".to_string(),
             description: "Plan tracking with step status".to_string(),
             category: ToolCategory::Planning,
@@ -101,9 +106,9 @@ pub fn list_tools() -> Vec<ToolEntry> {
 /// Tool parity status with Python hanzo-mcp
 pub fn parity_status() -> serde_json::Value {
     serde_json::json!({
-        "version": "0.12.0",
+        "version": "0.12.3",
         "rust_version": env!("CARGO_PKG_VERSION"),
-        "tools_implemented": 8,
+        "tools_implemented": 9,
         "parity_with_python": {
             "proc": "full",
             "fs": "full",
@@ -140,11 +145,12 @@ mod tests {
     #[test]
     fn test_list_tools() {
         let tools = list_tools();
-        assert!(tools.len() >= 8);
+        assert!(tools.len() >= 9);
 
         let names: Vec<&str> = tools.iter().map(|t| t.name.as_str()).collect();
         assert!(names.contains(&"proc"));
         assert!(names.contains(&"fs"));
+        assert!(names.contains(&"search"));
         assert!(names.contains(&"plan"));
         assert!(names.contains(&"think"));
         assert!(names.contains(&"memory"));

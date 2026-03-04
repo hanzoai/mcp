@@ -124,6 +124,7 @@ impl ToolRegistry {
         names.extend(vec![
             "proc".to_string(),
             "fs".to_string(),
+            "search".to_string(),
             "plan".to_string(),
             "think".to_string(),
             "memory".to_string(),
@@ -146,6 +147,14 @@ impl ToolRegistry {
             }
             "fs" => {
                 let args: tools::FsToolArgs = serde_json::from_value(params)?;
+                let result = self.fs.read().await.execute(args).await?;
+                Ok(ToolResult::ok(serde_json::from_str(&result)?))
+            }
+            "search" => {
+                let mut args: tools::FsToolArgs = serde_json::from_value(params)?;
+                if args.action.is_empty() {
+                    args.action = "search".to_string();
+                }
                 let result = self.fs.read().await.execute(args).await?;
                 Ok(ToolResult::ok(serde_json::from_str(&result)?))
             }
@@ -201,6 +210,11 @@ impl ToolRegistry {
             json!({
                 "name": "fs",
                 "description": tools::FsToolDefinition::new().description,
+                "inputSchema": tools::FsToolDefinition::new().input_schema
+            }),
+            json!({
+                "name": "search",
+                "description": "Search file contents (alias of fs with action=search)",
                 "inputSchema": tools::FsToolDefinition::new().input_schema
             }),
             json!({
@@ -295,6 +309,7 @@ mod tests {
         let tools = registry.list();
         assert!(tools.contains(&"proc".to_string()));
         assert!(tools.contains(&"fs".to_string()));
+        assert!(tools.contains(&"search".to_string()));
         assert!(tools.contains(&"plan".to_string()));
         assert!(tools.contains(&"think".to_string()));
         assert!(tools.contains(&"memory".to_string()));
@@ -307,7 +322,7 @@ mod tests {
     fn test_tool_definitions() {
         let registry = ToolRegistry::new();
         let definitions = registry.get_definitions();
-        assert!(definitions.len() >= 8);
+        assert!(definitions.len() >= 9);
     }
 
     #[tokio::test]
