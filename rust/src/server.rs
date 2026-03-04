@@ -1,7 +1,7 @@
 use crate::{Config, ToolRegistry};
 use anyhow::Result;
-use jsonrpc_core::{IoHandler, Params, Value};
-use jsonrpc_http_server::{ServerBuilder, Server};
+use jsonrpc_core::{IoHandler, Params};
+use jsonrpc_http_server::ServerBuilder;
 use log::{debug, info, error};
 use serde_json::json;
 use std::sync::Arc;
@@ -28,8 +28,7 @@ impl MCPServer {
             Box::pin(async move {
                 debug!("Received initialize request: {:?}", params);
                 
-                let tools = tools.read().await;
-                let tool_list = tools.list();
+                let _tools = tools.read().await;
                 
                 Ok(json!({
                     "protocolVersion": "2024-11-05",
@@ -52,17 +51,7 @@ impl MCPServer {
             let tools = tools_clone.clone();
             Box::pin(async move {
                 let tools = tools.read().await;
-                let mut tool_list = Vec::new();
-                
-                for name in tools.list() {
-                    if let Some(tool) = tools.get(&name) {
-                        tool_list.push(json!({
-                            "name": tool.name(),
-                            "description": tool.description(),
-                            "inputSchema": tool.parameters()
-                        }));
-                    }
-                }
+                let tool_list = tools.get_definitions();
                 
                 Ok(json!({
                     "tools": tool_list
@@ -84,16 +73,19 @@ impl MCPServer {
                 let tool_params = params.get("arguments").cloned().unwrap_or(json!({}));
                 
                 let tools = tools.read().await;
-                let tool = tools.get(tool_name)
-                    .ok_or_else(|| jsonrpc_core::Error::invalid_params(format!("Unknown tool: {}", tool_name)))?;
-                
-                match tool.execute(tool_params).await {
+                match tools.execute(tool_name, tool_params).await {
                     Ok(result) => {
+                        let text = if result.success {
+                            serde_json::to_string(&result.content).unwrap_or_default()
+                        } else {
+                            result.error.unwrap_or_else(|| "Unknown tool error".to_string())
+                        };
                         Ok(json!({
                             "content": [{
                                 "type": "text",
-                                "text": serde_json::to_string(&result.content).unwrap_or_default()
-                            }]
+                                "text": text
+                            }],
+                            "isError": !result.success
                         }))
                     },
                     Err(e) => {
