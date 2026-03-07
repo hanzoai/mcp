@@ -1,12 +1,12 @@
 /// Hanzo MCP Server - Rust implementation (HIP-0300)
 ///
 /// Provides full tool parity with Python hanzo-mcp:
-/// - proc: Unified process execution
+/// - exec: Process execution
 /// - fs: File system operations
 /// - plan: Plan tracking
 /// - think: Reasoning tools (think, critic, review)
 /// - memory: Memory and knowledge management
-/// - ui: Native computer control
+/// - computer: Native OS control
 /// - browser: Playwright-based browser automation
 /// - mode: Development modes
 /// - search: Unified code search
@@ -20,8 +20,8 @@ pub mod search;
 pub use config::Config;
 pub use server::MCPServer;
 pub use tools::{
-    ShellTool, FsTool, PlanTool, ThinkTool, MemoryTool,
-    UiTool, BrowserTool, ModeTool,
+    ExecTool, FsTool, PlanTool, ThinkTool, MemoryTool,
+    ComputerTool, BrowserTool, ModeTool,
     list_tools, parity_status,
 };
 
@@ -85,12 +85,12 @@ pub struct ToolWrapper<T> {
 /// Tool registry for managing all available tools
 pub struct ToolRegistry {
     tools: HashMap<String, Box<dyn MCPTool>>,
-    shell: Arc<RwLock<ShellTool>>,
+    exec: Arc<RwLock<ExecTool>>,
     fs: Arc<RwLock<FsTool>>,
     plan: Arc<RwLock<PlanTool>>,
     think: Arc<RwLock<ThinkTool>>,
     memory: Arc<RwLock<MemoryTool>>,
-    ui: Arc<RwLock<UiTool>>,
+    computer: Arc<RwLock<ComputerTool>>,
     browser: Arc<RwLock<BrowserTool>>,
     mode: Arc<RwLock<ModeTool>>,
 }
@@ -99,12 +99,12 @@ impl ToolRegistry {
     pub fn new() -> Self {
         Self {
             tools: HashMap::new(),
-            shell: Arc::new(RwLock::new(ShellTool::new())),
+            exec: Arc::new(RwLock::new(ExecTool::new())),
             fs: Arc::new(RwLock::new(FsTool::new())),
             plan: Arc::new(RwLock::new(PlanTool::new())),
             think: Arc::new(RwLock::new(ThinkTool::new())),
             memory: Arc::new(RwLock::new(MemoryTool::new())),
-            ui: Arc::new(RwLock::new(UiTool::new())),
+            computer: Arc::new(RwLock::new(ComputerTool::new())),
             browser: Arc::new(RwLock::new(BrowserTool::new())),
             mode: Arc::new(RwLock::new(ModeTool::new())),
         }
@@ -122,13 +122,13 @@ impl ToolRegistry {
         let mut names: Vec<String> = self.tools.keys().cloned().collect();
         // Add built-in tools
         names.extend(vec![
-            "proc".to_string(),
+            "exec".to_string(),
             "fs".to_string(),
             "search".to_string(),
             "plan".to_string(),
             "think".to_string(),
             "memory".to_string(),
-            "ui".to_string(),
+            "computer".to_string(),
             "browser".to_string(),
             "mode".to_string(),
         ]);
@@ -140,9 +140,9 @@ impl ToolRegistry {
     /// Execute a tool by name
     pub async fn execute(&self, name: &str, params: Value) -> Result<ToolResult> {
         match name {
-            "proc" => {
-                let args: tools::ProcToolArgs = serde_json::from_value(params)?;
-                let result = self.shell.read().await.execute(args).await?;
+            "exec" => {
+                let args: tools::ExecToolArgs = serde_json::from_value(params)?;
+                let result = self.exec.read().await.execute(args).await?;
                 Ok(ToolResult::ok(serde_json::from_str(&result)?))
             }
             "fs" => {
@@ -166,17 +166,17 @@ impl ToolRegistry {
             "think" => {
                 let args: tools::ThinkToolArgs = serde_json::from_value(params)?;
                 let result = self.think.read().await.execute(args).await?;
-                Ok(ToolResult::ok(serde_json::from_str(&result)?))
+                Ok(ToolResult::ok(result))
             }
             "memory" => {
                 let args: tools::MemoryToolArgs = serde_json::from_value(params)?;
                 let result = self.memory.read().await.execute(args).await?;
                 Ok(ToolResult::ok(serde_json::from_str(&result)?))
             }
-            "ui" | "computer" => {
-                let args: tools::UiToolArgs = serde_json::from_value(params)?;
-                let mut ui = self.ui.write().await;
-                let result = ui.execute(args).await?;
+            "computer" => {
+                let args: tools::ComputerToolArgs = serde_json::from_value(params)?;
+                let mut computer = self.computer.write().await;
+                let result = computer.execute(args).await?;
                 Ok(ToolResult::ok(serde_json::from_str(&result)?))
             }
             "browser" => {
@@ -203,9 +203,9 @@ impl ToolRegistry {
     pub fn get_definitions(&self) -> Vec<Value> {
         let mut definitions = vec![
             json!({
-                "name": "proc",
-                "description": tools::ShellToolDefinition::new().description,
-                "inputSchema": tools::ShellToolDefinition::new().input_schema
+                "name": "exec",
+                "description": tools::ExecToolDefinition::new().description,
+                "inputSchema": tools::ExecToolDefinition::new().input_schema
             }),
             json!({
                 "name": "fs",
@@ -233,9 +233,9 @@ impl ToolRegistry {
                 "inputSchema": tools::MemoryToolDefinition::new().input_schema
             }),
             json!({
-                "name": "ui",
-                "description": tools::UiToolDefinition::new().description,
-                "inputSchema": tools::UiToolDefinition::new().input_schema
+                "name": "computer",
+                "description": tools::ComputerToolDefinition::new().description,
+                "inputSchema": tools::ComputerToolDefinition::new().input_schema
             }),
             json!({
                 "name": "browser",
@@ -307,13 +307,13 @@ mod tests {
     fn test_tool_registry() {
         let registry = ToolRegistry::new();
         let tools = registry.list();
-        assert!(tools.contains(&"proc".to_string()));
+        assert!(tools.contains(&"exec".to_string()));
         assert!(tools.contains(&"fs".to_string()));
         assert!(tools.contains(&"search".to_string()));
         assert!(tools.contains(&"plan".to_string()));
         assert!(tools.contains(&"think".to_string()));
         assert!(tools.contains(&"memory".to_string()));
-        assert!(tools.contains(&"ui".to_string()));
+        assert!(tools.contains(&"computer".to_string()));
         assert!(tools.contains(&"browser".to_string()));
         assert!(tools.contains(&"mode".to_string()));
     }
@@ -328,7 +328,7 @@ mod tests {
     #[tokio::test]
     async fn test_proc_execute() {
         let registry = ToolRegistry::new();
-        let result = registry.execute("proc", json!({
+        let result = registry.execute("exec", json!({
             "action": "help"
         })).await;
         assert!(result.is_ok());
