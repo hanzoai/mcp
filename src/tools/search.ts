@@ -109,7 +109,7 @@ export const grepTool: Tool = {
 };
 
 export const findFilesTool: Tool = {
-  name: 'find_files',
+  name: 'find',
   description: 'Find files by name pattern',
   inputSchema: {
     type: 'object',
@@ -137,10 +137,9 @@ export const findFilesTool: Tool = {
   handler: async (args) => {
     try {
       const globPattern = path.join(args.path || '.', '**', args.pattern);
-      const files = await glob(globPattern, {
-        nodir: args.type === 'file',
-        maxDepth: args.maxDepth
-      });
+      const opts: any = { maxDepth: args.maxDepth };
+      if (args.type === 'file') opts.nodir = true;
+      const files = await glob(globPattern, opts);
       
       if (files.length === 0) {
         return {
