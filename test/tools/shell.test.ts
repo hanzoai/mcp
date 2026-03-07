@@ -1,12 +1,11 @@
 import { describe, test, expect, beforeEach, afterEach, jest } from '@jest/globals';
-import { 
-  bashTool, 
-  runCommandTool, 
-  runBackgroundTool, 
-  listProcessesTool, 
-  getProcessOutputTool, 
+import {
+  bashTool,
+  runBackgroundTool,
+  listProcessesTool,
+  getProcessOutputTool,
   killProcessTool,
-  shellTools 
+  shellTools
 } from '../../src/tools/shell.js';
 import { 
   createTestFile, 
@@ -121,26 +120,9 @@ describe('Shell Tools', () => {
     });
   });
 
-  describe('runCommandTool', () => {
-    test('should have correct metadata', () => {
-      expect(runCommandTool.name).toBe('run_command');
-      expect(runCommandTool.description).toBe('Execute a shell command (alias for bash)');
-    });
-
-    test('should work identically to bashTool', async () => {
-      const command = 'echo "test output"';
-      
-      const bashResult = await bashTool.handler({ command });
-      const runResult = await runCommandTool.handler({ command });
-      
-      expect(bashResult.isError).toBe(runResult.isError);
-      expect(bashResult.content[0].text).toBe(runResult.content[0].text);
-    });
-  });
-
   describe('runBackgroundTool', () => {
     test('should have correct metadata', () => {
-      expect(runBackgroundTool.name).toBe('run_background');
+      expect(runBackgroundTool.name).toBe('bg');
       expect(runBackgroundTool.description).toBe('Run a command in the background');
       expect(runBackgroundTool.inputSchema.required).toEqual(['command', 'id']);
     });
@@ -206,7 +188,7 @@ describe('Shell Tools', () => {
 
   describe('listProcessesTool', () => {
     test('should have correct metadata', () => {
-      expect(listProcessesTool.name).toBe('list_processes');
+      expect(listProcessesTool.name).toBe('ps');
       expect(listProcessesTool.description).toBe('List running background processes');
     });
 
@@ -256,7 +238,7 @@ describe('Shell Tools', () => {
 
   describe('getProcessOutputTool', () => {
     test('should have correct metadata', () => {
-      expect(getProcessOutputTool.name).toBe('get_process_output');
+      expect(getProcessOutputTool.name).toBe('logs');
       expect(getProcessOutputTool.description).toBe('Get output from a background process');
       expect(getProcessOutputTool.inputSchema.required).toContain('id');
     });
@@ -346,7 +328,7 @@ describe('Shell Tools', () => {
 
   describe('killProcessTool', () => {
     test('should have correct metadata', () => {
-      expect(killProcessTool.name).toBe('kill_process');
+      expect(killProcessTool.name).toBe('kill');
       expect(killProcessTool.description).toBe('Kill a background process');
       expect(killProcessTool.inputSchema.required).toContain('id');
     });
@@ -396,9 +378,8 @@ describe('Shell Tools', () => {
 
   describe('shellTools array', () => {
     test('should export all shell tools', () => {
-      expect(shellTools).toHaveLength(6);
+      expect(shellTools).toHaveLength(5);
       expect(shellTools).toContain(bashTool);
-      expect(shellTools).toContain(runCommandTool);
       expect(shellTools).toContain(runBackgroundTool);
       expect(shellTools).toContain(listProcessesTool);
       expect(shellTools).toContain(getProcessOutputTool);
