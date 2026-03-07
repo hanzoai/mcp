@@ -2,13 +2,62 @@
 
 ## Overview
 
-Hanzo MCP (Model Context Protocol) implementation. Provides unified code search, UI component management, and secure remote access for AI tools.
+Hanzo MCP (Model Context Protocol) implementation. TypeScript + Rust dual runtime providing HIP-0300 unified tool surface for AI coding agents.
 
 **Install**: `npm install -g @hanzo/mcp`
+**Version**: 2.2.2
 
-## Architecture
+## HIP-0300 Unified Tool Architecture
 
-### Search Engine (`/src/search/`)
+13 canonical tools organized by axis. Each tool uses action-routed dispatch.
+
+### Core Tools (7)
+
+| Tool | Axis | Actions |
+|------|------|---------|
+| `fs` | Bytes + Paths | read, write, stat, list, mkdir, rm, mv, apply_patch, search_text |
+| `exec` | Execution | run, background, ps, kill, logs |
+| `code` | Symbols + Semantics | parse, search, transform, summarize |
+| `git` | Diffs + History | status, diff, log, commit, branch, stash |
+| `fetch` | HTTP/API | get, post, put, delete, download |
+| `workspace` | Project Context | info, config, env, dependencies |
+| `ui` | UI Components | list_components, fetch_component, search, install |
+
+### Optional Tools (6)
+
+| Tool | Purpose |
+|------|---------|
+| `think` | Structured reasoning |
+| `memory` | Persistent storage |
+| `hanzo` | Hanzo platform (iam, kms, paas, commerce, storage, auth, api) |
+| `plan` | Task planning |
+| `tasks` | Task tracking |
+| `mode` | Developer modes |
+
+### File Layout
+
+```
+src/tools/unified/     # HIP-0300 implementations
+  fs.ts, exec.ts, code.ts, fetch.ts, workspace.ts, hanzo.ts, index.ts
+src/tools/             # Individual tools (legacy + new)
+  git.ts, think.ts, memory.ts, tasks.ts, plan.ts, mode-preset.ts, ...
+src/tools/index.ts     # Tool registry and configuration
+rust/src/tools/        # Rust native tools (parallel implementations)
+```
+
+### Tool Configuration
+
+```typescript
+import { getConfiguredTools } from './tools/index.js';
+
+// HIP-0300 unified surface (default)
+const tools = getConfiguredTools({ unified: true });
+
+// Legacy individual tools
+const tools = getConfiguredTools({ enableLegacy: true });
+```
+
+## Search Engine (`/src/search/`)
 
 Strategy pattern with priority-based parallel execution:
 
@@ -20,71 +69,36 @@ Strategy pattern with priority-based parallel execution:
 | Text | 40 | Ripgrep | Default for all queries |
 | File | 50 | Glob patterns | Path separators, file extensions |
 
-### Key Files
+## Rust Native Tools (`/rust/`)
 
-| File | Purpose |
-|------|---------|
-| `/src/search/search-engine.ts` | Search orchestrator |
-| `/src/search/secure-tunnel.ts` | Ngrok security layer |
-| `/src/search/file-server.ts` | HTTP file serving |
-| `/src/search/url-helper.ts` | URL generation (ngrok > vscode > file://) |
-| `/src/search/strategies/*.ts` | Search implementations |
-| `/src/ui/unified-ui-tool.ts` | Unified UI tool (13 methods) |
-| `/rust/src/tools/ui_tool/` | Rust native UI control |
+Platform-native implementations for performance-critical operations:
+- `exec_tool.rs` — Process execution
+- `git_tool.rs` — Git operations
+- `fetch_tool.rs` — HTTP client
+- `code_tool.rs` — AST parsing
+- `computer_tool/` — OS/desktop control (CoreGraphics/xdotool/winapi)
+- `tasks_tool.rs` — Task management
+- `workspace_tool.rs` — Project context
+- `hanzo_tool.rs` — Platform API
 
-## UI Tool
-
-Consolidated 14 separate tools into 1 unified tool with method-based routing.
-
-```typescript
-await ui({ method: 'list_components', type: 'ui', category: 'Forms' });
-```
-
-### Rust UI Tool (`/rust/src/tools/ui_tool/`)
-Native platform control: macOS (CoreGraphics), Linux (xdotool), Windows (winapi).
 Performance: <5ms clicks, <2ms keypress, <50ms screenshots.
 
-Actions: Click, DoubleClick, RightClick, Move, Drag, Scroll, Type, Press, Hotkey, Screenshot, GetActiveWindow, ListWindows, FocusWindow, Batch.
+## Python SDK Parity
 
-## GitHub UI Component Integration
-
-Fetches components from multiple framework repos:
-
-| Framework | Repository | Components Path |
-|-----------|------------|-----------------|
-| Hanzo (default) | hanzoai/ui | packages/ui/src/components |
-| React | shadcn/ui | apps/v4/registry/new-york-v4/ui |
-| Svelte | shadcn-svelte | apps/www/src/lib/registry/new-york/ui |
-| Vue | shadcn-vue | apps/www/src/lib/registry/new-york/ui |
-| React Native | react-native-reusables | packages/reusables/src |
-
-Tools: `ui_fetch_component`, `ui_fetch_demo`, `ui_fetch_block`, `ui_list_github_components`, `ui_list_blocks`, `ui_component_metadata`, `ui_get_directory_structure`, `ui_github_rate_limit`.
-
-Features: 15min TTL cache, circuit breaker (5 failures/60s), rate limit tracking, GITHUB_TOKEN auth.
+The Python implementation (`hanzoai/python-sdk/pkg/hanzo-mcp`) exposes the same 13 HIP-0300 tools via entry-point discovery from `hanzo-tools-*` packages. Tool names and action schemas are identical across both runtimes.
 
 ## Security
 
 **Local-only by default.** Ngrok tunnel only activates with explicit credentials.
 
-### Environment Variables
-
 ```bash
-# Tunnel (only set to go online)
-NGROK_API_KEY=...
-NGROK_AUTHTOKEN=...
-
-# Auth (auto-generates if not set)
+NGROK_API_KEY=...           # Tunnel (only set to go online)
 MCP_ACCESS_TOKEN=...        # Bearer token
 MCP_API_KEYS=key1,key2     # API keys
-MCP_JWT_SECRET=...          # JWT signing
-
-# Security
-MCP_POST_QUANTUM_TLS=true
-MCP_ALLOWED_ORIGINS=https://chat.openai.com
+MCP_POST_QUANTUM_TLS=true  # Post-quantum TLS
 ```
 
-Auth methods: `Authorization: Bearer TOKEN`, `X-MCP-Access-Token: TOKEN`, `X-API-Key: KEY`.
-
+Auth: `Authorization: Bearer TOKEN`, `X-MCP-Access-Token: TOKEN`, `X-API-Key: KEY`.
 Rate limit: 100 req/min per IP. Max file size: 10MB.
 
 ## MCP API
