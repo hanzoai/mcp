@@ -93,15 +93,20 @@ interface ZapClient {
 
 // ── Server ──────────────────────────────────────────────────────────────
 
+/** Generic MCP method handler: (method, params) => result */
+export type McpMethodHandler = (method: string, params: any) => Promise<any>;
+
 export interface ZapServerOptions {
   tools: Tool[];
   callTool: (name: string, args: Record<string, unknown>) => Promise<any>;
+  /** Optional pass-through handler for ALL MCP methods (resources/*, prompts/*, etc.) */
+  handleMethod?: McpMethodHandler;
   name?: string;
   preferredPort?: number;
 }
 
 export async function startZapServer(options: ZapServerOptions): Promise<{ port: number; stop: () => void } | null> {
-  const { tools, callTool, name = 'hanzo-mcp' } = options;
+  const { tools, callTool, handleMethod, name = 'hanzo-mcp' } = options;
   const clients = new Map<WebSocket, ZapClient>();
 
   const toolManifest = tools.map(t => ({
@@ -147,6 +152,7 @@ export async function startZapServer(options: ZapServerOptions): Promise<{ port:
     try {
       let result: any;
 
+      // Built-in handlers for core MCP methods
       switch (method) {
         case 'tools/list':
           result = { tools: toolManifest };
@@ -161,13 +167,21 @@ export async function startZapServer(options: ZapServerOptions): Promise<{ port:
           break;
         }
 
+        // Client→server notifications (fire-and-forget)
         case 'notifications/elementSelected':
-          // Acknowledge element selection events from extensions
+        case 'notifications/controlCancelled':
           result = { acknowledged: true };
           break;
 
         default:
-          throw new Error(`Unknown method: ${method}`);
+          // Pass-through to MCP server for full protocol parity
+          // (resources/list, resources/read, prompts/list, prompts/get, etc.)
+          if (handleMethod) {
+            result = await handleMethod(method, params);
+          } else {
+            throw new Error(`Unsupported method: ${method}`);
+          }
+          break;
       }
 
       ws.send(encode(MSG_RESPONSE, { id, result }));
