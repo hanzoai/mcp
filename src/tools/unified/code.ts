@@ -125,7 +125,7 @@ export const codeTool: Tool = {
           // Detect if it's a diff
           const isDiff = text.includes('---') && text.includes('+++');
           const summary = isDiff
-            ? `Diff: ${lineCount} lines, ${text.split('\n').filter(l => l.startsWith('+')).length - 1} additions, ${text.split('\n').filter(l => l.startsWith('-')).length - 1} deletions`
+            ? `Diff: ${lineCount} lines, ${text.split('\n').filter((l: string) => l.startsWith('+')).length - 1} additions, ${text.split('\n').filter((l: string) => l.startsWith('-')).length - 1} deletions`
             : `Text: ${wordCount} words`;
           return envelope({ summary, lines: lineCount, words: wordCount }, 'summarize');
         }
