@@ -1,6 +1,6 @@
 {
   "name": "@hanzo/mcp",
-  "version": "2.2.2",
+  "version": "2.3.0",
   "description": "Hanzo MCP Server - Unified tool surface with AI, cloud control, vector search, and multi-framework UI",
   "main": "dist/index.js",
   "type": "module",
@@ -16,8 +16,8 @@
   ],
   "scripts": {
     "build": "npm run build:lib && npm run build:cli",
-    "build:lib": "esbuild src/index.ts --bundle --platform=node --target=node18 --format=esm --outfile=dist/index.js --external:@modelcontextprotocol/sdk --external:glob --external:commander --external:zod --external:zod-to-json-schema --external:mime-types --external:@lancedb/lancedb --external:@xenova/transformers --external:path --external:fs --external:fs/promises --external:os --external:url",
-    "build:cli": "esbuild src/cli.ts --bundle --platform=node --target=node18 --format=esm --outfile=dist/cli.js --external:@modelcontextprotocol/sdk --external:glob --external:commander --external:zod --external:zod-to-json-schema --external:mime-types --external:@lancedb/lancedb --external:@xenova/transformers --external:path --external:fs --external:fs/promises --external:os --external:url && chmod +x dist/cli.js",
+    "build:lib": "esbuild src/index.ts --bundle --platform=node --target=node18 --format=esm --outfile=dist/index.js --external:@modelcontextprotocol/sdk --external:glob --external:commander --external:zod --external:zod-to-json-schema --external:mime-types --external:@lancedb/lancedb --external:@xenova/transformers --external:ws --external:path --external:fs --external:fs/promises --external:os --external:url",
+    "build:cli": "esbuild src/cli.ts --bundle --platform=node --target=node18 --format=esm --outfile=dist/cli.js --external:@modelcontextprotocol/sdk --external:glob --external:commander --external:zod --external:zod-to-json-schema --external:mime-types --external:@lancedb/lancedb --external:@xenova/transformers --external:ws --external:path --external:fs --external:fs/promises --external:os --external:url && chmod +x dist/cli.js",
     "dev": "tsc --watch",
     "test": "jest",
     "lint": "echo 'No linter configured'",
@@ -40,15 +40,16 @@
     "glob": "^10.3.10",
     "mime-types": "^3.0.1",
     "minimatch": "^9.0.3",
+    "ws": "^8.19.0",
     "zod": "^3.22.4",
     "zod-to-json-schema": "^3.22.4"
   },
   "optionalDependencies": {
+    "@lancedb/lancedb": "^0.13.0",
+    "@xenova/transformers": "^2.17.2",
     "jsautogui": "^1.0.0",
     "playwright": "^1.47.0",
-    "playwright-core": "^1.47.0",
-    "@lancedb/lancedb": "^0.13.0",
-    "@xenova/transformers": "^2.17.2"
+    "playwright-core": "^1.47.0"
   },
   "devDependencies": {
     "@jest/globals": "^30.1.2",
@@ -56,6 +57,7 @@
     "@types/jest": "^30.0.0",
     "@types/minimatch": "^5.1.2",
     "@types/node": "^20.10.5",
+    "@types/ws": "^8.18.1",
     "esbuild": "^0.19.11",
     "jest": "^29.7.0",
     "ts-jest": "^29.4.1",
