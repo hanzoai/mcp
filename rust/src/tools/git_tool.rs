@@ -17,13 +17,10 @@ use tokio::process::Command;
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "snake_case")]
 pub enum VcsAction {
-    Status,
-    Diff,
-    Apply,
-    Commit,
-    Branch,
-    Checkout,
-    Log,
+    Status, Diff, Apply, Commit, Branch, Checkout, Log,
+    Blame, Show, Stash, Tag, Remote, Merge, Rebase, CherryPick,
+    Reset, Clean, Init, Clone, Fetch, Pull, Push, Config,
+    Worktree, Reflog, Shortlog, RevParse, Describe, Bisect,
     Help,
 }
 
@@ -45,6 +42,28 @@ impl std::str::FromStr for VcsAction {
             "branch" | "br" => Ok(Self::Branch),
             "checkout" | "co" | "switch" => Ok(Self::Checkout),
             "log" | "history" => Ok(Self::Log),
+            "blame" => Ok(Self::Blame),
+            "show" => Ok(Self::Show),
+            "stash" => Ok(Self::Stash),
+            "tag" => Ok(Self::Tag),
+            "remote" => Ok(Self::Remote),
+            "merge" => Ok(Self::Merge),
+            "rebase" => Ok(Self::Rebase),
+            "cherry_pick" | "cherry-pick" => Ok(Self::CherryPick),
+            "reset" => Ok(Self::Reset),
+            "clean" => Ok(Self::Clean),
+            "init" => Ok(Self::Init),
+            "clone" => Ok(Self::Clone),
+            "fetch" => Ok(Self::Fetch),
+            "pull" => Ok(Self::Pull),
+            "push" => Ok(Self::Push),
+            "config" => Ok(Self::Config),
+            "worktree" => Ok(Self::Worktree),
+            "reflog" => Ok(Self::Reflog),
+            "shortlog" => Ok(Self::Shortlog),
+            "rev_parse" | "rev-parse" => Ok(Self::RevParse),
+            "describe" => Ok(Self::Describe),
+            "bisect" => Ok(Self::Bisect),
             "help" | "" => Ok(Self::Help),
             _ => Err(anyhow!("Unknown action: {}", s)),
         }
@@ -60,6 +79,14 @@ pub struct GitToolArgs {
     pub patch: Option<String>,
     pub count: Option<usize>,
     pub staged: Option<bool>,
+    pub target: Option<String>,
+    pub file: Option<String>,
+    pub remote: Option<String>,
+    pub url: Option<String>,
+    pub key: Option<String>,
+    pub value: Option<String>,
+    pub args: Option<Vec<String>>,
+    pub force: Option<bool>,
 }
 
 pub struct GitToolDefinition;
@@ -68,21 +95,28 @@ impl GitToolDefinition {
     pub fn schema() -> Value {
         json!({
             "name": "git",
-            "description": "Version control: status, diff, apply, commit, branch, checkout, log",
+            "description": "Version control: status, diff, apply, commit, branch, checkout, log, blame, show, stash, tag, remote, merge, rebase, cherry_pick, reset, clean, init, clone, fetch, pull, push, config, worktree, reflog, shortlog, rev_parse, describe, bisect",
             "inputSchema": {
                 "type": "object",
                 "properties": {
                     "action": {
                         "type": "string",
-                        "enum": ["status", "diff", "apply", "commit", "branch", "checkout", "log", "help"],
+                        "enum": ["status", "diff", "apply", "commit", "branch", "checkout", "log", "blame", "show", "stash", "tag", "remote", "merge", "rebase", "cherry_pick", "reset", "clean", "init", "clone", "fetch", "pull", "push", "config", "worktree", "reflog", "shortlog", "rev_parse", "describe", "bisect", "help"],
                         "description": "VCS action"
                     },
                     "path": { "type": "string", "description": "Repository path", "default": "." },
-                    "message": { "type": "string", "description": "Commit message" },
+                    "message": { "type": "string", "description": "Commit message or tag message" },
                     "branch": { "type": "string", "description": "Branch name" },
                     "patch": { "type": "string", "description": "Patch content for apply" },
-                    "count": { "type": "number", "description": "Number of log entries", "default": 10 },
-                    "staged": { "type": "boolean", "description": "Show staged changes only" }
+                    "count": { "type": "number", "description": "Number of entries", "default": 10 },
+                    "staged": { "type": "boolean", "description": "Show staged changes only" },
+                    "target": { "type": "string", "description": "Target ref, subcommand, or commit" },
+                    "file": { "type": "string", "description": "File path" },
+                    "remote": { "type": "string", "description": "Remote name" },
+                    "url": { "type": "string", "description": "URL for clone/remote" },
+                    "key": { "type": "string", "description": "Config key" },
+                    "value": { "type": "string", "description": "Config value" },
+                    "force": { "type": "boolean", "description": "Force operation" }
                 },
                 "required": ["action"]
             }
@@ -115,6 +149,28 @@ impl GitTool {
             VcsAction::Branch => self.branch(cwd, &args).await,
             VcsAction::Checkout => self.checkout(cwd, &args).await,
             VcsAction::Log => self.log(cwd, &args).await,
+            VcsAction::Blame => self.blame(cwd, &args).await,
+            VcsAction::Show => self.show(cwd, &args).await,
+            VcsAction::Stash => self.stash(cwd, &args).await,
+            VcsAction::Tag => self.tag(cwd, &args).await,
+            VcsAction::Remote => self.remote(cwd, &args).await,
+            VcsAction::Merge => self.merge(cwd, &args).await,
+            VcsAction::Rebase => self.rebase(cwd, &args).await,
+            VcsAction::CherryPick => self.cherry_pick(cwd, &args).await,
+            VcsAction::Reset => self.reset(cwd, &args).await,
+            VcsAction::Clean => self.clean(cwd, &args).await,
+            VcsAction::Init => self.init(cwd).await,
+            VcsAction::Clone => self.clone_repo(cwd, &args).await,
+            VcsAction::Fetch => self.fetch(cwd, &args).await,
+            VcsAction::Pull => self.pull(cwd, &args).await,
+            VcsAction::Push => self.push(cwd, &args).await,
+            VcsAction::Config => self.config(cwd, &args).await,
+            VcsAction::Worktree => self.worktree(cwd, &args).await,
+            VcsAction::Reflog => self.reflog(cwd, &args).await,
+            VcsAction::Shortlog => self.shortlog(cwd, &args).await,
+            VcsAction::RevParse => self.rev_parse(cwd, &args).await,
+            VcsAction::Describe => self.describe(cwd, &args).await,
+            VcsAction::Bisect => self.bisect(cwd, &args).await,
             VcsAction::Help => Ok(self.help()),
         }
     }
@@ -267,6 +323,173 @@ impl GitTool {
             "error": null,
             "meta": { "tool": "git", "action": "log" }
         }))
+    }
+
+    async fn blame(&self, cwd: &str, args: &GitToolArgs) -> Result<Value> {
+        let file = args.file.as_deref().or(args.target.as_deref()).ok_or_else(|| anyhow!("file required"))?;
+        let out = self.git(cwd, &["blame", "--porcelain", file]).await?;
+        Ok(json!({"ok": true, "data": {"output": out}, "meta": {"tool": "git", "action": "blame"}}))
+    }
+
+    async fn show(&self, cwd: &str, args: &GitToolArgs) -> Result<Value> {
+        let target = args.target.as_deref().unwrap_or("HEAD");
+        let out = self.git(cwd, &["show", "--stat", target]).await?;
+        Ok(json!({"ok": true, "data": {"output": out}, "meta": {"tool": "git", "action": "show"}}))
+    }
+
+    async fn stash(&self, cwd: &str, args: &GitToolArgs) -> Result<Value> {
+        let sub = args.target.as_deref().unwrap_or("list");
+        let mut cmd = vec!["stash"];
+        cmd.push(sub);
+        if let Some(msg) = args.message.as_deref() { if sub == "push" { cmd.push("-m"); cmd.push(msg); } }
+        let out = self.git(cwd, &cmd).await?;
+        Ok(json!({"ok": true, "data": {"output": out.trim()}, "meta": {"tool": "git", "action": "stash"}}))
+    }
+
+    async fn tag(&self, cwd: &str, args: &GitToolArgs) -> Result<Value> {
+        if let Some(name) = args.target.as_deref() {
+            let mut cmd = vec!["tag"];
+            if let Some(msg) = args.message.as_deref() { cmd.extend_from_slice(&["-a", name, "-m", msg]); } else { cmd.push(name); }
+            let out = self.git(cwd, &cmd).await?;
+            Ok(json!({"ok": true, "data": {"created": name, "output": out.trim()}, "meta": {"tool": "git", "action": "tag"}}))
+        } else {
+            let out = self.git(cwd, &["tag", "-l"]).await?;
+            let tags: Vec<&str> = out.lines().collect();
+            Ok(json!({"ok": true, "data": {"tags": tags}, "meta": {"tool": "git", "action": "tag"}}))
+        }
+    }
+
+    async fn remote(&self, cwd: &str, args: &GitToolArgs) -> Result<Value> {
+        let sub = args.target.as_deref().unwrap_or("list");
+        match sub {
+            "list" => { let out = self.git(cwd, &["remote", "-v"]).await?; Ok(json!({"ok": true, "data": {"output": out.trim()}, "meta": {"tool": "git", "action": "remote"}})) }
+            "add" => { let name = args.remote.as_deref().ok_or_else(|| anyhow!("remote name required"))?; let url = args.url.as_deref().ok_or_else(|| anyhow!("url required"))?; let out = self.git(cwd, &["remote", "add", name, url]).await?; Ok(json!({"ok": true, "data": {"added": name, "output": out.trim()}, "meta": {"tool": "git", "action": "remote"}})) }
+            "remove" => { let name = args.remote.as_deref().ok_or_else(|| anyhow!("remote name required"))?; let out = self.git(cwd, &["remote", "remove", name]).await?; Ok(json!({"ok": true, "data": {"removed": name, "output": out.trim()}, "meta": {"tool": "git", "action": "remote"}})) }
+            _ => { let out = self.git(cwd, &["remote", sub]).await?; Ok(json!({"ok": true, "data": {"output": out.trim()}, "meta": {"tool": "git", "action": "remote"}})) }
+        }
+    }
+
+    async fn merge(&self, cwd: &str, args: &GitToolArgs) -> Result<Value> {
+        let branch = args.branch.as_deref().or(args.target.as_deref()).ok_or_else(|| anyhow!("branch required"))?;
+        let out = self.git(cwd, &["merge", branch]).await?;
+        Ok(json!({"ok": true, "data": {"output": out.trim()}, "meta": {"tool": "git", "action": "merge"}}))
+    }
+
+    async fn rebase(&self, cwd: &str, args: &GitToolArgs) -> Result<Value> {
+        let target = args.target.as_deref().or(args.branch.as_deref()).ok_or_else(|| anyhow!("target required"))?;
+        let out = self.git(cwd, &["rebase", target]).await?;
+        Ok(json!({"ok": true, "data": {"output": out.trim()}, "meta": {"tool": "git", "action": "rebase"}}))
+    }
+
+    async fn cherry_pick(&self, cwd: &str, args: &GitToolArgs) -> Result<Value> {
+        let commit = args.target.as_deref().ok_or_else(|| anyhow!("commit hash required"))?;
+        let out = self.git(cwd, &["cherry-pick", commit]).await?;
+        Ok(json!({"ok": true, "data": {"output": out.trim()}, "meta": {"tool": "git", "action": "cherry_pick"}}))
+    }
+
+    async fn reset(&self, cwd: &str, args: &GitToolArgs) -> Result<Value> {
+        let target = args.target.as_deref().unwrap_or("HEAD");
+        let mode = if args.force.unwrap_or(false) { "--hard" } else { "--mixed" };
+        let out = self.git(cwd, &["reset", mode, target]).await?;
+        Ok(json!({"ok": true, "data": {"output": out.trim()}, "meta": {"tool": "git", "action": "reset"}}))
+    }
+
+    async fn clean(&self, cwd: &str, args: &GitToolArgs) -> Result<Value> {
+        let mut cmd = vec!["clean", "-fd"];
+        if args.force.unwrap_or(false) { cmd.push("-x"); }
+        let out = self.git(cwd, &cmd).await?;
+        Ok(json!({"ok": true, "data": {"output": out.trim()}, "meta": {"tool": "git", "action": "clean"}}))
+    }
+
+    async fn init(&self, cwd: &str) -> Result<Value> {
+        let out = self.git(cwd, &["init"]).await?;
+        Ok(json!({"ok": true, "data": {"output": out.trim()}, "meta": {"tool": "git", "action": "init"}}))
+    }
+
+    async fn clone_repo(&self, cwd: &str, args: &GitToolArgs) -> Result<Value> {
+        let url = args.url.as_deref().or(args.target.as_deref()).ok_or_else(|| anyhow!("url required"))?;
+        let mut cmd = vec!["clone", url];
+        if let Some(path) = args.file.as_deref() { cmd.push(path); }
+        let out = self.git(cwd, &cmd).await?;
+        Ok(json!({"ok": true, "data": {"output": out.trim()}, "meta": {"tool": "git", "action": "clone"}}))
+    }
+
+    async fn fetch(&self, cwd: &str, args: &GitToolArgs) -> Result<Value> {
+        let remote = args.remote.as_deref().unwrap_or("origin");
+        let out = self.git(cwd, &["fetch", remote]).await?;
+        Ok(json!({"ok": true, "data": {"output": out.trim()}, "meta": {"tool": "git", "action": "fetch"}}))
+    }
+
+    async fn pull(&self, cwd: &str, args: &GitToolArgs) -> Result<Value> {
+        let remote = args.remote.as_deref().unwrap_or("origin");
+        let mut cmd = vec!["pull", remote];
+        if let Some(branch) = args.branch.as_deref() { cmd.push(branch); }
+        let out = self.git(cwd, &cmd).await?;
+        Ok(json!({"ok": true, "data": {"output": out.trim()}, "meta": {"tool": "git", "action": "pull"}}))
+    }
+
+    async fn push(&self, cwd: &str, args: &GitToolArgs) -> Result<Value> {
+        let remote = args.remote.as_deref().unwrap_or("origin");
+        let mut cmd = vec!["push", remote];
+        if let Some(branch) = args.branch.as_deref() { cmd.push(branch); }
+        if args.force.unwrap_or(false) { cmd.push("--force"); }
+        let out = self.git(cwd, &cmd).await?;
+        Ok(json!({"ok": true, "data": {"output": out.trim()}, "meta": {"tool": "git", "action": "push"}}))
+    }
+
+    async fn config(&self, cwd: &str, args: &GitToolArgs) -> Result<Value> {
+        if let Some(key) = args.key.as_deref() {
+            if let Some(val) = args.value.as_deref() {
+                let out = self.git(cwd, &["config", key, val]).await?;
+                Ok(json!({"ok": true, "data": {"set": key, "value": val, "output": out.trim()}, "meta": {"tool": "git", "action": "config"}}))
+            } else {
+                let out = self.git(cwd, &["config", "--get", key]).await?;
+                Ok(json!({"ok": true, "data": {"key": key, "value": out.trim()}, "meta": {"tool": "git", "action": "config"}}))
+            }
+        } else {
+            let out = self.git(cwd, &["config", "--list"]).await?;
+            Ok(json!({"ok": true, "data": {"output": out.trim()}, "meta": {"tool": "git", "action": "config"}}))
+        }
+    }
+
+    async fn worktree(&self, cwd: &str, args: &GitToolArgs) -> Result<Value> {
+        let sub = args.target.as_deref().unwrap_or("list");
+        let mut cmd = vec!["worktree", sub];
+        if let Some(path) = args.file.as_deref() { cmd.push(path); }
+        if let Some(branch) = args.branch.as_deref() { cmd.push(branch); }
+        let out = self.git(cwd, &cmd).await?;
+        Ok(json!({"ok": true, "data": {"output": out.trim()}, "meta": {"tool": "git", "action": "worktree"}}))
+    }
+
+    async fn reflog(&self, cwd: &str, args: &GitToolArgs) -> Result<Value> {
+        let count = args.count.unwrap_or(10).to_string();
+        let out = self.git(cwd, &["reflog", "-n", &count]).await?;
+        Ok(json!({"ok": true, "data": {"output": out.trim()}, "meta": {"tool": "git", "action": "reflog"}}))
+    }
+
+    async fn shortlog(&self, cwd: &str, args: &GitToolArgs) -> Result<Value> {
+        let out = self.git(cwd, &["shortlog", "-sn", "HEAD"]).await?;
+        Ok(json!({"ok": true, "data": {"output": out.trim()}, "meta": {"tool": "git", "action": "shortlog"}}))
+    }
+
+    async fn rev_parse(&self, cwd: &str, args: &GitToolArgs) -> Result<Value> {
+        let target = args.target.as_deref().unwrap_or("HEAD");
+        let out = self.git(cwd, &["rev-parse", target]).await?;
+        Ok(json!({"ok": true, "data": {"hash": out.trim()}, "meta": {"tool": "git", "action": "rev_parse"}}))
+    }
+
+    async fn describe(&self, cwd: &str, args: &GitToolArgs) -> Result<Value> {
+        let target = args.target.as_deref().unwrap_or("HEAD");
+        let out = self.git(cwd, &["describe", "--tags", "--always", target]).await?;
+        Ok(json!({"ok": true, "data": {"description": out.trim()}, "meta": {"tool": "git", "action": "describe"}}))
+    }
+
+    async fn bisect(&self, cwd: &str, args: &GitToolArgs) -> Result<Value> {
+        let sub = args.target.as_deref().unwrap_or("status");
+        let mut cmd = vec!["bisect", sub];
+        if let Some(commit) = args.branch.as_deref() { cmd.push(commit); }
+        let out = self.git(cwd, &cmd).await?;
+        Ok(json!({"ok": true, "data": {"output": out.trim()}, "meta": {"tool": "git", "action": "bisect"}}))
     }
 
     fn help(&self) -> Value {
