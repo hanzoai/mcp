@@ -30,6 +30,7 @@ export { getSystemPrompt } from './prompts/system.js';
 // Import Tool type and tool configuration for use in function signatures
 import { Tool } from './types/index.js';
 import { ToolConfig } from './tools/index.js';
+import { startZapServer } from './zap-server.js';
 
 // Main server factory
 export async function createMCPServer(config?: {
@@ -112,9 +113,26 @@ export async function createMCPServer(config?: {
     tools: configuredTools,
     
     async start() {
+      // Start ZAP server for browser extension discovery
+      const zapServer = await startZapServer({
+        tools: configuredTools,
+        name,
+        callTool: async (toolName, args) => {
+          const tool = combinedToolMap.get(toolName);
+          if (!tool) throw new Error(`Unknown tool: ${toolName}`);
+          return tool.handler(args);
+        },
+      }).catch((err) => {
+        console.error(`[ZAP] Failed to start: ${err.message}`);
+        return null;
+      });
+
       const transport = new StdioServerTransport();
       await server.connect(transport);
       console.error(`${name} MCP server started with ${configuredTools.length} tools`);
+      if (zapServer) {
+        console.error(`[ZAP] Browser extensions can discover this server on port ${zapServer.port}`);
+      }
     },
     
     addTool(tool: Tool) {
