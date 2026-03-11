@@ -1,97 +1,106 @@
 /**
- * Configuration for different MCP implementation languages
+ * Configuration for different MCP implementation languages.
+ *
+ * Each entry tells the test-suite how to spawn a particular MCP server
+ * over stdio so it can run the same conformance specs against all of them.
  */
 
+import * as path from 'node:path';
 import { MCPImplementation } from '../src/types.js';
 
+// Resolve paths relative to the monorepo root ~/work/hanzo/
+const HANZO_ROOT = path.resolve(process.env.HANZO_ROOT || path.join(process.cwd(), '..'));
+
 export const implementations: MCPImplementation[] = [
-  // TypeScript implementation (current)
+  // ── TypeScript (canonical, always enabled) ─────────────────────────────
   {
     id: 'typescript',
     name: 'Hanzo MCP TypeScript',
     language: 'typescript',
     command: 'node',
     args: ['dist/cli.js', 'serve'],
-    cwd: process.cwd(),
+    cwd: path.join(HANZO_ROOT, 'mcp'),
     env: {
       NODE_ENV: 'test',
-      MCP_LOG_LEVEL: 'error' // Reduce noise during testing
+      MCP_LOG_LEVEL: 'error',
     },
     startupTimeout: 10000,
     enabled: true,
-    expectedCategories: ['files', 'search', 'shell', 'edit', 'ui', 'autogui'],
-    expectedToolCount: 45 // Approximate count, will be validated dynamically
+    expectedCategories: ['hip0300-core', 'hip0300-extended', 'files', 'search', 'shell', 'edit', 'ui'],
+    expectedToolCount: 45,
   },
 
-  // TypeScript core-only (for comparison)
+  // ── TypeScript core-only (for comparison) ──────────────────────────────
   {
     id: 'typescript-core',
     name: 'Hanzo MCP TypeScript (Core Only)',
     language: 'typescript',
     command: 'node',
     args: ['dist/cli.js', 'serve', '--core-only'],
-    cwd: process.cwd(),
+    cwd: path.join(HANZO_ROOT, 'mcp'),
     env: {
       NODE_ENV: 'test',
-      MCP_LOG_LEVEL: 'error'
+      MCP_LOG_LEVEL: 'error',
     },
     startupTimeout: 10000,
-    enabled: true,
-    expectedCategories: ['files', 'search', 'shell', 'edit'],
-    expectedToolCount: 15
+    enabled: false,
+    expectedCategories: ['hip0300-core', 'files', 'search', 'shell', 'edit'],
+    expectedToolCount: 15,
   },
 
-  // Rust implementation (future)
+  // ── Python ─────────────────────────────────────────────────────────────
+  {
+    id: 'python',
+    name: 'Hanzo MCP Python',
+    language: 'python',
+    command: 'uv',
+    args: ['run', 'hanzo-mcp', 'serve'],
+    cwd: path.join(HANZO_ROOT, 'python-sdk'),
+    env: {
+      LOGLEVEL: 'ERROR',
+      HANZO_MCP_LOG_LEVEL: 'ERROR',
+      // Prevent Python from writing __pycache__ in test runs
+      PYTHONDONTWRITEBYTECODE: '1',
+    },
+    startupTimeout: 15000,
+    enabled: true,
+    expectedCategories: ['hip0300-core', 'hip0300-extended'],
+    expectedToolCount: 30,
+  },
+
+  // ── Rust (enable when tool implementations land) ───────────────────────
   {
     id: 'rust',
     name: 'Hanzo MCP Rust',
     language: 'rust',
     command: 'cargo',
-    args: ['run', '--bin', 'mcp-server', '--', 'serve'],
-    cwd: '../mcp-rust', // Relative to main MCP directory
+    args: ['run', '--release', '--bin', 'hanzo-mcp-server', '--', 'serve'],
+    cwd: path.join(HANZO_ROOT, 'rust-sdk'),
     env: {
-      RUST_LOG: 'error'
+      RUST_LOG: 'error',
     },
-    startupTimeout: 15000,
-    enabled: false, // Enable when Rust implementation is ready
-    expectedCategories: ['files', 'search', 'shell', 'edit'],
-    expectedToolCount: 15
+    startupTimeout: 30000, // Cargo build can be slow on first run
+    enabled: false,        // Enable when HIP-0300 tools are implemented
+    expectedCategories: ['hip0300-core'],
+    expectedToolCount: 13,
   },
 
-  // Python implementation (future)
-  {
-    id: 'python',
-    name: 'Hanzo MCP Python',
-    language: 'python',
-    command: 'python',
-    args: ['-m', 'hanzo_mcp', 'serve'],
-    cwd: '../mcp-python',
-    env: {
-      PYTHONPATH: '../mcp-python/src',
-      LOGLEVEL: 'ERROR'
-    },
-    startupTimeout: 12000,
-    enabled: false, // Enable when Python implementation is ready
-    expectedCategories: ['files', 'search', 'shell', 'edit', 'autogui'],
-    expectedToolCount: 25
-  },
-
-  // Go implementation (future)
+  // ── Go (future) ────────────────────────────────────────────────────────
   {
     id: 'go',
     name: 'Hanzo MCP Go',
     language: 'go',
     command: 'go',
     args: ['run', 'cmd/mcp-server/main.go', 'serve'],
-    cwd: '../mcp-go',
+    cwd: path.join(HANZO_ROOT, 'go-sdk'),
     env: {
-      GO_LOG_LEVEL: 'ERROR'
+      GO_LOG_LEVEL: 'ERROR',
     },
-    startupTimeout: 10000,
-    enabled: false, // Enable when Go implementation is ready
-    expectedCategories: ['files', 'search', 'shell'],
-    expectedToolCount: 10
-  }
+    startupTimeout: 15000,
+    enabled: false,
+    expectedCategories: ['hip0300-core'],
+    expectedToolCount: 10,
+  },
 ];
 
 /**
@@ -113,8 +122,8 @@ export function getImplementations(filter?: {
   }
 
   if (filter?.categories) {
-    filtered = filtered.filter(impl => 
-      filter.categories!.some(cat => impl.expectedCategories.includes(cat))
+    filtered = filtered.filter(impl =>
+      filter.categories!.some(cat => impl.expectedCategories.includes(cat)),
     );
   }
 
@@ -139,36 +148,43 @@ export function getEnabledImplementations(): MCPImplementation[] {
  * Development configurations for different environments
  */
 export const developmentConfigs = {
-  // Local development - all implementations
+  // Local development - all enabled implementations
   local: {
     implementations: getEnabledImplementations(),
     parallel: {
       maxConcurrentImplementations: 2,
-      maxConcurrentTestsPerImpl: 3
-    }
+      maxConcurrentTestsPerImpl: 3,
+    },
   },
 
-  // CI environment - only TypeScript
+  // CI environment - TypeScript only
   ci: {
-    implementations: getImplementations({ 
-      enabled: true, 
-      language: 'typescript' 
+    implementations: getImplementations({
+      enabled: true,
+      language: 'typescript',
     }),
     parallel: {
       maxConcurrentImplementations: 1,
-      maxConcurrentTestsPerImpl: 5
-    }
+      maxConcurrentTestsPerImpl: 5,
+    },
+  },
+
+  // HIP-0300 conformance - all enabled, hip0300 categories only
+  conformance: {
+    implementations: getEnabledImplementations(),
+    parallel: {
+      maxConcurrentImplementations: 3,
+      maxConcurrentTestsPerImpl: 5,
+    },
   },
 
   // Quick test - core tools only
   quick: {
-    implementations: getImplementations({ 
-      enabled: true 
-    }).filter(impl => impl.id.includes('core')),
+    implementations: getEnabledImplementations(),
     parallel: {
       maxConcurrentImplementations: 1,
-      maxConcurrentTestsPerImpl: 2
-    }
+      maxConcurrentTestsPerImpl: 2,
+    },
   },
 
   // Performance test - single implementation, max parallelism
@@ -176,9 +192,9 @@ export const developmentConfigs = {
     implementations: [getImplementation('typescript')!].filter(Boolean),
     parallel: {
       maxConcurrentImplementations: 1,
-      maxConcurrentTestsPerImpl: 10
-    }
-  }
+      maxConcurrentTestsPerImpl: 10,
+    },
+  },
 };
 
 /**
@@ -188,8 +204,6 @@ export function getConfigForEnvironment(): {
   implementations: MCPImplementation[];
   parallel: { maxConcurrentImplementations: number; maxConcurrentTestsPerImpl: number };
 } {
-  // Check environment variables
-  const env = process.env.NODE_ENV || 'development';
   const testMode = process.env.MCP_TEST_MODE;
   const isCI = process.env.CI === 'true';
 
@@ -199,6 +213,10 @@ export function getConfigForEnvironment(): {
 
   if (testMode === 'quick') {
     return developmentConfigs.quick;
+  }
+
+  if (testMode === 'conformance') {
+    return developmentConfigs.conformance;
   }
 
   if (testMode === 'performance') {

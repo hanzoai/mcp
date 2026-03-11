@@ -113,7 +113,7 @@ impl std::str::FromStr for UiAction {
 
 /// Arguments for UI tool
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
-pub struct UiToolArgs {
+pub struct ComputerToolArgs {
     #[serde(default)]
     pub action: String,
     // Coordinates
@@ -288,14 +288,14 @@ fn get_native_control() -> Box<dyn NativeControl> {
 }
 
 /// UI Tool implementation
-pub struct UiTool {
+pub struct ComputerTool {
     control: Arc<dyn NativeControl>,
     defined_regions: HashMap<String, (i32, i32, i32, i32)>,
     pause: f64,
     failsafe: bool,
 }
 
-impl UiTool {
+impl ComputerTool {
     pub fn new() -> Self {
         Self {
             control: Arc::from(get_native_control()),
@@ -305,7 +305,7 @@ impl UiTool {
         }
     }
 
-    pub async fn execute(&mut self, args: UiToolArgs) -> Result<String> {
+    pub async fn execute(&mut self, args: ComputerToolArgs) -> Result<String> {
         let action: UiAction = if args.action.is_empty() {
             UiAction::Info
         } else {
@@ -575,7 +575,7 @@ impl UiTool {
                 let mut results = Vec::new();
 
                 for (i, action_val) in actions.iter().enumerate() {
-                    let action_args: UiToolArgs = serde_json::from_value(action_val.clone())
+                    let action_args: ComputerToolArgs = serde_json::from_value(action_val.clone())
                         .unwrap_or_default();
 
                     match Box::pin(self.execute(action_args)).await {
@@ -626,13 +626,13 @@ impl UiTool {
 
 /// MCP Tool Definition
 #[derive(Debug, Serialize, Deserialize)]
-pub struct UiToolDefinition {
+pub struct ComputerToolDefinition {
     pub name: String,
     pub description: String,
     pub input_schema: Value,
 }
 
-impl UiToolDefinition {
+impl ComputerToolDefinition {
     pub fn new() -> Self {
         let platform = std::env::consts::OS;
         let backend = match platform {
@@ -643,7 +643,7 @@ impl UiToolDefinition {
         };
 
         Self {
-            name: "ui".to_string(),
+            name: "computer".to_string(),
             description: format!(
                 r#"Control local computer with native API acceleration.
 
@@ -745,8 +745,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_info_action() {
-        let mut tool = UiTool::new();
-        let args = UiToolArgs {
+        let mut tool = ComputerTool::new();
+        let args = ComputerToolArgs {
             action: "info".to_string(),
             ..Default::default()
         };
@@ -760,8 +760,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_position_action() {
-        let mut tool = UiTool::new();
-        let args = UiToolArgs {
+        let mut tool = ComputerTool::new();
+        let args = ComputerToolArgs {
             action: "position".to_string(),
             ..Default::default()
         };
@@ -775,8 +775,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_screen_size_action() {
-        let mut tool = UiTool::new();
-        let args = UiToolArgs {
+        let mut tool = ComputerTool::new();
+        let args = ComputerToolArgs {
             action: "screen_size".to_string(),
             ..Default::default()
         };
