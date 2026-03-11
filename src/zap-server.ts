@@ -39,22 +39,43 @@ function encode(type: number, payload: unknown): Buffer {
 }
 
 function decode(data: Buffer): { type: number; payload: any } | null {
-  if (data.length < 9) return null;
-  if (data[0] !== 0x5a || data[1] !== 0x41 || data[2] !== 0x50 || data[3] !== 0x01) {
-    // Not ZAP binary — try plain JSON fallback
+  if (data.length < 5) return null;
+
+  // Format 1: MCP ZAP — [magic:4 BE][type:1][length:4 BE][JSON]
+  if (data[0] === 0x5a && data[1] === 0x41 && data[2] === 0x50 && data[3] === 0x01) {
+    if (data.length < 9) return null;
+    const type = data[4];
+    const length = data.readUInt32BE(5);
+    if (data.length < 9 + length) return null;
     try {
-      const payload = JSON.parse(data.toString('utf8'));
-      return { type: MSG_REQUEST, payload };
+      const payload = JSON.parse(data.subarray(9, 9 + length).toString('utf8'));
+      return { type, payload };
     } catch {
       return null;
     }
   }
-  const type = data[4];
-  const length = data.readUInt32BE(5);
-  if (data.length < 9 + length) return null;
+
+  // Format 2: hanzo/dev ZAP — [length:4 LE][type:1][payload]
+  const leLength = data.readUInt32LE(0);
+  if (leLength > 0 && leLength <= 16 * 1024 * 1024 && data.length >= 5 + leLength) {
+    const type = data[4];
+    if (type <= 0x45 || type >= 0xFE) {
+      // Valid hanzo/dev message type range
+      const payloadBuf = data.subarray(5, 5 + leLength);
+      try {
+        const payload = JSON.parse(payloadBuf.toString('utf8'));
+        return { type, payload };
+      } catch {
+        // Binary payload from hanzo/dev — wrap as raw
+        return { type, payload: { raw: payloadBuf } };
+      }
+    }
+  }
+
+  // Format 3: Plain JSON fallback
   try {
-    const payload = JSON.parse(data.subarray(9, 9 + length).toString('utf8'));
-    return { type, payload };
+    const payload = JSON.parse(data.toString('utf8'));
+    return { type: MSG_REQUEST, payload };
   } catch {
     return null;
   }
