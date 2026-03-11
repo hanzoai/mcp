@@ -29,11 +29,11 @@ function fail(code: string, message: string) {
 
 export const execTool: Tool = {
   name: 'exec',
-  description: 'Process execution: exec, ps, kill, logs',
+  description: 'Process execution: exec, ps, kill, logs, wait',
   inputSchema: {
     type: 'object',
     properties: {
-      action: { type: 'string', enum: ['exec', 'ps', 'kill', 'logs'], description: 'Process action' },
+      action: { type: 'string', enum: ['exec', 'ps', 'kill', 'logs', 'wait'], description: 'Process action' },
       command: { type: 'string', description: 'Command to execute' },
       cwd: { type: 'string', description: 'Working directory' },
       env: { type: 'object', description: 'Environment variables' },
@@ -127,6 +127,40 @@ export const execTool: Tool = {
             running: entry.exitCode === undefined,
             exit_code: entry.exitCode,
           }, 'logs');
+        }
+
+        case 'wait': {
+          if (!args.proc_id) return fail('INVALID_PARAMS', 'proc_id required');
+          const waitEntry = processes.get(args.proc_id);
+          if (!waitEntry) return fail('NOT_FOUND', `No process: ${args.proc_id}`);
+
+          if (waitEntry.exitCode !== undefined) {
+            return envelope({
+              proc_id: args.proc_id,
+              exit_code: waitEntry.exitCode,
+              stdout: waitEntry.stdout.join(''),
+              stderr: waitEntry.stderr.join(''),
+              waited: false
+            }, 'wait');
+          }
+
+          const waitTimeout = args.timeout || 30000;
+          return new Promise((resolve) => {
+            const timer = setTimeout(() => {
+              resolve(fail('TIMEOUT', `Process ${args.proc_id} did not finish within ${waitTimeout}ms`));
+            }, waitTimeout);
+
+            waitEntry.process.on('exit', () => {
+              clearTimeout(timer);
+              resolve(envelope({
+                proc_id: args.proc_id,
+                exit_code: waitEntry.exitCode,
+                stdout: waitEntry.stdout.join(''),
+                stderr: waitEntry.stderr.join(''),
+                waited: true
+              }, 'wait'));
+            });
+          });
         }
 
         default:
