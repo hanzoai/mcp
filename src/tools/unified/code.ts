@@ -27,11 +27,11 @@ const IMPORT_RE = /^(?:import|from|require|use)\b.*/gm;
 
 export const codeTool: Tool = {
   name: 'code',
-  description: 'Semantic code operations: search_symbol, outline, references, metrics, exports, types, hierarchy, rename, grep_replace',
+  description: 'Semantic code operations: parse, serialize, symbols, outline, definition, search_symbol, references, summarize, metrics, exports, types, hierarchy, rename, grep_replace, transform',
   inputSchema: {
     type: 'object',
     properties: {
-      action: { type: 'string', enum: ['search_symbol', 'outline', 'symbols', 'summarize', 'references', 'metrics', 'exports', 'types', 'hierarchy', 'rename', 'grep_replace'], description: 'Code action' },
+      action: { type: 'string', enum: ['parse', 'serialize', 'symbols', 'outline', 'definition', 'search_symbol', 'references', 'summarize', 'metrics', 'exports', 'types', 'hierarchy', 'rename', 'grep_replace', 'transform'], description: 'Code action' },
       query: { type: 'string', description: 'Symbol name or search query' },
       uri: { type: 'string', description: 'File or directory path' },
       path: { type: 'string', description: 'File path (alias for uri)' },
@@ -42,6 +42,8 @@ export const codeTool: Tool = {
       replacement: { type: 'string', description: 'Replacement for grep_replace' },
       max_results: { type: 'number', default: 20 },
       language: { type: 'string', description: 'Filter by language' },
+      kind: { type: 'string', description: 'Transform kind: rename, codemod' },
+      old_name: { type: 'string', description: 'Old name for transform rename' },
     },
     required: ['action']
   },
@@ -261,6 +263,73 @@ export const codeTool: Tool = {
             } catch {}
           }
           return envelope({ pattern: args.query, replacement: args.replacement, files_changed: changed.length, total_replacements: totalChanges, changed }, 'grep_replace');
+        }
+
+        case 'parse': {
+          if (!uri || uri === '.') return fail('INVALID_PARAMS', 'uri (file) required');
+          const content = args.text || await fs.readFile(uri, 'utf-8');
+          const lines = content.split('\n');
+          const ext = path.extname(uri).slice(1) || 'text';
+          const syms: any[] = [];
+          for (let i = 0; i < lines.length; i++) {
+            SYMBOL_RE.lastIndex = 0;
+            let m;
+            while ((m = SYMBOL_RE.exec(lines[i])) !== null) {
+              syms.push({ name: m[1], line: i + 1 });
+            }
+          }
+          const imps = (content.match(IMPORT_RE) || []).length;
+          return envelope({ uri, language: args.language || ext, lines: lines.length, symbols: syms.length, imports: imps }, 'parse');
+        }
+
+        case 'serialize': {
+          return envelope({ hint: 'Serialization requires CST preservation. Use the original source text.', supported: false }, 'serialize');
+        }
+
+        case 'definition': {
+          if (!args.query) return fail('INVALID_PARAMS', 'query (symbol name) required');
+          const defPath = args.uri || args.path;
+          if (!defPath || defPath === '.') return fail('INVALID_PARAMS', 'uri (file) required');
+          const defContent = await fs.readFile(defPath, 'utf-8');
+          const defLines = defContent.split('\n');
+          for (let i = 0; i < defLines.length; i++) {
+            if (defLines[i].includes(args.query) && /\b(function|class|def|fn|struct|interface|type|enum|const|let|var)\b/.test(defLines[i])) {
+              return envelope({ uri: defPath, symbol: args.query, line: i + 1, text: defLines[i].trim() }, 'definition');
+            }
+          }
+          return fail('NOT_FOUND', `Symbol '${args.query}' definition not found`);
+        }
+
+        case 'transform': {
+          const tfPath = args.uri || args.path;
+          if (!tfPath || tfPath === '.') return fail('INVALID_PARAMS', 'uri (file) required');
+          const tfContent = args.text || await fs.readFile(tfPath, 'utf-8');
+          const tfKind = args.kind || 'rename';
+
+          if (tfKind === 'rename') {
+            const oldName = args.query || args.old_name;
+            if (!oldName || !args.new_name) return fail('INVALID_PARAMS', 'query/old_name and new_name required');
+            const re = new RegExp(`\\b${oldName}\\b`, 'g');
+            const newContent = tfContent.replace(re, args.new_name);
+            const count = (tfContent.match(re) || []).length;
+            const diffLines: string[] = [`--- a/${tfPath}`, `+++ b/${tfPath}`];
+            const origLines = tfContent.split('\n');
+            const newLines = newContent.split('\n');
+            for (let i = 0; i < Math.max(origLines.length, newLines.length); i++) {
+              if (origLines[i] !== newLines[i]) {
+                diffLines.push(`@@ -${i+1} +${i+1} @@`);
+                if (origLines[i] !== undefined) diffLines.push(`-${origLines[i]}`);
+                if (newLines[i] !== undefined) diffLines.push(`+${newLines[i]}`);
+              }
+            }
+            return envelope({ patch: diffLines.join('\n'), changes_count: count, kind: 'rename' }, 'transform');
+          } else if (tfKind === 'codemod') {
+            if (!args.query || args.replacement === undefined) return fail('INVALID_PARAMS', 'query (pattern) and replacement required');
+            const re = new RegExp(args.query, 'g');
+            const count = (tfContent.match(re) || []).length;
+            return envelope({ patch: `${count} replacements of /${args.query}/`, changes_count: count, kind: 'codemod' }, 'transform');
+          }
+          return fail('INVALID_PARAMS', `Unknown transform kind: ${tfKind}`);
         }
 
         default:

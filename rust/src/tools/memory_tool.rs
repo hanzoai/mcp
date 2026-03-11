@@ -56,6 +56,15 @@ pub enum MemoryAction {
     Facts,
     Summarize,
     List,
+    Stats,
+    Clear,
+    Export,
+    Import,
+    Merge,
+    Tag,
+    Untag,
+    Namespaces,
+    History,
     Help,
 }
 
@@ -78,6 +87,15 @@ impl std::str::FromStr for MemoryAction {
             "facts" | "fact" => Ok(Self::Facts),
             "summarize" | "summary" => Ok(Self::Summarize),
             "list" => Ok(Self::List),
+            "stats" => Ok(Self::Stats),
+            "clear" => Ok(Self::Clear),
+            "export" => Ok(Self::Export),
+            "import" | "import_memories" => Ok(Self::Import),
+            "merge" => Ok(Self::Merge),
+            "tag" => Ok(Self::Tag),
+            "untag" => Ok(Self::Untag),
+            "namespaces" => Ok(Self::Namespaces),
+            "history" => Ok(Self::History),
             "help" | "" => Ok(Self::Help),
             _ => Err(anyhow!("Unknown action: {}", s)),
         }
@@ -152,6 +170,10 @@ pub struct MemoryToolArgs {
     pub creations: Option<Vec<String>>,
     /// Deletions for manage
     pub deletions: Option<Vec<String>>,
+    /// Tag name for tag/untag
+    pub tag: Option<String>,
+    /// JSON data for import
+    pub data: Option<String>,
 }
 
 /// Memory tool
@@ -159,6 +181,7 @@ pub struct MemoryTool {
     memories: Arc<RwLock<HashMap<String, Memory>>>,
     knowledge_bases: Arc<RwLock<HashMap<String, KnowledgeBase>>>,
     counter: Arc<RwLock<u64>>,
+    history: Arc<RwLock<Vec<String>>>,
     storage_path: PathBuf,
 }
 
@@ -173,6 +196,7 @@ impl MemoryTool {
             memories: Arc::new(RwLock::new(HashMap::new())),
             knowledge_bases: Arc::new(RwLock::new(HashMap::new())),
             counter: Arc::new(RwLock::new(0)),
+            history: Arc::new(RwLock::new(Vec::new())),
             storage_path,
         }
     }
@@ -199,6 +223,15 @@ impl MemoryTool {
             MemoryAction::Facts => self.facts(args).await?,
             MemoryAction::Summarize => self.summarize(args).await?,
             MemoryAction::List => self.list(args).await?,
+            MemoryAction::Stats => self.stats(args).await?,
+            MemoryAction::Clear => self.clear(args).await?,
+            MemoryAction::Export => self.export_memories().await?,
+            MemoryAction::Import => self.import_memories(args).await?,
+            MemoryAction::Merge => self.merge_memories().await?,
+            MemoryAction::Tag => self.tag_memory(args).await?,
+            MemoryAction::Untag => self.untag_memory(args).await?,
+            MemoryAction::Namespaces => self.namespaces().await?,
+            MemoryAction::History => self.history_log().await?,
             MemoryAction::Help => self.help()?,
         };
 
@@ -531,6 +564,137 @@ impl MemoryTool {
         }))
     }
 
+    async fn record_history(&self, entry: &str) {
+        let mut history = self.history.write().await;
+        history.push(format!("[{}] {}", chrono::Utc::now().to_rfc3339(), entry));
+        if history.len() > 1000 { history.drain(0..500); }
+    }
+
+    async fn stats(&self, args: MemoryToolArgs) -> Result<Value> {
+        let memories = self.memories.read().await;
+        let kbs = self.knowledge_bases.read().await;
+        let mut by_scope: HashMap<String, usize> = HashMap::new();
+        for m in memories.values() {
+            let scope_key = format!("{:?}", m.scope).to_lowercase();
+            *by_scope.entry(scope_key).or_insert(0) += 1;
+        }
+        Ok(json!({
+            "total_memories": memories.len(),
+            "by_scope": by_scope,
+            "knowledge_bases": kbs.len(),
+            "total_facts": kbs.values().map(|kb| kb.facts.len()).sum::<usize>()
+        }))
+    }
+
+    async fn clear(&self, args: MemoryToolArgs) -> Result<Value> {
+        let scope: Option<MemoryScope> = args.scope.as_deref().map(|s| s.parse().ok()).flatten();
+        let mut memories = self.memories.write().await;
+        let before = memories.len();
+        if let Some(scope) = scope {
+            memories.retain(|_, m| m.scope != scope);
+        } else {
+            memories.clear();
+        }
+        let cleared = before - memories.len();
+        self.record_history(&format!("clear: removed {} memories", cleared)).await;
+        Ok(json!({ "cleared": cleared, "remaining": memories.len() }))
+    }
+
+    async fn export_memories(&self) -> Result<Value> {
+        let memories = self.memories.read().await;
+        let kbs = self.knowledge_bases.read().await;
+        let mem_list: Vec<Value> = memories.values().map(|m| json!({
+            "id": m.id, "content": m.content,
+            "scope": format!("{:?}", m.scope).to_lowercase(),
+            "created_at": m.created_at, "updated_at": m.updated_at,
+            "metadata": m.metadata
+        })).collect();
+        let kb_list: Vec<Value> = kbs.values().map(|kb| json!({
+            "name": kb.name, "fact_count": kb.facts.len(),
+            "scope": format!("{:?}", kb.scope).to_lowercase()
+        })).collect();
+        Ok(json!({ "memories": mem_list, "knowledge_bases": kb_list, "count": mem_list.len() }))
+    }
+
+    async fn import_memories(&self, args: MemoryToolArgs) -> Result<Value> {
+        let data = args.data.ok_or_else(|| anyhow!("data (JSON string) required"))?;
+        let parsed: Value = serde_json::from_str(&data)?;
+        let now = chrono::Utc::now().to_rfc3339();
+        let mut imported = 0;
+        let mut memories = self.memories.write().await;
+        if let Some(items) = parsed.get("memories").and_then(|v| v.as_array()) {
+            for item in items {
+                let id = self.next_id("mem").await;
+                let content = item.get("content").and_then(|v| v.as_str()).unwrap_or("").to_string();
+                let scope: MemoryScope = item.get("scope").and_then(|v| v.as_str()).unwrap_or("project").parse()?;
+                let memory = Memory {
+                    id: id.clone(), content, scope,
+                    created_at: now.clone(), updated_at: now.clone(),
+                    metadata: HashMap::new(),
+                };
+                memories.insert(id, memory);
+                imported += 1;
+            }
+        }
+        self.record_history(&format!("import: {} memories", imported)).await;
+        Ok(json!({ "imported": imported }))
+    }
+
+    async fn merge_memories(&self) -> Result<Value> {
+        let mut memories = self.memories.write().await;
+        let ids: Vec<String> = memories.keys().cloned().collect();
+        let mut merged = 0;
+        let mut to_remove = Vec::new();
+        for i in 0..ids.len() {
+            for j in (i+1)..ids.len() {
+                if to_remove.contains(&ids[j]) { continue; }
+                let a = memories.get(&ids[i]).map(|m| m.content.clone());
+                let b = memories.get(&ids[j]).map(|m| m.content.clone());
+                if let (Some(a), Some(b)) = (a, b) {
+                    if a == b {
+                        to_remove.push(ids[j].clone());
+                        merged += 1;
+                    }
+                }
+            }
+        }
+        for id in &to_remove { memories.remove(id); }
+        self.record_history(&format!("merge: removed {} duplicates", merged)).await;
+        Ok(json!({ "merged": merged, "removed_ids": to_remove }))
+    }
+
+    async fn tag_memory(&self, args: MemoryToolArgs) -> Result<Value> {
+        let id = args.id.ok_or_else(|| anyhow!("id required"))?;
+        let tag = args.tag.ok_or_else(|| anyhow!("tag required"))?;
+        let mut memories = self.memories.write().await;
+        let memory = memories.get_mut(&id).ok_or_else(|| anyhow!("Memory not found: {}", id))?;
+        memory.metadata.insert(format!("tag:{}", tag), json!(true));
+        self.record_history(&format!("tag: {} += {}", id, tag)).await;
+        Ok(json!({ "id": id, "tag": tag, "tagged": true }))
+    }
+
+    async fn untag_memory(&self, args: MemoryToolArgs) -> Result<Value> {
+        let id = args.id.ok_or_else(|| anyhow!("id required"))?;
+        let tag = args.tag.ok_or_else(|| anyhow!("tag required"))?;
+        let mut memories = self.memories.write().await;
+        let memory = memories.get_mut(&id).ok_or_else(|| anyhow!("Memory not found: {}", id))?;
+        memory.metadata.remove(&format!("tag:{}", tag));
+        self.record_history(&format!("untag: {} -= {}", id, tag)).await;
+        Ok(json!({ "id": id, "tag": tag, "untagged": true }))
+    }
+
+    async fn namespaces(&self) -> Result<Value> {
+        let kbs = self.knowledge_bases.read().await;
+        let names: Vec<String> = kbs.keys().cloned().collect();
+        Ok(json!({ "namespaces": names, "count": names.len() }))
+    }
+
+    async fn history_log(&self) -> Result<Value> {
+        let history = self.history.read().await;
+        let entries: Vec<&String> = history.iter().rev().take(50).collect();
+        Ok(json!({ "history": entries, "count": entries.len() }))
+    }
+
     fn help(&self) -> Result<Value> {
         Ok(json!({
             "name": "memory",
@@ -544,7 +708,16 @@ impl MemoryTool {
                 "manage": "Atomic create/update/delete",
                 "facts": "Manage knowledge base facts",
                 "summarize": "Summarize and store information",
-                "list": "List all memories"
+                "list": "List all memories",
+                "stats": "Memory statistics by scope",
+                "clear": "Clear memories (optional scope filter)",
+                "export": "Export all memories as JSON",
+                "import": "Import memories from JSON data",
+                "merge": "Merge duplicate memories",
+                "tag": "Add tag to memory metadata",
+                "untag": "Remove tag from memory metadata",
+                "namespaces": "List knowledge base names",
+                "history": "Recent operation history"
             },
             "scopes": ["session", "project", "global"]
         }))
@@ -581,7 +754,7 @@ Scopes: session, project, global"#.to_string(),
                 "properties": {
                     "action": {
                         "type": "string",
-                        "enum": ["recall", "create", "update", "delete", "manage", "facts", "summarize", "list", "help"]
+                        "enum": ["recall", "create", "update", "delete", "manage", "facts", "summarize", "list", "stats", "clear", "export", "import", "merge", "tag", "untag", "namespaces", "history", "help"]
                     },
                     "queries": {"type": "array", "items": {"type": "string"}},
                     "query": {"type": "string"},
@@ -597,7 +770,9 @@ Scopes: session, project, global"#.to_string(),
                     "content": {"type": "string"},
                     "topic": {"type": "string"},
                     "creations": {"type": "array", "items": {"type": "string"}},
-                    "deletions": {"type": "array", "items": {"type": "string"}}
+                    "deletions": {"type": "array", "items": {"type": "string"}},
+                    "tag": {"type": "string", "description": "Tag name for tag/untag"},
+                    "data": {"type": "string", "description": "JSON data for import"}
                 }
             }),
         }

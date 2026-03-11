@@ -22,9 +22,15 @@ pub enum LlmAction {
     Think,
     Critic,
     Review,
+    Consensus,
+    Agent,
     Summarize,
     Classify,
     Explain,
+    Translate,
+    Compare,
+    Chain,
+    Embed,
     Help,
 }
 
@@ -42,9 +48,15 @@ impl std::str::FromStr for LlmAction {
             "think" | "thought" => Ok(Self::Think),
             "critic" | "critique" | "criticize" => Ok(Self::Critic),
             "review" => Ok(Self::Review),
+            "consensus" => Ok(Self::Consensus),
+            "agent" => Ok(Self::Agent),
             "summarize" | "summary" => Ok(Self::Summarize),
             "classify" | "categorize" => Ok(Self::Classify),
             "explain" => Ok(Self::Explain),
+            "translate" => Ok(Self::Translate),
+            "compare" => Ok(Self::Compare),
+            "chain" => Ok(Self::Chain),
+            "embed" | "embedding" => Ok(Self::Embed),
             "help" | "" => Ok(Self::Help),
             _ => Err(anyhow!("Unknown action: {}", s)),
         }
@@ -61,6 +73,15 @@ pub struct ThinkToolArgs {
     pub text: Option<String>,
     pub question: Option<String>,
     pub categories: Option<Vec<String>>,
+    pub topic: Option<String>,
+    pub perspectives: Option<usize>,
+    pub goal: Option<String>,
+    pub target: Option<String>,
+    pub items: Option<String>,
+    pub criteria: Option<String>,
+    pub steps: Option<String>,
+    pub content: Option<String>,
+    pub audience: Option<String>,
 }
 
 pub struct ThinkToolDefinition {
@@ -71,13 +92,13 @@ pub struct ThinkToolDefinition {
 impl ThinkToolDefinition {
     pub fn new() -> Self {
         Self {
-            description: "LLM reasoning: think, critic, review, summarize, classify, explain".to_string(),
+            description: "LLM reasoning: think, critic, review, consensus, agent, summarize, classify, explain, translate, compare, chain, embed".to_string(),
             input_schema: json!({
                 "type": "object",
                 "properties": {
                     "action": {
                         "type": "string",
-                        "enum": ["think", "critic", "review", "summarize", "classify", "explain", "help"],
+                        "enum": ["think", "critic", "review", "consensus", "agent", "summarize", "classify", "explain", "translate", "compare", "chain", "embed", "help"],
                         "description": "LLM action"
                     },
                     "thought": { "type": "string", "description": "What to think about / critique" },
@@ -86,7 +107,16 @@ impl ThinkToolDefinition {
                     "language": { "type": "string", "description": "Programming language" },
                     "text": { "type": "string", "description": "Text for summarize/classify/explain" },
                     "question": { "type": "string", "description": "Question to answer" },
-                    "categories": { "type": "array", "items": { "type": "string" }, "description": "Categories for classify" }
+                    "categories": { "type": "array", "items": { "type": "string" }, "description": "Categories for classify" },
+                    "topic": { "type": "string", "description": "Topic for consensus" },
+                    "perspectives": { "type": "integer", "description": "Number of perspectives for consensus" },
+                    "goal": { "type": "string", "description": "Goal for agent reasoning" },
+                    "target": { "type": "string", "description": "Target format for translate" },
+                    "items": { "type": "string", "description": "Items for compare" },
+                    "criteria": { "type": "string", "description": "Criteria for compare" },
+                    "steps": { "type": "string", "description": "Steps for chain-of-thought" },
+                    "content": { "type": "string", "description": "Content for embed/translate" },
+                    "audience": { "type": "string", "description": "Target audience for explain" }
                 },
                 "required": ["action"]
             }),
@@ -124,9 +154,15 @@ impl ThinkTool {
             LlmAction::Think => self.think(&args).await,
             LlmAction::Critic => self.critic(&args).await,
             LlmAction::Review => self.review(&args).await,
+            LlmAction::Consensus => self.consensus(&args).await,
+            LlmAction::Agent => self.agent(&args).await,
             LlmAction::Summarize => self.summarize(&args).await,
             LlmAction::Classify => self.classify(&args).await,
             LlmAction::Explain => self.explain(&args).await,
+            LlmAction::Translate => self.translate(&args).await,
+            LlmAction::Compare => self.compare(&args).await,
+            LlmAction::Chain => self.chain(&args).await,
+            LlmAction::Embed => self.embed(&args).await,
             LlmAction::Help => Ok(self.help()),
         }
     }
@@ -264,6 +300,91 @@ impl ThinkTool {
         }))
     }
 
+    async fn consensus(&self, args: &ThinkToolArgs) -> Result<Value> {
+        let topic = args.topic.as_deref()
+            .or(args.thought.as_deref())
+            .ok_or_else(|| anyhow!("topic or thought required"))?;
+        let perspectives = args.perspectives.unwrap_or(3);
+        let id = self.record("consensus", topic, args.context.as_deref()).await;
+        Ok(json!({
+            "ok": true,
+            "data": { "id": id, "topic": topic, "perspectives": perspectives, "recorded": true,
+                "hint": "Multi-perspective consensus reasoning recorded." },
+            "error": null,
+            "meta": { "tool": "think", "action": "consensus" }
+        }))
+    }
+
+    async fn agent(&self, args: &ThinkToolArgs) -> Result<Value> {
+        let goal = args.goal.as_deref()
+            .or(args.thought.as_deref())
+            .ok_or_else(|| anyhow!("goal or thought required"))?;
+        let id = self.record("agent", goal, args.context.as_deref()).await;
+        Ok(json!({
+            "ok": true,
+            "data": { "id": id, "goal": goal, "recorded": true,
+                "hint": "Agent reasoning recorded. Execute planned steps." },
+            "error": null,
+            "meta": { "tool": "think", "action": "agent" }
+        }))
+    }
+
+    async fn translate(&self, args: &ThinkToolArgs) -> Result<Value> {
+        let content = args.content.as_deref()
+            .or(args.text.as_deref())
+            .or(args.thought.as_deref())
+            .ok_or_else(|| anyhow!("content or text required"))?;
+        let target = args.target.as_deref().unwrap_or("");
+        Ok(json!({
+            "ok": true,
+            "data": { "input_length": content.len(), "target": target,
+                "hint": "Translation recorded. Apply the translated version." },
+            "error": null,
+            "meta": { "tool": "think", "action": "translate" }
+        }))
+    }
+
+    async fn compare(&self, args: &ThinkToolArgs) -> Result<Value> {
+        let items = args.items.as_deref()
+            .or(args.thought.as_deref())
+            .ok_or_else(|| anyhow!("items or thought required"))?;
+        Ok(json!({
+            "ok": true,
+            "data": { "items": items, "criteria": args.criteria,
+                "hint": "Comparison recorded. Use analysis for decision." },
+            "error": null,
+            "meta": { "tool": "think", "action": "compare" }
+        }))
+    }
+
+    async fn chain(&self, args: &ThinkToolArgs) -> Result<Value> {
+        let steps = args.steps.as_deref()
+            .or(args.thought.as_deref())
+            .ok_or_else(|| anyhow!("steps or thought required"))?;
+        let id = self.record("chain", steps, args.context.as_deref()).await;
+        Ok(json!({
+            "ok": true,
+            "data": { "id": id, "recorded": true,
+                "hint": "Chain-of-thought reasoning recorded. Follow logical progression." },
+            "error": null,
+            "meta": { "tool": "think", "action": "chain" }
+        }))
+    }
+
+    async fn embed(&self, args: &ThinkToolArgs) -> Result<Value> {
+        let content = args.content.as_deref()
+            .or(args.text.as_deref())
+            .or(args.thought.as_deref())
+            .ok_or_else(|| anyhow!("content or text required"))?;
+        Ok(json!({
+            "ok": true,
+            "data": { "input_length": content.len(),
+                "hint": "Embedding placeholder. Use dedicated embedding service for production." },
+            "error": null,
+            "meta": { "tool": "think", "action": "embed" }
+        }))
+    }
+
     fn help(&self) -> Value {
         json!({
             "ok": true,
@@ -273,9 +394,15 @@ impl ThinkTool {
                     "think": "Record structured reasoning (requires thought)",
                     "critic": "Critical analysis (requires thought or code)",
                     "review": "Balanced code review (requires code)",
+                    "consensus": "Multi-perspective reasoning (requires topic)",
+                    "agent": "Agent-style reasoning (requires goal)",
                     "summarize": "Compress to summary (requires text)",
                     "classify": "Classify text (requires text, optional categories)",
-                    "explain": "Explain code/concepts (requires text or code)"
+                    "explain": "Explain code/concepts (requires text or code)",
+                    "translate": "Translate between formats (requires content, target)",
+                    "compare": "Compare items (requires items, optional criteria)",
+                    "chain": "Chain-of-thought reasoning (requires steps)",
+                    "embed": "Embedding placeholder (requires content)"
                 }
             },
             "error": null,

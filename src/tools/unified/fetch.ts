@@ -23,19 +23,22 @@ function fail(code: string, message: string) {
 
 export const fetchTool: Tool = {
   name: 'fetch',
-  description: 'Network operations: request, download, open',
+  description: 'Network operations: request, fetch, head, download, open, search, crawl',
   inputSchema: {
     type: 'object',
     properties: {
-      action: { type: 'string', enum: ['request', 'fetch', 'head', 'download', 'open'], description: 'Network action' },
+      action: { type: 'string', enum: ['request', 'fetch', 'head', 'download', 'open', 'search', 'crawl'], description: 'Network action' },
       url: { type: 'string', description: 'URL' },
       method: { type: 'string', description: 'HTTP method', default: 'GET' },
       headers: { type: 'object', description: 'HTTP headers' },
       body: { type: 'string', description: 'Request body' },
       output: { type: 'string', description: 'Output file for download' },
       timeout: { type: 'number', default: 30000 },
+      query: { type: 'string', description: 'Search query' },
+      depth: { type: 'number', description: 'Crawl depth', default: 2 },
+      limit: { type: 'number', description: 'Max results/pages', default: 10 },
     },
-    required: ['action', 'url']
+    required: ['action']
   },
   handler: async (args) => {
     try {
@@ -111,6 +114,81 @@ export const fetchTool: Tool = {
           const cmd = platform === 'darwin' ? 'open' : platform === 'win32' ? 'start' : 'xdg-open';
           await execAsync(`${cmd} "${args.url}"`);
           return envelope({ url: args.url, opened: true }, 'open');
+        }
+
+        case 'search': {
+          if (!args.query) return fail('INVALID_PARAMS', 'query required');
+          // Use DuckDuckGo HTML search (no API key needed)
+          const searchUrl = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(args.query)}`;
+          const searchResp = await fetch(searchUrl, {
+            headers: { 'User-Agent': 'Mozilla/5.0 (compatible; HanzoBot/1.0)' },
+            signal: AbortSignal.timeout(args.timeout || 15000),
+          });
+          const searchHtml = await searchResp.text();
+          // Extract results with regex (no DOM parser in Node by default)
+          const resultRe = /class="result__title"[^>]*>[\s\S]*?href="([^"]*)"[^>]*>([\s\S]*?)<\/a>[\s\S]*?class="result__snippet"[^>]*>([\s\S]*?)<\//g;
+          const results: any[] = [];
+          let match;
+          const maxResults = args.limit || 10;
+          while ((match = resultRe.exec(searchHtml)) !== null && results.length < maxResults) {
+            results.push({
+              url: match[1].replace(/&amp;/g, '&'),
+              title: match[2].replace(/<[^>]+>/g, '').trim(),
+              snippet: match[3].replace(/<[^>]+>/g, '').trim(),
+            });
+          }
+          return envelope({ query: args.query, results, count: results.length }, 'search');
+        }
+
+        case 'crawl': {
+          if (!args.url) return fail('INVALID_PARAMS', 'url required');
+          if (!args.output) return fail('INVALID_PARAMS', 'output directory required');
+          const maxDepth = args.depth || 2;
+          const maxPages = args.limit || 100;
+          const startUrl = new URL(args.url);
+          const visited = new Set<string>();
+          const pages: string[] = [];
+          const queue: Array<{ url: string; depth: number }> = [{ url: args.url, depth: 0 }];
+
+          await fs.mkdir(args.output, { recursive: true });
+
+          while (queue.length > 0 && pages.length < maxPages) {
+            const item = queue.shift()!;
+            if (visited.has(item.url) || item.depth > maxDepth) continue;
+            try {
+              const pageUrl = new URL(item.url);
+              if (pageUrl.hostname !== startUrl.hostname) continue;
+            } catch { continue; }
+            visited.add(item.url);
+
+            try {
+              const resp = await fetch(item.url, { signal: AbortSignal.timeout(10000) });
+              const body = await resp.text();
+              const parsed = new URL(item.url);
+              let filePath = parsed.pathname.replace(/\/$/, '/index.html');
+              if (!path.extname(filePath)) filePath += '.html';
+              const fullPath = path.join(args.output, filePath);
+              await fs.mkdir(path.dirname(fullPath), { recursive: true });
+              await fs.writeFile(fullPath, body);
+              pages.push(fullPath);
+
+              // Extract links
+              if (resp.headers.get('content-type')?.includes('html')) {
+                const linkRe = /href=["']([^"']+)["']/g;
+                let lm;
+                while ((lm = linkRe.exec(body)) !== null) {
+                  try {
+                    const absUrl = new URL(lm[1], item.url).href;
+                    if (!visited.has(absUrl)) {
+                      queue.push({ url: absUrl, depth: item.depth + 1 });
+                    }
+                  } catch {}
+                }
+              }
+            } catch {}
+          }
+
+          return envelope({ pages, count: pages.length, dest: args.output, depth: maxDepth }, 'crawl');
         }
 
         default:

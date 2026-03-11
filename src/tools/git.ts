@@ -17,7 +17,7 @@ async function git(args: string, cwd?: string): Promise<string> {
 
 export const gitTool: Tool = {
   name: 'git',
-  description: 'Git version control: status, diff, log, branch, commit, blame, stash, show, tag, remote, merge, rebase, cherry_pick, reset, clean, worktree, bisect, reflog, init, clone, fetch, pull, push, config, shortlog',
+  description: 'Git version control: status, diff, log, branch, commit, blame, stash, show, tag, remote, merge, rebase, cherry_pick, reset, clean, worktree, bisect, reflog, init, clone, fetch, pull, push, config, shortlog, apply, checkout',
   inputSchema: {
     type: 'object',
     properties: {
@@ -28,7 +28,8 @@ export const gitTool: Tool = {
           'tag', 'remote', 'merge', 'rebase', 'cherry_pick', 'reset', 'clean',
           'worktree', 'bisect', 'reflog',
           'init', 'clone', 'fetch', 'pull', 'push',
-          'config', 'shortlog', 'rev_parse', 'describe'
+          'config', 'shortlog', 'rev_parse', 'describe',
+          'apply', 'checkout'
         ],
         description: 'Git action'
       },
@@ -58,7 +59,9 @@ export const gitTool: Tool = {
       mode: { type: 'string', enum: ['soft', 'mixed', 'hard'], description: 'Reset mode', default: 'mixed' },
       cherry: { type: 'string', description: 'Commit SHA for cherry-pick' },
       pattern: { type: 'string', description: 'Clean pattern / grep pattern' },
-      format: { type: 'string', description: 'Log format (short, medium, full, fuller, oneline, format:...)' }
+      format: { type: 'string', description: 'Log format (short, medium, full, fuller, oneline, format:...)' },
+      patch: { type: 'string', description: 'Unified diff patch content (for apply)' },
+      create: { type: 'boolean', description: 'Create new branch on checkout', default: false }
     },
     required: ['action']
   },
@@ -288,6 +291,29 @@ export const gitTool: Tool = {
         case 'describe':
           out = await git(`describe --tags --always ${args.ref || ''}`, cwd).catch(() => 'No tags');
           break;
+
+        case 'apply': {
+          if (!args.patch) return { content: [{ type: 'text', text: 'patch content required' }], isError: true };
+          const { execSync } = await import('child_process');
+          try {
+            execSync(`git apply -`, { cwd, input: args.patch, maxBuffer: 5 * 1024 * 1024 });
+            out = 'Patch applied successfully';
+          } catch (e: any) {
+            return { content: [{ type: 'text', text: `Patch failed: ${e.stderr?.toString() || e.message}` }], isError: true };
+          }
+          break;
+        }
+
+        case 'checkout': {
+          if (!args.name && !args.ref) return { content: [{ type: 'text', text: 'name or ref required' }], isError: true };
+          const target = args.name || args.ref;
+          if (args.create) {
+            out = await git(`checkout -b ${target}`, cwd);
+          } else {
+            out = await git(`checkout ${target}`, cwd);
+          }
+          break;
+        }
 
         default:
           return { content: [{ type: 'text', text: `Unknown action: ${args.action}` }], isError: true };
