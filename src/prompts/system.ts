@@ -123,37 +123,38 @@ export async function getSystemPrompt(projectPath: string = process.cwd()): Prom
   parts.push(`Total tools: ${(await import('../tools/index.js')).allTools.length}\n`);
   
   parts.push('### File Operations');
-  parts.push('- `read_file`: Read file contents');
-  parts.push('- `write_file`: Write content to a file');
-  parts.push('- `edit_file`: Replace text in a file');
-  parts.push('- `multi_edit`: Make multiple edits to a file');
-  parts.push('- `create_file`: Create a new file');
-  parts.push('- `delete_file`: Delete a file or directory');
-  parts.push('- `move_file`: Move or rename files');
-  parts.push('- `list_files`: List files in a directory');
-  parts.push('- `directory_tree`: Display directory structure');
-  parts.push('- `get_file_info`: Get file metadata\n');
+  parts.push('- `read`: Read file contents');
+  parts.push('- `write`: Write content to a file');
+  parts.push('- `list`: List files in a directory');
+  parts.push('- `info`: Get file metadata');
+  parts.push('- `tree`: Display directory structure\n');
+
+  parts.push('### Editing');
+  parts.push('- `edit`: Replace text in a file');
+  parts.push('- `patch`: Make multiple edits to a file');
+  parts.push('- `create`: Create a new file');
+  parts.push('- `delete`: Delete a file or directory');
+  parts.push('- `move`: Move or rename files\n');
   
   parts.push('### Search Tools');
   parts.push('- `search`: Unified search (filenames + content)');
   parts.push('- `grep`: Search using grep/ripgrep');
-  parts.push('- `find_files`: Find files by name pattern\n');
-  
+  parts.push('- `find`: Find files by name pattern\n');
+
   parts.push('### Shell Tools');
   parts.push('- `bash`: Execute bash commands');
-  parts.push('- `run_command`: Execute shell commands');
-  parts.push('- `run_background`: Run commands in background');
-  parts.push('- `list_processes`: List background processes');
-  parts.push('- `get_process_output`: Get process output');
-  parts.push('- `kill_process`: Kill a background process\n');
+  parts.push('- `bg`: Run commands in background');
+  parts.push('- `ps`: List background processes');
+  parts.push('- `logs`: Get process output');
+  parts.push('- `kill`: Kill a background process\n');
   
   // Guidelines
   parts.push('## Guidelines');
   parts.push('- Use absolute paths when possible');
   parts.push('- Check file existence before editing');
-  parts.push('- Use `multi_edit` for multiple changes to the same file');
+  parts.push('- Use `patch` for multiple changes to the same file');
   parts.push('- Prefer `search` for comprehensive searches');
-  parts.push('- Use `directory_tree` to understand project structure');
+  parts.push('- Use `tree` to understand project structure');
   parts.push('- Background processes are useful for long-running tasks\n');
   
   // Code Reference Format

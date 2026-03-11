@@ -147,7 +147,7 @@ This is a test project for searching functionality.
 
   describe('findFilesTool', () => {
     test('should have correct metadata', () => {
-      expect(findFilesTool.name).toBe('find_files');
+      expect(findFilesTool.name).toBe('find');
       expect(findFilesTool.description).toBe('Find files by name pattern');
       expect(findFilesTool.inputSchema.required).toContain('pattern');
     });

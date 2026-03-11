@@ -71,15 +71,8 @@ export const bashTool: Tool = {
   }
 };
 
-export const runCommandTool: Tool = {
-  name: 'run_command',
-  description: 'Execute a shell command (alias for bash)',
-  inputSchema: bashTool.inputSchema,
-  handler: bashTool.handler
-};
-
 export const runBackgroundTool: Tool = {
-  name: 'run_background',
+  name: 'bg',
   description: 'Run a command in the background',
   inputSchema: {
     type: 'object',
@@ -157,7 +150,7 @@ export const runBackgroundTool: Tool = {
 };
 
 export const listProcessesTool: Tool = {
-  name: 'list_processes',
+  name: 'ps',
   description: 'List running background processes',
   inputSchema: {
     type: 'object',
@@ -194,7 +187,7 @@ export const listProcessesTool: Tool = {
 };
 
 export const getProcessOutputTool: Tool = {
-  name: 'get_process_output',
+  name: 'logs',
   description: 'Get output from a background process',
   inputSchema: {
     type: 'object',
@@ -242,7 +235,7 @@ export const getProcessOutputTool: Tool = {
 };
 
 export const killProcessTool: Tool = {
-  name: 'kill_process',
+  name: 'kill',
   description: 'Kill a background process',
   inputSchema: {
     type: 'object',
@@ -292,7 +285,6 @@ export const killProcessTool: Tool = {
 // Export all shell tools
 export const shellTools = [
   bashTool,
-  runCommandTool,
   runBackgroundTool,
   listProcessesTool,
   getProcessOutputTool,
