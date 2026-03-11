@@ -26,11 +26,13 @@ impl ModeTool {
     pub async fn execute(&self, args: ModeToolArgs) -> Result<String> {
         match args.action.as_str() {
             "list" => self.list_modes(),
-            "activate" => self.activate_mode(args.name),
+            "activate" | "switch" => self.activate_mode(args.name),
             "show" => self.show_mode(args.name),
             "current" => self.current_mode(),
+            "list_presets" => self.list_presets(),
+            "select_preset" => self.select_preset(args.name),
             _ => Ok(format!(
-                "Unknown action: {}. Use 'list', 'activate', 'show', or 'current'",
+                "Unknown action: {}. Use 'list', 'activate', 'switch', 'show', 'current', 'list_presets', or 'select_preset'",
                 args.action
             )),
         }
@@ -166,6 +168,37 @@ impl ModeTool {
             }
             None => Ok("No mode currently active\nUse 'mode --action activate <name>' to activate one".to_string()),
         }
+    }
+
+    fn list_presets(&self) -> Result<String> {
+        let preset_names = vec![
+            "fullstack", "minimal", "data_scientist", "devops", "security",
+            "academic", "startup", "enterprise", "creative", "hanzo",
+        ];
+        let modes = personality::api::list();
+        let presets: Vec<&ToolPersonality> = modes.iter()
+            .filter(|m| preset_names.contains(&m.name.as_str()))
+            .collect();
+        if presets.is_empty() {
+            return Ok("No presets available".to_string());
+        }
+        let mut output = vec!["Available presets:".to_string()];
+        for p in presets {
+            output.push(format!("  {}: {} - {}", p.name, p.programmer, p.description));
+        }
+        Ok(output.join("\n"))
+    }
+
+    fn select_preset(&self, name: Option<String>) -> Result<String> {
+        let name = name.ok_or_else(|| anyhow::anyhow!("Preset name required"))?;
+        let preset_names = vec![
+            "fullstack", "minimal", "data_scientist", "devops", "security",
+            "academic", "startup", "enterprise", "creative", "hanzo",
+        ];
+        if !preset_names.contains(&name.as_str()) {
+            return Ok(format!("Error: '{}' is not a preset. Use list_presets to see available presets.", name));
+        }
+        self.activate_mode(Some(name))
     }
 
     fn categorize_modes(&self, _modes: &[ToolPersonality]) -> Vec<(&'static str, Vec<String>)> {

@@ -13,6 +13,7 @@ use which::which;
 pub enum WsAction {
     Detect,
     Capabilities,
+    Schema,
     Help,
 }
 
@@ -29,6 +30,7 @@ impl std::str::FromStr for WsAction {
         match s.to_lowercase().as_str() {
             "detect" | "scan" => Ok(Self::Detect),
             "capabilities" | "caps" => Ok(Self::Capabilities),
+            "schema" => Ok(Self::Schema),
             "help" | "" => Ok(Self::Help),
             _ => Err(anyhow!("Unknown action: {}", s)),
         }
@@ -47,13 +49,13 @@ impl WorkspaceToolDefinition {
     pub fn schema() -> Value {
         json!({
             "name": "workspace",
-            "description": "Workspace context: detect, capabilities, help",
+            "description": "Workspace context: detect, capabilities, schema, help",
             "inputSchema": {
                 "type": "object",
                 "properties": {
                     "action": {
                         "type": "string",
-                        "enum": ["detect", "capabilities", "help"],
+                        "enum": ["detect", "capabilities", "schema", "help"],
                         "description": "Workspace action"
                     },
                     "path": { "type": "string", "description": "Project root", "default": "." }
@@ -77,6 +79,7 @@ impl WorkspaceTool {
         match action {
             WsAction::Detect => self.detect(&args).await,
             WsAction::Capabilities => self.capabilities().await,
+            WsAction::Schema => self.schema(&args).await,
             WsAction::Help => Ok(self.help()),
         }
     }
@@ -158,6 +161,61 @@ impl WorkspaceTool {
         }))
     }
 
+    async fn schema(&self, args: &WorkspaceToolArgs) -> Result<Value> {
+        let root = args.path.as_deref().unwrap_or(".");
+        let root = Path::new(root);
+        let mut schema = Vec::new();
+
+        // Detect project manifest files and extract key metadata
+        if root.join("package.json").exists() {
+            if let Ok(content) = tokio::fs::read_to_string(root.join("package.json")).await {
+                if let Ok(pkg) = serde_json::from_str::<Value>(&content) {
+                    schema.push(json!({
+                        "file": "package.json",
+                        "name": pkg.get("name"),
+                        "version": pkg.get("version"),
+                        "type": "node"
+                    }));
+                }
+            }
+        }
+        if root.join("Cargo.toml").exists() {
+            if let Ok(content) = tokio::fs::read_to_string(root.join("Cargo.toml")).await {
+                schema.push(json!({
+                    "file": "Cargo.toml",
+                    "content_lines": content.lines().count(),
+                    "type": "rust"
+                }));
+            }
+        }
+        if root.join("pyproject.toml").exists() {
+            if let Ok(content) = tokio::fs::read_to_string(root.join("pyproject.toml")).await {
+                schema.push(json!({
+                    "file": "pyproject.toml",
+                    "content_lines": content.lines().count(),
+                    "type": "python"
+                }));
+            }
+        }
+        if root.join("go.mod").exists() {
+            if let Ok(content) = tokio::fs::read_to_string(root.join("go.mod")).await {
+                let module = content.lines().next().unwrap_or("").trim_start_matches("module ").to_string();
+                schema.push(json!({
+                    "file": "go.mod",
+                    "module": module,
+                    "type": "go"
+                }));
+            }
+        }
+
+        Ok(json!({
+            "ok": true,
+            "data": { "root": root.to_string_lossy(), "manifests": schema, "count": schema.len() },
+            "error": null,
+            "meta": { "tool": "workspace", "action": "schema" }
+        }))
+    }
+
     fn help(&self) -> Value {
         json!({
             "ok": true,
@@ -166,6 +224,7 @@ impl WorkspaceTool {
                 "actions": {
                     "detect": "Detect project languages, build systems, VCS, test frameworks",
                     "capabilities": "List available system tools and runtimes",
+                    "schema": "Extract project manifest schemas (package.json, Cargo.toml, etc.)",
                     "help": "Show tool help"
                 }
             },
