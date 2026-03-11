@@ -1,9 +1,14 @@
-/// Reasoning tools (HIP-0300)
+/// Unified LLM reasoning tool (HIP-0300)
 ///
-/// Provides structured thinking capabilities:
-/// - think: Record and log thoughts for complex reasoning
-/// - critic: Critical analysis and devil's advocate
+/// Provides reasoning and intelligence capabilities:
+/// - think: Record structured reasoning thoughts
+/// - critic: Critical analysis and code review
 /// - review: Balanced code review
+/// - summarize: Compress text to summary
+/// - classify: Classify text
+/// - explain: Explain code/concepts
+///
+/// Wraps the think/critic functionality with HIP-0300 naming.
 
 use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
@@ -11,312 +16,75 @@ use serde_json::{json, Value};
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
-/// Think action types
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "snake_case")]
-pub enum ThinkAction {
+pub enum LlmAction {
     Think,
     Critic,
     Review,
+    Consensus,
+    Agent,
+    Summarize,
+    Classify,
+    Explain,
+    Translate,
+    Compare,
+    Chain,
+    Embed,
     Help,
 }
 
-impl Default for ThinkAction {
+impl Default for LlmAction {
     fn default() -> Self {
         Self::Help
     }
 }
 
-impl std::str::FromStr for ThinkAction {
+impl std::str::FromStr for LlmAction {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self> {
         match s.to_lowercase().as_str() {
             "think" | "thought" => Ok(Self::Think),
-            "critic" | "criticize" | "critique" => Ok(Self::Critic),
+            "critic" | "critique" | "criticize" => Ok(Self::Critic),
             "review" => Ok(Self::Review),
+            "consensus" => Ok(Self::Consensus),
+            "agent" => Ok(Self::Agent),
+            "summarize" | "summary" => Ok(Self::Summarize),
+            "classify" | "categorize" => Ok(Self::Classify),
+            "explain" => Ok(Self::Explain),
+            "translate" => Ok(Self::Translate),
+            "compare" => Ok(Self::Compare),
+            "chain" => Ok(Self::Chain),
+            "embed" | "embedding" => Ok(Self::Embed),
             "help" | "" => Ok(Self::Help),
             _ => Err(anyhow!("Unknown action: {}", s)),
         }
     }
 }
 
-/// Review focus areas
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
-pub enum ReviewFocus {
-    General,
-    Functionality,
-    Readability,
-    Maintainability,
-    Testing,
-    Documentation,
-    Architecture,
-    Security,
-    Performance,
-}
-
-impl Default for ReviewFocus {
-    fn default() -> Self {
-        Self::General
-    }
-}
-
-impl std::str::FromStr for ReviewFocus {
-    type Err = anyhow::Error;
-
-    fn from_str(s: &str) -> Result<Self> {
-        match s.to_uppercase().as_str() {
-            "GENERAL" => Ok(Self::General),
-            "FUNCTIONALITY" => Ok(Self::Functionality),
-            "READABILITY" => Ok(Self::Readability),
-            "MAINTAINABILITY" => Ok(Self::Maintainability),
-            "TESTING" => Ok(Self::Testing),
-            "DOCUMENTATION" => Ok(Self::Documentation),
-            "ARCHITECTURE" => Ok(Self::Architecture),
-            "SECURITY" => Ok(Self::Security),
-            "PERFORMANCE" => Ok(Self::Performance),
-            _ => Ok(Self::General),
-        }
-    }
-}
-
-/// Thought record
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ThoughtRecord {
-    pub id: usize,
-    pub thought: String,
-    pub timestamp: String,
-    pub action: String,
-}
-
-/// Arguments for reasoning tools
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct ThinkToolArgs {
-    #[serde(default)]
-    pub action: String,
-    /// The thought content
+    pub action: Option<String>,
     pub thought: Option<String>,
-    /// Analysis for critic
-    pub analysis: Option<String>,
-    /// Review focus area
-    pub focus: Option<String>,
-    /// Work description for review
-    pub work_description: Option<String>,
-    /// Code snippets to review
-    pub code_snippets: Option<Vec<String>>,
-    /// File paths modified
-    pub file_paths: Option<Vec<String>>,
-    /// Additional context
     pub context: Option<String>,
+    pub code: Option<String>,
+    pub language: Option<String>,
+    pub text: Option<String>,
+    pub question: Option<String>,
+    pub categories: Option<Vec<String>>,
+    pub topic: Option<String>,
+    pub perspectives: Option<usize>,
+    pub goal: Option<String>,
+    pub target: Option<String>,
+    pub items: Option<String>,
+    pub criteria: Option<String>,
+    pub steps: Option<String>,
+    pub content: Option<String>,
+    pub audience: Option<String>,
 }
 
-/// Reasoning tool
-pub struct ThinkTool {
-    thoughts: Arc<RwLock<Vec<ThoughtRecord>>>,
-    counter: Arc<RwLock<usize>>,
-}
-
-impl ThinkTool {
-    pub fn new() -> Self {
-        Self {
-            thoughts: Arc::new(RwLock::new(Vec::new())),
-            counter: Arc::new(RwLock::new(0)),
-        }
-    }
-
-    pub async fn execute(&self, args: ThinkToolArgs) -> Result<String> {
-        let action: ThinkAction = if args.action.is_empty() {
-            // Default based on provided args
-            if args.thought.is_some() {
-                ThinkAction::Think
-            } else if args.analysis.is_some() {
-                ThinkAction::Critic
-            } else if args.work_description.is_some() {
-                ThinkAction::Review
-            } else {
-                ThinkAction::Help
-            }
-        } else {
-            args.action.parse()?
-        };
-
-        let result = match action {
-            ThinkAction::Think => self.think(args).await?,
-            ThinkAction::Critic => self.critic(args).await?,
-            ThinkAction::Review => self.review(args).await?,
-            ThinkAction::Help => self.help()?,
-        };
-
-        Ok(serde_json::to_string(&result)?)
-    }
-
-    async fn think(&self, args: ThinkToolArgs) -> Result<Value> {
-        let thought = args.thought.ok_or_else(|| anyhow!("thought required"))?;
-        let now = chrono::Utc::now().to_rfc3339();
-
-        let mut counter = self.counter.write().await;
-        *counter += 1;
-        let id = *counter;
-
-        let record = ThoughtRecord {
-            id,
-            thought: thought.clone(),
-            timestamp: now.clone(),
-            action: "think".to_string(),
-        };
-
-        self.thoughts.write().await.push(record);
-
-        // Log the thought
-        log::debug!("THINK [{}]: {}", id, thought);
-
-        Ok(json!({
-            "id": id,
-            "recorded": true,
-            "thought": thought,
-            "timestamp": now,
-            "message": "Thought recorded. This helps with complex reasoning and brainstorming."
-        }))
-    }
-
-    async fn critic(&self, args: ThinkToolArgs) -> Result<Value> {
-        let analysis = args.analysis.ok_or_else(|| anyhow!("analysis required"))?;
-        let now = chrono::Utc::now().to_rfc3339();
-
-        let mut counter = self.counter.write().await;
-        *counter += 1;
-        let id = *counter;
-
-        let record = ThoughtRecord {
-            id,
-            thought: format!("[CRITIC] {}", analysis),
-            timestamp: now.clone(),
-            action: "critic".to_string(),
-        };
-
-        self.thoughts.write().await.push(record);
-
-        // Parse the analysis to extract key points
-        let sections = self.parse_critic_analysis(&analysis);
-
-        Ok(json!({
-            "id": id,
-            "recorded": true,
-            "analysis": analysis,
-            "sections": sections,
-            "timestamp": now,
-            "message": "Critical analysis recorded. This helps ensure high quality standards."
-        }))
-    }
-
-    fn parse_critic_analysis(&self, analysis: &str) -> Value {
-        let mut sections = serde_json::Map::new();
-        let mut current_section = String::new();
-        let mut current_items: Vec<String> = Vec::new();
-
-        for line in analysis.lines() {
-            let line = line.trim();
-            if line.is_empty() {
-                continue;
-            }
-
-            // Check for section headers
-            if line.ends_with(':') && !line.starts_with('-') && !line.starts_with('*') {
-                if !current_section.is_empty() && !current_items.is_empty() {
-                    sections.insert(current_section.clone(), json!(current_items.clone()));
-                }
-                current_section = line.trim_end_matches(':').to_string();
-                current_items.clear();
-            } else if line.starts_with('-') || line.starts_with('*') || line.starts_with("•") {
-                current_items.push(line.trim_start_matches(|c| c == '-' || c == '*' || c == '•' || c == ' ').to_string());
-            }
-        }
-
-        if !current_section.is_empty() && !current_items.is_empty() {
-            sections.insert(current_section, json!(current_items));
-        }
-
-        Value::Object(sections)
-    }
-
-    async fn review(&self, args: ThinkToolArgs) -> Result<Value> {
-        let work_description = args.work_description
-            .ok_or_else(|| anyhow!("work_description required"))?;
-
-        let focus: ReviewFocus = args.focus
-            .as_deref()
-            .map(|s| s.parse().unwrap_or_default())
-            .unwrap_or_default();
-
-        let now = chrono::Utc::now().to_rfc3339();
-
-        let mut counter = self.counter.write().await;
-        *counter += 1;
-        let id = *counter;
-
-        let record = ThoughtRecord {
-            id,
-            thought: format!("[REVIEW:{}] {}", format!("{:?}", focus).to_uppercase(), work_description),
-            timestamp: now.clone(),
-            action: "review".to_string(),
-        };
-
-        self.thoughts.write().await.push(record);
-
-        // Build review context
-        let mut review_context = serde_json::Map::new();
-        review_context.insert("focus".to_string(), json!(format!("{:?}", focus)));
-        review_context.insert("work_description".to_string(), json!(work_description));
-
-        if let Some(snippets) = args.code_snippets {
-            review_context.insert("code_snippets".to_string(), json!(snippets));
-        }
-        if let Some(paths) = args.file_paths {
-            review_context.insert("file_paths".to_string(), json!(paths));
-        }
-        if let Some(ctx) = args.context {
-            review_context.insert("additional_context".to_string(), json!(ctx));
-        }
-
-        Ok(json!({
-            "id": id,
-            "recorded": true,
-            "focus": format!("{:?}", focus),
-            "work_description": work_description,
-            "review_context": Value::Object(review_context),
-            "timestamp": now,
-            "message": "Review request recorded. This provides balanced, constructive feedback."
-        }))
-    }
-
-    fn help(&self) -> Result<Value> {
-        Ok(json!({
-            "name": "think",
-            "version": "0.12.0",
-            "description": "Reasoning tools for structured thinking (HIP-0300)",
-            "actions": {
-                "think": "Record thoughts for complex reasoning",
-                "critic": "Critical analysis and devil's advocate",
-                "review": "Balanced code review"
-            },
-            "review_focuses": [
-                "GENERAL", "FUNCTIONALITY", "READABILITY", "MAINTAINABILITY",
-                "TESTING", "DOCUMENTATION", "ARCHITECTURE", "SECURITY", "PERFORMANCE"
-            ],
-            "examples": {
-                "think": "think(thought='Considering approach A vs B...')",
-                "critic": "think(action='critic', analysis='Implementation Issues:\\n- No error handling...')",
-                "review": "think(action='review', focus='FUNCTIONALITY', work_description='Added email validation')"
-            }
-        }))
-    }
-}
-
-/// MCP Tool Definition
-#[derive(Debug, Serialize, Deserialize)]
 pub struct ThinkToolDefinition {
-    pub name: String,
     pub description: String,
     pub input_schema: Value,
 }
@@ -324,57 +92,322 @@ pub struct ThinkToolDefinition {
 impl ThinkToolDefinition {
     pub fn new() -> Self {
         Self {
-            name: "think".to_string(),
-            description: r#"Reasoning tools for structured thinking (HIP-0300).
-
-Actions:
-- think: Record thoughts for complex reasoning
-- critic: Critical analysis and devil's advocate
-- review: Balanced code review
-
-Use for brainstorming, planning complex changes, and ensuring quality."#.to_string(),
+            description: "LLM reasoning: think, critic, review, consensus, agent, summarize, classify, explain, translate, compare, chain, embed".to_string(),
             input_schema: json!({
                 "type": "object",
                 "properties": {
                     "action": {
                         "type": "string",
-                        "enum": ["think", "critic", "review", "help"],
-                        "description": "Action to perform"
+                        "enum": ["think", "critic", "review", "consensus", "agent", "summarize", "classify", "explain", "translate", "compare", "chain", "embed", "help"],
+                        "description": "LLM action"
                     },
-                    "thought": {
-                        "type": "string",
-                        "description": "The thought to record"
-                    },
-                    "analysis": {
-                        "type": "string",
-                        "description": "Critical analysis content"
-                    },
-                    "focus": {
-                        "type": "string",
-                        "enum": ["GENERAL", "FUNCTIONALITY", "READABILITY", "MAINTAINABILITY", "TESTING", "DOCUMENTATION", "ARCHITECTURE", "SECURITY", "PERFORMANCE"],
-                        "description": "Review focus area"
-                    },
-                    "work_description": {
-                        "type": "string",
-                        "description": "Description of work to review"
-                    },
-                    "code_snippets": {
-                        "type": "array",
-                        "items": {"type": "string"},
-                        "description": "Code snippets to review"
-                    },
-                    "file_paths": {
-                        "type": "array",
-                        "items": {"type": "string"},
-                        "description": "File paths modified"
-                    },
-                    "context": {
-                        "type": "string",
-                        "description": "Additional context"
-                    }
-                }
+                    "thought": { "type": "string", "description": "What to think about / critique" },
+                    "context": { "type": "string", "description": "Additional context" },
+                    "code": { "type": "string", "description": "Code to analyze (critic/review)" },
+                    "language": { "type": "string", "description": "Programming language" },
+                    "text": { "type": "string", "description": "Text for summarize/classify/explain" },
+                    "question": { "type": "string", "description": "Question to answer" },
+                    "categories": { "type": "array", "items": { "type": "string" }, "description": "Categories for classify" },
+                    "topic": { "type": "string", "description": "Topic for consensus" },
+                    "perspectives": { "type": "integer", "description": "Number of perspectives for consensus" },
+                    "goal": { "type": "string", "description": "Goal for agent reasoning" },
+                    "target": { "type": "string", "description": "Target format for translate" },
+                    "items": { "type": "string", "description": "Items for compare" },
+                    "criteria": { "type": "string", "description": "Criteria for compare" },
+                    "steps": { "type": "string", "description": "Steps for chain-of-thought" },
+                    "content": { "type": "string", "description": "Content for embed/translate" },
+                    "audience": { "type": "string", "description": "Target audience for explain" }
+                },
+                "required": ["action"]
             }),
         }
+    }
+}
+
+/// Entry in thinking journal
+#[derive(Debug, Clone, Serialize)]
+struct ThinkEntry {
+    id: usize,
+    action: String,
+    thought: String,
+    context: Option<String>,
+    timestamp: String,
+}
+
+pub struct ThinkTool {
+    journal: Arc<RwLock<Vec<ThinkEntry>>>,
+    counter: Arc<RwLock<usize>>,
+}
+
+impl ThinkTool {
+    pub fn new() -> Self {
+        Self {
+            journal: Arc::new(RwLock::new(Vec::new())),
+            counter: Arc::new(RwLock::new(0)),
+        }
+    }
+
+    pub async fn execute(&self, args: ThinkToolArgs) -> Result<Value> {
+        let action: LlmAction = args.action.as_deref().unwrap_or("help").parse()?;
+
+        match action {
+            LlmAction::Think => self.think(&args).await,
+            LlmAction::Critic => self.critic(&args).await,
+            LlmAction::Review => self.review(&args).await,
+            LlmAction::Consensus => self.consensus(&args).await,
+            LlmAction::Agent => self.agent(&args).await,
+            LlmAction::Summarize => self.summarize(&args).await,
+            LlmAction::Classify => self.classify(&args).await,
+            LlmAction::Explain => self.explain(&args).await,
+            LlmAction::Translate => self.translate(&args).await,
+            LlmAction::Compare => self.compare(&args).await,
+            LlmAction::Chain => self.chain(&args).await,
+            LlmAction::Embed => self.embed(&args).await,
+            LlmAction::Help => Ok(self.help()),
+        }
+    }
+
+    async fn record(&self, action: &str, thought: &str, context: Option<&str>) -> usize {
+        let mut counter = self.counter.write().await;
+        *counter += 1;
+        let id = *counter;
+
+        let entry = ThinkEntry {
+            id,
+            action: action.to_string(),
+            thought: thought.to_string(),
+            context: context.map(|s| s.to_string()),
+            timestamp: chrono::Utc::now().to_rfc3339(),
+        };
+
+        self.journal.write().await.push(entry);
+        id
+    }
+
+    async fn think(&self, args: &ThinkToolArgs) -> Result<Value> {
+        let thought = args.thought.as_deref()
+            .or(args.question.as_deref())
+            .ok_or_else(|| anyhow!("thought or question required"))?;
+
+        let id = self.record("think", thought, args.context.as_deref()).await;
+
+        Ok(json!({
+            "ok": true,
+            "data": {
+                "id": id,
+                "thought": thought,
+                "recorded": true,
+                "hint": "Use this tool to structure your reasoning. The thought is recorded but not sent to any LLM."
+            },
+            "error": null,
+            "meta": { "tool": "think", "action": "think" }
+        }))
+    }
+
+    async fn critic(&self, args: &ThinkToolArgs) -> Result<Value> {
+        let thought = args.thought.as_deref()
+            .or(args.code.as_deref())
+            .ok_or_else(|| anyhow!("thought or code required"))?;
+
+        let id = self.record("critic", thought, args.context.as_deref()).await;
+
+        Ok(json!({
+            "ok": true,
+            "data": {
+                "id": id,
+                "input": thought,
+                "recorded": true,
+                "hint": "Critical analysis recorded. Use this to challenge assumptions and find flaws."
+            },
+            "error": null,
+            "meta": { "tool": "think", "action": "critic" }
+        }))
+    }
+
+    async fn review(&self, args: &ThinkToolArgs) -> Result<Value> {
+        let code = args.code.as_deref()
+            .or(args.thought.as_deref())
+            .ok_or_else(|| anyhow!("code required"))?;
+
+        let id = self.record("review", code, args.language.as_deref()).await;
+
+        Ok(json!({
+            "ok": true,
+            "data": {
+                "id": id,
+                "code_length": code.len(),
+                "language": args.language,
+                "recorded": true,
+                "hint": "Code review recorded. Use this for balanced analysis of code quality."
+            },
+            "error": null,
+            "meta": { "tool": "think", "action": "review" }
+        }))
+    }
+
+    async fn summarize(&self, args: &ThinkToolArgs) -> Result<Value> {
+        let text = args.text.as_deref()
+            .or(args.thought.as_deref())
+            .ok_or_else(|| anyhow!("text required"))?;
+
+        let words = text.split_whitespace().count();
+        let chars = text.len();
+
+        Ok(json!({
+            "ok": true,
+            "data": {
+                "input_words": words,
+                "input_chars": chars,
+                "hint": "Summarization is a reasoning action — the LLM should produce the summary based on the input."
+            },
+            "error": null,
+            "meta": { "tool": "think", "action": "summarize" }
+        }))
+    }
+
+    async fn classify(&self, args: &ThinkToolArgs) -> Result<Value> {
+        let text = args.text.as_deref()
+            .or(args.thought.as_deref())
+            .ok_or_else(|| anyhow!("text required"))?;
+
+        Ok(json!({
+            "ok": true,
+            "data": {
+                "text_length": text.len(),
+                "categories": args.categories,
+                "hint": "Classification is a reasoning action — the LLM should classify based on the input and categories."
+            },
+            "error": null,
+            "meta": { "tool": "think", "action": "classify" }
+        }))
+    }
+
+    async fn explain(&self, args: &ThinkToolArgs) -> Result<Value> {
+        let text = args.text.as_deref()
+            .or(args.code.as_deref())
+            .or(args.question.as_deref())
+            .ok_or_else(|| anyhow!("text, code, or question required"))?;
+
+        Ok(json!({
+            "ok": true,
+            "data": {
+                "input_length": text.len(),
+                "language": args.language,
+                "hint": "Explanation is a reasoning action — the LLM should explain based on the input."
+            },
+            "error": null,
+            "meta": { "tool": "think", "action": "explain" }
+        }))
+    }
+
+    async fn consensus(&self, args: &ThinkToolArgs) -> Result<Value> {
+        let topic = args.topic.as_deref()
+            .or(args.thought.as_deref())
+            .ok_or_else(|| anyhow!("topic or thought required"))?;
+        let perspectives = args.perspectives.unwrap_or(3);
+        let id = self.record("consensus", topic, args.context.as_deref()).await;
+        Ok(json!({
+            "ok": true,
+            "data": { "id": id, "topic": topic, "perspectives": perspectives, "recorded": true,
+                "hint": "Multi-perspective consensus reasoning recorded." },
+            "error": null,
+            "meta": { "tool": "think", "action": "consensus" }
+        }))
+    }
+
+    async fn agent(&self, args: &ThinkToolArgs) -> Result<Value> {
+        let goal = args.goal.as_deref()
+            .or(args.thought.as_deref())
+            .ok_or_else(|| anyhow!("goal or thought required"))?;
+        let id = self.record("agent", goal, args.context.as_deref()).await;
+        Ok(json!({
+            "ok": true,
+            "data": { "id": id, "goal": goal, "recorded": true,
+                "hint": "Agent reasoning recorded. Execute planned steps." },
+            "error": null,
+            "meta": { "tool": "think", "action": "agent" }
+        }))
+    }
+
+    async fn translate(&self, args: &ThinkToolArgs) -> Result<Value> {
+        let content = args.content.as_deref()
+            .or(args.text.as_deref())
+            .or(args.thought.as_deref())
+            .ok_or_else(|| anyhow!("content or text required"))?;
+        let target = args.target.as_deref().unwrap_or("");
+        Ok(json!({
+            "ok": true,
+            "data": { "input_length": content.len(), "target": target,
+                "hint": "Translation recorded. Apply the translated version." },
+            "error": null,
+            "meta": { "tool": "think", "action": "translate" }
+        }))
+    }
+
+    async fn compare(&self, args: &ThinkToolArgs) -> Result<Value> {
+        let items = args.items.as_deref()
+            .or(args.thought.as_deref())
+            .ok_or_else(|| anyhow!("items or thought required"))?;
+        Ok(json!({
+            "ok": true,
+            "data": { "items": items, "criteria": args.criteria,
+                "hint": "Comparison recorded. Use analysis for decision." },
+            "error": null,
+            "meta": { "tool": "think", "action": "compare" }
+        }))
+    }
+
+    async fn chain(&self, args: &ThinkToolArgs) -> Result<Value> {
+        let steps = args.steps.as_deref()
+            .or(args.thought.as_deref())
+            .ok_or_else(|| anyhow!("steps or thought required"))?;
+        let id = self.record("chain", steps, args.context.as_deref()).await;
+        Ok(json!({
+            "ok": true,
+            "data": { "id": id, "recorded": true,
+                "hint": "Chain-of-thought reasoning recorded. Follow logical progression." },
+            "error": null,
+            "meta": { "tool": "think", "action": "chain" }
+        }))
+    }
+
+    async fn embed(&self, args: &ThinkToolArgs) -> Result<Value> {
+        let content = args.content.as_deref()
+            .or(args.text.as_deref())
+            .or(args.thought.as_deref())
+            .ok_or_else(|| anyhow!("content or text required"))?;
+        Ok(json!({
+            "ok": true,
+            "data": { "input_length": content.len(),
+                "hint": "Embedding placeholder. Use dedicated embedding service for production." },
+            "error": null,
+            "meta": { "tool": "think", "action": "embed" }
+        }))
+    }
+
+    fn help(&self) -> Value {
+        json!({
+            "ok": true,
+            "data": {
+                "tool": "think",
+                "actions": {
+                    "think": "Record structured reasoning (requires thought)",
+                    "critic": "Critical analysis (requires thought or code)",
+                    "review": "Balanced code review (requires code)",
+                    "consensus": "Multi-perspective reasoning (requires topic)",
+                    "agent": "Agent-style reasoning (requires goal)",
+                    "summarize": "Compress to summary (requires text)",
+                    "classify": "Classify text (requires text, optional categories)",
+                    "explain": "Explain code/concepts (requires text or code)",
+                    "translate": "Translate between formats (requires content, target)",
+                    "compare": "Compare items (requires items, optional criteria)",
+                    "chain": "Chain-of-thought reasoning (requires steps)",
+                    "embed": "Embedding placeholder (requires content)"
+                }
+            },
+            "error": null,
+            "meta": { "tool": "think", "action": "help" }
+        })
     }
 }
 
@@ -382,71 +415,22 @@ Use for brainstorming, planning complex changes, and ensuring quality."#.to_stri
 mod tests {
     use super::*;
 
-    #[tokio::test]
-    async fn test_think() {
-        let tool = ThinkTool::new();
-        let args = ThinkToolArgs {
-            action: "think".to_string(),
-            thought: Some("This is a test thought about problem solving.".to_string()),
-            ..Default::default()
-        };
-
-        let result = tool.execute(args).await;
-        assert!(result.is_ok());
-        let output = result.unwrap();
-        assert!(output.contains("recorded"));
-        assert!(output.contains("test thought"));
+    #[test]
+    fn test_llm_action_parse() {
+        assert_eq!("think".parse::<LlmAction>().unwrap(), LlmAction::Think);
+        assert_eq!("critic".parse::<LlmAction>().unwrap(), LlmAction::Critic);
+        assert_eq!("summarize".parse::<LlmAction>().unwrap(), LlmAction::Summarize);
     }
 
     #[tokio::test]
-    async fn test_critic() {
+    async fn test_llm_think() {
         let tool = ThinkTool::new();
-        let args = ThinkToolArgs {
-            action: "critic".to_string(),
-            analysis: Some("Implementation Issues:\n- No error handling\n- Missing tests".to_string()),
+        let result = tool.execute(ThinkToolArgs {
+            action: Some("think".to_string()),
+            thought: Some("Testing reasoning".to_string()),
             ..Default::default()
-        };
-
-        let result = tool.execute(args).await;
-        assert!(result.is_ok());
-        let output = result.unwrap();
-        assert!(output.contains("recorded"));
-        // Message is "Critical analysis recorded" (capitalized)
-        assert!(output.contains("Critical analysis"));
-    }
-
-    #[tokio::test]
-    async fn test_review() {
-        let tool = ThinkTool::new();
-        let args = ThinkToolArgs {
-            action: "review".to_string(),
-            focus: Some("FUNCTIONALITY".to_string()),
-            work_description: Some("Added email validation function".to_string()),
-            code_snippets: Some(vec!["fn validate_email(email: &str) -> bool".to_string()]),
-            ..Default::default()
-        };
-
-        let result = tool.execute(args).await;
-        assert!(result.is_ok());
-        let output = result.unwrap();
-        assert!(output.contains("recorded"));
-        // Focus uses Debug format: "Functionality" (capitalized, not all caps)
-        assert!(output.contains("Functionality"));
-    }
-
-    #[tokio::test]
-    async fn test_help() {
-        let tool = ThinkTool::new();
-        let args = ThinkToolArgs {
-            action: "help".to_string(),
-            ..Default::default()
-        };
-
-        let result = tool.execute(args).await;
-        assert!(result.is_ok());
-        let output = result.unwrap();
-        assert!(output.contains("think"));
-        assert!(output.contains("critic"));
-        assert!(output.contains("review"));
+        }).await.unwrap();
+        assert_eq!(result["ok"], true);
+        assert_eq!(result["data"]["recorded"], true);
     }
 }

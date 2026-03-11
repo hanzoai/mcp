@@ -21,7 +21,7 @@ describe('Edit Tools', () => {
   
   describe('editFileTool', () => {
     test('should have correct metadata', () => {
-      expect(editFileTool.name).toBe('edit_file');
+      expect(editFileTool.name).toBe('edit');
       expect(editFileTool.description).toBe('Replace text in a file');
       expect(editFileTool.inputSchema.type).toBe('object');
       expect(editFileTool.inputSchema.required).toEqual(['path', 'oldText', 'newText']);
@@ -108,7 +108,7 @@ describe('Edit Tools', () => {
 
   describe('multiEditTool', () => {
     test('should have correct metadata', () => {
-      expect(multiEditTool.name).toBe('multi_edit');
+      expect(multiEditTool.name).toBe('patch');
       expect(multiEditTool.description).toBe('Make multiple edits to a file in one operation');
       expect(multiEditTool.inputSchema.required).toEqual(['path', 'edits']);
     });
@@ -180,7 +180,7 @@ console.log(message);`;
 
   describe('createFileTool', () => {
     test('should have correct metadata', () => {
-      expect(createFileTool.name).toBe('create_file');
+      expect(createFileTool.name).toBe('create');
       expect(createFileTool.description).toBe('Create a new file with content');
       expect(createFileTool.inputSchema.required).toEqual(['path', 'content']);
     });
@@ -253,7 +253,7 @@ console.log(message);`;
 
   describe('deleteFileTool', () => {
     test('should have correct metadata', () => {
-      expect(deleteFileTool.name).toBe('delete_file');
+      expect(deleteFileTool.name).toBe('delete');
       expect(deleteFileTool.description).toBe('Delete a file or empty directory');
       expect(deleteFileTool.inputSchema.required).toContain('path');
     });
@@ -324,7 +324,7 @@ console.log(message);`;
 
   describe('moveFileTool', () => {
     test('should have correct metadata', () => {
-      expect(moveFileTool.name).toBe('move_file');
+      expect(moveFileTool.name).toBe('move');
       expect(moveFileTool.description).toBe('Move or rename a file or directory');
       expect(moveFileTool.inputSchema.required).toEqual(['source', 'destination']);
     });
