@@ -7,7 +7,7 @@ import { ToolTestSpec } from '../src/types.js';
 export const coreToolSpecs: ToolTestSpec[] = [
   // File Operations
   {
-    name: 'read_file',
+    name: 'read',
     category: 'files',
     description: 'Test file reading functionality',
     testCases: [
@@ -63,7 +63,7 @@ export const coreToolSpecs: ToolTestSpec[] = [
   },
 
   {
-    name: 'write_file',
+    name: 'write',
     category: 'files',
     description: 'Test file writing functionality',
     testCases: [
@@ -108,7 +108,7 @@ export const coreToolSpecs: ToolTestSpec[] = [
   },
 
   {
-    name: 'list_files',
+    name: 'list',
     category: 'files',
     description: 'Test directory listing functionality',
     testCases: [
@@ -144,7 +144,7 @@ export const coreToolSpecs: ToolTestSpec[] = [
   },
 
   {
-    name: 'get_file_info',
+    name: 'info',
     category: 'files',
     description: 'Test file metadata retrieval',
     testCases: [
@@ -179,7 +179,7 @@ export const coreToolSpecs: ToolTestSpec[] = [
   },
 
   {
-    name: 'directory_tree',
+    name: 'tree',
     category: 'files',
     description: 'Test directory tree visualization',
     testCases: [
@@ -273,7 +273,7 @@ export const coreToolSpecs: ToolTestSpec[] = [
   },
 
   {
-    name: 'find_files',
+    name: 'find',
     category: 'search',
     description: 'Test file finding by pattern',
     testCases: [
@@ -367,28 +367,7 @@ export const coreToolSpecs: ToolTestSpec[] = [
   },
 
   {
-    name: 'run_command',
-    category: 'shell',
-    description: 'Test shell command execution (alias for bash)',
-    testCases: [
-      {
-        name: 'echo command via run_command',
-        input: { command: 'echo "test"' },
-        expect: {
-          success: true,
-          content: [
-            {
-              type: 'text',
-              textPattern: 'test'
-            }
-          ]
-        }
-      }
-    ]
-  },
-
-  {
-    name: 'run_background',
+    name: 'bg',
     category: 'shell',
     description: 'Test background process execution',
     testCases: [
@@ -409,7 +388,7 @@ export const coreToolSpecs: ToolTestSpec[] = [
   },
 
   {
-    name: 'list_processes',
+    name: 'ps',
     category: 'shell',
     description: 'Test background process listing',
     testCases: [
@@ -430,7 +409,7 @@ export const coreToolSpecs: ToolTestSpec[] = [
   },
 
   {
-    name: 'kill_process',
+    name: 'kill',
     category: 'shell',
     description: 'Test process termination',
     testCases: [

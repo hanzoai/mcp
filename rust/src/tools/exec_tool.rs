@@ -112,7 +112,7 @@ impl std::str::FromStr for ProcAction {
 
 /// Arguments for proc tool
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
-pub struct ProcToolArgs {
+pub struct ExecToolArgs {
     #[serde(default)]
     pub action: String,
     /// Command to execute (string or array for Rust parity)
@@ -140,12 +140,12 @@ pub struct ProcToolArgs {
 }
 
 /// Shell execution tool
-pub struct ShellTool {
+pub struct ExecTool {
     manager: Arc<ProcessManager>,
     shell: String,
 }
 
-impl ShellTool {
+impl ExecTool {
     pub fn new() -> Self {
         Self {
             manager: Arc::new(ProcessManager::new()),
@@ -175,7 +175,7 @@ impl ShellTool {
         "sh".to_string()
     }
 
-    pub async fn execute(&self, args: ProcToolArgs) -> Result<String> {
+    pub async fn execute(&self, args: ExecToolArgs) -> Result<String> {
         let action: ProcAction = if args.action.is_empty() {
             ProcAction::Help
         } else {
@@ -194,7 +194,7 @@ impl ShellTool {
         Ok(serde_json::to_string(&result)?)
     }
 
-    async fn exec(&self, args: ProcToolArgs) -> Result<Value> {
+    async fn exec(&self, args: ExecToolArgs) -> Result<Value> {
         let command = args.command.ok_or_else(|| anyhow!("command required"))?;
 
         // Support both string and array format
@@ -287,7 +287,7 @@ impl ShellTool {
         }
     }
 
-    async fn wait(&self, args: ProcToolArgs) -> Result<Value> {
+    async fn wait(&self, args: ExecToolArgs) -> Result<Value> {
         let proc_id = args.proc_id.ok_or_else(|| anyhow!("proc_id required"))?;
 
         let max_timeout_ms = 3_600_000u64; // 1 hour
@@ -341,7 +341,7 @@ impl ShellTool {
         }
     }
 
-    async fn ps(&self, args: ProcToolArgs) -> Result<Value> {
+    async fn ps(&self, args: ExecToolArgs) -> Result<Value> {
         let processes = self.manager.list().await;
         let mut results = Vec::new();
 
@@ -376,7 +376,7 @@ impl ShellTool {
         }))
     }
 
-    async fn kill(&self, args: ProcToolArgs) -> Result<Value> {
+    async fn kill(&self, args: ExecToolArgs) -> Result<Value> {
         let proc_id = args.proc_id.ok_or_else(|| anyhow!("proc_id required"))?;
 
         let info = self.manager.get(&proc_id).await
@@ -423,7 +423,7 @@ impl ShellTool {
         }
     }
 
-    async fn logs(&self, args: ProcToolArgs) -> Result<Value> {
+    async fn logs(&self, args: ExecToolArgs) -> Result<Value> {
         let proc_id = args.proc_id.ok_or_else(|| anyhow!("proc_id required"))?;
 
         let info = self.manager.get(&proc_id).await
@@ -467,7 +467,7 @@ impl ShellTool {
             .unwrap_or("sh");
 
         Ok(json!({
-            "name": "proc",
+            "name": "exec",
             "version": "0.12.0",
             "description": format!("Unified process execution tool (HIP-0300). Shell: {}", shell_name),
             "actions": {
@@ -485,16 +485,16 @@ impl ShellTool {
 
 /// MCP Tool Definition
 #[derive(Debug, Serialize, Deserialize)]
-pub struct ShellToolDefinition {
+pub struct ExecToolDefinition {
     pub name: String,
     pub description: String,
     pub input_schema: Value,
 }
 
-impl ShellToolDefinition {
+impl ExecToolDefinition {
     pub fn new() -> Self {
         Self {
-            name: "proc".to_string(),
+            name: "exec".to_string(),
             description: format!(
                 r#"Unified process execution tool (HIP-0300).
 
@@ -551,8 +551,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_exec_simple() {
-        let tool = ShellTool::new();
-        let args = ProcToolArgs {
+        let tool = ExecTool::new();
+        let args = ExecToolArgs {
             action: "exec".to_string(),
             command: Some(Value::String("echo hello".to_string())),
             ..Default::default()
@@ -566,8 +566,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_exec_array_command() {
-        let tool = ShellTool::new();
-        let args = ProcToolArgs {
+        let tool = ExecTool::new();
+        let args = ExecToolArgs {
             action: "exec".to_string(),
             command: Some(Value::Array(vec![
                 Value::String("echo".to_string()),
@@ -582,8 +582,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_ps() {
-        let tool = ShellTool::new();
-        let args = ProcToolArgs {
+        let tool = ExecTool::new();
+        let args = ExecToolArgs {
             action: "ps".to_string(),
             ..Default::default()
         };
@@ -596,8 +596,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_help() {
-        let tool = ShellTool::new();
-        let args = ProcToolArgs {
+        let tool = ExecTool::new();
+        let args = ExecToolArgs {
             action: "help".to_string(),
             ..Default::default()
         };
@@ -605,7 +605,7 @@ mod tests {
         let result = tool.execute(args).await;
         assert!(result.is_ok());
         let output = result.unwrap();
-        assert!(output.contains("proc"));
+        assert!(output.contains("exec"));
         assert!(output.contains("exec"));
     }
 }

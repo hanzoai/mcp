@@ -12,7 +12,7 @@ interface Edit {
 }
 
 export const editFileTool: Tool = {
-  name: 'edit_file',
+  name: 'edit',
   description: 'Replace text in a file',
   inputSchema: {
     type: 'object',
@@ -80,7 +80,7 @@ export const editFileTool: Tool = {
 };
 
 export const multiEditTool: Tool = {
-  name: 'multi_edit',
+  name: 'patch',
   description: 'Make multiple edits to a file in one operation',
   inputSchema: {
     type: 'object',
@@ -152,7 +152,7 @@ export const multiEditTool: Tool = {
 };
 
 export const createFileTool: Tool = {
-  name: 'create_file',
+  name: 'create',
   description: 'Create a new file with content',
   inputSchema: {
     type: 'object',
@@ -217,7 +217,7 @@ export const createFileTool: Tool = {
 };
 
 export const deleteFileTool: Tool = {
-  name: 'delete_file',
+  name: 'delete',
   description: 'Delete a file or empty directory',
   inputSchema: {
     type: 'object',
@@ -267,7 +267,7 @@ export const deleteFileTool: Tool = {
 };
 
 export const moveFileTool: Tool = {
-  name: 'move_file',
+  name: 'move',
   description: 'Move or rename a file or directory',
   inputSchema: {
     type: 'object',

@@ -8,7 +8,7 @@ import { glob } from 'glob';
 import { Tool, ToolResult, FileInfo } from '../types';
 
 export const readFileTool: Tool = {
-  name: 'read_file',
+  name: 'read',
   description: 'Read the contents of a file',
   inputSchema: {
     type: 'object',
@@ -47,7 +47,7 @@ export const readFileTool: Tool = {
 };
 
 export const writeFileTool: Tool = {
-  name: 'write_file',
+  name: 'write',
   description: 'Write content to a file',
   inputSchema: {
     type: 'object',
@@ -91,7 +91,7 @@ export const writeFileTool: Tool = {
 };
 
 export const listFilesTool: Tool = {
-  name: 'list_files',
+  name: 'list',
   description: 'List files in a directory',
   inputSchema: {
     type: 'object',
@@ -154,7 +154,7 @@ export const listFilesTool: Tool = {
 };
 
 export const getFileInfoTool: Tool = {
-  name: 'get_file_info',
+  name: 'info',
   description: 'Get metadata about a file or directory',
   inputSchema: {
     type: 'object',
@@ -197,7 +197,7 @@ export const getFileInfoTool: Tool = {
 };
 
 export const directoryTreeTool: Tool = {
-  name: 'directory_tree',
+  name: 'tree',
   description: 'Display a tree view of directory structure',
   inputSchema: {
     type: 'object',

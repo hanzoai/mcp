@@ -15,6 +15,7 @@ import {
   ReadResourceRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js';
 import * as fs from 'fs/promises';
+import * as os from 'os';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
@@ -26,6 +27,7 @@ const __dirname = dirname(__filename);
 // Import our tools
 import { getConfiguredTools, ToolConfig } from './tools/index.js';
 import { getSystemPrompt } from './prompts/system.js';
+import { startZapServer } from './zap-server.js';
 
 // Version from package.json
 const packageJson = JSON.parse(
@@ -45,6 +47,13 @@ program
   .option('-t, --transport <type>', 'Transport type (stdio, http)', 'stdio')
   .option('-p, --port <port>', 'Port for HTTP transport', '3000')
   .option('--project <path>', 'Project path for context', process.cwd())
+  .option('--full-surface', 'Enable full legacy tool surface (multi-word aliases and optional categories)')
+  .option('--enable-ui', 'Enable UI tools')
+  .option('--enable-autogui', 'Enable AutoGUI tools')
+  .option('--enable-orchestration', 'Enable orchestration tools')
+  .option('--enable-ui-registry', 'Enable UI registry tools')
+  .option('--enable-github-ui', 'Enable GitHub UI tools')
+  .option('--enable-desktop', 'Enable desktop/playwright tools')
   .option('--disable-ui', 'Disable UI tools for component development')
   .option('--disable-autogui', 'Disable AutoGUI tools for computer control')
   .option('--disable-orchestration', 'Disable orchestration tools for agent management')
@@ -52,12 +61,19 @@ program
   .option('--disable-tools <tools>', 'Comma-separated list of tools to disable')
   .option('--enable-categories <categories>', 'Comma-separated list of categories to enable (files,search,shell,edit)')
   .action(async (options) => {
+    const fullSurface = Boolean(options.fullSurface);
+    const coreOnly = Boolean(options.coreOnly);
+
     // Configure tools based on options
     const toolConfig: ToolConfig = {
-      enableCore: !options.coreOnly || options.enableCategories,
-      enableUI: options.coreOnly ? false : !options.disableUi,  // Enable by default unless disabled
-      enableAutoGUI: options.coreOnly ? false : !options.disableAutogui,  // Enable by default unless disabled
-      enableOrchestration: options.coreOnly ? false : !options.disableOrchestration,  // Enable by default
+      enableCore: !coreOnly || options.enableCategories,
+      enableUI: coreOnly ? false : (fullSurface ? !options.disableUi : Boolean(options.enableUi) && !options.disableUi),
+      enableAutoGUI: coreOnly ? false : (fullSurface ? !options.disableAutogui : Boolean(options.enableAutogui) && !options.disableAutogui),
+      enableOrchestration: coreOnly ? false : (fullSurface ? !options.disableOrchestration : Boolean(options.enableOrchestration) && !options.disableOrchestration),
+      enableUIRegistry: coreOnly ? false : (fullSurface ? true : Boolean(options.enableUiRegistry)),
+      enableGitHubUI: coreOnly ? false : (fullSurface ? true : Boolean(options.enableGithubUi)),
+      enableDesktop: coreOnly ? false : Boolean(options.enableDesktop),
+      dedupeTools: true,
       enabledCategories: options.enableCategories ? options.enableCategories.split(',') : [],
       disabledTools: options.disableTools ? options.disableTools.split(',') : []
     };
@@ -87,18 +103,32 @@ program
 program
   .command('list-tools')
   .description('List available MCP tools')
+  .option('--full-surface', 'Enable full legacy tool surface (multi-word aliases and optional categories)')
+  .option('--enable-ui', 'Include UI tools')
+  .option('--enable-autogui', 'Include AutoGUI tools')
+  .option('--enable-orchestration', 'Include orchestration tools')
+  .option('--enable-ui-registry', 'Include UI registry tools')
+  .option('--enable-github-ui', 'Include GitHub UI tools')
+  .option('--enable-desktop', 'Include desktop/playwright tools')
   .option('--disable-ui', 'Exclude UI tools from listing')
   .option('--disable-autogui', 'Exclude AutoGUI tools from listing')
   .option('--disable-orchestration', 'Exclude orchestration tools from listing')
   .option('--core-only', 'Show only core tools')
   .option('--category <category>', 'Filter by category (files, search, shell, edit, ui, autogui)')
   .action(async (options) => {
+    const fullSurface = Boolean(options.fullSurface);
+    const coreOnly = Boolean(options.coreOnly);
+
     // Configure tools based on options
     const toolConfig: ToolConfig = {
       enableCore: true,
-      enableUI: options.coreOnly ? false : !options.disableUi,  // Enable by default
-      enableAutoGUI: options.coreOnly ? false : !options.disableAutogui,  // Enable by default
-      enableOrchestration: options.coreOnly ? false : !options.disableOrchestration,  // Enable by default
+      enableUI: coreOnly ? false : (fullSurface ? !options.disableUi : Boolean(options.enableUi) && !options.disableUi),
+      enableAutoGUI: coreOnly ? false : (fullSurface ? !options.disableAutogui : Boolean(options.enableAutogui) && !options.disableAutogui),
+      enableOrchestration: coreOnly ? false : (fullSurface ? !options.disableOrchestration : Boolean(options.enableOrchestration) && !options.disableOrchestration),
+      enableUIRegistry: coreOnly ? false : (fullSurface ? true : Boolean(options.enableUiRegistry)),
+      enableGitHubUI: coreOnly ? false : (fullSurface ? true : Boolean(options.enableGithubUi)),
+      enableDesktop: coreOnly ? false : Boolean(options.enableDesktop),
+      dedupeTools: true,
     };
 
     const tools = getConfiguredTools(toolConfig);
@@ -108,10 +138,10 @@ program
     
     // Group tools by category
     const categories: Record<string, string[]> = {
-      'File Operations': ['read_file', 'write_file', 'list_files', 'create_file', 'delete_file', 'move_file', 'get_file_info', 'directory_tree'],
-      'Search': ['grep', 'find_files', 'search'],
-      'Editing': ['edit_file', 'multi_edit'],
-      'Shell': ['bash', 'run_command', 'run_background', 'list_processes', 'get_process_output', 'kill_process']
+      'File Operations': ['read', 'write', 'list', 'info', 'tree'],
+      'Search': ['grep', 'find', 'search'],
+      'Editing': ['edit', 'patch', 'create', 'delete', 'move'],
+      'Shell': ['bash', 'bg', 'ps', 'logs', 'kill']
     };
     
     // Add UI tools category if enabled
@@ -119,7 +149,8 @@ program
       categories['UI Tools'] = [
         'ui_init', 'ui_list_components', 'ui_get_component', 'ui_get_component_source',
         'ui_get_component_demo', 'ui_add_component', 'ui_list_blocks', 'ui_get_block',
-        'ui_list_styles', 'ui_search_registry', 'ui_get_installation_guide'
+        'ui_list_styles', 'ui_search_registry', 'ui_get_installation_guide',
+        'ui'
       ];
     }
     
@@ -136,9 +167,29 @@ program
     // Add Orchestration tools category if enabled
     if (toolConfig.enableOrchestration) {
       categories['Orchestration Tools'] = [
-        'spawn_agent', 'swarm_orchestration', 'critic_agent',
-        'hanzo_node', 'llm_router', 'consensus'
+        'spawn', 'swarm', 'critic', 'node', 'router', 'consensus',
+        'spawn_agent', 'swarm_orchestration', 'critic_agent', 'hanzo_node', 'llm_router'
       ];
+    }
+
+    if (toolConfig.enableUIRegistry) {
+      categories['UI Registry Tools'] = [
+        'ui_list_components', 'ui_search_components', 'ui_get_component',
+        'ui_install_component', 'ui_create_composition', 'ui_get_registry'
+      ];
+    }
+
+    if (toolConfig.enableGitHubUI) {
+      categories['GitHub UI Tools'] = [
+        'ui_fetch_component', 'ui_fetch_demo', 'ui_fetch_block', 'ui_get_block',
+        'ui_list_github_components', 'ui_list_github_blocks', 'ui_list_blocks',
+        'ui_component_metadata', 'ui_get_component_demo', 'ui_get_component_metadata',
+        'ui_get_directory_structure', 'ui_directory_structure', 'ui_github_rate_limit'
+      ];
+    }
+
+    if (toolConfig.enableDesktop) {
+      categories['Desktop Tools'] = ['hanzo_desktop', 'playwright_control'];
     }
     
     // Filter by category if specified
@@ -148,9 +199,11 @@ program
     
     for (const [category, toolNames] of categoriesToShow) {
       console.log(`${category}:`);
+      const shown = new Set<string>();
       for (const toolName of toolNames) {
         const tool = toolMap.get(toolName);
-        if (tool) {
+        if (tool && !shown.has(tool.name)) {
+          shown.add(tool.name);
           console.log(`  - ${tool.name}: ${tool.description}`);
         }
       }
@@ -176,7 +229,9 @@ program
     // Helper function to install for Claude Desktop
     const installClaudeDesktop = async () => {
       console.log('📦 Installing for Claude Desktop...');
-      const configDir = path.join(process.env.HOME || '', 'Library', 'Application Support', 'Claude');
+      const configDir = process.platform === 'win32'
+        ? path.join(process.env.APPDATA || os.homedir(), 'Claude')
+        : path.join(os.homedir(), 'Library', 'Application Support', 'Claude');
       const configFile = path.join(configDir, 'claude_desktop_config.json');
       
       try {
@@ -209,7 +264,7 @@ program
     // Helper function to install for Claude Code
     const installClaudeCode = async () => {
       console.log('📦 Installing for Claude Code...');
-      const configDir = path.join(process.env.HOME || '', '.config', 'claude-code');
+      const configDir = path.join(os.homedir(), '.config', 'claude-code');
       const configFile = path.join(configDir, 'mcp.json');
       
       try {
@@ -242,7 +297,7 @@ program
     // Helper function to install for Cursor
     const installCursor = async () => {
       console.log('📦 Installing for Cursor IDE...');
-      const configDir = path.join(process.env.HOME || '', '.cursor', 'mcp');
+      const configDir = path.join(os.homedir(), '.cursor', 'mcp');
       const configFile = path.join(configDir, 'config.json');
       
       try {
@@ -275,7 +330,7 @@ program
     // Helper function to install for VS Code
     const installVSCode = async () => {
       console.log('📦 Installing for VS Code...');
-      const configDir = path.join(process.env.HOME || '', '.vscode', 'mcp');
+      const configDir = path.join(os.homedir(), '.vscode', 'mcp');
       const configFile = path.join(configDir, 'servers.json');
       
       try {
@@ -308,7 +363,7 @@ program
     // Helper function to install for Gemini
     const installGemini = async () => {
       console.log('📦 Installing for Google Gemini...');
-      const configDir = path.join(process.env.HOME || '', '.gemini', 'mcp');
+      const configDir = path.join(os.homedir(), '.gemini', 'mcp');
       const configFile = path.join(configDir, 'servers.json');
       
       try {
@@ -341,7 +396,7 @@ program
     // Helper function to install for Codex
     const installCodex = async () => {
       console.log('📦 Installing for OpenAI Codex...');
-      const configDir = path.join(process.env.HOME || '', '.openai', 'codex', 'mcp');
+      const configDir = path.join(os.homedir(), '.openai', 'codex', 'mcp');
       const configFile = path.join(configDir, 'config.json');
       
       try {
@@ -374,7 +429,7 @@ program
     // Helper function to install for Windsurf
     const installWindsurf = async () => {
       console.log('📦 Installing for Windsurf IDE...');
-      const configDir = path.join(process.env.HOME || '', '.windsurf', 'mcp');
+      const configDir = path.join(os.homedir(), '.windsurf', 'mcp');
       const configFile = path.join(configDir, 'config.json');
       
       try {
@@ -408,7 +463,7 @@ program
     const installJetBrains = async () => {
       console.log('📦 Installing for JetBrains IDEs...');
       // JetBrains uses a common config location for all their IDEs
-      const configDir = path.join(process.env.HOME || '', '.jetbrains', 'mcp');
+      const configDir = path.join(os.homedir(), '.jetbrains', 'mcp');
       const configFile = path.join(configDir, 'servers.json');
       
       try {
@@ -611,10 +666,59 @@ async function startStdioServer(options: any, toolConfig: ToolConfig) {
     };
   });
 
-  // Start the server
+  // Start ZAP server for browser extension discovery (binary transport, full MCP parity)
+  const methodHandlers: Record<string, (params: any) => Promise<any>> = {
+    'tools/list': async () => ({
+      tools: configuredTools.map(t => ({ name: t.name, description: t.description, inputSchema: t.inputSchema })),
+    }),
+    'tools/call': async (params: any) => {
+      const tool = toolMap.get(params?.name);
+      if (!tool) throw new Error(`Unknown tool: ${params?.name}`);
+      return tool.handler(params?.arguments || {});
+    },
+    'resources/list': async () => ({
+      resources: [{
+        uri: 'hanzo://system-prompt',
+        name: 'System Prompt',
+        mimeType: 'text/plain',
+        description: 'Hanzo MCP system prompt and context',
+      }],
+    }),
+    'resources/read': async (params: any) => {
+      if (params?.uri === 'hanzo://system-prompt') {
+        const systemPrompt = await getSystemPrompt(options.project);
+        return { contents: [{ uri: params.uri, mimeType: 'text/plain', text: systemPrompt }] };
+      }
+      return { contents: [{ uri: params?.uri, mimeType: 'text/plain', text: 'Resource not found' }] };
+    },
+  };
+
+  try {
+    const zapServer = await startZapServer({
+      tools: configuredTools,
+      name: 'hanzo-mcp',
+      callTool: async (toolName, args) => {
+        const tool = toolMap.get(toolName);
+        if (!tool) throw new Error(`Unknown tool: ${toolName}`);
+        return tool.handler(args);
+      },
+      handleMethod: async (method, params) => {
+        const handler = methodHandlers[method];
+        if (handler) return handler(params || {});
+        throw new Error(`Unsupported method: ${method}`);
+      },
+    });
+    if (zapServer) {
+      console.error(`[ZAP] Browser extension discovery on ws://127.0.0.1:${zapServer.port}`);
+    }
+  } catch (err: any) {
+    console.error(`[ZAP] Failed to start: ${err.message}`);
+  }
+
+  // Start the MCP stdio server
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  
+
   console.error('Hanzo MCP server started successfully');
 }
 

@@ -6,10 +6,12 @@ import { ToolTestSpec } from '../src/types.js';
 import { coreToolSpecs } from './core-tools.js';
 import { uiToolSpecs } from './ui-tools.js';
 import { autoguiToolSpecs } from './autogui-tools.js';
+import { hip0300ToolSpecs } from './hip0300-tools.js';
 
 export { coreToolSpecs } from './core-tools.js';
 export { uiToolSpecs } from './ui-tools.js';
 export { autoguiToolSpecs } from './autogui-tools.js';
+export { hip0300ToolSpecs } from './hip0300-tools.js';
 
 /**
  * All tool specifications combined
@@ -17,7 +19,8 @@ export { autoguiToolSpecs } from './autogui-tools.js';
 export const allToolSpecs: ToolTestSpec[] = [
   ...coreToolSpecs,
   ...uiToolSpecs,
-  ...autoguiToolSpecs
+  ...autoguiToolSpecs,
+  ...hip0300ToolSpecs
 ];
 
 /**

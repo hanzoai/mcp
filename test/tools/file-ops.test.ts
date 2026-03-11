@@ -21,7 +21,7 @@ describe('File Operations Tools', () => {
   
   describe('readFileTool', () => {
     test('should have correct metadata', () => {
-      expect(readFileTool.name).toBe('read_file');
+      expect(readFileTool.name).toBe('read');
       expect(readFileTool.description).toBe('Read the contents of a file');
       expect(readFileTool.inputSchema.type).toBe('object');
       expect(readFileTool.inputSchema.required).toContain('path');
@@ -64,7 +64,7 @@ describe('File Operations Tools', () => {
 
   describe('writeFileTool', () => {
     test('should have correct metadata', () => {
-      expect(writeFileTool.name).toBe('write_file');
+      expect(writeFileTool.name).toBe('write');
       expect(writeFileTool.description).toBe('Write content to a file');
       expect(writeFileTool.inputSchema.required).toEqual(['path', 'content']);
     });
@@ -121,7 +121,7 @@ describe('File Operations Tools', () => {
     });
 
     test('should have correct metadata', () => {
-      expect(listFilesTool.name).toBe('list_files');
+      expect(listFilesTool.name).toBe('list');
       expect(listFilesTool.description).toBe('List files in a directory');
     });
 
@@ -162,7 +162,7 @@ describe('File Operations Tools', () => {
 
   describe('getFileInfoTool', () => {
     test('should have correct metadata', () => {
-      expect(getFileInfoTool.name).toBe('get_file_info');
+      expect(getFileInfoTool.name).toBe('info');
       expect(getFileInfoTool.description).toBe('Get metadata about a file or directory');
       expect(getFileInfoTool.inputSchema.required).toContain('path');
     });
@@ -212,7 +212,7 @@ describe('File Operations Tools', () => {
     });
 
     test('should have correct metadata', () => {
-      expect(directoryTreeTool.name).toBe('directory_tree');
+      expect(directoryTreeTool.name).toBe('tree');
       expect(directoryTreeTool.description).toBe('Display a tree view of directory structure');
     });
 

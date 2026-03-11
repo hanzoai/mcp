@@ -4,6 +4,7 @@
  */
 
 import { promises as fs } from 'fs';
+import os from 'os';
 import path from 'path';
 import { spawn } from 'child_process';
 
@@ -52,7 +53,7 @@ export class LanceDBStore {
 
   constructor(config: VectorStoreConfig = {}) {
     this.config = {
-      dataDir: config.dataDir || path.join(process.env.HOME || '', '.hanzo', 'lancedb'),
+      dataDir: config.dataDir || path.join(os.homedir(), '.hanzo', 'lancedb'),
       embeddingModel: config.embeddingModel || 'all-MiniLM-L6-v2',
       dimensions: config.dimensions || 384,
       indexName: config.indexName || 'default'
