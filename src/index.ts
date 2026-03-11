@@ -13,6 +13,8 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
+  ListResourcesRequestSchema,
+  ReadResourceRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js';
 
 // Export types
@@ -69,44 +71,69 @@ export async function createMCPServer(config?: {
     }
   );
   
-  // Handle tool listing
-  server.setRequestHandler(ListToolsRequestSchema, async () => {
-    return {
-      tools: configuredTools.map(tool => ({
-        name: tool.name,
-        description: tool.description,
-        inputSchema: tool.inputSchema
-      }))
-    };
+  // ── MCP method handlers (shared between MCP + ZAP for full parity) ────
+
+  const listToolsHandler = async () => ({
+    tools: configuredTools.map(tool => ({
+      name: tool.name,
+      description: tool.description,
+      inputSchema: tool.inputSchema,
+    })),
   });
-  
-  // Handle tool execution
-  server.setRequestHandler(CallToolRequestSchema, async (request, extra) => {
-    const tool = combinedToolMap.get(request.params.name);
-    
+
+  const callToolHandler = async (params: { name: string; arguments?: Record<string, unknown> }) => {
+    const tool = combinedToolMap.get(params.name);
     if (!tool) {
       return {
-        content: [{
-          type: 'text',
-          text: `Unknown tool: ${request.params.name}`
-        }],
-        isError: true
+        content: [{ type: 'text', text: `Unknown tool: ${params.name}` }],
+        isError: true,
       };
     }
-    
     try {
-      const result = await tool.handler(request.params.arguments || {});
-      return result;
+      return await tool.handler(params.arguments || {});
     } catch (error: any) {
       return {
-        content: [{
-          type: 'text',
-          text: `Error executing ${tool.name}: ${error.message}`
-        }],
-        isError: true
+        content: [{ type: 'text', text: `Error executing ${tool.name}: ${error.message}` }],
+        isError: true,
       };
     }
+  };
+
+  const listResourcesHandler = async () => ({
+    resources: [{
+      uri: 'hanzo://system-prompt',
+      name: 'System Prompt',
+      mimeType: 'text/plain',
+      description: 'Hanzo MCP system prompt and context',
+    }],
   });
+
+  const readResourceHandler = async (params: { uri: string }) => {
+    if (params.uri === 'hanzo://system-prompt') {
+      const { getSystemPrompt: getSysPrompt } = await import('./prompts/system.js');
+      const systemPrompt = await getSysPrompt(projectPath);
+      return {
+        contents: [{ uri: params.uri, mimeType: 'text/plain', text: systemPrompt }],
+      };
+    }
+    return {
+      contents: [{ uri: params.uri, mimeType: 'text/plain', text: 'Resource not found' }],
+    };
+  };
+
+  // Method dispatch map — used by ZAP pass-through for full protocol parity
+  const methodHandlers: Record<string, (params: any) => Promise<any>> = {
+    'tools/list': listToolsHandler,
+    'tools/call': (params: any) => callToolHandler(params),
+    'resources/list': listResourcesHandler,
+    'resources/read': (params: any) => readResourceHandler(params),
+  };
+
+  // Register with MCP server
+  server.setRequestHandler(ListToolsRequestSchema, listToolsHandler);
+  server.setRequestHandler(CallToolRequestSchema, async (request) => callToolHandler(request.params));
+  server.setRequestHandler(ListResourcesRequestSchema, listResourcesHandler);
+  server.setRequestHandler(ReadResourceRequestSchema, async (request) => readResourceHandler(request.params));
   
   return {
     server,
@@ -114,6 +141,7 @@ export async function createMCPServer(config?: {
     
     async start() {
       // Start ZAP server for browser extension discovery
+      // ZAP is a binary transport for MCP — full protocol parity via handleMethod pass-through
       const zapServer = await startZapServer({
         tools: configuredTools,
         name,
@@ -121,6 +149,13 @@ export async function createMCPServer(config?: {
           const tool = combinedToolMap.get(toolName);
           if (!tool) throw new Error(`Unknown tool: ${toolName}`);
           return tool.handler(args);
+        },
+        // Pass-through for ALL MCP methods not handled by ZAP's built-in switch
+        // This ensures resources/*, prompts/*, and any future methods work over ZAP
+        handleMethod: async (method, params) => {
+          const handler = methodHandlers[method];
+          if (handler) return handler(params || {});
+          throw new Error(`Unsupported method: ${method}`);
         },
       }).catch((err) => {
         console.error(`[ZAP] Failed to start: ${err.message}`);

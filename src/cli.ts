@@ -27,6 +27,7 @@ const __dirname = dirname(__filename);
 // Import our tools
 import { getConfiguredTools, ToolConfig } from './tools/index.js';
 import { getSystemPrompt } from './prompts/system.js';
+import { startZapServer } from './zap-server.js';
 
 // Version from package.json
 const packageJson = JSON.parse(
@@ -665,10 +666,59 @@ async function startStdioServer(options: any, toolConfig: ToolConfig) {
     };
   });
 
-  // Start the server
+  // Start ZAP server for browser extension discovery (binary transport, full MCP parity)
+  const methodHandlers: Record<string, (params: any) => Promise<any>> = {
+    'tools/list': async () => ({
+      tools: configuredTools.map(t => ({ name: t.name, description: t.description, inputSchema: t.inputSchema })),
+    }),
+    'tools/call': async (params: any) => {
+      const tool = toolMap.get(params?.name);
+      if (!tool) throw new Error(`Unknown tool: ${params?.name}`);
+      return tool.handler(params?.arguments || {});
+    },
+    'resources/list': async () => ({
+      resources: [{
+        uri: 'hanzo://system-prompt',
+        name: 'System Prompt',
+        mimeType: 'text/plain',
+        description: 'Hanzo MCP system prompt and context',
+      }],
+    }),
+    'resources/read': async (params: any) => {
+      if (params?.uri === 'hanzo://system-prompt') {
+        const systemPrompt = await getSystemPrompt(options.project);
+        return { contents: [{ uri: params.uri, mimeType: 'text/plain', text: systemPrompt }] };
+      }
+      return { contents: [{ uri: params?.uri, mimeType: 'text/plain', text: 'Resource not found' }] };
+    },
+  };
+
+  try {
+    const zapServer = await startZapServer({
+      tools: configuredTools,
+      name: 'hanzo-mcp',
+      callTool: async (toolName, args) => {
+        const tool = toolMap.get(toolName);
+        if (!tool) throw new Error(`Unknown tool: ${toolName}`);
+        return tool.handler(args);
+      },
+      handleMethod: async (method, params) => {
+        const handler = methodHandlers[method];
+        if (handler) return handler(params || {});
+        throw new Error(`Unsupported method: ${method}`);
+      },
+    });
+    if (zapServer) {
+      console.error(`[ZAP] Browser extension discovery on ws://127.0.0.1:${zapServer.port}`);
+    }
+  } catch (err: any) {
+    console.error(`[ZAP] Failed to start: ${err.message}`);
+  }
+
+  // Start the MCP stdio server
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  
+
   console.error('Hanzo MCP server started successfully');
 }
 
