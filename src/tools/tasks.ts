@@ -12,7 +12,7 @@ interface Item { id: string; content: string; status: 'pending' | 'in_progress' 
 interface TodoList { items: Item[]; lastId: number; }
 
 const todoPath = () => process.env.TODO_PATH || path.join(os.homedir(), '.hanzo', 'todos.json');
-async function load(): Promise<TodoList> { try { return JSON.parse(await fs.readFile(todoPath(), 'utf-8')); } catch { return { items: [], lastId: 0 }; } }
+async function load(): Promise<TodoList> { try { const data = JSON.parse(await fs.readFile(todoPath(), 'utf-8')); return { items: Array.isArray(data.items) ? data.items : [], lastId: typeof data.lastId === 'number' ? data.lastId : 0 }; } catch { return { items: [], lastId: 0 }; } }
 async function save(t: TodoList) { await fs.mkdir(path.dirname(todoPath()), { recursive: true }); await fs.writeFile(todoPath(), JSON.stringify(t, null, 2)); }
 
 export const tasksTool: Tool = {

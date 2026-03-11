@@ -12,6 +12,7 @@
 /// - search: Unified code search
 
 pub mod config;
+pub mod ffi;
 pub mod server;
 pub mod protocol;
 pub mod tools;
@@ -22,6 +23,7 @@ pub use server::MCPServer;
 pub use tools::{
     ExecTool, FsTool, PlanTool, ThinkTool, MemoryTool,
     ComputerTool, BrowserTool, ModeTool,
+    CodeTool, GitTool, FetchTool, WorkspaceTool, TasksTool, HanzoTool,
     list_tools, parity_status,
 };
 
@@ -87,12 +89,18 @@ pub struct ToolRegistry {
     tools: HashMap<String, Box<dyn MCPTool>>,
     exec: Arc<RwLock<ExecTool>>,
     fs: Arc<RwLock<FsTool>>,
+    code: Arc<RwLock<CodeTool>>,
+    git: Arc<RwLock<GitTool>>,
+    fetch: Arc<RwLock<FetchTool>>,
+    workspace: Arc<RwLock<WorkspaceTool>>,
     plan: Arc<RwLock<PlanTool>>,
     think: Arc<RwLock<ThinkTool>>,
     memory: Arc<RwLock<MemoryTool>>,
     computer: Arc<RwLock<ComputerTool>>,
     browser: Arc<RwLock<BrowserTool>>,
     mode: Arc<RwLock<ModeTool>>,
+    tasks: Arc<RwLock<TasksTool>>,
+    hanzo: Arc<RwLock<HanzoTool>>,
 }
 
 impl ToolRegistry {
@@ -101,12 +109,18 @@ impl ToolRegistry {
             tools: HashMap::new(),
             exec: Arc::new(RwLock::new(ExecTool::new())),
             fs: Arc::new(RwLock::new(FsTool::new())),
+            code: Arc::new(RwLock::new(CodeTool::new())),
+            git: Arc::new(RwLock::new(GitTool::new())),
+            fetch: Arc::new(RwLock::new(FetchTool::new())),
+            workspace: Arc::new(RwLock::new(WorkspaceTool::new())),
             plan: Arc::new(RwLock::new(PlanTool::new())),
             think: Arc::new(RwLock::new(ThinkTool::new())),
             memory: Arc::new(RwLock::new(MemoryTool::new())),
             computer: Arc::new(RwLock::new(ComputerTool::new())),
             browser: Arc::new(RwLock::new(BrowserTool::new())),
             mode: Arc::new(RwLock::new(ModeTool::new())),
+            tasks: Arc::new(RwLock::new(TasksTool::new())),
+            hanzo: Arc::new(RwLock::new(HanzoTool::new())),
         }
     }
 
@@ -120,17 +134,13 @@ impl ToolRegistry {
 
     pub fn list(&self) -> Vec<String> {
         let mut names: Vec<String> = self.tools.keys().cloned().collect();
-        // Add built-in tools
+        // Add built-in tools (all 13 HIP-0300 canonical + search alias + browser extension)
         names.extend(vec![
-            "exec".to_string(),
-            "fs".to_string(),
-            "search".to_string(),
-            "plan".to_string(),
-            "think".to_string(),
-            "memory".to_string(),
-            "computer".to_string(),
-            "browser".to_string(),
-            "mode".to_string(),
+            "exec".into(), "fs".into(), "code".into(), "git".into(),
+            "fetch".into(), "workspace".into(), "computer".into(),
+            "think".into(), "memory".into(), "hanzo".into(),
+            "plan".into(), "tasks".into(), "mode".into(),
+            "search".into(), "browser".into(),
         ]);
         names.sort();
         names.dedup();
@@ -188,6 +198,36 @@ impl ToolRegistry {
                 let args: tools::ModeToolArgs = serde_json::from_value(params)?;
                 let result = self.mode.read().await.execute(args).await?;
                 Ok(ToolResult::ok(serde_json::from_str(&result)?))
+            }
+            "code" => {
+                let args: tools::CodeToolArgs = serde_json::from_value(params)?;
+                let result = self.code.read().await.execute(args).await?;
+                Ok(ToolResult::ok(result))
+            }
+            "git" => {
+                let args: tools::GitToolArgs = serde_json::from_value(params)?;
+                let result = self.git.read().await.execute(args).await?;
+                Ok(ToolResult::ok(result))
+            }
+            "fetch" => {
+                let args: tools::FetchToolArgs = serde_json::from_value(params)?;
+                let result = self.fetch.read().await.execute(args).await?;
+                Ok(ToolResult::ok(result))
+            }
+            "workspace" => {
+                let args: tools::WorkspaceToolArgs = serde_json::from_value(params)?;
+                let result = self.workspace.read().await.execute(args).await?;
+                Ok(ToolResult::ok(result))
+            }
+            "tasks" => {
+                let args: tools::TasksToolArgs = serde_json::from_value(params)?;
+                let result = self.tasks.read().await.execute(args).await?;
+                Ok(ToolResult::ok(result))
+            }
+            "hanzo" => {
+                let args: tools::HanzoToolArgs = serde_json::from_value(params)?;
+                let result = self.hanzo.read().await.execute(args).await?;
+                Ok(ToolResult::ok(result))
             }
             _ => {
                 if let Some(tool) = self.tools.get(name) {
@@ -247,6 +287,12 @@ impl ToolRegistry {
                 "description": tools::ModeToolDefinition::new().description,
                 "inputSchema": tools::ModeToolDefinition::new().input_schema
             }),
+            tools::CodeToolDefinition::schema(),
+            tools::GitToolDefinition::schema(),
+            tools::FetchToolDefinition::schema(),
+            tools::WorkspaceToolDefinition::schema(),
+            tools::TasksToolDefinition::schema(),
+            tools::HanzoToolDefinition::schema(),
         ];
 
         // Add custom registered tools

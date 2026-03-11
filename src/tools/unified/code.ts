@@ -31,9 +31,11 @@ export const codeTool: Tool = {
   inputSchema: {
     type: 'object',
     properties: {
-      action: { type: 'string', enum: ['search_symbol', 'outline', 'references', 'metrics', 'exports', 'types', 'hierarchy', 'rename', 'grep_replace'], description: 'Code action' },
+      action: { type: 'string', enum: ['search_symbol', 'outline', 'symbols', 'summarize', 'references', 'metrics', 'exports', 'types', 'hierarchy', 'rename', 'grep_replace'], description: 'Code action' },
       query: { type: 'string', description: 'Symbol name or search query' },
       uri: { type: 'string', description: 'File or directory path' },
+      path: { type: 'string', description: 'File path (alias for uri)' },
+      text: { type: 'string', description: 'Raw text input' },
       scope: { type: 'string', description: 'Search scope (file, directory, project)', default: 'project' },
       pattern: { type: 'string', description: 'File glob pattern' },
       new_name: { type: 'string', description: 'New name for rename' },
@@ -45,7 +47,7 @@ export const codeTool: Tool = {
   },
   handler: async (args) => {
     try {
-      const uri = args.uri || '.';
+      const uri = args.uri || args.path || '.';
 
       switch (args.action) {
         case 'search_symbol': {
@@ -88,6 +90,42 @@ export const codeTool: Tool = {
           }
           const imports = (content.match(IMPORT_RE) || []).length;
           return envelope({ uri, symbols, imports, lines: lines.length }, 'outline');
+        }
+
+        case 'symbols': {
+          // Like outline but keyed on path param
+          const filePath = args.path || args.uri;
+          if (!filePath || filePath === '.') return fail('INVALID_PARAMS', 'path or uri required');
+          let content: string;
+          if (args.text) {
+            content = args.text;
+          } else {
+            content = await fs.readFile(filePath, 'utf-8');
+          }
+          const lines = content.split('\n');
+          const symbols: any[] = [];
+          for (let i = 0; i < lines.length; i++) {
+            const line = lines[i];
+            SYMBOL_RE.lastIndex = 0;
+            let m;
+            while ((m = SYMBOL_RE.exec(line)) !== null) {
+              const kind = line.match(/\b(class|interface|type|enum|function|const|struct|impl|fn|def)\b/)?.[1] || 'symbol';
+              symbols.push({ name: m[1], kind, line: i + 1 });
+            }
+          }
+          return envelope({ symbols, count: symbols.length, path: filePath }, 'symbols');
+        }
+
+        case 'summarize': {
+          const text = args.text || '';
+          const wordCount = text.split(/\s+/).filter(Boolean).length;
+          const lineCount = text.split('\n').length;
+          // Detect if it's a diff
+          const isDiff = text.includes('---') && text.includes('+++');
+          const summary = isDiff
+            ? `Diff: ${lineCount} lines, ${text.split('\n').filter(l => l.startsWith('+')).length - 1} additions, ${text.split('\n').filter(l => l.startsWith('-')).length - 1} deletions`
+            : `Text: ${wordCount} words`;
+          return envelope({ summary, lines: lineCount, words: wordCount }, 'summarize');
         }
 
         case 'references': {
