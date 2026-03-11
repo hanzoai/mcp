@@ -27,7 +27,7 @@ export const fetchTool: Tool = {
   inputSchema: {
     type: 'object',
     properties: {
-      action: { type: 'string', enum: ['request', 'download', 'open'], description: 'Network action' },
+      action: { type: 'string', enum: ['request', 'fetch', 'head', 'download', 'open'], description: 'Network action' },
       url: { type: 'string', description: 'URL' },
       method: { type: 'string', description: 'HTTP method', default: 'GET' },
       headers: { type: 'object', description: 'HTTP headers' },
@@ -60,6 +60,40 @@ export const fetchTool: Tool = {
             headers: Object.fromEntries(resp.headers.entries()),
             body: typeof data === 'string' ? data.substring(0, 50000) : data,
           }, 'request');
+        }
+
+        case 'fetch': {
+          const opts: RequestInit = {
+            method: args.method || 'GET',
+            headers: args.headers || {},
+            signal: AbortSignal.timeout(args.timeout || 30000),
+          };
+          if (args.body) opts.body = args.body;
+          const resp = await fetch(args.url, opts);
+          const contentType = resp.headers.get('content-type') || '';
+          let data: any;
+          if (contentType.includes('json')) {
+            data = await resp.json();
+          } else {
+            data = await resp.text();
+          }
+          return envelope({
+            text: typeof data === 'string' ? data.substring(0, 50000) : JSON.stringify(data),
+            status: resp.status,
+            headers: Object.fromEntries(resp.headers.entries()),
+          }, 'fetch');
+        }
+
+        case 'head': {
+          const resp = await fetch(args.url, {
+            method: 'HEAD',
+            headers: args.headers || {},
+            signal: AbortSignal.timeout(args.timeout || 30000),
+          });
+          return envelope({
+            status: resp.status,
+            headers: Object.fromEntries(resp.headers.entries()),
+          }, 'head');
         }
 
         case 'download': {

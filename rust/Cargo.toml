@@ -86,3 +86,4 @@ path = "src/main.rs"
 [lib]
 name = "hanzo_mcp"
 path = "src/lib.rs"
+crate-type = ["lib", "cdylib", "staticlib"]
