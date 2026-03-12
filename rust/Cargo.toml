@@ -2,7 +2,11 @@
 
 [package]
 name = "hanzo-mcp"
-version = "0.1.0"
+version = "2.5.0"
+repository = "https://github.com/hanzoai/mcp"
+homepage = "https://hanzo.ai"
+keywords = ["mcp", "ai", "tools", "hanzo", "llm"]
+categories = ["development-tools", "command-line-utilities"]
 edition = "2021"
 authors = ["Hanzo AI"]
 description = "Hanzo MCP Server - Rust implementation with computer control, blockchain, and tool coordination"
