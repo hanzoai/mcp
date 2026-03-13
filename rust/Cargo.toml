@@ -11,6 +11,7 @@ edition = "2021"
 authors = ["Hanzo AI"]
 description = "Hanzo MCP Server - Rust implementation with computer control, blockchain, and tool coordination"
 license = "MIT"
+exclude = ["target/", "tests/", "benches/"]
 
 [dependencies]
 # Core
