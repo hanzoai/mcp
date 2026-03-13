@@ -1,85 +1,65 @@
 /**
  * ZAP (Zero-latency Agent Protocol) Server for @hanzo/mcp
  *
+ * Self-contained ZAP binary protocol encode/decode.
+ * No dependency on @hanzo/zap — MCP is MCP, ZAP is ZAP.
+ *
  * Allows Hanzo browser extensions to discover this MCP server
  * and call tools directly over a binary WebSocket protocol.
  *
- * Protocol: 9-byte header + JSON payload
- *   [0x5A 0x41 0x50 0x01] magic  "ZAP\x01"
- *   [type]                 1 byte message type
- *   [length]               4 bytes big-endian payload length
- *   [payload]              UTF-8 JSON
+ * Wire format: [0x5A 0x41 0x50 0x01][type:1][length:4 BE][JSON payload]
  */
 
 import { WebSocketServer, WebSocket, type RawData } from 'ws';
 import type { Tool } from './types/index.js';
 
-// ── Protocol Constants ──────────────────────────────────────────────────
-const ZAP_MAGIC = Buffer.from([0x5a, 0x41, 0x50, 0x01]);
-const MSG_HANDSHAKE    = 0x01;
-const MSG_HANDSHAKE_OK = 0x02;
-const MSG_REQUEST      = 0x10;
-const MSG_RESPONSE     = 0x11;
-const MSG_PING         = 0xfe;
-const MSG_PONG         = 0xff;
+// ── Inline ZAP Protocol ───────────────────────────────────────────────
+// Minimal encode/decode for the ZAP binary wire format.
+// Kept self-contained so @hanzo/mcp has zero ZAP package dependencies.
+
+const ZAP_MAGIC = new Uint8Array([0x5a, 0x41, 0x50, 0x01]);
+const HEADER_SIZE = 9; // 4 magic + 1 type + 4 length
+
+const textEncoder = new TextEncoder();
+const textDecoder = new TextDecoder();
+
+function zapEncode(type: number, payload: unknown): Uint8Array {
+  const json = textEncoder.encode(JSON.stringify(payload));
+  const frame = new Uint8Array(HEADER_SIZE + json.length);
+  const view = new DataView(frame.buffer, frame.byteOffset, frame.byteLength);
+  frame.set(ZAP_MAGIC, 0);
+  view.setUint8(4, type);
+  view.setUint32(5, json.length, false); // big-endian
+  frame.set(json, HEADER_SIZE);
+  return frame;
+}
+
+function zapDecode(data: Uint8Array): { type: number; payload: any } | null {
+  if (data.length < HEADER_SIZE) return null;
+  // Check magic
+  if (data[0] !== 0x5a || data[1] !== 0x41 || data[2] !== 0x50 || data[3] !== 0x01) {
+    return null;
+  }
+  const view = new DataView(data.buffer, data.byteOffset, data.byteLength);
+  const type = view.getUint8(4);
+  const length = view.getUint32(5, false);
+  if (data.length < HEADER_SIZE + length) return null;
+  const jsonBytes = data.subarray(HEADER_SIZE, HEADER_SIZE + length);
+  const payload = length > 0 ? JSON.parse(textDecoder.decode(jsonBytes)) : null;
+  return { type, payload };
+}
+
+// ── Protocol Constants ────────────────────────────────────────────────
+
+const MSG_HANDSHAKE    = 0x01; // Init
+const MSG_HANDSHAKE_OK = 0x02; // InitAck
+const MSG_REQUEST      = 0x10; // Push
+const MSG_RESPONSE     = 0x12; // Resolve
+const MSG_PING         = 0xf0;
+const MSG_PONG         = 0xf1;
 
 const ZAP_PORTS = [9999, 9998, 9997, 9996, 9995];
 const SERVER_ID = `mcp-${Date.now().toString(36)}`;
-
-// ── Encode / Decode ─────────────────────────────────────────────────────
-
-function encode(type: number, payload: unknown): Buffer {
-  const json = Buffer.from(JSON.stringify(payload), 'utf8');
-  const buf = Buffer.alloc(9 + json.length);
-  ZAP_MAGIC.copy(buf, 0);
-  buf[4] = type;
-  buf.writeUInt32BE(json.length, 5);
-  json.copy(buf, 9);
-  return buf;
-}
-
-function decode(data: Buffer): { type: number; payload: any } | null {
-  if (data.length < 5) return null;
-
-  // Format 1: MCP ZAP — [magic:4 BE][type:1][length:4 BE][JSON]
-  if (data[0] === 0x5a && data[1] === 0x41 && data[2] === 0x50 && data[3] === 0x01) {
-    if (data.length < 9) return null;
-    const type = data[4];
-    const length = data.readUInt32BE(5);
-    if (data.length < 9 + length) return null;
-    try {
-      const payload = JSON.parse(data.subarray(9, 9 + length).toString('utf8'));
-      return { type, payload };
-    } catch {
-      return null;
-    }
-  }
-
-  // Format 2: hanzo/dev ZAP — [length:4 LE][type:1][payload]
-  const leLength = data.readUInt32LE(0);
-  if (leLength > 0 && leLength <= 16 * 1024 * 1024 && data.length >= 5 + leLength) {
-    const type = data[4];
-    if (type <= 0x45 || type >= 0xFE) {
-      // Valid hanzo/dev message type range
-      const payloadBuf = data.subarray(5, 5 + leLength);
-      try {
-        const payload = JSON.parse(payloadBuf.toString('utf8'));
-        return { type, payload };
-      } catch {
-        // Binary payload from hanzo/dev — wrap as raw
-        return { type, payload: { raw: payloadBuf } };
-      }
-    }
-  }
-
-  // Format 3: Plain JSON fallback
-  try {
-    const payload = JSON.parse(data.toString('utf8'));
-    return { type: MSG_REQUEST, payload };
-  } catch {
-    return null;
-  }
-}
 
 // ── Client tracking ─────────────────────────────────────────────────────
 
@@ -115,32 +95,41 @@ export async function startZapServer(options: ZapServerOptions): Promise<{ port:
     inputSchema: t.inputSchema || {},
   }));
 
+  /** Encode and send a ZAP frame over WebSocket */
+  function sendFrame(ws: WebSocket, type: number, payload: unknown): void {
+    ws.send(zapEncode(type, payload));
+  }
+
   function handleMessage(ws: WebSocket, raw: RawData) {
     const buf = Buffer.isBuffer(raw) ? raw : Buffer.from(raw as ArrayBuffer);
-    const msg = decode(buf);
+    const data = new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength);
+    const msg = zapDecode(data);
     if (!msg) return;
 
     switch (msg.type) {
       case MSG_HANDSHAKE: {
-        const { clientId = 'unknown', browser = 'unknown', version = '0' } = msg.payload || {};
+        const p = (msg.payload || {}) as Record<string, string>;
+        const clientId = p['clientId'] || 'unknown';
+        const browser = p['browser'] || 'unknown';
+        const version = p['version'] || '0';
         clients.set(ws, { ws, clientId, browser, version, connectedAt: Date.now() });
         console.error(`[ZAP] Client connected: ${clientId} (${browser} v${version})`);
-        ws.send(encode(MSG_HANDSHAKE_OK, {
+        sendFrame(ws, MSG_HANDSHAKE_OK, {
           serverId: SERVER_ID,
           name,
           tools: toolManifest,
-        }));
+        });
         break;
       }
 
       case MSG_REQUEST: {
-        const { id, method, params } = msg.payload || {};
-        handleRequest(ws, id, method, params);
+        const p = (msg.payload || {}) as Record<string, unknown>;
+        handleRequest(ws, p['id'] as string, p['method'] as string, p['params']);
         break;
       }
 
       case MSG_PING:
-        ws.send(encode(MSG_PONG, {}));
+        sendFrame(ws, MSG_PONG, {});
         break;
 
       default:
@@ -184,12 +173,12 @@ export async function startZapServer(options: ZapServerOptions): Promise<{ port:
           break;
       }
 
-      ws.send(encode(MSG_RESPONSE, { id, result }));
+      sendFrame(ws, MSG_RESPONSE, { id, result });
     } catch (err: any) {
-      ws.send(encode(MSG_RESPONSE, {
+      sendFrame(ws, MSG_RESPONSE, {
         id,
         error: { code: -1, message: err?.message || String(err) },
-      }));
+      });
     }
   }
 
