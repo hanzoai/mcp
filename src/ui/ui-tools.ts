@@ -70,7 +70,7 @@ export const uiInitTool: Tool = {
   description: 'Initialize a new project using @hanzo/ui components and styles.',
   inputSchema: zodToJsonSchema(z.object({
     style: z.string().optional().describe("The style to use for the project (e.g., 'default' or 'new-york')"),
-  })) as any,
+  }) as any) as any,
   handler: async (args) => {
     const style = args.style || 'default';
     
@@ -156,7 +156,7 @@ export const uiListComponentsTool: Tool = {
   inputSchema: zodToJsonSchema(z.object({
     type: z.string().optional().describe("Filter components by type (e.g., 'ui', 'block')"),
     category: z.string().optional().describe("Filter components by category"),
-  })) as any,
+  }) as any) as any,
   handler: async (args) => {
     const registry = await getRegistry();
     const typeFilter = args.type;
@@ -211,7 +211,7 @@ export const uiGetComponentTool: Tool = {
   description: 'Get detailed information about a specific component',
   inputSchema: zodToJsonSchema(z.object({
     name: z.string().describe("The name of the component to get from the registry"),
-  })) as any,
+  }) as any) as any,
   handler: async (args) => {
     const name = args.name;
     const registry = await getRegistry();
@@ -280,7 +280,7 @@ export const uiGetComponentSourceTool: Tool = {
   description: 'Get the full source code of a component',
   inputSchema: zodToJsonSchema(z.object({
     name: z.string().describe("The name of the component to get source code for"),
-  })) as any,
+  }) as any) as any,
   handler: async (args) => {
     const name = args.name;
     const source = await getComponentSource(name);
@@ -309,7 +309,7 @@ export const uiGetComponentDemoTool: Tool = {
   description: 'Get a demo/example implementation of a component',
   inputSchema: zodToJsonSchema(z.object({
     name: z.string().describe("The name of the component to get demo for"),
-  })) as any,
+  }) as any) as any,
   handler: async (args) => {
     const name = args.name;
     const registry = await getRegistry();
@@ -376,7 +376,7 @@ export const uiAddComponentTool: Tool = {
   inputSchema: zodToJsonSchema(z.object({
     name: z.string().describe("The name of the component to add"),
     style: z.string().optional().describe("The style to use (default, new-york, etc.)"),
-  })) as any,
+  }) as any) as any,
   handler: async (args) => {
     const name = args.name;
     const style = args.style || 'default';
@@ -434,7 +434,7 @@ export const uiListBlocksTool: Tool = {
   description: 'List all available UI blocks/patterns',
   inputSchema: zodToJsonSchema(z.object({
     category: z.string().optional().describe("Filter blocks by category"),
-  })) as any,
+  }) as any) as any,
   handler: async (args) => {
     const registry = await getRegistry();
     const blocks = registry.items.filter(item => 
@@ -486,7 +486,7 @@ export const uiGetBlockTool: Tool = {
   description: 'Get detailed information about a specific block',
   inputSchema: zodToJsonSchema(z.object({
     name: z.string().describe("The name of the block to get"),
-  })) as any,
+  }) as any) as any,
   handler: async (args) => {
     const name = args.name;
     const registry = await getRegistry();
@@ -555,7 +555,7 @@ export const uiGetBlockTool: Tool = {
 export const uiListStylesTool: Tool = {
   name: 'ui_list_styles',
   description: 'List all available styles in the registry',
-  inputSchema: zodToJsonSchema(z.object({})) as any,
+  inputSchema: zodToJsonSchema(z.object({}) as any) as any,
   handler: async (args) => {
     const content = `# Available Hanzo UI Styles
 
@@ -609,7 +609,7 @@ export const uiSearchRegistryTool: Tool = {
   description: 'Search the registry for components matching criteria',
   inputSchema: zodToJsonSchema(z.object({
     query: z.string().describe("Search term to look for in component names and descriptions"),
-  })) as any,
+  }) as any) as any,
   handler: async (args) => {
     const query = args.query.toLowerCase();
     const registry = await getRegistry();
@@ -649,7 +649,7 @@ export const uiSearchRegistryTool: Tool = {
 export const uiGetInstallationGuideTool: Tool = {
   name: 'ui_get_installation_guide',
   description: 'Get the complete installation guide for setting up Hanzo UI',
-  inputSchema: zodToJsonSchema(z.object({})) as any,
+  inputSchema: zodToJsonSchema(z.object({}) as any) as any,
   handler: async (args) => {
     const content = `# Hanzo UI Complete Installation Guide
 

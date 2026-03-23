@@ -25,7 +25,7 @@ export const uiAddMultiFrameworkTool: Tool = {
     framework: z.enum(FRAMEWORKS).optional().describe("Target framework: react (default), vue, svelte, or react-native"),
     path: z.string().optional().describe("Custom path to install the component"),
     overwrite: z.boolean().optional().describe("Whether to overwrite existing files"),
-  })) as any,
+  }) as any) as any,
   handler: async (args) => {
     const framework = args.framework || 'react';
     const componentName = args.component;
@@ -84,7 +84,7 @@ export const uiCompareFrameworksTool: Tool = {
   description: 'Compare component availability across different frameworks in @hanzo/ui.',
   inputSchema: zodToJsonSchema(z.object({
     component: z.string().optional().describe("Specific component to check, or leave empty for all"),
-  })) as any,
+  }) as any) as any,
   handler: async (args) => {
     const componentName = args.component;
 
@@ -142,7 +142,7 @@ export const uiConvertFrameworkTool: Tool = {
     from: z.enum(FRAMEWORKS).describe("Source framework"),
     to: z.enum(FRAMEWORKS).describe("Target framework"),
     showCode: z.boolean().optional().describe("Show the converted code"),
-  })) as any,
+  }) as any) as any,
   handler: async (args) => {
     const { component, from, to, showCode } = args;
 
