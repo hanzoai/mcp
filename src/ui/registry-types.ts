@@ -23,10 +23,10 @@ export const registryItemSchema = z.object({
   devDependencies: z.array(z.string()).optional(),
   registryDependencies: z.array(z.string()).optional(),
   files: z.array(fileSchema).optional(),
-  meta: z.record(z.any()).optional(),
+  meta: z.record(z.string(), z.any()).optional(),
   title: z.string().optional(),
-  cssVars: z.record(z.any()).optional(),
-  tailwind: z.record(z.any()).optional(),
+  cssVars: z.record(z.string(), z.any()).optional(),
+  tailwind: z.record(z.string(), z.any()).optional(),
   category: z.string().optional(),
   subcategory: z.string().optional(),
 });
