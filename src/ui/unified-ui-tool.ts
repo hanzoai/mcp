@@ -829,7 +829,7 @@ Available methods:
     // Other
     path: z.string().optional().describe('Custom installation path'),
     overwrite: z.boolean().optional().describe('Whether to overwrite existing files'),
-  })) as any,
+  }) as any) as any,
 
   handler: async (args) => {
     const method = args.method;
