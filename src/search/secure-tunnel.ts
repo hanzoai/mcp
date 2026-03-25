@@ -435,17 +435,11 @@ export class SecureTunnel {
   }
 
   /**
-   * Verify JWT token
+   * Verify JWT token against hanzo.id IAM.
+   * Returns false until IAM OIDC validation is wired up.
    */
-  private verifyJWT(token: string): boolean {
-    // Simplified JWT verification - in production use jsonwebtoken library
-    try {
-      const [header, payload, signature] = token.split('.');
-      // TODO: Implement proper JWT verification
-      return false;
-    } catch {
-      return false;
-    }
+  private verifyJWT(_token: string): boolean {
+    return false;
   }
 
   /**
