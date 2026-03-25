@@ -4,7 +4,6 @@
 
 import { Tool, ToolResult } from '../types/index.js';
 import { z } from 'zod';
-import { zodToJsonSchema } from 'zod-to-json-schema';
 
 // Supported frameworks
 const FRAMEWORKS = ['react', 'vue', 'svelte', 'react-native'] as const;
@@ -20,7 +19,7 @@ const getFrameworkRegistryUrl = (framework: Framework) => {
 export const uiAddMultiFrameworkTool: Tool = {
   name: 'ui_add_multi_framework',
   description: 'Add a component from @hanzo/ui with support for React, Vue, Svelte, or React Native.',
-  inputSchema: zodToJsonSchema(z.object({
+  inputSchema: z.toJSONSchema(z.object({
     component: z.string().describe("The component name to add (e.g., 'button', 'card', 'dialog')"),
     framework: z.enum(FRAMEWORKS).optional().describe("Target framework: react (default), vue, svelte, or react-native"),
     path: z.string().optional().describe("Custom path to install the component"),
@@ -82,7 +81,7 @@ Visit https://ui.hanzo.ai/docs/${framework}/${componentName} for complete docume
 export const uiCompareFrameworksTool: Tool = {
   name: 'ui_compare_frameworks',
   description: 'Compare component availability across different frameworks in @hanzo/ui.',
-  inputSchema: zodToJsonSchema(z.object({
+  inputSchema: z.toJSONSchema(z.object({
     component: z.string().optional().describe("Specific component to check, or leave empty for all"),
   }) as any) as any,
   handler: async (args) => {
@@ -137,7 +136,7 @@ export const uiCompareFrameworksTool: Tool = {
 export const uiConvertFrameworkTool: Tool = {
   name: 'ui_convert_framework',
   description: 'Convert a component from one framework to another in @hanzo/ui.',
-  inputSchema: zodToJsonSchema(z.object({
+  inputSchema: z.toJSONSchema(z.object({
     component: z.string().describe("The component name to convert"),
     from: z.enum(FRAMEWORKS).describe("Source framework"),
     to: z.enum(FRAMEWORKS).describe("Target framework"),
