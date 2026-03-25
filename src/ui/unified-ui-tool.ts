@@ -5,7 +5,6 @@
 
 import { Tool, ToolResult } from '../types/index.js';
 import { z } from 'zod';
-import { zodToJsonSchema } from 'zod-to-json-schema';
 import {
   registrySchema,
   Registry,
@@ -787,7 +786,7 @@ Available methods:
 - compare_frameworks: Compare component availability across frameworks
 - convert_framework: Convert component between frameworks`,
 
-  inputSchema: zodToJsonSchema(z.object({
+  inputSchema: z.toJSONSchema(z.object({
     method: z.enum([
       'init',
       'list_components',
