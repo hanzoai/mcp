@@ -2,10 +2,14 @@
  * Unified UI Tool for Hanzo MCP
  * Single tool with methods for all UI component operations
  * Supports multiple frameworks and registries with Hanzo as default
+ *
+ * Local-first: when ~/work/hanzo/ui exists, reads directly from disk
+ * for the hanzo framework. Falls back to GitHub API otherwise.
  */
 
 import { Tool } from '../types/index.js';
 import { GitHubAPIClient, FRAMEWORK_CONFIGS } from './ui-github-api.js';
+import { LocalUIClient } from './ui-local-client.js';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import * as fs from 'fs/promises';
@@ -23,8 +27,8 @@ const HANZO_FRAMEWORKS: Record<string, { name: string; registry?: string; github
       owner: 'hanzoai',
       repo: 'ui',
       branch: 'main',
-      componentsPath: 'packages/ui/src/components',
-      blocksPath: 'packages/ui/src/blocks',
+      componentsPath: 'pkg/ui/primitives',
+      blocksPath: 'pkg/ui/primitives',
       extension: '.tsx'
     }
   },
@@ -89,6 +93,19 @@ const HANZO_FRAMEWORKS: Record<string, { name: string; registry?: string; github
 // Current framework (default to Hanzo)
 let currentFramework = 'hanzo';
 
+// Local-first client for reading from ~/work/hanzo/ui
+const localClient = new LocalUIClient();
+const localAvailable = localClient.available;
+
+if (localAvailable) {
+  console.error('[ui] Local hanzo/ui repo detected, using local-first mode');
+}
+
+/** Use local client for hanzo frameworks when repo is available. */
+function useLocal(framework: string): boolean {
+  return framework.startsWith('hanzo') && localAvailable;
+}
+
 // Cache for registry data
 const registryCache = new Map<string, { data: any; timestamp: number }>();
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
@@ -127,8 +144,17 @@ const methodHandlers: Record<string, (args: any) => Promise<any>> = {
     const framework = args.framework || currentFramework;
     const category = args.category;
 
-    const client = getGitHubClient();
-    const components = await client.listComponents(framework);
+    let components: any[];
+    let source: string;
+
+    if (useLocal(framework)) {
+      components = await localClient.listComponents(framework);
+      source = 'local';
+    } else {
+      const client = getGitHubClient();
+      components = await client.listComponents(framework);
+      source = 'github';
+    }
 
     let filtered = components;
     if (category) {
@@ -137,6 +163,7 @@ const methodHandlers: Record<string, (args: any) => Promise<any>> = {
 
     return {
       framework: HANZO_FRAMEWORKS[framework]?.name || framework,
+      source,
       total: filtered.length,
       components: filtered
     };
@@ -151,13 +178,29 @@ const methodHandlers: Record<string, (args: any) => Promise<any>> = {
       throw new Error('Component name is required');
     }
 
+    // Try local first for hanzo frameworks
+    if (useLocal(framework)) {
+      try {
+        const component = await localClient.fetchComponent(name, framework);
+        return {
+          framework: HANZO_FRAMEWORKS[framework]?.name || framework,
+          component: name,
+          source: component,
+          backend: 'local'
+        };
+      } catch {
+        // Fall through to GitHub
+      }
+    }
+
     const client = getGitHubClient();
     const component = await client.fetchComponent(name, framework);
 
     return {
       framework: HANZO_FRAMEWORKS[framework]?.name || framework,
       component: name,
-      source: component
+      source: component,
+      backend: 'github'
     };
   },
 
@@ -170,13 +213,27 @@ const methodHandlers: Record<string, (args: any) => Promise<any>> = {
       throw new Error('Component name is required');
     }
 
+    if (useLocal(framework)) {
+      try {
+        const demo = await localClient.fetchComponentDemo(name, framework);
+        return {
+          framework: HANZO_FRAMEWORKS[framework]?.name || framework,
+          component: name,
+          demo,
+          backend: 'local'
+        };
+      } catch {
+        // Fall through to GitHub
+      }
+    }
+
     const client = getGitHubClient();
     const demo = await client.fetchComponentDemo(name, framework);
 
     return {
       framework: HANZO_FRAMEWORKS[framework]?.name || framework,
       component: name,
-      demo: demo
+      demo
     };
   },
 
@@ -189,13 +246,22 @@ const methodHandlers: Record<string, (args: any) => Promise<any>> = {
       throw new Error('Component name is required');
     }
 
+    if (useLocal(framework)) {
+      const metadata = await localClient.fetchComponentMetadata(name, framework);
+      return {
+        framework: HANZO_FRAMEWORKS[framework]?.name || framework,
+        component: name,
+        metadata
+      };
+    }
+
     const client = getGitHubClient();
     const metadata = await client.fetchComponentMetadata(name, framework);
 
     return {
       framework: HANZO_FRAMEWORKS[framework]?.name || framework,
       component: name,
-      metadata: metadata
+      metadata
     };
   },
 
@@ -204,8 +270,17 @@ const methodHandlers: Record<string, (args: any) => Promise<any>> = {
     const framework = args.framework || currentFramework;
     const category = args.category;
 
-    const client = getGitHubClient();
-    const blocks = await client.listBlocks(framework);
+    let blocks: any[];
+    let source: string;
+
+    if (useLocal(framework)) {
+      blocks = await localClient.listBlocks(framework);
+      source = 'local';
+    } else {
+      const client = getGitHubClient();
+      blocks = await client.listBlocks(framework);
+      source = 'github';
+    }
 
     let filtered = blocks;
     if (category) {
@@ -214,6 +289,7 @@ const methodHandlers: Record<string, (args: any) => Promise<any>> = {
 
     return {
       framework: HANZO_FRAMEWORKS[framework]?.name || framework,
+      source,
       total: filtered.length,
       blocks: filtered
     };
@@ -223,10 +299,23 @@ const methodHandlers: Record<string, (args: any) => Promise<any>> = {
   async get_block(args: any) {
     const name = args.block || args.name;
     const framework = args.framework || currentFramework;
-    const includeFiles = args.include_files !== false;
 
     if (!name) {
       throw new Error('Block name is required');
+    }
+
+    if (useLocal(framework)) {
+      try {
+        const block = await localClient.fetchBlock(name, framework);
+        return {
+          framework: HANZO_FRAMEWORKS[framework]?.name || framework,
+          block: name,
+          implementation: block,
+          backend: 'local'
+        };
+      } catch {
+        // Fall through to GitHub
+      }
     }
 
     const client = getGitHubClient();
@@ -248,6 +337,16 @@ const methodHandlers: Record<string, (args: any) => Promise<any>> = {
       throw new Error('Search query is required');
     }
 
+    if (useLocal(framework)) {
+      const matches = await localClient.searchComponents(query);
+      return {
+        framework: HANZO_FRAMEWORKS[framework]?.name || framework,
+        query,
+        source: 'local',
+        results: matches
+      };
+    }
+
     const client = getGitHubClient();
     const components = await client.listComponents(framework);
 
@@ -259,24 +358,35 @@ const methodHandlers: Record<string, (args: any) => Promise<any>> = {
 
     return {
       framework: HANZO_FRAMEWORKS[framework]?.name || framework,
-      query: query,
+      query,
+      source: 'github',
       results: matches
     };
   },
 
   // Get directory structure
   async get_structure(args: any) {
-    const path = args.path || '';
+    const dirPath = args.path || '';
     const framework = args.framework || currentFramework;
-    const depth = args.depth || 3;
+
+    if (useLocal(framework)) {
+      const structure = await localClient.getDirectoryStructure(dirPath, framework);
+      return {
+        framework: HANZO_FRAMEWORKS[framework]?.name || framework,
+        path: dirPath || 'pkg/',
+        source: 'local',
+        structure
+      };
+    }
 
     const client = getGitHubClient();
-    const structure = await client.getDirectoryStructure(path, framework);
+    const structure = await client.getDirectoryStructure(dirPath, framework);
 
     return {
       framework: HANZO_FRAMEWORKS[framework]?.name || framework,
-      path: path || '/',
-      structure: structure
+      path: dirPath || '/',
+      source: 'github',
+      structure
     };
   },
 
@@ -341,12 +451,46 @@ const methodHandlers: Record<string, (args: any) => Promise<any>> = {
     return {
       current: HANZO_FRAMEWORKS[currentFramework].name,
       framework: currentFramework,
+      localAvailable: localAvailable,
       available: Object.entries(HANZO_FRAMEWORKS).map(([key, config]) => ({
         key: key,
         name: config.name,
         hasRegistry: !!config.registry
       })),
       hanzoRegistryStatus: isHanzoRegistryLive ? 'online' : 'offline'
+    };
+  },
+
+  // List all local UI packages
+  async list_packages(args: any) {
+    if (!localAvailable) {
+      throw new Error('Local hanzo/ui repo not found. Set HANZO_UI_PATH or clone to ~/work/hanzo/ui');
+    }
+
+    const packages = await localClient.listPackages();
+    return {
+      source: 'local',
+      total: packages.length,
+      packages
+    };
+  },
+
+  // Read any file from the UI repo by relative path
+  async read_file(args: any) {
+    const filePath = args.path || args.file;
+    if (!filePath) {
+      throw new Error('File path is required (relative to hanzo/ui root)');
+    }
+
+    if (!localAvailable) {
+      throw new Error('Local hanzo/ui repo not found. Set HANZO_UI_PATH or clone to ~/work/hanzo/ui');
+    }
+
+    const content = await localClient.readFile(filePath);
+    return {
+      path: filePath,
+      source: 'local',
+      content
     };
   },
 
@@ -430,7 +574,9 @@ export const unifiedUITool: Tool = {
           'install',
           'set_framework',
           'get_framework',
-          'create_composition'
+          'create_composition',
+          'list_packages',
+          'read_file'
         ]
       },
       // Common parameters
@@ -487,6 +633,10 @@ export const unifiedUITool: Tool = {
       description: {
         type: 'string',
         description: 'Description for composition'
+      },
+      file: {
+        type: 'string',
+        description: 'File path (for read_file, relative to hanzo/ui root)'
       }
     },
     required: ['method']
@@ -581,6 +731,7 @@ export const unifiedUITool: Tool = {
 
         case 'get_framework':
           output = `Current Framework: ${result.current}\n`;
+          output += `Local Repo: ${result.localAvailable ? 'available' : 'not found'}\n`;
           output += `Hanzo Registry: ${result.hanzoRegistryStatus}\n\n`;
           output += 'Available Frameworks:\n';
           for (const fw of result.available) {
@@ -588,6 +739,21 @@ export const unifiedUITool: Tool = {
             if (fw.hasRegistry) output += ' [registry]';
             output += '\n';
           }
+          break;
+
+        case 'list_packages':
+          output = `UI Packages (${result.total} total, local)\n\n`;
+          for (const pkg of result.packages) {
+            output += `• ${pkg.name}`;
+            if (pkg.version) output += ` v${pkg.version}`;
+            if (pkg.description) output += ` - ${pkg.description}`;
+            output += '\n';
+          }
+          break;
+
+        case 'read_file':
+          output = `File: ${result.path}\n\n`;
+          output += result.content;
           break;
 
         default:
