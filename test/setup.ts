@@ -4,7 +4,12 @@
 
 import * as fs from 'fs/promises';
 import * as path from 'path';
-import { beforeAll, afterAll, beforeEach, afterEach } from '@jest/globals';
+import { fileURLToPath } from 'url';
+import { beforeAll, afterAll, beforeEach, afterEach, jest } from '@jest/globals';
+
+// ESM-safe __dirname (the project's `jest.config.js` runs in ESM mode).
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Global test timeout
 jest.setTimeout(10000);
