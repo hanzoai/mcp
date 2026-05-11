@@ -828,14 +828,11 @@ const BASE58: &str = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz
 const VERSION_V1: u8 = 0x01;
 
 fn digest32(data: &[u8]) -> [u8; 32] {
-    // sha256 stand-in for blake3 (kept consistent within the Rust runtime).
-    use sha2::{Digest, Sha256};
-    let mut h = Sha256::new();
-    h.update(data);
-    let v = h.finalize();
-    let mut out = [0u8; 32];
-    out.copy_from_slice(&v);
-    out
+    // BLAKE3 — wallet addresses are content-addressable; every brain runtime
+    // (TS @noble/hashes/blake3, Python blake3, Go lukechampine.com/blake3,
+    // C++ vendored reference impl) hashes with BLAKE3 so the output is
+    // byte-equivalent across all five.
+    blake3::hash(data).into()
 }
 
 pub fn encode_address(public_key: &[u8], prefix: Option<&str>) -> Result<String, &'static str> {
