@@ -17,10 +17,12 @@
 //! is the Lux-flavored extension of zapdb for blockchain workloads, not
 //! a generic brain backend.
 
+pub mod algorithms;
 pub mod graph_links;
 pub mod recipes;
 pub mod store;
 
+pub use algorithms::*;
 pub use graph_links::{extract_edges, reconcile, slugify, Edge, EdgeType};
 pub use recipes::{list_recipes, load_recipe, Recipe};
 pub use store::{BrainStore, Fact, MemoryConfig, SearchHit};
