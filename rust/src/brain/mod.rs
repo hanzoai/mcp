@@ -11,8 +11,11 @@
 //!   facts (id, subject, predicate, object, source, ts, confidence)
 //!
 //! Pluggable: implement the `BrainStore` trait against any store
-//! (sqlite/libsql/qdrant/meilisearch/postgres/...) and register via
-//! `register_backend(name, factory)`.
+//! (sqlite / qdrant / meilisearch / zapdb / postgres / …) and register
+//! via `register_backend(name, factory)`. The canonical native store
+//! is `zapdb` (`zap-proto/db`, ZAP-native, multi-language). `luxfi/database`
+//! is the Lux-flavored extension of zapdb for blockchain workloads, not
+//! a generic brain backend.
 
 pub mod graph_links;
 pub mod recipes;
