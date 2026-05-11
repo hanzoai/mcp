@@ -1,9 +1,13 @@
-//! Pure-CPU algorithm port for the Rust runtime.
+//! Pure-CPU algorithm port for the Hanzo MCP Rust runtime.
 //!
 //! Mirrors `@hanzo/bot-memory` (TS), `hanzo_memory.algorithms` (Python),
-//! and `pkg/brain` (Go). See `hanzoai/brain/PARITY.md` for the contract.
+//! `bot-go/pkg/brain` (Go), and `bot-cpp/include/hanzo/brain/algorithms.hpp`
+//! (C++). A `~/.hanzo/brain/brain.db` written by any runtime is read by
+//! every other without translation.
 //!
-//! Only stdlib + crates already present in this workspace are used.
+//! The node-side canonical home lives in
+//! `hanzoai/node/hanzo-libs/hanzo-brain/src/algorithms.rs`; this file is
+//! the byte-equivalent mirror for the standalone MCP server.
 
 use std::collections::{HashMap, HashSet};
 
@@ -663,7 +667,7 @@ fn fmt_time(secs: f64, ms_sep: char) -> String {
 pub fn estimate_tokens(text: &str) -> usize {
     let mut total = 0usize;
     let mut ascii_run = String::new();
-    let mut flush = |buf: &mut String, total: &mut usize| {
+    let flush = |buf: &mut String, total: &mut usize| {
         if buf.is_empty() { return; }
         for w in buf.split_whitespace() {
             *total += std::cmp::max(1, (w.chars().count() + 3) / 4);
