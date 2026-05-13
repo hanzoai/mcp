@@ -1,6 +1,6 @@
 {
   "name": "@hanzo/mcp",
-  "version": "2.4.2",
+  "version": "2.4.3",
   "description": "Hanzo MCP Server - Unified tool surface with AI, cloud control, vector search, and multi-framework UI",
   "main": "dist/index.js",
   "type": "module",
@@ -10,6 +10,7 @@
   },
   "files": [
     "dist/",
+    "scripts/smoke-mcp.mjs",
     "server.js",
     "package.json",
     "README.md",
@@ -20,6 +21,7 @@
     "build:lib": "esbuild src/index.ts --bundle --platform=node --target=node18 --format=esm --outfile=dist/index.js --external:@modelcontextprotocol/sdk --external:glob --external:commander --external:zod --external:zod-to-json-schema --external:mime-types --external:@lancedb/lancedb --external:@xenova/transformers --external:jsautogui --external:playwright --external:playwright-core --external:ws --external:path --external:fs --external:fs/promises --external:os --external:url",
     "build:cli": "esbuild src/cli.ts --bundle --platform=node --target=node18 --format=esm --outfile=dist/cli.js --external:@modelcontextprotocol/sdk --external:glob --external:commander --external:zod --external:zod-to-json-schema --external:mime-types --external:@lancedb/lancedb --external:@xenova/transformers --external:jsautogui --external:playwright --external:playwright-core --external:ws --external:path --external:fs --external:fs/promises --external:os --external:url && chmod +x dist/cli.js",
     "dev": "tsc --watch",
+    "smoke": "node scripts/smoke-mcp.mjs",
     "test": "jest",
     "lint": "echo 'No linter configured'",
     "prepublishOnly": "npm run build"

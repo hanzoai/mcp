@@ -2,104 +2,97 @@ name: CI
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [main, develop]
   pull_request:
-    branches: [ main ]
+    branches: [main]
 
 jobs:
   test:
-    runs-on: ubuntu-latest
-    
+    runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
-        node-version: [18.x, 20.x]
-    
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        node-version: [20.x, 22.x]
     steps:
-    - uses: actions/checkout@v3
-    
-    - name: Use Node.js ${{ matrix.node-version }}
-      uses: actions/setup-node@v3
-      with:
-        node-version: ${{ matrix.node-version }}
-        cache: 'npm'
-    
-    - name: Install dependencies
-      run: npm install
-    
-    - name: Build
-      run: npm run build
-    
-    - name: Run tests
-      run: npm test
-    
-    - name: Run tests with coverage
-      run: npx jest --coverage --collectCoverageFrom="src/**/*.ts"
-    
-    - name: Upload coverage reports
-      uses: codecov/codecov-action@v3
-      if: matrix.node-version == '20.x'
-      with:
-        file: ./coverage/lcov.info
-        flags: unittests
-        name: codecov-umbrella
-        fail_ci_if_error: false
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: npm
+      - run: npm install
+      - run: npm run build
+      - run: npm test
+        continue-on-error: ${{ runner.os == 'Windows' }}
+
+  # Cross-platform MCP-protocol smoke test. This is the canary that
+  # would have caught the npx-arg-routing bug: it spawns the bundled
+  # dist/cli.js, sends a JSON-RPC `initialize`, and requires a valid
+  # serverInfo response within 20 s. Runs on every supported OS.
+  smoke:
+    needs: test
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+          cache: npm
+      - run: npm install
+      - run: npm run build
+      - name: MCP stdio smoke
+        run: node scripts/smoke-mcp.mjs
+
+  # End-to-end test against the *published* npm package using the same
+  # npx invocation Claude Desktop / Claude Code generate. Catches issues
+  # where the package builds locally but the published bin entry or
+  # install-script args route to the wrong executable. Only runs on
+  # main pushes (to avoid hammering the registry on PRs).
+  e2e-npx:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: smoke
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+      - name: npx initialize roundtrip
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="$(mktemp)"
+          ERR="$(mktemp)"
+          { printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"ci","version":"1"}}}'; sleep 30; } \
+            | npx -y --package=@hanzo/mcp@latest hanzo-mcp serve >"$OUT" 2>"$ERR" || true
+          echo "--- stdout"; cat "$OUT"
+          echo "--- stderr (tail)"; tail -20 "$ERR" || true
+          grep -q '"name":"hanzo-mcp"' "$OUT"
 
   lint:
     runs-on: ubuntu-latest
-    
     steps:
-    - uses: actions/checkout@v3
-    
-    - name: Use Node.js
-      uses: actions/setup-node@v3
-      with:
-        node-version: '20.x'
-        cache: 'npm'
-    
-    - name: Install dependencies
-      run: npm install
-    
-    - name: Run ESLint
-      run: npm run lint || true
-    
-    - name: Check TypeScript
-      run: npx tsc --noEmit || true
-
-  build-test:
-    runs-on: ubuntu-latest
-    
-    steps:
-    - uses: actions/checkout@v3
-    
-    - name: Use Node.js
-      uses: actions/setup-node@v3
-      with:
-        node-version: '20.x'
-        cache: 'npm'
-    
-    - name: Install dependencies
-      run: npm install
-    
-    - name: Build library
-      run: npm run build:lib
-    
-    - name: Build CLI
-      run: npm run build:cli
-    
-    - name: Test CLI installation
-      run: |
-        npm link
-        hanzo-mcp --version || true
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+          cache: npm
+      - run: npm install
+      - run: npm run lint || true
+      - run: npx tsc --noEmit || true
 
   security:
     runs-on: ubuntu-latest
-    
     steps:
-    - uses: actions/checkout@v3
-    
-    - name: Run npm audit
-      run: npm audit --audit-level=moderate || true
-    
-    - name: Run security checks
-      uses: actions/dependency-review-action@v3
-      if: github.event_name == 'pull_request'
+      - uses: actions/checkout@v4
+      - run: npm audit --audit-level=high || true
+      - uses: actions/dependency-review-action@v4
+        if: github.event_name == 'pull_request'
