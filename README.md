@@ -153,10 +153,14 @@ other client:
 
 4. **Windows specifics.** `npx.cmd` shells out to `cmd.exe` for arg
    parsing, which is sensitive to quoting. If the JSON config uses
-   single quotes anywhere, switch to double quotes. The CI matrix
-   (`.github/workflows/ci.yml`) runs the same smoke test on
-   `windows-latest` / `macos-latest` / `ubuntu-latest` on every push
-   to main — if a regression slips past it, please open an issue.
+   single quotes anywhere, switch to double quotes.
+
+5. **CI invariants.** The protocol-level contract is exercised on every
+   push to main, on native Linux amd64 + arm64 (Hanzo self-hosted
+   runners, no QEMU), via `scripts/smoke-mcp.mjs` and an e2e test
+   against the *published* npm package using the same npx invocation
+   shipped to clients. If MCP works locally but fails for you, open an
+   issue with the `HANZO_MCP_DEBUG=1` log attached.
 
 ## Architecture
 
