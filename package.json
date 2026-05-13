@@ -1,11 +1,12 @@
 {
   "name": "@hanzo/mcp",
-  "version": "2.4.1",
+  "version": "2.4.2",
   "description": "Hanzo MCP Server - Unified tool surface with AI, cloud control, vector search, and multi-framework UI",
   "main": "dist/index.js",
   "type": "module",
   "bin": {
-    "hanzo-mcp": "./dist/cli.js"
+    "hanzo-mcp": "./dist/cli.js",
+    "mcp": "./dist/cli.js"
   },
   "files": [
     "dist/",
