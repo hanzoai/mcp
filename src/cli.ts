@@ -250,7 +250,7 @@ program
         
         config.mcpServers['hanzo-mcp'] = {
           command: 'npx',
-          args: ['-y', '@hanzo/mcp', 'serve'],
+          args: ['-y', '--package=@hanzo/mcp', 'hanzo-mcp', 'serve'],
           env: {}
         };
         
@@ -283,7 +283,7 @@ program
         
         config.servers['hanzo-mcp'] = {
           command: 'npx',
-          args: ['-y', '@hanzo/mcp', 'serve'],
+          args: ['-y', '--package=@hanzo/mcp', 'hanzo-mcp', 'serve'],
           env: {}
         };
         
@@ -316,7 +316,7 @@ program
         
         config.servers['hanzo-mcp'] = {
           command: 'npx',
-          args: ['-y', '@hanzo/mcp', 'serve'],
+          args: ['-y', '--package=@hanzo/mcp', 'hanzo-mcp', 'serve'],
           env: {}
         };
         
@@ -349,7 +349,7 @@ program
         
         config.servers['hanzo-mcp'] = {
           command: 'npx',
-          args: ['-y', '@hanzo/mcp', 'serve'],
+          args: ['-y', '--package=@hanzo/mcp', 'hanzo-mcp', 'serve'],
           env: {}
         };
         
@@ -382,7 +382,7 @@ program
         
         config.servers['hanzo-mcp'] = {
           command: 'npx',
-          args: ['-y', '@hanzo/mcp', 'serve'],
+          args: ['-y', '--package=@hanzo/mcp', 'hanzo-mcp', 'serve'],
           env: {}
         };
         
@@ -415,7 +415,7 @@ program
         
         config.servers['hanzo-mcp'] = {
           command: 'npx',
-          args: ['-y', '@hanzo/mcp', 'serve'],
+          args: ['-y', '--package=@hanzo/mcp', 'hanzo-mcp', 'serve'],
           env: {}
         };
         
@@ -448,7 +448,7 @@ program
         
         config.servers['hanzo-mcp'] = {
           command: 'npx',
-          args: ['-y', '@hanzo/mcp', 'serve'],
+          args: ['-y', '--package=@hanzo/mcp', 'hanzo-mcp', 'serve'],
           env: {}
         };
         
@@ -482,7 +482,7 @@ program
         
         config.servers['hanzo-mcp'] = {
           command: 'npx',
-          args: ['-y', '@hanzo/mcp', 'serve'],
+          args: ['-y', '--package=@hanzo/mcp', 'hanzo-mcp', 'serve'],
           env: {}
         };
         
