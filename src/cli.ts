@@ -79,9 +79,24 @@ program
     };
 
     const tools = getConfiguredTools(toolConfig);
-    
+
+    // Diagnostic preamble. Always-on (stderr only; doesn't pollute JSON-RPC
+    // on stdout). Lets users hand a log to support when MCP "doesn't work":
+    // emits node version, platform, package version, and (if HANZO_MCP_DEBUG=1)
+    // a one-time dump of the cwd, the resolved cli path, and PATH so we can
+    // tell whether a stray `serve` binary or a wrong `npx` invocation is
+    // shadowing our entrypoint.
     console.error(`Starting Hanzo MCP server v${packageJson.version}...`);
+    console.error(`node ${process.version} on ${process.platform}-${process.arch}`);
     console.error(`Loaded ${tools.length} tools`);
+    if (process.env.HANZO_MCP_DEBUG === '1') {
+      console.error(`[debug] cwd=${process.cwd()}`);
+      console.error(`[debug] cli=${process.argv[1]}`);
+      console.error(`[debug] argv=${JSON.stringify(process.argv.slice(2))}`);
+      const path = process.env.PATH ?? '';
+      const head = path.split(process.platform === 'win32' ? ';' : ':').slice(0, 6).join(process.platform === 'win32' ? ';' : ':');
+      console.error(`[debug] PATH[0:6]=${head}`);
+    }
     if (toolConfig.enableUI) {
       console.error('UI tools enabled');
     }
