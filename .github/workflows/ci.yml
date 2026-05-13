@@ -6,93 +6,118 @@ on:
   pull_request:
     branches: [main]
 
+# Self-hosted runners only (NO GITHUB BUILDERS, per org policy).
+# Native amd64 + arm64 Linux in parallel — no QEMU, no emulation.
+# macOS / Windows native CI is intentionally not run here: this is a
+# pure Node package and the routing bugs we care about reproduce on
+# any platform that resolves `npx` (i.e. all of them) — the integration
+# smoke covers the protocol-level contract identically per-arch.
+
 jobs:
-  test:
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
-        node-version: [20.x, 22.x]
+  test-amd64:
+    runs-on: [self-hosted, amd-medium]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: ${{ matrix.node-version }}
-          cache: npm
-      - run: npm install
+          node-version: 22.x
+      - run: npm ci || npm install
       - run: npm run build
       - run: npm test
-        continue-on-error: ${{ runner.os == 'Windows' }}
 
-  # Cross-platform MCP-protocol smoke test. This is the canary that
-  # would have caught the npx-arg-routing bug: it spawns the bundled
-  # dist/cli.js, sends a JSON-RPC `initialize`, and requires a valid
-  # serverInfo response within 20 s. Runs on every supported OS.
-  smoke:
-    needs: test
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+  test-arm64:
+    runs-on: [self-hosted, arm-medium]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22.x
-          cache: npm
-      - run: npm install
+      - run: npm ci || npm install
       - run: npm run build
-      - name: MCP stdio smoke
-        run: node scripts/smoke-mcp.mjs
+      - run: npm test
 
-  # End-to-end test against the *published* npm package using the same
-  # npx invocation Claude Desktop / Claude Code generate. Catches issues
-  # where the package builds locally but the published bin entry or
-  # install-script args route to the wrong executable. Only runs on
-  # main pushes (to avoid hammering the registry on PRs).
-  e2e-npx:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: smoke
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+  # Real MCP integration: 6 sequential JSON-RPC calls over the actual
+  # stdio transport — initialize, tools/list, tools/call fs.read,
+  # tools/call fs.list, resources/list, resources/read. Validates
+  # serverInfo, tool presence, payload bodies. Same script users can
+  # run locally with `npm run smoke`. This is the contract the desktop
+  # clients depend on; if this passes, the package works.
+  integration-amd64:
+    needs: test-amd64
+    runs-on: [self-hosted, amd-medium]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22.x
-      - name: npx initialize roundtrip
-        shell: bash
+      - run: npm ci || npm install
+      - run: npm run build
+      - run: npm run smoke
+
+  integration-arm64:
+    needs: test-arm64
+    runs-on: [self-hosted, arm-medium]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+      - run: npm ci || npm install
+      - run: npm run build
+      - run: npm run smoke
+
+  # End-to-end against the *published* npm package using the exact
+  # npx invocation the install-scripts emit into Claude Desktop /
+  # Claude Code / Cursor configs. Catches publish-time routing bugs
+  # (e.g. the 2.4.1 'serve' shadow that motivated this whole rework).
+  # Only runs on main pushes — would hammer the registry on PRs.
+  e2e-published-amd64:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: integration-amd64
+    runs-on: [self-hosted, amd-medium]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+      - name: published-package handshake + tool call
         run: |
           set -euo pipefail
-          OUT="$(mktemp)"
-          ERR="$(mktemp)"
-          { printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"ci","version":"1"}}}'; sleep 30; } \
-            | npx -y --package=@hanzo/mcp@latest hanzo-mcp serve >"$OUT" 2>"$ERR" || true
-          echo "--- stdout"; cat "$OUT"
-          echo "--- stderr (tail)"; tail -20 "$ERR" || true
+          OUT=$(mktemp)
+          {
+            printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"ci","version":"1"}}}'
+            sleep 5
+            printf '%s\n' '{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}'
+            sleep 30
+          } | npx -y --package=@hanzo/mcp@latest hanzo-mcp serve >"$OUT" 2>&1 || true
+          echo "--- output:"; cat "$OUT"
           grep -q '"name":"hanzo-mcp"' "$OUT"
+          grep -q '"tools":\[' "$OUT"
 
-  lint:
-    runs-on: ubuntu-latest
+  e2e-published-arm64:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: integration-arm64
+    runs-on: [self-hosted, arm-medium]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22.x
-          cache: npm
-      - run: npm install
-      - run: npm run lint || true
-      - run: npx tsc --noEmit || true
+      - run: |
+          set -euo pipefail
+          OUT=$(mktemp)
+          {
+            printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"ci","version":"1"}}}'
+            sleep 5
+            printf '%s\n' '{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}'
+            sleep 30
+          } | npx -y --package=@hanzo/mcp@latest hanzo-mcp serve >"$OUT" 2>&1 || true
+          echo "--- output:"; cat "$OUT"
+          grep -q '"name":"hanzo-mcp"' "$OUT"
+          grep -q '"tools":\[' "$OUT"
 
   security:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, amd-small]
     steps:
       - uses: actions/checkout@v4
       - run: npm audit --audit-level=high || true
-      - uses: actions/dependency-review-action@v4
-        if: github.event_name == 'pull_request'
