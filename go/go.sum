@@ -12,8 +12,6 @@ github.com/gofiber/utils/v2 v2.0.4 h1:WwAxUA7L4MW2DjdEHF234lfqvBqd2vYYuBtA9TJq2e
 github.com/gofiber/utils/v2 v2.0.4/go.mod h1:GGERKU3Vhj5z6hS8YKvxL99A54DjOvTFZ0cjZnG4Lj4=
 github.com/google/uuid v1.6.0 h1:NIvaJDMOsjHA8n1jAhLSgzrAzy1Hgr+hNrb57e+94F0=
 github.com/google/uuid v1.6.0/go.mod h1:TIyPZe4MgqvfeYDBFedMoGGpEw/LqOeaOT+nhxU+yHo=
-github.com/hanzoai/cloud v0.0.0-20260519044114-66d5d2a6312c h1:+NR9n+tIaVY1whsIpZ2eU+N+Sg+Gr9jYDFN+/YziBUg=
-github.com/hanzoai/cloud v0.0.0-20260519044114-66d5d2a6312c/go.mod h1:d9Nw4Nr1iLc5UbDJugzOrYpylEWLBbjixE5mhOhGXnk=
 github.com/hanzoai/zip v0.1.0 h1:rsGLHl0cr7EBvp2EQk6KoEizBpOvgU7Uv0JP9GJ7cnw=
 github.com/hanzoai/zip v0.1.0/go.mod h1:3G+k2wy5bQ1wld66m0OPH8/LJ0kgIeNi1KPymMmlbf4=
 github.com/klauspost/compress v1.18.5 h1:/h1gH5Ce+VWNLSWqPzOVn6XBO+vJbCNGvjoaGBFW2IE=
