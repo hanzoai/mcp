@@ -21,6 +21,47 @@ function fail(code: string, message: string) {
   return { content: [{ type: 'text' as const, text: JSON.stringify({ ok: false, data: null, error: { code, message }, meta: { tool: 'fetch' } }, null, 2) }], isError: true };
 }
 
+/**
+ * Parse an HTTP 402 response into the x402 payment-required envelope.
+ * Best-effort: surfaces whatever the server returned (JSON `accepts` array
+ * per x402.org spec, or raw `WWW-Authenticate`/`X-Accept-Payment` headers
+ * for older variants) so the calling agent can decide how to fund the call.
+ */
+async function parsePaymentRequired(resp: Response) {
+  const headers = Object.fromEntries(resp.headers.entries());
+  let body: any = null;
+  try {
+    const ct = resp.headers.get('content-type') || '';
+    body = ct.includes('json') ? await resp.json() : await resp.text();
+  } catch {
+    body = null;
+  }
+  const accepts = body && typeof body === 'object' && Array.isArray(body.accepts)
+    ? body.accepts
+    : null;
+  return {
+    status: 402,
+    payment_required: {
+      x402_version: headers['x402-version'] || (body && body.x402Version) || null,
+      accepts,
+      www_authenticate: headers['www-authenticate'] || null,
+      raw_body: accepts ? null : body,
+    },
+    headers,
+  };
+}
+
+function paymentHeader(payment: any): Record<string, string> {
+  if (!payment) return {};
+  // x402 spec uses base64-encoded JSON in the X-PAYMENT header. Accept either
+  // a pre-encoded string (`payment` is a string) or a JSON object we encode.
+  if (typeof payment === 'string') return { 'X-PAYMENT': payment };
+  if (typeof payment === 'object') {
+    return { 'X-PAYMENT': Buffer.from(JSON.stringify(payment), 'utf8').toString('base64') };
+  }
+  return {};
+}
+
 export const fetchTool: Tool = {
   name: 'fetch',
   description: 'Network operations: request, fetch, head, download, open, search, crawl',
@@ -37,6 +78,7 @@ export const fetchTool: Tool = {
       query: { type: 'string', description: 'Search query' },
       depth: { type: 'number', description: 'Crawl depth', default: 2 },
       limit: { type: 'number', description: 'Max results/pages', default: 10 },
+      payment: { description: 'x402 payment payload — base64 string sent as-is via X-PAYMENT, or a JSON object that will be base64-encoded' },
     },
     required: ['action']
   },
@@ -46,11 +88,14 @@ export const fetchTool: Tool = {
         case 'request': {
           const opts: RequestInit = {
             method: args.method || 'GET',
-            headers: args.headers || {},
+            headers: { ...(args.headers || {}), ...paymentHeader(args.payment) },
             signal: AbortSignal.timeout(args.timeout || 30000),
           };
           if (args.body) opts.body = args.body;
           const resp = await fetch(args.url, opts);
+          if (resp.status === 402) {
+            return envelope(await parsePaymentRequired(resp), 'request');
+          }
           const contentType = resp.headers.get('content-type') || '';
           let data: any;
           if (contentType.includes('json')) {
@@ -68,11 +113,14 @@ export const fetchTool: Tool = {
         case 'fetch': {
           const opts: RequestInit = {
             method: args.method || 'GET',
-            headers: args.headers || {},
+            headers: { ...(args.headers || {}), ...paymentHeader(args.payment) },
             signal: AbortSignal.timeout(args.timeout || 30000),
           };
           if (args.body) opts.body = args.body;
           const resp = await fetch(args.url, opts);
+          if (resp.status === 402) {
+            return envelope(await parsePaymentRequired(resp), 'fetch');
+          }
           const contentType = resp.headers.get('content-type') || '';
           let data: any;
           if (contentType.includes('json')) {
@@ -90,9 +138,12 @@ export const fetchTool: Tool = {
         case 'head': {
           const resp = await fetch(args.url, {
             method: 'HEAD',
-            headers: args.headers || {},
+            headers: { ...(args.headers || {}), ...paymentHeader(args.payment) },
             signal: AbortSignal.timeout(args.timeout || 30000),
           });
+          if (resp.status === 402) {
+            return envelope(await parsePaymentRequired(resp), 'head');
+          }
           return envelope({
             status: resp.status,
             headers: Object.fromEntries(resp.headers.entries()),
