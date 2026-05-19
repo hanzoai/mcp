@@ -4,19 +4,25 @@
 
 import * as fs from 'fs/promises';
 import * as path from 'path';
-import { beforeAll, afterAll, beforeEach, afterEach } from '@jest/globals';
+import { beforeAll, afterAll, beforeEach, afterEach, jest } from '@jest/globals';
+
+// Anchor on the project root rather than this file's directory so we don't
+// need `import.meta.url` here — ts-jest's handling of `import.meta` in
+// `setupFilesAfterEnv` differs across Node versions and breaks Node 18/20 CI.
+// Tests always run from the project root, so `process.cwd()` is stable.
+const TEST_ROOT = path.join(process.cwd(), 'test');
 
 // Global test timeout
 jest.setTimeout(10000);
 
 // Test fixtures directory
-export const TEST_FIXTURES_DIR = path.join(__dirname, 'fixtures');
+export const TEST_FIXTURES_DIR = path.join(TEST_ROOT, 'fixtures');
 
 // Each suite gets a unique temp directory to prevent parallel suite interference.
 // setupFilesAfterEnv creates a fresh module instance per suite, so this value is
 // unique per suite even though it's module-scoped.
 const suiteId = `${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-export const TEST_TEMP_DIR = path.join(__dirname, 'temp', suiteId);
+export const TEST_TEMP_DIR = path.join(TEST_ROOT, 'temp', suiteId);
 
 // Create test directories
 beforeAll(async () => {
