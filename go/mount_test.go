@@ -9,8 +9,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/hanzoai/cloud/pkg/cloud"
-	"github.com/hanzoai/mcp/go/pkg/mcp"
+	"github.com/hanzoai/cloud"
+	"github.com/hanzoai/mcp/go"
 	"github.com/hanzoai/zip"
 )
 
