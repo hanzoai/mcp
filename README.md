@@ -1,3 +1,50 @@
+# mcp
+
+Model Context Protocol server. HIP-0300 unified action-routed tool surface. TypeScript today, Go rewrite in flight per HIP-0106.
+
+[![Status](https://img.shields.io/badge/status-beta-blue)]()
+[![License](https://img.shields.io/badge/license-MIT-blue)]()
+
+## Quick start
+
+```bash
+npm install -g @hanzo/mcp
+hanzo-mcp serve
+```
+
+## What this is
+
+`mcp` is the canonical Model Context Protocol server for the Hanzo platform. Exposes 13 HIP-0300 unified tools (`fs`, `exec`, `code`, `git`, `fetch`, `workspace`, `ui`, plus optional `think`, `memory`, `hanzo`, `plan`, `tasks`, `mode`) over the MCP stdio / streamable-http transports. Every Hanzo agent uses the same tool surface; Python SDK (`hanzo-mcp` on PyPI) and Rust crate (`hanzo-mcp::brain`) mirror the TS surface 1-1.
+
+## Specs
+
+Implements:
+- HIP-0300 Unified MCP Tools
+- HIP-0106 Unified Cloud Binary (mcp subsystem)
+
+## Architecture
+
+```
+   Claude Desktop / Cursor / Code  ->  stdio MCP transport
+                                              |
+                                          hanzo-mcp serve
+                                              |
+                          +-------------------+-------------------+
+                          |                                       |
+                  HIP-0300 unified tools          legacy individual tools (--legacy)
+                  fs / exec / code / git /         read_file, write_file, bash, ...
+                  fetch / workspace / ui +
+                  optional think / memory /
+                  hanzo / plan / tasks / mode
+                          |
+                  TS runtime (today) | Rust runtime (latency-sensitive)
+                          |
+                  Go runtime under hanzoai/cloud (HIP-0106 in flight)
+```
+
+
+---
+
 # @hanzo/mcp
 
 Model Context Protocol (MCP) server with HIP-0300 unified tool architecture. TypeScript + Rust dual runtime.
