@@ -3,8 +3,8 @@ module github.com/hanzoai/mcp/go
 go 1.26.3
 
 require (
-	github.com/hanzoai/cloud v0.0.0-20260519044114-66d5d2a6312c
-	github.com/hanzoai/zip v0.1.0
+	github.com/hanzoai/cloud v0.1.0
+	github.com/hanzoai/zip v0.2.0
 	github.com/luxfi/log v1.4.3
 )
 
@@ -27,5 +27,3 @@ require (
 	golang.org/x/text v0.36.0 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1 // indirect
 )
-
-replace github.com/hanzoai/cloud => ../../cloud
