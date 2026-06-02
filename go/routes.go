@@ -71,7 +71,11 @@ func handleListTools(c *zip.Ctx) error {
 }
 
 // handleCallTool dispatches a tool by name. The request body is forwarded
-// verbatim as the params JSON.
+// verbatim as the params JSON. Per x402, an X-Payment request header is
+// plumbed into the tool params under the "payment" key, and a tool result
+// envelope of the shape {"status":402,"payment_required":{...}} is mapped
+// to a real HTTP 402 with WWW-Authenticate: x402 so downstream agents see
+// a Payment-Required response rather than an opaque 200.
 func handleCallTool(c *zip.Ctx) error {
 	name := c.Param("name")
 	if name == "" {
@@ -81,11 +85,16 @@ func handleCallTool(c *zip.Ctx) error {
 	if len(body) == 0 {
 		body = []byte("{}")
 	}
+	body = injectPayment(body, c.Header("X-Payment"))
 	raw, err := get().CallTool(c.Context(), name, body)
 	if err != nil {
 		return c.Bytes(http.StatusServiceUnavailable, encodeError(err.Error()))
 	}
 	c.SetHeader("Content-Type", "application/json")
+	if paymentRequiredFromEnvelope(raw) {
+		c.SetHeader("WWW-Authenticate", "x402")
+		return c.Bytes(http.StatusPaymentRequired, raw)
+	}
 	return c.Bytes(http.StatusOK, raw)
 }
 
@@ -104,12 +113,19 @@ func handleSearch(c *zip.Ctx) error {
 }
 
 // handleFetch is the standard MCP fetch shortcut. It delegates to the
-// fetch tool's get action.
+// fetch tool's get action and applies the same x402 propagation as
+// handleCallTool: X-Payment is plumbed into the tool params, and a
+// payment_required envelope from the fetch tool is mapped to HTTP 402.
 func handleFetch(c *zip.Ctx) error {
-	raw, err := get().CallTool(c.Context(), "fetch", overrideAction(c.Body(), "get"))
+	body := injectPayment(overrideAction(c.Body(), "get"), c.Header("X-Payment"))
+	raw, err := get().CallTool(c.Context(), "fetch", body)
 	if err != nil {
 		return c.Bytes(http.StatusServiceUnavailable, encodeError(err.Error()))
 	}
 	c.SetHeader("Content-Type", "application/json")
+	if paymentRequiredFromEnvelope(raw) {
+		c.SetHeader("WWW-Authenticate", "x402")
+		return c.Bytes(http.StatusPaymentRequired, raw)
+	}
 	return c.Bytes(http.StatusOK, raw)
 }
