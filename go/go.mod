@@ -1,6 +1,6 @@
 module github.com/hanzoai/mcp/go
 
-go 1.26.3
+go 1.26.4
 
 require (
 	github.com/hanzoai/cloud v0.1.0
