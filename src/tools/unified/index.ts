@@ -19,6 +19,9 @@ import { workspaceTool } from './workspace.js';
 // VCS — already a single action-routed tool
 import { gitTool } from '../git.js';
 
+// GIMP — clean-room BSD-3 bridge, action-routed
+import { gimpTool } from '../gimp.js';
+
 // UI — already unified
 import { unifiedUITool } from '../unified-ui.js';
 
@@ -48,6 +51,7 @@ export const optionalTools: Tool[] = [
   planTool,    // Task planning
   tasksTool,   // Task tracking
   modeTool,    // Developer modes
+  gimpTool,    // GIMP automation (clean-room BSD-3 PDB bridge)
 ];
 
 export const allUnifiedTools: Tool[] = [
