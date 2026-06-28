@@ -12,7 +12,11 @@ export default {
       useESM: true,
       tsconfig: {
         module: 'ESNext',
-        moduleResolution: 'node'
+        moduleResolution: 'node',
+        // Tests live outside src/; neutralize the project rootDir so ts-jest
+        // can pull in test/setup.ts (otherwise TS6059) without touching the
+        // build tsconfig.
+        rootDir: '.'
       }
     }]
   },

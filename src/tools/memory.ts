@@ -1,26 +1,21 @@
 /**
- * Memory tool — single tool, action-routed persistent store/recall
+ * Memory tool — single tool, action-routed persistent store/recall.
  * store, recall, list, delete, search, stats, clear, export, import, merge, tag, untag,
  * namespaces, history, update, manage, facts, summarize, help
+ *
+ * Storage is decomplected behind `MemoryBackend` (src/memory). This tool is
+ * presentation + routing only: it maps each action to one backend operation
+ * and formats output. The backend is chosen by HANZO_MEMORY_BACKEND
+ * (local default | cloud | sync) — the action surface here is identical
+ * regardless of backend.
  */
 
 import { Tool } from '../types/index.js';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import * as os from 'os';
-
-interface Entry { id: string; key: string; value: string; tags: string[]; namespace: string; created: string; updated: string; metadata?: Record<string, any>; ttl?: string; }
-interface Fact { id: string; content: string; kb: string; tags: string[]; created: string; }
-interface Store { entries: Entry[]; lastId: number; facts: Fact[]; lastFactId: number; }
-
-const storePath = () => process.env.MEMORY_PATH || path.join(os.homedir(), '.hanzo', 'memory.json');
-async function load(): Promise<Store> { try { const raw = JSON.parse(await fs.readFile(storePath(), 'utf-8')); return { entries: raw.entries || [], lastId: raw.lastId || 0, facts: raw.facts || [], lastFactId: raw.lastFactId || 0 }; } catch { return { entries: [], lastId: 0, facts: [], lastFactId: 0 }; } }
-async function save(s: Store) { await fs.mkdir(path.dirname(storePath()), { recursive: true }); await fs.writeFile(storePath(), JSON.stringify(s, null, 2)); }
-
-function isExpired(e: Entry): boolean {
-  if (!e.ttl) return false;
-  return new Date(e.ttl) < new Date();
-}
+import { selectBackend } from '../memory/index.js';
+import { Entry } from '../memory/types.js';
 
 const HELP_TEXT = `memory tool — actions:
 
@@ -44,7 +39,15 @@ const HELP_TEXT = `memory tool — actions:
   summarize   Store a summary. Params: content, topic, namespace?, tags?
   help        Show this help. No params.
 
-  Parameter aliases: id -> key, scope -> namespace, content -> value`;
+  Parameter aliases: id -> key, scope -> namespace, content -> value
+  Backend: HANZO_MEMORY_BACKEND=local (default) | cloud | sync`;
+
+const ok = (text: string) => ({ content: [{ type: 'text' as const, text }] });
+const err = (text: string) => ({ content: [{ type: 'text' as const, text }], isError: true as const });
+
+function recallLine(e: Entry): string {
+  return `[${e.namespace}] ${e.key}${e.tags.length ? ` [${e.tags.join(', ')}]` : ''} (${e.updated.split('T')[0]}):\n  ${e.value.substring(0, 300)}${e.value.length > 300 ? '...' : ''}`;
+}
 
 export const memoryTool: Tool = {
   name: 'memory',
@@ -89,331 +92,180 @@ export const memoryTool: Tool = {
       if (args.content && !args.value) args.value = args.content;
 
       const ns = args.namespace || 'default';
-      const store = await load();
-      // Clean expired entries
-      store.entries = store.entries.filter(e => !isExpired(e));
+
+      if (args.action === 'help') return ok(HELP_TEXT);
+
+      const backend = await selectBackend();
 
       switch (args.action) {
         case 'store': {
-          if (!args.key || !args.value) return { content: [{ type: 'text', text: 'key and value required' }], isError: true };
-          const now = new Date().toISOString();
-          const idx = store.entries.findIndex(e => e.key === args.key && e.namespace === ns);
-          if (idx >= 0) {
-            const e = store.entries[idx];
-            e.value = args.append ? e.value + '\n' + args.value : args.value;
-            e.updated = now;
-            if (args.tags) e.tags = args.tags;
-            if (args.metadata) e.metadata = { ...e.metadata, ...args.metadata };
-            if (args.ttl) e.ttl = args.ttl;
-            await save(store);
-            return { content: [{ type: 'text', text: `Updated: ${args.key} (${e.value.length} chars)` }] };
-          }
-          store.lastId++;
-          store.entries.push({ id: String(store.lastId), key: args.key, value: args.value, tags: args.tags || [], namespace: ns, created: now, updated: now, metadata: args.metadata, ttl: args.ttl });
-          await save(store);
-          return { content: [{ type: 'text', text: `Stored: ${args.key} (${args.value.length} chars)` }] };
+          if (!args.key || !args.value) return err('key and value required');
+          const { entry, created } = await backend.store({ key: args.key, value: args.value, namespace: ns, tags: args.tags, metadata: args.metadata, ttl: args.ttl, append: args.append });
+          return created
+            ? ok(`Stored: ${args.key} (${args.value.length} chars)`)
+            : ok(`Updated: ${args.key} (${entry.value.length} chars)`);
         }
 
         case 'recall': {
-          let r = store.entries.filter(e => e.namespace === ns || !args.namespace);
-          if (args.key) r = r.filter(e => e.key === args.key);
-          if (args.tag) r = r.filter(e => e.tags.includes(args.tag));
-          r = r.slice(0, args.limit || 10);
-          if (!r.length) return { content: [{ type: 'text', text: 'No memories found' }] };
-          const out = r.map(e => `[${e.namespace}] ${e.key}${e.tags.length ? ` [${e.tags.join(', ')}]` : ''} (${e.updated.split('T')[0]}):\n  ${e.value.substring(0, 300)}${e.value.length > 300 ? '...' : ''}`);
-          return { content: [{ type: 'text', text: out.join('\n\n') }] };
+          const r = await backend.recall({ namespace: ns, scoped: !!args.namespace, key: args.key, tag: args.tag, limit: args.limit || 10 });
+          if (!r.length) return ok('No memories found');
+          return ok(r.map(recallLine).join('\n\n'));
         }
 
         case 'list': {
-          let entries = store.entries;
-          if (args.namespace) entries = entries.filter(e => e.namespace === ns);
-          if (args.tag) entries = entries.filter(e => e.tags.includes(args.tag));
-          // Sort
-          const sortKey = args.sort || 'updated';
-          entries.sort((a, b) => {
-            if (sortKey === 'key') return a.key.localeCompare(b.key);
-            if (sortKey === 'namespace') return a.namespace.localeCompare(b.namespace);
-            return (b[sortKey as 'created' | 'updated'] || '').localeCompare(a[sortKey as 'created' | 'updated'] || '');
-          });
-          const limited = entries.slice(0, args.limit || 50);
-          const namespaces = [...new Set(store.entries.map(e => e.namespace))];
-          const out = [`${store.entries.length} entries, namespaces: [${namespaces.join(', ')}]`, ''];
-          for (const e of limited) out.push(`  ${e.key}${e.tags.length ? ` [${e.tags.join(',')}]` : ''} (${e.namespace}) ${e.value.length}ch`);
-          return { content: [{ type: 'text', text: out.join('\n') }] };
+          const { entries, total, namespaces } = await backend.list({ namespace: args.namespace ? ns : undefined, tag: args.tag, sort: args.sort, limit: args.limit || 50 });
+          const out = [`${total} entries, namespaces: [${namespaces.join(', ')}]`, ''];
+          for (const e of entries) out.push(`  ${e.key}${e.tags.length ? ` [${e.tags.join(',')}]` : ''} (${e.namespace}) ${e.value.length}ch`);
+          return ok(out.join('\n'));
         }
 
         case 'delete': {
-          if (!args.key && !args.tag) return { content: [{ type: 'text', text: 'key or tag required' }], isError: true };
-          let count = 0;
-          if (args.key) {
-            const i = store.entries.findIndex(e => e.key === args.key && e.namespace === ns);
-            if (i < 0) return { content: [{ type: 'text', text: `Not found: ${args.key}` }], isError: true };
-            store.entries.splice(i, 1);
-            count = 1;
-          } else if (args.tag) {
-            const before = store.entries.length;
-            store.entries = store.entries.filter((e: Entry) => !e.tags.includes(args.tag));
-            count = before - store.entries.length;
-          }
-          await save(store);
-          return { content: [{ type: 'text', text: `Deleted ${count} entries` }] };
+          if (!args.key && !args.tag) return err('key or tag required');
+          const count = await backend.remove({ namespace: ns, key: args.key, tag: args.tag });
+          if (args.key && count === 0) return err(`Not found: ${args.key}`);
+          return ok(`Deleted ${count} entries`);
         }
 
         case 'search': {
-          if (!args.query) return { content: [{ type: 'text', text: 'query required' }], isError: true };
-          const q = args.query.toLowerCase();
-          const terms = q.split(/\s+/);
-          let results = store.entries.filter(e => {
-            const text = `${e.key} ${e.value} ${e.tags.join(' ')} ${e.namespace}`.toLowerCase();
-            return terms.every((t: string) => text.includes(t));
-          });
-          if (args.namespace) results = results.filter(e => e.namespace === ns);
-          if (args.tag) results = results.filter(e => e.tags.includes(args.tag));
-          results = results.slice(0, args.limit || 20);
-          if (!results.length) return { content: [{ type: 'text', text: `No results for: ${args.query}` }] };
+          if (!args.query) return err('query required');
+          const results = await backend.search({ query: args.query, namespace: args.namespace ? ns : undefined, tag: args.tag, limit: args.limit || 20 });
+          if (!results.length) return ok(`No results for: ${args.query}`);
           const out = results.map(e => `[${e.namespace}] ${e.key}${e.tags.length ? ` [${e.tags.join(',')}]` : ''}:\n  ${e.value.substring(0, 200)}${e.value.length > 200 ? '...' : ''}`);
-          return { content: [{ type: 'text', text: `Found ${results.length}:\n\n${out.join('\n\n')}` }] };
+          return ok(`Found ${results.length}:\n\n${out.join('\n\n')}`);
         }
 
         case 'stats': {
-          const namespaces = [...new Set(store.entries.map(e => e.namespace))];
-          const tags = [...new Set(store.entries.flatMap(e => e.tags))];
-          const totalSize = store.entries.reduce((s, e) => s + e.value.length, 0);
-          const byNs: Record<string, number> = {};
-          for (const e of store.entries) byNs[e.namespace] = (byNs[e.namespace] || 0) + 1;
-          return { content: [{ type: 'text', text: `Memory Stats:\n  Entries: ${store.entries.length}\n  Facts: ${store.facts.length}\n  Size: ${(totalSize / 1024).toFixed(1)}KB\n  Namespaces: ${namespaces.join(', ')}\n  Tags: ${tags.join(', ')}\n  By namespace: ${Object.entries(byNs).map(([k, v]) => `${k}:${v}`).join(' ')}` }] };
+          const s = await backend.stats();
+          return ok(`Memory Stats:\n  Entries: ${s.entries}\n  Facts: ${s.facts}\n  Size: ${(s.sizeBytes / 1024).toFixed(1)}KB\n  Namespaces: ${s.namespaces.join(', ')}\n  Tags: ${s.tags.join(', ')}\n  By namespace: ${Object.entries(s.byNamespace).map(([k, v]) => `${k}:${v}`).join(' ')}`);
         }
 
         case 'clear': {
-          const before = store.entries.length;
-          if (args.namespace) {
-            store.entries = store.entries.filter(e => e.namespace !== ns);
-          } else {
-            store.entries = [];
-          }
-          await save(store);
-          return { content: [{ type: 'text', text: `Cleared ${before - store.entries.length} entries${args.namespace ? ` from namespace: ${ns}` : ''}` }] };
+          const count = await backend.clear(args.namespace ? ns : undefined);
+          return ok(`Cleared ${count} entries${args.namespace ? ` from namespace: ${ns}` : ''}`);
         }
 
         case 'export': {
           const filePath = args.file || path.join(os.homedir(), '.hanzo', 'memory-export.json');
-          let entries = store.entries;
-          if (args.namespace) entries = entries.filter(e => e.namespace === ns);
-          if (args.tag) entries = entries.filter(e => e.tags.includes(args.tag));
+          const entries = await backend.exportEntries(args.namespace ? ns : undefined, args.tag);
           await fs.mkdir(path.dirname(filePath), { recursive: true });
           await fs.writeFile(filePath, JSON.stringify(entries, null, 2));
-          return { content: [{ type: 'text', text: `Exported ${entries.length} entries to ${filePath}` }] };
+          return ok(`Exported ${entries.length} entries to ${filePath}`);
         }
 
         case 'import': {
           if (args.data) {
-            // Bulk import from key-value map
-            const now = new Date().toISOString();
-            for (const [k, v] of Object.entries(args.data)) {
-              store.lastId++;
-              store.entries.push({ id: String(store.lastId), key: k, value: String(v), tags: args.tags || [], namespace: ns, created: now, updated: now });
-            }
-            await save(store);
-            return { content: [{ type: 'text', text: `Imported ${Object.keys(args.data).length} entries` }] };
+            const entries: Partial<Entry>[] = Object.entries(args.data).map(([k, v]) => ({ key: k, value: String(v) }));
+            await backend.importEntries(entries, ns, args.tags);
+            return ok(`Imported ${Object.keys(args.data).length} entries`);
           }
-          if (!args.file) return { content: [{ type: 'text', text: 'file or data required' }], isError: true };
-          const imported: Entry[] = JSON.parse(await fs.readFile(args.file, 'utf-8'));
-          for (const e of imported) {
-            store.lastId++;
-            e.id = String(store.lastId);
-            store.entries.push(e);
-          }
-          await save(store);
-          return { content: [{ type: 'text', text: `Imported ${imported.length} entries from ${args.file}` }] };
+          if (!args.file) return err('file or data required');
+          const imported: Partial<Entry>[] = JSON.parse(await fs.readFile(args.file, 'utf-8'));
+          const n = await backend.importEntries(imported, ns);
+          return ok(`Imported ${n} entries from ${args.file}`);
         }
 
         case 'merge': {
-          if (!args.key) return { content: [{ type: 'text', text: 'key required' }], isError: true };
-          const entries = store.entries.filter(e => e.key === args.key);
-          if (entries.length < 2) return { content: [{ type: 'text', text: `Only ${entries.length} entries with key '${args.key}', nothing to merge` }] };
-          const merged = entries.map(e => e.value).join('\n---\n');
-          const allTags = [...new Set(entries.flatMap(e => e.tags))];
-          const keep = entries[0];
-          keep.value = merged;
-          keep.tags = allTags;
-          keep.updated = new Date().toISOString();
-          store.entries = store.entries.filter(e => e.key !== args.key || e.id === keep.id);
-          await save(store);
-          return { content: [{ type: 'text', text: `Merged ${entries.length} entries into key '${args.key}'` }] };
+          if (!args.key) return err('key required');
+          const { merged } = await backend.merge(args.key);
+          if (merged < 2) return ok(`Only ${merged} entries with key '${args.key}', nothing to merge`);
+          return ok(`Merged ${merged} entries into key '${args.key}'`);
         }
 
         case 'tag': {
-          if (!args.key || !args.tag) return { content: [{ type: 'text', text: 'key and tag required' }], isError: true };
-          const entry = store.entries.find(e => e.key === args.key && e.namespace === ns);
-          if (!entry) return { content: [{ type: 'text', text: `Not found: ${args.key}` }], isError: true };
-          if (!entry.tags.includes(args.tag)) entry.tags.push(args.tag);
-          entry.updated = new Date().toISOString();
-          await save(store);
-          return { content: [{ type: 'text', text: `Tagged ${args.key} with '${args.tag}'` }] };
+          if (!args.key || !args.tag) return err('key and tag required');
+          const entry = await backend.setTag(args.key, ns, args.tag, true);
+          if (!entry) return err(`Not found: ${args.key}`);
+          return ok(`Tagged ${args.key} with '${args.tag}'`);
         }
 
         case 'untag': {
-          if (!args.key || !args.tag) return { content: [{ type: 'text', text: 'key and tag required' }], isError: true };
-          const entry = store.entries.find(e => e.key === args.key && e.namespace === ns);
-          if (!entry) return { content: [{ type: 'text', text: `Not found: ${args.key}` }], isError: true };
-          entry.tags = entry.tags.filter(t => t !== args.tag);
-          entry.updated = new Date().toISOString();
-          await save(store);
-          return { content: [{ type: 'text', text: `Removed tag '${args.tag}' from ${args.key}` }] };
+          if (!args.key || !args.tag) return err('key and tag required');
+          const entry = await backend.setTag(args.key, ns, args.tag, false);
+          if (!entry) return err(`Not found: ${args.key}`);
+          return ok(`Removed tag '${args.tag}' from ${args.key}`);
         }
 
         case 'namespaces': {
-          const nss = [...new Set(store.entries.map(e => e.namespace))];
-          const counts: Record<string, number> = {};
-          for (const e of store.entries) counts[e.namespace] = (counts[e.namespace] || 0) + 1;
-          return { content: [{ type: 'text', text: `Namespaces (${nss.length}):\n${nss.map(n => `  ${n}: ${counts[n]} entries`).join('\n')}` }] };
+          const counts = await backend.namespaces();
+          const names = Object.keys(counts);
+          return ok(`Namespaces (${names.length}):\n${names.map(n => `  ${n}: ${counts[n]} entries`).join('\n')}`);
         }
 
         case 'history': {
-          if (!args.key) return { content: [{ type: 'text', text: 'key required' }], isError: true };
-          const entries = store.entries.filter(e => e.key === args.key);
-          if (!entries.length) return { content: [{ type: 'text', text: `No history for: ${args.key}` }] };
-          return { content: [{ type: 'text', text: entries.map(e => `[${e.namespace}] ${e.updated}: ${e.value.substring(0, 100)}${e.value.length > 100 ? '...' : ''}`).join('\n') }] };
+          if (!args.key) return err('key required');
+          const entries = await backend.history(args.key);
+          if (!entries.length) return ok(`No history for: ${args.key}`);
+          return ok(entries.map(e => `[${e.namespace}] ${e.updated}: ${e.value.substring(0, 100)}${e.value.length > 100 ? '...' : ''}`).join('\n'));
         }
 
         case 'update': {
-          if (!args.key) return { content: [{ type: 'text', text: 'key required' }], isError: true };
-          const entry = store.entries.find(e => e.key === args.key && e.namespace === ns);
-          if (!entry) return { content: [{ type: 'text', text: `Not found: ${args.key} in namespace ${ns}. Use store to create.` }], isError: true };
-          const now = new Date().toISOString();
-          if (args.value) entry.value = args.value;
-          if (args.tags) entry.tags = args.tags;
-          if (args.metadata) entry.metadata = { ...entry.metadata, ...args.metadata };
-          if (args.ttl) entry.ttl = args.ttl;
-          entry.updated = now;
-          await save(store);
-          return { content: [{ type: 'text', text: `Updated: ${args.key} (${entry.value.length} chars)` }] };
+          if (!args.key) return err('key required');
+          const entry = await backend.update({ key: args.key, namespace: ns, value: args.value, tags: args.tags, metadata: args.metadata, ttl: args.ttl });
+          if (!entry) return err(`Not found: ${args.key} in namespace ${ns}. Use store to create.`);
+          return ok(`Updated: ${args.key} (${entry.value.length} chars)`);
         }
 
         case 'manage': {
-          if (!args.data) return { content: [{ type: 'text', text: 'data required with create/update/delete arrays' }], isError: true };
+          if (!args.data) return err('data required with create/update/delete arrays');
           const ops = args.data as { create?: Array<{ key: string; value: string; tags?: string[]; namespace?: string }>; update?: Array<{ key: string; value?: string; tags?: string[]; namespace?: string }>; delete?: string[] };
-          const now = new Date().toISOString();
+          const res = await backend.bulk({ namespace: ns, create: ops.create, update: ops.update, delete: ops.delete });
           const summary: string[] = [];
-
-          // Creates
-          if (ops.create?.length) {
-            for (const c of ops.create) {
-              const cns = c.namespace || ns;
-              store.lastId++;
-              store.entries.push({ id: String(store.lastId), key: c.key, value: c.value, tags: c.tags || [], namespace: cns, created: now, updated: now });
-            }
-            summary.push(`created ${ops.create.length}`);
-          }
-
-          // Updates
-          if (ops.update?.length) {
-            let updated = 0;
-            for (const u of ops.update) {
-              const uns = u.namespace || ns;
-              const entry = store.entries.find(e => e.key === u.key && e.namespace === uns);
-              if (entry) {
-                if (u.value) entry.value = u.value;
-                if (u.tags) entry.tags = u.tags;
-                entry.updated = now;
-                updated++;
-              }
-            }
-            summary.push(`updated ${updated}`);
-          }
-
-          // Deletes
-          if (ops.delete?.length) {
-            const keys = new Set(ops.delete);
-            const before = store.entries.length;
-            store.entries = store.entries.filter(e => !keys.has(e.key));
-            summary.push(`deleted ${before - store.entries.length}`);
-          }
-
-          await save(store);
-          return { content: [{ type: 'text', text: `Manage: ${summary.join(', ')}` }] };
+          if (ops.create?.length) summary.push(`created ${res.created}`);
+          if (ops.update?.length) summary.push(`updated ${res.updated}`);
+          if (ops.delete?.length) summary.push(`deleted ${res.deleted}`);
+          return ok(`Manage: ${summary.join(', ')}`);
         }
 
         case 'facts': {
           const factAction = args.fact_action;
-          if (!factAction) return { content: [{ type: 'text', text: 'fact_action required (store_fact, recall_facts, delete_fact, list_facts)' }], isError: true };
+          if (!factAction) return err('fact_action required (store_fact, recall_facts, delete_fact, list_facts)');
           const kbName = args.kb || 'default';
 
           switch (factAction) {
             case 'store_fact': {
-              if (!args.value) return { content: [{ type: 'text', text: 'value/content required for store_fact' }], isError: true };
-              store.lastFactId++;
-              const fact: Fact = { id: String(store.lastFactId), content: args.value, kb: kbName, tags: args.tags || [], created: new Date().toISOString() };
-              store.facts.push(fact);
-              await save(store);
-              return { content: [{ type: 'text', text: `Stored fact #${fact.id} in kb '${kbName}' (${fact.content.length} chars)` }] };
+              if (!args.value) return err('value/content required for store_fact');
+              const fact = await backend.addFact({ content: args.value, kb: kbName, tags: args.tags });
+              return ok(`Stored fact #${fact.id} in kb '${kbName}' (${fact.content.length} chars)`);
             }
-
             case 'recall_facts': {
-              let facts = store.facts.filter(f => f.kb === kbName);
-              if (args.query) {
-                const q = args.query.toLowerCase();
-                const terms = q.split(/\s+/);
-                facts = facts.filter(f => {
-                  const text = `${f.content} ${f.tags.join(' ')} ${f.kb}`.toLowerCase();
-                  return terms.every((t: string) => text.includes(t));
-                });
-              }
-              if (args.tag) facts = facts.filter(f => f.tags.includes(args.tag));
-              facts = facts.slice(0, args.limit || 20);
-              if (!facts.length) return { content: [{ type: 'text', text: `No facts found in kb '${kbName}'` }] };
+              const facts = await backend.recallFacts({ kb: kbName, query: args.query, tag: args.tag, limit: args.limit || 20 });
+              if (!facts.length) return ok(`No facts found in kb '${kbName}'`);
               const out = facts.map(f => `#${f.id} [${f.kb}]${f.tags.length ? ` [${f.tags.join(',')}]` : ''} (${f.created.split('T')[0]}):\n  ${f.content.substring(0, 300)}${f.content.length > 300 ? '...' : ''}`);
-              return { content: [{ type: 'text', text: `Found ${facts.length} facts:\n\n${out.join('\n\n')}` }] };
+              return ok(`Found ${facts.length} facts:\n\n${out.join('\n\n')}`);
             }
-
             case 'delete_fact': {
-              if (!args.key) return { content: [{ type: 'text', text: 'id/key required to delete fact' }], isError: true };
-              const idx = store.facts.findIndex(f => f.id === args.key && f.kb === kbName);
-              if (idx < 0) return { content: [{ type: 'text', text: `Fact not found: #${args.key} in kb '${kbName}'` }], isError: true };
-              store.facts.splice(idx, 1);
-              await save(store);
-              return { content: [{ type: 'text', text: `Deleted fact #${args.key} from kb '${kbName}'` }] };
+              if (!args.key) return err('id/key required to delete fact');
+              const deleted = await backend.removeFact(args.key, kbName);
+              if (!deleted) return err(`Fact not found: #${args.key} in kb '${kbName}'`);
+              return ok(`Deleted fact #${args.key} from kb '${kbName}'`);
             }
-
             case 'list_facts': {
-              let facts = store.facts;
-              if (args.kb) facts = facts.filter(f => f.kb === kbName);
-              if (args.tag) facts = facts.filter(f => f.tags.includes(args.tag));
-              const kbs = [...new Set(store.facts.map(f => f.kb))];
-              const limited = facts.slice(0, args.limit || 50);
-              const out = [`${store.facts.length} facts, knowledge bases: [${kbs.join(', ')}]`, ''];
-              for (const f of limited) out.push(`  #${f.id} [${f.kb}]${f.tags.length ? ` [${f.tags.join(',')}]` : ''} ${f.content.length}ch`);
-              return { content: [{ type: 'text', text: out.join('\n') }] };
+              const { facts, total, kbs } = await backend.listFacts({ kb: args.kb ? kbName : undefined, tag: args.tag, limit: args.limit || 50 });
+              const out = [`${total} facts, knowledge bases: [${kbs.join(', ')}]`, ''];
+              for (const f of facts) out.push(`  #${f.id} [${f.kb}]${f.tags.length ? ` [${f.tags.join(',')}]` : ''} ${f.content.length}ch`);
+              return ok(out.join('\n'));
             }
-
             default:
-              return { content: [{ type: 'text', text: `Unknown fact_action: ${factAction}` }], isError: true };
+              return err(`Unknown fact_action: ${factAction}`);
           }
         }
 
         case 'summarize': {
-          if (!args.value && !args.content) return { content: [{ type: 'text', text: 'content/value required' }], isError: true };
-          if (!args.topic) return { content: [{ type: 'text', text: 'topic required' }], isError: true };
+          if (!args.value && !args.content) return err('content/value required');
+          if (!args.topic) return err('topic required');
           const summaryContent = args.value || args.content;
-          const now = new Date().toISOString();
-          const ts = now.replace(/[:.]/g, '-');
+          const ts = new Date().toISOString().replace(/[:.]/g, '-');
           const summaryKey = `summary-${args.topic}-${ts}`;
           const summaryTags = ['summary', args.topic, ...(args.tags || [])];
-          store.lastId++;
-          store.entries.push({ id: String(store.lastId), key: summaryKey, value: summaryContent, tags: summaryTags, namespace: ns, created: now, updated: now });
-          await save(store);
-          return { content: [{ type: 'text', text: `Summary stored: ${summaryKey} (${summaryContent.length} chars)` }] };
-        }
-
-        case 'help': {
-          return { content: [{ type: 'text', text: HELP_TEXT }] };
+          await backend.store({ key: summaryKey, value: summaryContent, namespace: ns, tags: summaryTags });
+          return ok(`Summary stored: ${summaryKey} (${summaryContent.length} chars)`);
         }
 
         default:
-          return { content: [{ type: 'text', text: `Unknown action: ${args.action}` }], isError: true };
+          return err(`Unknown action: ${args.action}`);
       }
     } catch (error: any) {
-      return { content: [{ type: 'text', text: `Error: ${error.message}` }], isError: true };
+      return err(`Error: ${error.message}`);
     }
   }
 };

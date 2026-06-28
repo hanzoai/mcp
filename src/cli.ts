@@ -29,6 +29,11 @@ import { getConfiguredTools, ToolConfig } from './tools/index.js';
 import { getSystemPrompt } from './prompts/system.js';
 import { startZapServer } from './zap-server.js';
 
+// Cloud auth (IAM OAuth) + memory backend selection
+import { authConfig, getAccessToken, login, resolveCredential } from './auth/oauth.js';
+import { clearCredential, credentialLocation } from './auth/credentials.js';
+import { backendChoice } from './memory/index.js';
+
 // Version from package.json
 const packageJson = JSON.parse(
   await fs.readFile(path.join(__dirname, '..', 'package.json'), 'utf-8')
@@ -584,6 +589,69 @@ program
     console.log('Note: This command is deprecated. Use "hanzo-mcp install --claude-desktop" instead.\n');
     // Call the new install command with claude-desktop flag
     await program.parseAsync(['node', 'cli', 'install', '--claude-desktop'], { from: 'user' });
+  });
+
+// Cloud authentication — IAM OAuth (PKCE) against hanzo.id. Tokens are stored
+// in the secure credential store; the cloud memory backend reads them.
+const auth = program.command('auth').description('Authenticate hanzo-mcp to the Hanzo cloud (IAM OAuth)');
+
+auth
+  .command('login')
+  .description('Log in via browser (Authorization Code + PKCE) and store the token securely')
+  .action(async () => {
+    const cfg = authConfig();
+    console.error(`Authenticating to ${cfg.issuer} as client '${cfg.clientId}'...`);
+    try {
+      const cred = await login(cfg, (m) => console.error(m));
+      const who = cred.email || cred.sub || 'authenticated';
+      console.error(`\n✓ Logged in as ${who}`);
+      console.error(`  Token stored in: ${credentialLocation()}`);
+      console.error(`  Use the cloud backend: export HANZO_MEMORY_BACKEND=cloud  (or =sync for local-first)`);
+    } catch (e: any) {
+      console.error(`✗ Login failed: ${e.message}`);
+      process.exit(1);
+    }
+  });
+
+auth
+  .command('logout')
+  .description('Remove the stored Hanzo cloud credential')
+  .action(async () => {
+    const cfg = authConfig();
+    const removed = await clearCredential(cfg.issuer, cfg.clientId);
+    console.error(removed ? '✓ Logged out (credential removed)' : 'No stored credential found');
+  });
+
+auth
+  .command('status')
+  .description('Show authentication and memory-backend status')
+  .action(async () => {
+    const cfg = authConfig();
+    const cred = await resolveCredential(cfg).catch(() => null);
+    console.error(`IAM issuer:      ${cfg.issuer}`);
+    console.error(`Client ID:       ${cfg.clientId}`);
+    console.error(`Credential store:${credentialLocation()}`);
+    if (cred) {
+      const who = cred.email || cred.sub || '(unknown subject)';
+      const exp = new Date(cred.expiresAt).toISOString();
+      console.error(`Authenticated:   yes — ${who}`);
+      console.error(`Token expires:   ${exp}`);
+    } else {
+      console.error(`Authenticated:   no — run \`hanzo-mcp auth login\``);
+    }
+    console.error(`Memory backend:  ${backendChoice()} (HANZO_MEMORY_BACKEND)`);
+  });
+
+auth
+  .command('token')
+  .description('Print a valid access token to stdout (refreshes if needed)')
+  .action(async () => {
+    const token = await getAccessToken().catch(() => null);
+    if (!token) {
+      console.error('Not authenticated — run `hanzo-mcp auth login`');
+      process.exit(1);
+    }
+    console.log(token);
   });
 
 async function startStdioServer(options: any, toolConfig: ToolConfig) {
