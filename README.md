@@ -1,3 +1,5 @@
+<p align="center"><img src=".github/hero.svg" alt="mcp" width="880"></p>
+
 # mcp
 
 Model Context Protocol server. HIP-0300 unified action-routed tool surface. TypeScript today, Go rewrite in flight per HIP-0106.
