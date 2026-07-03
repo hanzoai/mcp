@@ -1,0 +1,14 @@
+# Platform-native CI/CD — the ONE build path for this repo.
+# A v* git tag push → the platform GitHub App (hanzo-cloud-app) webhook →
+# platform BuildKit builds ghcr.io/hanzoai/mcp:<semver> (tag minus the leading v)
+# in-cluster. NO GitHub Actions, NO ARC runners, NO sha/-suffix drift. Deploy is
+# the operator Service CR patch (services.hanzo.ai/mcp), the one way for system
+# services — not declared here (build-only).
+# Schema: hanzoai/platform docs/PLATFORM_CI.md (parsed by platform-config.ts).
+build:
+  matrix:
+    - { os: linux, arch: amd64 }   # amd64-only (DOKS has no arm64; re-add when it does)
+  dockerfile: ./Dockerfile
+  context: .
+  image: ghcr.io/hanzoai/mcp
+  tag-pattern: "{{git.tag}}"       # vX.Y.Z git tag → X.Y.Z image (semver, one way)
