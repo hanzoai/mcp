@@ -2,7 +2,7 @@
 # Multi-stage build optimized for TypeScript CLI applications
 
 # ===== Base Stage =====
-FROM node:20-alpine AS base
+FROM ghcr.io/hanzoai/nodejs:v24.18.0 AS base
 
 # Install system dependencies and security updates
 RUN apk update && apk upgrade && \
