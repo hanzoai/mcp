@@ -22,6 +22,9 @@ import { gitTool } from '../git.js';
 // GIMP — clean-room BSD-3 bridge, action-routed
 import { gimpTool } from '../gimp.js';
 
+// Code intelligence — Hanzo /v1/code/* surface (search, context, ask, index)
+import { codeIntelTools } from '../code-intel.js';
+
 // UI — already unified
 import { unifiedUITool } from '../unified-ui.js';
 
@@ -57,6 +60,7 @@ export const optionalTools: Tool[] = [
 export const allUnifiedTools: Tool[] = [
   ...coreTools,
   ...optionalTools,
+  ...codeIntelTools,   // code_search, code_context, code_ask, code_index
 ];
 
 // Re-exports
@@ -66,3 +70,4 @@ export { codeTool } from './code.js';
 export { fetchTool } from './fetch.js';
 export { workspaceTool } from './workspace.js';
 export { hanzoTool } from './hanzo.js';
+export { codeIntelTools, codeSearchTool, codeContextTool, codeAskTool, codeIndexTool } from '../code-intel.js';
