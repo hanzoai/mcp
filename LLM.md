@@ -34,13 +34,28 @@ Hanzo MCP (Model Context Protocol) implementation. TypeScript + Rust dual runtim
 | `tasks` | Task tracking |
 | `mode` | Developer modes |
 
+### Code Intelligence Tools (4)
+
+The Hanzo Cloud `api.hanzo.ai/v1/code/*` surface (per-org, principal-gated hybrid
+retrieval) as MCP tools. Auth mirrors the `hanzo` tool: the caller's Hanzo bearer
+from `HANZO_API_KEY` (or `API_KEY`/`API_TOKEN`/`HANZO_TOKEN`). The org is minted
+server-side from that identity — a client never passes an org. Output is requested
+as markdown (`?format=md`) so the LLM reads a token-thrifty table.
+
+| Tool | Endpoint | Inputs |
+|------|----------|--------|
+| `code_search` | `GET /v1/code/search` | `q`, `type?` (text\|regex\|symbol\|semantic\|hybrid), `repo?`, `limit?` |
+| `code_context` | `POST /v1/code/context` | `query`, `repo?`, `budgetTokens?` — budget-packed bundle (the agent primitive) |
+| `code_ask` | `GET /v1/code/ask` | `q`, `repo?` — cited RAG answer |
+| `code_index` | `POST /v1/code/index` | `repo`, `files:[{path,content}]`, `prune?` |
+
 ### File Layout
 
 ```
 src/tools/unified/     # HIP-0300 implementations
   fs.ts, exec.ts, code.ts, fetch.ts, workspace.ts, hanzo.ts, index.ts
 src/tools/             # Individual tools (legacy + new)
-  git.ts, think.ts, memory.ts, tasks.ts, plan.ts, mode-preset.ts, ...
+  git.ts, think.ts, memory.ts, tasks.ts, plan.ts, mode-preset.ts, code-intel.ts, ...
 src/tools/index.ts     # Tool registry and configuration
 rust/src/tools/        # Rust native tools (parallel implementations)
 ```

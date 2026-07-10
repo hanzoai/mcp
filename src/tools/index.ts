@@ -89,6 +89,7 @@ export { modePresetTools, modeUtils } from './mode-preset.js';
 export { hanzoCloudTools, iamTools, kmsTools, paasTools, billingTools, billingTool, commerceTools, storageTools, authTools, apiTools } from './hanzo-cloud.js';
 export { gitTools as vcsTools } from './git.js';
 export { gimpTools, gimpTool } from './gimp.js';
+export { codeIntelTools, codeSearchTool, codeContextTool, codeAskTool, codeIndexTool } from './code-intel.js';
 export { refactorTools } from './refactor.js';
 export { memoryTools } from './memory.js';
 export { planTools } from './plan.js';

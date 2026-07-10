@@ -4,8 +4,9 @@ import { createMCPServer } from '../../src/index.js';
 
 // HIP-0300 unified tool surface
 const UNIFIED_TOOLSET = [
-  'fs', 'exec', 'code', 'git', 'fetch', 'workspace', 'ui',   // core
-  'think', 'memory', 'hanzo', 'plan', 'tasks', 'mode',         // optional
+  'fs', 'exec', 'code', 'git', 'fetch', 'workspace', 'ui',              // core
+  'think', 'memory', 'hanzo', 'plan', 'tasks', 'mode', 'gimp',          // optional
+  'code_search', 'code_context', 'code_ask', 'code_index',             // code intelligence
 ];
 
 describe('Configuration System', () => {
