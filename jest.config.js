@@ -12,7 +12,11 @@ export default {
       useESM: true,
       tsconfig: {
         module: 'ESNext',
-        moduleResolution: 'node'
+        moduleResolution: 'node',
+        // Tests live outside ./src; widen rootDir so ts-jest can typecheck
+        // suites that import test/setup.ts (the production build uses esbuild
+        // and its own entrypoints, so this override is test-only).
+        rootDir: '.'
       }
     }]
   },
