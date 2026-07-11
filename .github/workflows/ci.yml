@@ -15,7 +15,7 @@ on:
 
 jobs:
   test-amd64:
-    runs-on: [self-hosted, amd-medium]
+    runs-on: hanzo-build-linux-amd64
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -44,7 +44,7 @@ jobs:
   # clients depend on; if this passes, the package works.
   integration-amd64:
     needs: test-amd64
-    runs-on: [self-hosted, amd-medium]
+    runs-on: hanzo-build-linux-amd64
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -74,7 +74,7 @@ jobs:
   e2e-published-amd64:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: integration-amd64
-    runs-on: [self-hosted, amd-medium]
+    runs-on: hanzo-build-linux-amd64
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -117,7 +117,7 @@ jobs:
           grep -q '"tools":\[' "$OUT"
 
   security:
-    runs-on: [self-hosted, amd-small]
+    runs-on: hanzo-build-linux-amd64
     steps:
       - uses: actions/checkout@v4
       - run: npm audit --audit-level=high || true
