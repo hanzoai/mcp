@@ -1,0 +1,182 @@
+name: Release Matrix (Rust MCP)
+
+# Every `hanzo-mcp` platform binary, cross-built from the ONE self-hosted Linux
+# pool (`hanzo-build-linux-amd64`) — NO GitHub-hosted builders. `cargo-zigbuild`
+# uses Zig as the cross-linker, so a single amd64 host emits linux-{amd64,arm64},
+# windows-amd64 and macos-{amd64,arm64} without a per-arch runner pool.
+#
+# The binary name `hanzo-mcp` is load-bearing: the `hanzo` CLI resolves its MCP
+# server with `which hanzo-mcp` and prefers it over the `uvx hanzo-mcp` Python
+# fallback. A binary on PATH is what retires the Python dependency.
+#
+# The crate lives in `rust/`, not the repo root — every cargo step carries
+# `working-directory: rust`, and the version guard reads `rust/Cargo.toml`.
+#
+# TAG NAMESPACE: this repo publishes TWO artifacts. The `v*` tags belong to the
+# npm package `@hanzo/mcp` (currently 2.4.x). The Rust binary versions on its own
+# `1.1.x` line, so it gets its own `rust-v*` namespace. Sharing `v*` would fire
+# this workflow on every npm release and fail the version guard against a crate
+# it never described.
+#
+# What makes the matrix build everywhere:
+#   - reqwest on rustls (OpenSSL gone) — no per-arch OpenSSL headers.
+#   - x11 is dlopen-based, so linux cross-links without arm64 X11 dev packages.
+#   - macOS needs a vendored SDK (Zig ships no macOS frameworks): the apple jobs
+#     fetch a pinned, checksum-verified MacOSX SDK and point `SDKROOT` at it.
+#
+# A target that cannot build must be ABSENT, not listed-and-failing: a red
+# release is indistinguishable from a broken one. All five here produce a real
+# binary from this pool.
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ['rust-v[0-9]+.[0-9]+.[0-9]+']
+
+permissions:
+  contents: write
+
+env:
+  ZIG_VERSION: '0.13.0'
+  ZIG_SHA256: 'd45312e61ebcc48032b77bc4cf7fd6915c11fa16e4aad116b66c9468211230ea'
+  ZIGBUILD_VERSION: '0.23.0'
+  MACOS_SDK_URL: 'https://github.com/phracker/MacOSX-SDKs/releases/download/11.3/MacOSX11.3.sdk.tar.xz'
+  MACOS_SDK_SHA256: 'cd4f08a75577145b8f05245a2975f7c81401d75e9535dcffbb879ee1deefcbf4'
+
+jobs:
+  build:
+    name: ${{ matrix.target.id }}
+    runs-on: hanzo-build-linux-amd64
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - { id: linux-amd64,   rust: x86_64-unknown-linux-gnu,  bin: hanzo-mcp,     host: true }
+          - { id: linux-arm64,   rust: aarch64-unknown-linux-gnu, bin: hanzo-mcp }
+          - { id: windows-amd64, rust: x86_64-pc-windows-gnu,     bin: hanzo-mcp.exe }
+          - { id: darwin-amd64,  rust: x86_64-apple-darwin,       bin: hanzo-mcp,     apple: true }
+          - { id: darwin-arm64,  rust: aarch64-apple-darwin,      bin: hanzo-mcp,     apple: true }
+    steps:
+      - uses: actions/checkout@v4
+
+      # A tag is a claim about what the binary IS. Refuse to publish a
+      # mislabeled release. The tag carries the `rust-v` prefix; the crate
+      # version does not.
+      - name: Tag matches the crate
+        run: |
+          set -euo pipefail
+          v="$(grep -m1 '^version' rust/Cargo.toml | sed -E 's/.*"(.*)".*/\1/')"
+          [ "rust-v$v" = "${{ github.ref_name }}" ] || {
+            echo "tag ${{ github.ref_name }} but rust/Cargo.toml is $v — the release would be mislabeled"
+            exit 1
+          }
+          echo "tag matches crate: rust-v$v"
+
+      # Zig IS the C toolchain now (tree-sitter's C sources cross-compile through
+      # it). `build-essential` is only for the host link. curl+jq publish; xz
+      # extracts Zig and the SDK.
+      - name: Toolchain deps
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends build-essential curl jq tar xz-utils
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target.rust }}
+
+      - name: Zig (the cross-linker)
+        run: |
+          set -euo pipefail
+          curl -fsSL "https://ziglang.org/download/${ZIG_VERSION}/zig-linux-x86_64-${ZIG_VERSION}.tar.xz" -o zig.tar.xz
+          echo "${ZIG_SHA256}  zig.tar.xz" | sha256sum -c -
+          mkdir -p "$HOME/zig"
+          tar -xf zig.tar.xz -C "$HOME/zig" --strip-components=1
+          echo "$HOME/zig" >> "$GITHUB_PATH"
+
+      - name: cargo-zigbuild
+        run: cargo install cargo-zigbuild --version "${ZIGBUILD_VERSION}" --locked
+
+      # Zig ships no macOS frameworks (CoreGraphics/Foundation, which the cocoa
+      # and objc crates link). Vendor a pinned SDK and point SDKROOT at it.
+      - name: Vendor macOS SDK
+        if: matrix.target.apple
+        run: |
+          set -euo pipefail
+          curl -fsSL "${MACOS_SDK_URL}" -o macsdk.tar.xz
+          echo "${MACOS_SDK_SHA256}  macsdk.tar.xz" | sha256sum -c -
+          tar -xf macsdk.tar.xz -C "$HOME"
+          echo "SDKROOT=$HOME/MacOSX11.3.sdk" >> "$GITHUB_ENV"
+
+      # Tests GATE the artifact. They run on the HOST arch only — a cross-built
+      # binary cannot execute here; the cross targets are the same source through
+      # the same compiler.
+      #
+      # `test_position_action` reads the live cursor position through X11 and
+      # cannot pass on a headless runner. It is skipped by name, not by module,
+      # so the rest of computer_tool still gates.
+      - name: Test
+        if: matrix.target.host
+        working-directory: rust
+        run: cargo test --lib --locked -- --skip tools::computer_tool::tests::test_position_action
+
+      - name: Build
+        working-directory: rust
+        run: cargo zigbuild --release --bin hanzo-mcp --locked --target ${{ matrix.target.rust }}
+
+      - name: Package
+        working-directory: rust
+        run: |
+          set -euo pipefail
+          out="target/${{ matrix.target.rust }}/release/${{ matrix.target.bin }}"
+          test -f "$out"
+          asset="hanzo-mcp-${{ matrix.target.id }}.tar.gz"
+          tar -czf "$asset" -C "$(dirname "$out")" "${{ matrix.target.bin }}"
+          sha256sum "$asset" > "$asset.sha256"
+          echo "packaged $asset"
+
+      # Publish STRAIGHT from the build job, over the REST API.
+      #
+      # No artifact round-trip: the org's artifact storage quota is exhausted and
+      # it failed builds that had already succeeded. The artifact was only ever a
+      # courier; the release is the destination.
+      #
+      # curl, not `gh`: the ARC image ships no gh CLI. curl+jq is what the runner
+      # actually has, so publish depends on nothing beyond what the build needs.
+      - name: Publish
+        working-directory: rust
+        env:
+          TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          api="https://api.github.com/repos/$REPO"
+          uploads="https://uploads.github.com/repos/$REPO"
+          auth=(-H "Authorization: Bearer $TOKEN" -H "Accept: application/vnd.github+json")
+
+          # Find-or-create: parallel matrix jobs share ONE release, and a re-run
+          # must upload, not fail on an existing release.
+          id="$(curl -s "${auth[@]}" "$api/releases/tags/$TAG" | jq -r '.id // empty')"
+          if [ -z "$id" ]; then
+            id="$(curl -s -X POST "${auth[@]}" \
+              -d "$(jq -nc --arg t "$TAG" '{tag_name:$t,name:$t,generate_release_notes:true}')" \
+              "$api/releases" | jq -r '.id // empty')"
+          fi
+          # A concurrent job may have created it between our GET and POST; re-read.
+          if [ -z "$id" ]; then
+            id="$(curl -s "${auth[@]}" "$api/releases/tags/$TAG" | jq -r '.id // empty')"
+          fi
+          [ -n "$id" ] || { echo "could not create or find release $TAG"; exit 1; }
+
+          for f in "hanzo-mcp-${{ matrix.target.id }}.tar.gz" "hanzo-mcp-${{ matrix.target.id }}.tar.gz.sha256"; do
+            test -f "$f"
+            # Same name twice would 422; drop the old asset first so re-runs work.
+            old="$(curl -s "${auth[@]}" "$api/releases/$id/assets" | jq -r --arg n "$f" '.[] | select(.name==$n) | .id')"
+            [ -n "$old" ] && curl -s -X DELETE "${auth[@]}" "$api/releases/assets/$old" >/dev/null
+            code="$(curl -s -o /tmp/up.json -w '%{http_code}' -X POST "${auth[@]}" \
+              -H "Content-Type: application/octet-stream" \
+              --data-binary @"$f" "$uploads/releases/$id/assets?name=$f")"
+            [ "$code" = "201" ] || { echo "upload $f failed ($code)"; cat /tmp/up.json; exit 1; }
+            echo "uploaded $f"
+          done
