@@ -16,6 +16,9 @@ use serde_json::{json, Value};
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
+use crate::hanzo_api::HanzoApi;
+use crate::tools::llm_tool;
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "snake_case")]
 pub enum LlmAction {
@@ -137,6 +140,7 @@ struct ThinkEntry {
 pub struct ThinkTool {
     journal: Arc<RwLock<Vec<ThinkEntry>>>,
     counter: Arc<RwLock<usize>>,
+    api: HanzoApi,
 }
 
 impl ThinkTool {
@@ -144,6 +148,7 @@ impl ThinkTool {
         Self {
             journal: Arc::new(RwLock::new(Vec::new())),
             counter: Arc::new(RwLock::new(0)),
+            api: HanzoApi::from_env(),
         }
     }
 
@@ -306,10 +311,40 @@ impl ThinkTool {
             .ok_or_else(|| anyhow!("topic or thought required"))?;
         let perspectives = args.perspectives.unwrap_or(3);
         let id = self.record("consensus", topic, args.context.as_deref()).await;
+
+        // With a key, actually poll multiple models and synthesize; otherwise
+        // fall back to recording the topic for the caller to reason over.
+        if self.api.has_key() {
+            let models: Vec<String> = llm_tool::DEFAULT_MODELS
+                .iter()
+                .take(perspectives.max(2))
+                .map(|s| s.to_string())
+                .collect();
+            match llm_tool::run_consensus(
+                &self.api, topic, args.context.as_deref(), &models,
+                llm_tool::DEFAULT_JUDGE_MODEL, 0.7, None, false,
+            ).await {
+                Ok(consensus) => return Ok(json!({
+                    "ok": true,
+                    "data": { "id": id, "topic": topic, "perspectives": models.len(),
+                        "recorded": true, "consensus": consensus },
+                    "error": null,
+                    "meta": { "tool": "think", "action": "consensus" }
+                })),
+                Err(e) => return Ok(json!({
+                    "ok": true,
+                    "data": { "id": id, "topic": topic, "perspectives": perspectives, "recorded": true,
+                        "hint": "Consensus LLM call failed; topic recorded.", "error": e.to_string() },
+                    "error": null,
+                    "meta": { "tool": "think", "action": "consensus" }
+                })),
+            }
+        }
+
         Ok(json!({
             "ok": true,
             "data": { "id": id, "topic": topic, "perspectives": perspectives, "recorded": true,
-                "hint": "Multi-perspective consensus reasoning recorded." },
+                "hint": "Multi-perspective consensus reasoning recorded (no hk- key: set HANZO_API_KEY to poll models)." },
             "error": null,
             "meta": { "tool": "think", "action": "consensus" }
         }))
@@ -320,10 +355,34 @@ impl ThinkTool {
             .or(args.thought.as_deref())
             .ok_or_else(|| anyhow!("goal or thought required"))?;
         let id = self.record("agent", goal, args.context.as_deref()).await;
+
+        // With a key, ask a model to produce a concrete plan for the goal.
+        if self.api.has_key() {
+            let system = "You are an autonomous agent. Given a goal, produce a concise \
+                ordered plan of concrete steps, note key risks, and state the first action to take.";
+            let messages = llm_tool::build_messages(Some(system), goal);
+            match llm_tool::chat(&self.api, llm_tool::DEFAULT_MODEL, messages, 0.7, None).await {
+                Ok(plan) => return Ok(json!({
+                    "ok": true,
+                    "data": { "id": id, "goal": goal, "recorded": true,
+                        "model": llm_tool::DEFAULT_MODEL, "plan": plan },
+                    "error": null,
+                    "meta": { "tool": "think", "action": "agent" }
+                })),
+                Err(e) => return Ok(json!({
+                    "ok": true,
+                    "data": { "id": id, "goal": goal, "recorded": true,
+                        "hint": "Agent LLM call failed; goal recorded.", "error": e.to_string() },
+                    "error": null,
+                    "meta": { "tool": "think", "action": "agent" }
+                })),
+            }
+        }
+
         Ok(json!({
             "ok": true,
             "data": { "id": id, "goal": goal, "recorded": true,
-                "hint": "Agent reasoning recorded. Execute planned steps." },
+                "hint": "Agent reasoning recorded (no hk- key: set HANZO_API_KEY to plan with a model)." },
             "error": null,
             "meta": { "tool": "think", "action": "agent" }
         }))
@@ -376,10 +435,34 @@ impl ThinkTool {
             .or(args.text.as_deref())
             .or(args.thought.as_deref())
             .ok_or_else(|| anyhow!("content or text required"))?;
+
+        // With a key, produce a real embedding vector; otherwise report the shape.
+        if self.api.has_key() {
+            match llm_tool::embed(&self.api, llm_tool::DEFAULT_EMBED_MODEL, content).await {
+                Ok(resp) => {
+                    let dimensions = resp["data"][0]["embedding"].as_array().map_or(0, |a| a.len());
+                    return Ok(json!({
+                        "ok": true,
+                        "data": { "input_length": content.len(), "model": llm_tool::DEFAULT_EMBED_MODEL,
+                            "dimensions": dimensions, "response": resp },
+                        "error": null,
+                        "meta": { "tool": "think", "action": "embed" }
+                    }));
+                }
+                Err(e) => return Ok(json!({
+                    "ok": true,
+                    "data": { "input_length": content.len(),
+                        "hint": "Embedding call failed.", "error": e.to_string() },
+                    "error": null,
+                    "meta": { "tool": "think", "action": "embed" }
+                })),
+            }
+        }
+
         Ok(json!({
             "ok": true,
             "data": { "input_length": content.len(),
-                "hint": "Embedding placeholder. Use dedicated embedding service for production." },
+                "hint": "Embedding placeholder (no hk- key: set HANZO_API_KEY to embed via api.hanzo.ai)." },
             "error": null,
             "meta": { "tool": "think", "action": "embed" }
         }))
