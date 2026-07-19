@@ -98,6 +98,29 @@ Platform-native implementations for performance-critical operations:
 
 Performance: <5ms clicks, <2ms keypress, <50ms screenshots.
 
+### Releasing the binary
+
+`.github/workflows/release-matrix.yml` cross-builds all five targets
+(linux/darwin {amd64,arm64} + windows-amd64) from the one self-hosted
+`hanzo-build-linux-amd64` pool via cargo-zigbuild, and uploads straight to the
+release over the REST API.
+
+Tags are namespaced `rust-v*`: plain `v*` belongs to the npm package `@hanzo/mcp`,
+which versions independently. The build refuses to publish unless the tag matches
+`rust/Cargo.toml`.
+
+Two things the runner needs that are easy to miss:
+- **ripgrep is a runtime dependency**, not a build one — the search tools shell out
+  to `rg`. Without it `test_search` and `test_unified_search` fail against a
+  missing binary, and since the host job gates the whole matrix, linux-amd64 goes
+  missing from an otherwise green-looking release.
+- `test_position_action` and `test_screen_size_action` read the display through
+  X11 and are skipped by name; the rest of `computer_tool` still gates.
+
+Tag pushes do not currently start a run in this repo — trigger the workflow
+manually against the tag ref (`gh workflow run ... --ref rust-vX.Y.Z`) and verify
+by listing release assets, not by the run's colour.
+
 ## Python SDK Parity
 
 The Python implementation (`hanzoai/python-sdk/pkg/hanzo-mcp`) exposes the same 13 HIP-0300 tools via entry-point discovery from `hanzo-tools-*` packages. Tool names and action schemas are identical across both runtimes.
