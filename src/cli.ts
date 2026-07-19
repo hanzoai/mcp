@@ -54,6 +54,7 @@ program
   .option('--enable-ui-registry', 'Enable UI registry tools')
   .option('--enable-github-ui', 'Enable GitHub UI tools')
   .option('--enable-desktop', 'Enable desktop/playwright tools')
+  .option('--enable-community-cryptuon', 'Enable cryptuon community tools (tesseract.deploy/health_check/monitor, compress.solana)')
   .option('--disable-ui', 'Disable UI tools for component development')
   .option('--disable-autogui', 'Disable AutoGUI tools for computer control')
   .option('--disable-orchestration', 'Disable orchestration tools for agent management')
@@ -73,6 +74,7 @@ program
       enableUIRegistry: coreOnly ? false : (fullSurface ? true : Boolean(options.enableUiRegistry)),
       enableGitHubUI: coreOnly ? false : (fullSurface ? true : Boolean(options.enableGithubUi)),
       enableDesktop: coreOnly ? false : Boolean(options.enableDesktop),
+      enableCommunityCryptuon: coreOnly ? false : Boolean(options.enableCommunityCryptuon),
       dedupeTools: true,
       enabledCategories: options.enableCategories ? options.enableCategories.split(',') : [],
       disabledTools: options.disableTools ? options.disableTools.split(',') : []
@@ -125,6 +127,7 @@ program
   .option('--enable-ui-registry', 'Include UI registry tools')
   .option('--enable-github-ui', 'Include GitHub UI tools')
   .option('--enable-desktop', 'Include desktop/playwright tools')
+  .option('--enable-community-cryptuon', 'Include cryptuon community tools')
   .option('--disable-ui', 'Exclude UI tools from listing')
   .option('--disable-autogui', 'Exclude AutoGUI tools from listing')
   .option('--disable-orchestration', 'Exclude orchestration tools from listing')
@@ -143,6 +146,7 @@ program
       enableUIRegistry: coreOnly ? false : (fullSurface ? true : Boolean(options.enableUiRegistry)),
       enableGitHubUI: coreOnly ? false : (fullSurface ? true : Boolean(options.enableGithubUi)),
       enableDesktop: coreOnly ? false : Boolean(options.enableDesktop),
+      enableCommunityCryptuon: coreOnly ? false : Boolean(options.enableCommunityCryptuon),
       dedupeTools: true,
     };
 
