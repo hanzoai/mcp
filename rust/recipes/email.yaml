@@ -1,0 +1,92 @@
+# Hanzo Brain — Email Recipe
+#
+# Daily Gmail pull → classify → draft response → enqueue for swipe-review
+# in the Hanzo app (~/work/hanzo/bot/apps/{ios,android,macos}).
+#
+# Run:
+#   hanzo-bot brain run-recipe email
+#   hanzo-bot brain drafts list
+#   hanzo-bot brain drafts approve <id>     # sends via gmail
+#   hanzo-bot brain drafts reject  <id>     # logs as decline-fact for training
+#
+# Trains your reply tone over time. Every swipe is a signal.
+
+recipe: email
+version: 1
+backend: gmail
+
+auth:
+  provider: hanzo.id          # OIDC via hanzo IAM — single sign-on
+  scopes:
+    - https://www.googleapis.com/auth/gmail.readonly
+    - https://www.googleapis.com/auth/gmail.compose
+
+cron: "*/30 * * * *"          # every 30 min — adjust per volume
+
+ingest:
+  source: inbox
+  since: 24h
+  max: 100
+  filter:
+    has_thread: any
+    skip_labels: [SPAM, TRASH, PROMOTIONS]
+
+classify:
+  model: zen-2-haiku           # cheap classifier, fast
+  schema:
+    needs_reply:   bool
+    priority:      one_of [P0, P1, P2, P3]
+    intent:        one_of [question, fyi, scheduling, ask, update, spam]
+    entities:      [person, company, deal]
+    sentiment:     one_of [positive, neutral, negative]
+    action_items:  list
+
+draft:
+  when: needs_reply == true
+  model: zen-2                 # main model — bigger context, better tone
+  context:
+    - brain.recall(from_email)          # who is this person (facts)
+    - brain.search(thread_id, limit=10) # past replies in thread (RAG)
+    - brain.facts({entity:from_email, since:30d, limit:30})
+    - brain.style(sender:me, recent:200) # 200-shot style examples from outbox
+  prompt: |
+    You are drafting a reply for me. Match my tone exactly — terse,
+    direct, no exclamation marks, no emoji. Answer the question in the
+    fewest words that are still useful. Sign off only if I usually do.
+    Never invent commitments. If you're unsure, suggest "let me check
+    and get back to you" and add an action_item.
+  output_schema:
+    subject:       string
+    body:          string
+    action_items:  list
+    confidence:    number       # 0..1, used for triage ranking
+
+enqueue:
+  queue: drafts.email
+  ttl: 7d
+  rank_by: [priority, confidence]
+  fact_on_enqueue:
+    subject: from_email
+    predicate: thread_active
+    object: true
+    source: thread_id
+
+notify:
+  channel: hanzo-app
+  badge: count_unswiped
+  push: drafts.email.new
+
+# After the user swipes in the app, the result feeds back to the brain:
+on_swipe_send:
+  - send via gmail
+  - upsertFact: { subject: from_email, predicate: replied, object: thread_id, ts: now }
+  - learn: append (received_msg, sent_draft) to style examples
+
+on_swipe_reject:
+  - delete draft
+  - upsertFact: { subject: from_email, predicate: declined_reply, object: thread_id, ts: now }
+  - learn: down-weight similar drafts in future ranking
+
+on_swipe_edit:
+  - open editor with the draft pre-filled
+  - on save: send + learn (received_msg, edited_draft) as positive example
