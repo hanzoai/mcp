@@ -2,7 +2,7 @@
 ///
 /// Handles semantic code operations:
 /// - parse: Parse source to AST
-/// - serialize: AST to text (stub)
+/// - serialize: AST to text (round-trips parse→serialize)
 /// - symbols: List symbols in file
 /// - outline: Symbols with imports/exports
 /// - definition: Go to definition
@@ -23,6 +23,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::path::Path;
+use tree_sitter::{Language, Node, Parser};
 
 const SKIP_DIRS: &[&str] = &[".git", "node_modules", "target", "dist", "__pycache__", ".venv", "venv"];
 
@@ -96,6 +97,7 @@ pub struct CodeToolArgs {
     pub replacement: Option<String>,
     pub max_results: Option<usize>,
     pub scope: Option<String>,
+    pub ast: Option<Value>,
 }
 
 /// Tool definition for MCP registration
@@ -125,7 +127,8 @@ impl CodeToolDefinition {
                     "new_name": { "type": "string", "description": "New name for rename" },
                     "replacement": { "type": "string", "description": "Replacement for grep_replace" },
                     "max_results": { "type": "number", "default": 20 },
-                    "scope": { "type": "string", "description": "Search scope" }
+                    "scope": { "type": "string", "description": "Search scope" },
+                    "ast": { "type": "object", "description": "Pre-parsed AST node to serialize back to text" }
                 },
                 "required": ["action"]
             }
@@ -253,10 +256,127 @@ impl CodeTool {
         }))
     }
 
-    async fn serialize(&self, _args: &CodeToolArgs) -> Result<Value> {
+    /// Map a language name to its tree-sitter grammar.
+    fn ts_language(name: &str) -> Option<Language> {
+        Some(match name {
+            "rust" => tree_sitter_rust::language(),
+            "javascript" | "jsx" => tree_sitter_javascript::language(),
+            "typescript" => tree_sitter_typescript::language_typescript(),
+            "tsx" => tree_sitter_typescript::language_tsx(),
+            "python" => tree_sitter_python::language(),
+            "go" => tree_sitter_go::language(),
+            "java" => tree_sitter_java::language(),
+            "cpp" => tree_sitter_cpp::language(),
+            "c" => tree_sitter_c::language(),
+            _ => return None,
+        })
+    }
+
+    /// Resolve a tree-sitter grammar name from a file extension or explicit hint.
+    fn ts_lang_name(ext: &str) -> &'static str {
+        match ext {
+            "rs" => "rust",
+            "js" | "mjs" | "cjs" => "javascript",
+            "jsx" => "jsx",
+            "ts" => "typescript",
+            "tsx" => "tsx",
+            "py" => "python",
+            "go" => "go",
+            "java" => "java",
+            "cpp" | "cc" | "cxx" | "hpp" => "cpp",
+            "c" | "h" => "c",
+            _ => "unknown",
+        }
+    }
+
+    /// Reconstruct source by walking leaf nodes and refilling the inter-leaf
+    /// gaps (whitespace/comments-between) from the original bytes. Concatenating
+    /// leaf ranges plus gaps yields the exact input, so parse→serialize round-trips.
+    fn walk_leaves(node: Node, source: &str, out: &mut String, last_end: &mut usize) {
+        if node.child_count() == 0 {
+            let range = node.byte_range();
+            if range.start > *last_end {
+                out.push_str(&source[*last_end..range.start]);
+            }
+            out.push_str(&source[range.clone()]);
+            *last_end = range.end;
+            return;
+        }
+        let mut cursor = node.walk();
+        for child in node.children(&mut cursor) {
+            Self::walk_leaves(child, source, out, last_end);
+        }
+    }
+
+    /// Collapse a Python-shaped AST node (`{text}` leaf, else `{children}`) to
+    /// text, joining child fragments with a single space. Mirrors the SDK.
+    fn ast_node_text(node: &Value) -> String {
+        if let Some(text) = node.get("text").and_then(Value::as_str) {
+            return text.to_string();
+        }
+        node.get("children")
+            .and_then(Value::as_array)
+            .map(|children| children.iter().map(Self::ast_node_text).collect::<Vec<_>>().join(" "))
+            .unwrap_or_default()
+    }
+
+    async fn serialize(&self, args: &CodeToolArgs) -> Result<Value> {
+        // Path 1 — a pre-parsed AST node was supplied: collapse it to text
+        // exactly as the Python SDK does (leaf text joined by spaces).
+        if let Some(ast) = &args.ast {
+            let root = ast.get("root").unwrap_or(ast);
+            let text = Self::ast_node_text(root);
+            let lang = args.language.clone()
+                .or_else(|| ast.get("lang").and_then(Value::as_str).map(str::to_string))
+                .unwrap_or_else(|| "unknown".to_string());
+            return Ok(json!({
+                "ok": true,
+                "data": { "text": text, "lang": lang, "method": "ast", "supported": true },
+                "error": null,
+                "meta": { "tool": "code", "action": "serialize" }
+            }));
+        }
+
+        // Path 2 — round-trip: parse the source with tree-sitter, then
+        // reconstruct it from the parsed tree's leaves.
+        let source = if let Some(text) = &args.text {
+            text.clone()
+        } else if let Some(uri) = self.resolve_uri(args) {
+            tokio::fs::read_to_string(uri).await?
+        } else {
+            return Err(anyhow!("ast, text, or uri required"));
+        };
+
+        let lang_name = args.language.clone().unwrap_or_else(|| {
+            let ext = self.resolve_uri(args)
+                .and_then(|u| Path::new(u).extension().and_then(|e| e.to_str()))
+                .unwrap_or("");
+            Self::ts_lang_name(ext).to_string()
+        });
+
+        let language = Self::ts_language(&lang_name)
+            .ok_or_else(|| anyhow!("Unsupported language for serialize: {}", lang_name))?;
+        let mut parser = Parser::new();
+        parser.set_language(language).map_err(|e| anyhow!("set_language failed: {}", e))?;
+        let tree = parser.parse(source.as_bytes(), None)
+            .ok_or_else(|| anyhow!("Parse failed for language: {}", lang_name))?;
+
+        let mut text = String::with_capacity(source.len());
+        let mut last_end = 0usize;
+        Self::walk_leaves(tree.root_node(), &source, &mut text, &mut last_end);
+        if last_end < source.len() {
+            text.push_str(&source[last_end..]);
+        }
+
         Ok(json!({
             "ok": true,
-            "data": { "hint": "Serialization requires CST preservation. Use the original source text.", "supported": false },
+            "data": {
+                "text": text,
+                "lang": lang_name,
+                "method": "round_trip",
+                "supported": true,
+                "round_trip": text == source
+            },
             "error": null,
             "meta": { "tool": "code", "action": "serialize" }
         }))
@@ -610,7 +730,7 @@ impl CodeTool {
                 "tool": "code",
                 "actions": {
                     "parse": "Parse source to AST (requires uri)",
-                    "serialize": "Convert AST to text (stub)",
+                    "serialize": "Convert AST to text (round-trip; requires ast, or text/uri)",
                     "symbols": "List symbols in file (requires uri)",
                     "outline": "Symbols with imports/exports (requires uri)",
                     "definition": "Go to symbol definition (requires uri, symbol/query)",
@@ -659,5 +779,39 @@ mod tests {
         assert_eq!("rename".parse::<CodeAction>().unwrap(), CodeAction::Rename);
         assert_eq!("grep_replace".parse::<CodeAction>().unwrap(), CodeAction::GrepReplace);
         assert_eq!("serialize".parse::<CodeAction>().unwrap(), CodeAction::Serialize);
+    }
+
+    #[tokio::test]
+    async fn test_serialize_round_trips_source() {
+        let src = "fn main() {\n    let x = 1;\n    println!(\"{}\", x);\n}\n";
+        let tool = CodeTool::new();
+        let args = CodeToolArgs {
+            action: Some("serialize".into()),
+            text: Some(src.to_string()),
+            language: Some("rust".into()),
+            ..Default::default()
+        };
+        let out = tool.serialize(&args).await.unwrap();
+        assert_eq!(out["data"]["text"].as_str().unwrap(), src);
+        assert_eq!(out["data"]["round_trip"], json!(true));
+        assert_eq!(out["data"]["method"], json!("round_trip"));
+    }
+
+    #[tokio::test]
+    async fn test_serialize_from_ast_node() {
+        let ast = json!({
+            "lang": "python",
+            "root": { "children": [ { "text": "x" }, { "text": "=" }, { "text": "1" } ] }
+        });
+        let tool = CodeTool::new();
+        let args = CodeToolArgs {
+            action: Some("serialize".into()),
+            ast: Some(ast),
+            ..Default::default()
+        };
+        let out = tool.serialize(&args).await.unwrap();
+        assert_eq!(out["data"]["text"].as_str().unwrap(), "x = 1");
+        assert_eq!(out["data"]["lang"], json!("python"));
+        assert_eq!(out["data"]["method"], json!("ast"));
     }
 }
