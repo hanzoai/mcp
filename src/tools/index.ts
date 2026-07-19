@@ -45,6 +45,9 @@ import { unifiedUITool } from './unified-ui.js';
 import { uiRegistryTools } from './ui-registry.js';
 import { githubUITools } from './ui-github-api.js';
 
+// Community tools (opt-in)
+import { cryptuonCommunityTools } from './community/cryptuon/index.js';
+
 // Desktop automation tools
 export const desktopTools: Tool[] = [
   new HanzoDesktopTool(),
@@ -100,6 +103,9 @@ export { uiRegistryTools } from './ui-registry.js';
 export { githubUITools } from './ui-github-api.js';
 export { registerTool, getAllRegisteredTools } from './tool-registry.js';
 
+// Community tools (opt-in)
+export { cryptuonCommunityTools } from './community/cryptuon/index.js';
+
 // Tool configuration
 export interface ToolConfig {
   /** Use HIP-0300 unified tools (default: true) */
@@ -123,6 +129,8 @@ export interface ToolConfig {
   enableUIRegistry?: boolean;
   enableGitHubUI?: boolean;
   enableDesktop?: boolean;
+  /** Enable community cryptuon tools (tesseract.deploy/health_check/monitor, compress.solana). Off by default. */
+  enableCommunityCryptuon?: boolean;
   dedupeTools?: boolean;
   enabledCategories?: string[];
   disabledTools?: string[];
@@ -148,6 +156,7 @@ export function getConfiguredTools(config: ToolConfig = {}): Tool[] {
     enableUIRegistry = false,
     enableGitHubUI = false,
     enableDesktop = false,
+    enableCommunityCryptuon = false,
     dedupeTools = true,
     disabledTools = [],
     customTools = []
@@ -206,6 +215,9 @@ export function getConfiguredTools(config: ToolConfig = {}): Tool[] {
   if (enableUIRegistry) tools.push(...uiRegistryTools);
   if (enableGitHubUI) tools.push(...githubUITools);
   if (enableDesktop) tools.push(...desktopTools);
+
+  // Community tools (opt-in)
+  if (enableCommunityCryptuon) tools.push(...cryptuonCommunityTools);
 
   // Custom tools
   tools.push(...customTools);
