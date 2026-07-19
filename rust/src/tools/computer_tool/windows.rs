@@ -16,8 +16,9 @@ use winapi::um::winuser::{
     KEYEVENTF_KEYUP, MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP,
     MOUSEEVENTF_RIGHTDOWN, MOUSEEVENTF_RIGHTUP, MOUSEEVENTF_MIDDLEDOWN,
     MOUSEEVENTF_MIDDLEUP, MOUSEEVENTF_WHEEL, WHEEL_DELTA,
+    GetDC, ReleaseDC,
 };
-use winapi::um::wingdi::{GetPixel, GetDC, ReleaseDC};
+use winapi::um::wingdi::GetPixel;
 
 use super::{NativeControl, PlatformInfo, WindowInfo};
 
