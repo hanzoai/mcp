@@ -1,8 +1,18 @@
 use anyhow::Result;
-use clap::Parser;
+use clap::{Parser, ValueEnum};
 use hanzo_mcp::{Config, MCPServer};
 use log::info;
 use std::path::PathBuf;
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq, ValueEnum)]
+enum Transport {
+    /// Newline-delimited JSON-RPC over stdin/stdout (default; spawned by the CLI)
+    Stdio,
+    /// Server-Sent Events over HTTP
+    Sse,
+    /// JSON-RPC over HTTP
+    Http,
+}
 
 #[derive(Parser, Debug)]
 #[clap(
@@ -19,7 +29,15 @@ struct Args {
     #[clap(short, long)]
     debug: bool,
 
-    /// Port to listen on
+    /// Transport to serve on
+    #[clap(short, long, value_enum, default_value_t = Transport::Stdio)]
+    transport: Transport,
+
+    /// Filesystem root the server may operate under (repeatable)
+    #[clap(long)]
+    project_dir: Vec<PathBuf>,
+
+    /// Port to listen on (http/sse transports)
     #[clap(short, long, default_value = "3333")]
     port: u16,
 }
@@ -28,13 +46,16 @@ struct Args {
 async fn main() -> Result<()> {
     let args = Args::parse();
 
-    if args.debug {
-        env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("debug"))
-            .init();
+    // On stdio, logs must never pollute the JSON-RPC stream on stdout.
+    let log_target = if args.transport == Transport::Stdio {
+        env_logger::Target::Stderr
     } else {
-        env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info"))
-            .init();
-    }
+        env_logger::Target::Stdout
+    };
+    let filter = if args.debug { "debug" } else { "info" };
+    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or(filter))
+        .target(log_target)
+        .init();
 
     info!("Starting Hanzo MCP Server v{}", env!("CARGO_PKG_VERSION"));
 
@@ -44,10 +65,18 @@ async fn main() -> Result<()> {
         Config::default()
     };
 
-    let server = MCPServer::new(config, args.port)?;
-    info!("[MCP] JSON-RPC HTTP on http://127.0.0.1:{}", args.port);
+    let mut server = MCPServer::new(config, args.port)?;
+    for root in args.project_dir {
+        server.allow_root(root);
+    }
 
-    server.run().await?;
+    match args.transport {
+        Transport::Stdio => server.run_stdio().await?,
+        Transport::Http | Transport::Sse => {
+            info!("[MCP] JSON-RPC HTTP on http://127.0.0.1:{}", args.port);
+            server.run().await?;
+        }
+    }
 
     Ok(())
 }
