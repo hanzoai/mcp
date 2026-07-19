@@ -103,6 +103,22 @@ hanzo-mcp install-desktop
 | `tasks` | Task tracking |
 | `mode` | Developer modes |
 
+### Community Tools (opt-in)
+
+Third-party tool descriptors that shell out to externally-installed binaries.
+Off by default; enable individually.
+
+| Tool | Source | Purpose |
+|------|--------|---------|
+| `tesseract.deploy` | [kcolbchain/tesseract](https://github.com/kcolbchain/tesseract) | Deploy zk-OCR relayer to a target chain |
+| `tesseract.health_check` | [kcolbchain/tesseract](https://github.com/kcolbchain/tesseract) | Probe deployed relayer addresses |
+| `tesseract.monitor` | [kcolbchain/tesseract](https://github.com/kcolbchain/tesseract) | Poll matching contract events |
+| `compress.solana` | [kcolbchain/blockchain-compression](https://github.com/kcolbchain/blockchain-compression) | Compress blob with Solana-tuned compressor |
+
+Enable: `hanzo-mcp serve --enable-community-cryptuon`. See
+`src/tools/community/cryptuon/` for descriptors and per-tool env var
+overrides (e.g. `$CRYPTUON_TESSERACT_DEPLOY`).
+
 ## Usage
 
 ### CLI Options
