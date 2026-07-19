@@ -75,11 +75,15 @@ jobs:
       # Zig IS the C toolchain now (tree-sitter's C sources cross-compile through
       # it). `build-essential` is only for the host link. curl+jq publish; xz
       # extracts Zig and the SDK.
+      #
+      # ripgrep is a RUNTIME dependency, not a build one: the search tools shell
+      # out to `rg`. It is installed so the host test job exercises search for
+      # real instead of asserting against a missing binary.
       - name: Toolchain deps
         run: |
           set -euo pipefail
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends build-essential curl jq tar xz-utils
+          sudo apt-get install -y --no-install-recommends build-essential curl jq tar xz-utils ripgrep
 
       - uses: dtolnay/rust-toolchain@stable
         with:
@@ -112,13 +116,16 @@ jobs:
       # binary cannot execute here; the cross targets are the same source through
       # the same compiler.
       #
-      # `test_position_action` reads the live cursor position through X11 and
-      # cannot pass on a headless runner. It is skipped by name, not by module,
-      # so the rest of computer_tool still gates.
+      # `test_position_action` and `test_screen_size_action` read the live
+      # cursor/display through X11 and cannot pass on a headless runner. They are
+      # skipped by name, not by module, so the rest of computer_tool still gates.
       - name: Test
         if: matrix.target.host
         working-directory: rust
-        run: cargo test --lib --locked -- --skip tools::computer_tool::tests::test_position_action
+        run: |
+          cargo test --lib --locked -- \
+            --skip tools::computer_tool::tests::test_position_action \
+            --skip tools::computer_tool::tests::test_screen_size_action
 
       - name: Build
         working-directory: rust
