@@ -14,6 +14,8 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::collections::HashMap;
 
+use crate::hanzo_api::HanzoApi;
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "snake_case")]
 pub enum NetAction {
@@ -280,6 +282,40 @@ impl FetchTool {
 
     async fn search(&self, args: &FetchToolArgs) -> Result<Value> {
         let query = args.query.as_deref().ok_or_else(|| anyhow!("query required"))?;
+
+        // Canonical path: the platform web search (api.hanzo.ai). Fall back to a
+        // local DuckDuckGo scrape only when the cloud is unreachable / unkeyed.
+        let api = HanzoApi::from_env();
+        if api.has_key() {
+            if let Ok(body) = api.get("/v1/websearch/search", &[("q", query.to_string())]).await {
+                let limit = args.limit.unwrap_or(10);
+                let results: Vec<Value> = body["results"]
+                    .as_array()
+                    .map(|arr| {
+                        arr.iter()
+                            .take(limit)
+                            .map(|r| json!({
+                                "url": r.get("url").cloned().unwrap_or(Value::Null),
+                                "title": r.get("title").cloned().unwrap_or(Value::Null),
+                                "content": r.get("content").cloned().unwrap_or(Value::Null),
+                            }))
+                            .collect()
+                    })
+                    .unwrap_or_default();
+                return Ok(json!({
+                    "ok": true,
+                    "data": { "query": query, "results": results, "count": results.len(), "source": "cloud" },
+                    "error": null,
+                    "meta": { "tool": "fetch", "action": "search" }
+                }));
+            }
+        }
+
+        self.search_local(args).await
+    }
+
+    async fn search_local(&self, args: &FetchToolArgs) -> Result<Value> {
+        let query = args.query.as_deref().ok_or_else(|| anyhow!("query required"))?;
         let timeout = args.timeout.unwrap_or(15000);
         let client = self.build_client(timeout)?;
 
@@ -314,7 +350,7 @@ impl FetchTool {
 
         Ok(json!({
             "ok": true,
-            "data": { "query": query, "results": results, "count": results.len() },
+            "data": { "query": query, "results": results, "count": results.len(), "source": "local" },
             "error": null,
             "meta": { "tool": "fetch", "action": "search" }
         }))
