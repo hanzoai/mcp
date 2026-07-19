@@ -1,5 +1,6 @@
-/// Hanzo MCP Server - Rust implementation (HIP-0300)
-///
+#![recursion_limit = "256"]
+//! Hanzo MCP Server - Rust implementation (HIP-0300)
+//!
 /// Provides full tool parity with Python hanzo-mcp:
 /// - exec: Process execution
 /// - fs: File system operations
@@ -14,6 +15,7 @@
 pub mod brain;
 pub mod config;
 pub mod ffi;
+pub mod hanzo_api;
 pub mod server;
 pub mod protocol;
 pub mod tools;
@@ -312,8 +314,26 @@ impl ToolRegistry {
     pub fn with_defaults() -> Self {
         let mut registry = Self::new();
 
-        // All core tools are already initialized in new()
-        // Add any additional optional tools here
+        // Cloud-backed tools (api.hanzo.ai) via the generic MCPTool seam.
+        // These complement the local tools: code_* is cross-repo RAG next to the
+        // local tree-sitter `code` tool; web_* and vision reach the platform.
+        registry.register(Box::new(tools::CodeSearchTool::new()));
+        registry.register(Box::new(tools::CodeContextTool::new()));
+        registry.register(Box::new(tools::CodeAskTool::new()));
+        registry.register(Box::new(tools::CodeIndexTool::new()));
+        registry.register(Box::new(tools::WebSearchTool::new()));
+        registry.register(Box::new(tools::WebReadTool::new()));
+        registry.register(Box::new(tools::VisionTool::new()));
+
+        // Ported tool surface (HIP-0300 parity with python-sdk): config, llm, ui,
+        // agent, lsp, refactor, system — all dyn-trait tools via the MCPTool seam.
+        registry.register(Box::new(tools::ConfigTool::new()));
+        registry.register(Box::new(tools::LlmTool::new()));
+        registry.register(Box::new(tools::UiTool::new()));
+        registry.register(Box::new(tools::AgentTool::new()));
+        registry.register(Box::new(tools::LspTool::new()));
+        registry.register(Box::new(tools::RefactorTool::new()));
+        registry.register(Box::new(tools::SystemTool::new()));
 
         #[cfg(feature = "computer-control")]
         {
@@ -370,6 +390,23 @@ mod tests {
         let registry = ToolRegistry::new();
         let definitions = registry.get_definitions();
         assert!(definitions.len() >= 9);
+    }
+
+    #[test]
+    fn test_cloud_tools_registered_and_discoverable() {
+        let registry = ToolRegistry::with_defaults();
+        let names = registry.list();
+        for t in ["code_search", "code_context", "code_ask", "code_index", "web_search", "web_read", "vision"] {
+            assert!(names.contains(&t.to_string()), "{t} missing from registry.list()");
+        }
+        // Each cloud tool must also expose a definition (name + inputSchema) for MCP tools/list.
+        let defs = registry.get_definitions();
+        for t in ["code_search", "code_context", "code_ask", "code_index", "web_search", "web_read", "vision"] {
+            assert!(
+                defs.iter().any(|d| d["name"] == t && d["inputSchema"].is_object()),
+                "{t} missing a definition"
+            );
+        }
     }
 
     #[tokio::test]

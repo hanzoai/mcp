@@ -28,6 +28,9 @@ pub enum FsAction {
     Find,
     Search,
     Info,
+    Mv,
+    Mkdir,
+    Rm,
     Help,
 }
 
@@ -50,6 +53,9 @@ impl std::str::FromStr for FsAction {
             "find" | "glob" => Ok(Self::Find),
             "search" | "grep" => Ok(Self::Search),
             "info" | "stat" => Ok(Self::Info),
+            "mv" | "move" | "rename" => Ok(Self::Mv),
+            "mkdir" => Ok(Self::Mkdir),
+            "rm" | "remove" | "delete" => Ok(Self::Rm),
             "help" | "" => Ok(Self::Help),
             _ => Err(anyhow!("Unknown action: {}", s)),
         }
@@ -96,6 +102,11 @@ pub struct FsToolArgs {
     /// Case insensitive
     #[serde(default)]
     pub ignore_case: bool,
+    /// Destination path for mv
+    pub destination: Option<String>,
+    /// Confirmation for rm (required)
+    #[serde(default)]
+    pub confirm: bool,
 }
 
 /// Patch operation type
@@ -146,6 +157,9 @@ impl FsTool {
             FsAction::Find => self.find(args).await?,
             FsAction::Search => self.search(args).await?,
             FsAction::Info => self.info(args).await?,
+            FsAction::Mv => self.mv(args).await?,
+            FsAction::Mkdir => self.mkdir(args).await?,
+            FsAction::Rm => self.rm(args).await?,
             FsAction::Help => self.help()?,
         };
 
@@ -627,6 +641,73 @@ impl FsTool {
         }))
     }
 
+    async fn mv(&self, args: FsToolArgs) -> Result<Value> {
+        let source = args.file_path.or(args.path)
+            .ok_or_else(|| anyhow!("path required"))?;
+        let source = shellexpand::tilde(&source).to_string();
+        let destination = args.destination
+            .ok_or_else(|| anyhow!("destination required"))?;
+        let destination = shellexpand::tilde(&destination).to_string();
+
+        if !Path::new(&source).exists() {
+            return Err(anyhow!("Source not found: {}", source));
+        }
+
+        // Ensure destination parent directory exists
+        if let Some(parent) = Path::new(&destination).parent() {
+            tokio::fs::create_dir_all(parent).await?;
+        }
+
+        tokio::fs::rename(&source, &destination).await?;
+
+        Ok(json!({
+            "source": source,
+            "destination": destination,
+            "moved": true
+        }))
+    }
+
+    async fn mkdir(&self, args: FsToolArgs) -> Result<Value> {
+        let path = args.file_path.or(args.path)
+            .ok_or_else(|| anyhow!("path required"))?;
+        let path = shellexpand::tilde(&path).to_string();
+
+        let p = Path::new(&path);
+        if p.exists() {
+            if p.is_dir() {
+                return Ok(json!({ "path": path, "created": false }));
+            }
+            return Err(anyhow!("Path exists and is not a directory: {}", path));
+        }
+
+        tokio::fs::create_dir_all(&path).await?;
+
+        Ok(json!({ "path": path, "created": true }))
+    }
+
+    async fn rm(&self, args: FsToolArgs) -> Result<Value> {
+        if !args.confirm {
+            return Err(anyhow!("rm requires confirm=true for safety"));
+        }
+
+        let path = args.file_path.or(args.path)
+            .ok_or_else(|| anyhow!("path required"))?;
+        let path = shellexpand::tilde(&path).to_string();
+
+        let p = Path::new(&path);
+        if !p.exists() {
+            return Err(anyhow!("Path not found: {}", path));
+        }
+
+        if p.is_file() {
+            tokio::fs::remove_file(&path).await?;
+        } else {
+            tokio::fs::remove_dir_all(&path).await?;
+        }
+
+        Ok(json!({ "path": path, "removed": true }))
+    }
+
     fn help(&self) -> Result<Value> {
         Ok(json!({
             "name": "fs",
@@ -640,7 +721,10 @@ impl FsTool {
                 "tree": "Display directory tree",
                 "find": "Find files by pattern",
                 "search": "Search file contents",
-                "info": "Get file info"
+                "info": "Get file info",
+                "mv": "Move or rename file/directory",
+                "mkdir": "Create directory",
+                "rm": "Remove file or directory (requires confirm=true)"
             }
         }))
     }
@@ -668,13 +752,16 @@ Actions:
 - tree: Display directory tree
 - find: Find files by pattern
 - search: Search file contents
-- info: Get file info"#.to_string(),
+- info: Get file info
+- mv: Move or rename file/directory
+- mkdir: Create directory
+- rm: Remove file or directory (requires confirm=true)"#.to_string(),
             input_schema: json!({
                 "type": "object",
                 "properties": {
                     "action": {
                         "type": "string",
-                        "enum": ["read", "write", "edit", "patch", "tree", "find", "search", "info", "help"],
+                        "enum": ["read", "write", "edit", "patch", "tree", "find", "search", "info", "mv", "mkdir", "rm", "help"],
                         "default": "help"
                     },
                     "path": {"type": "string", "description": "File or directory path"},
@@ -690,7 +777,9 @@ Actions:
                     "offset": {"type": "integer", "description": "Offset for pagination"},
                     "include_hidden": {"type": "boolean", "description": "Include hidden files", "default": false},
                     "context": {"type": "integer", "description": "Context lines for search"},
-                    "ignore_case": {"type": "boolean", "description": "Case insensitive search", "default": false}
+                    "ignore_case": {"type": "boolean", "description": "Case insensitive search", "default": false},
+                    "destination": {"type": "string", "description": "Destination path for mv"},
+                    "confirm": {"type": "boolean", "description": "Confirmation required for rm", "default": false}
                 }
             }),
         }
@@ -783,6 +872,70 @@ mod tests {
         let output = result.unwrap();
         assert!(output.contains("subdir"), "Missing subdir in: {}", output);
         assert!(output.contains("file.txt"), "Missing file.txt in: {}", output);
+    }
+
+    #[tokio::test]
+    async fn test_mv_file() {
+        let dir = TempDir::new().unwrap();
+        let src = dir.path().join("src.txt");
+        let dst = dir.path().join("nested/dst.txt");
+        std::fs::write(&src, "payload").unwrap();
+
+        let tool = FsTool::new();
+        let args = FsToolArgs {
+            action: "mv".to_string(),
+            path: Some(src.to_string_lossy().to_string()),
+            destination: Some(dst.to_string_lossy().to_string()),
+            ..Default::default()
+        };
+
+        let result = tool.execute(args).await;
+        assert!(result.is_ok(), "{:?}", result);
+        assert!(!src.exists());
+        assert_eq!(std::fs::read_to_string(&dst).unwrap(), "payload");
+    }
+
+    #[tokio::test]
+    async fn test_mkdir() {
+        let dir = TempDir::new().unwrap();
+        let target = dir.path().join("a/b/c");
+
+        let tool = FsTool::new();
+        let args = FsToolArgs {
+            action: "mkdir".to_string(),
+            path: Some(target.to_string_lossy().to_string()),
+            ..Default::default()
+        };
+
+        let result = tool.execute(args).await;
+        assert!(result.is_ok());
+        assert!(target.is_dir());
+        assert!(result.unwrap().contains("\"created\":true"));
+    }
+
+    #[tokio::test]
+    async fn test_rm_requires_confirm() {
+        let dir = TempDir::new().unwrap();
+        let file = dir.path().join("gone.txt");
+        std::fs::write(&file, "x").unwrap();
+
+        let tool = FsTool::new();
+        let no_confirm = FsToolArgs {
+            action: "rm".to_string(),
+            path: Some(file.to_string_lossy().to_string()),
+            ..Default::default()
+        };
+        assert!(tool.execute(no_confirm).await.is_err());
+        assert!(file.exists());
+
+        let confirmed = FsToolArgs {
+            action: "rm".to_string(),
+            path: Some(file.to_string_lossy().to_string()),
+            confirm: true,
+            ..Default::default()
+        };
+        assert!(tool.execute(confirmed).await.is_ok());
+        assert!(!file.exists());
     }
 
     #[tokio::test]
