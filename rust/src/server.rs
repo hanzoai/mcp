@@ -4,12 +4,15 @@ use jsonrpc_core::{IoHandler, Params};
 use jsonrpc_http_server::ServerBuilder;
 use log::{debug, info, error};
 use serde_json::json;
+use std::path::PathBuf;
 use std::sync::Arc;
+use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::sync::RwLock;
 
 pub struct MCPServer {
     config: Config,
     port: u16,
+    roots: Vec<PathBuf>,
     tools: Arc<RwLock<ToolRegistry>>,
     handler: IoHandler,
 }
@@ -130,11 +133,43 @@ impl MCPServer {
         Ok(Self {
             config,
             port,
+            roots: Vec::new(),
             tools,
             handler,
         })
     }
-    
+
+    /// Record an allowed filesystem root the server may operate under.
+    pub fn allow_root(&mut self, root: PathBuf) {
+        self.roots.push(root);
+    }
+
+    /// Serve JSON-RPC over STDIO: one request per line on stdin, one response
+    /// per line on stdout. Requests are dispatched through the same IoHandler
+    /// the HTTP transport uses. Notifications (no id) yield no output line.
+    pub async fn run_stdio(self) -> Result<()> {
+        for root in &self.roots {
+            info!("[MCP] allowed root: {}", root.display());
+        }
+        info!("[MCP] JSON-RPC over STDIO");
+
+        let mut lines = BufReader::new(tokio::io::stdin()).lines();
+        let mut out = tokio::io::stdout();
+
+        while let Some(line) = lines.next_line().await? {
+            if line.trim().is_empty() {
+                continue;
+            }
+            if let Some(response) = self.handler.handle_request(&line).await {
+                out.write_all(response.as_bytes()).await?;
+                out.write_all(b"\n").await?;
+                out.flush().await?;
+            }
+        }
+
+        Ok(())
+    }
+
     pub async fn run(self) -> Result<()> {
         let server = ServerBuilder::new(self.handler)
             .start_http(&format!("127.0.0.1:{}", self.port).parse()?)
