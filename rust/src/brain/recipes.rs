@@ -78,9 +78,10 @@ pub fn load_recipe(name: &str) -> anyhow::Result<Recipe> {
 /// `cargo build --release` produces a brain with at least one recipe
 /// available even before HANZO_HOME is configured.
 pub fn builtin_email_recipe_yaml() -> &'static str {
-    // Sourced from `~/work/hanzo/bot/extensions/recipes-brain/recipes/email.yaml`.
-    // The TS, Python, and Rust copies are byte-identical.
-    include_str!("../../../../bot/extensions/recipes-brain/recipes/email.yaml")
+    // Vendored from hanzoai/bot `extensions/recipes-brain/recipes/email.yaml`.
+    // The TS, Python, and Rust copies are byte-identical. It lives in this
+    // crate rather than being read across repos so the crate builds anywhere.
+    include_str!("../../recipes/email.yaml")
 }
 
 #[cfg(test)]
