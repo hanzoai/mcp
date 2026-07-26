@@ -11,7 +11,7 @@ import (
 
 	"github.com/hanzoai/cloud"
 	"github.com/hanzoai/mcp/go"
-	"github.com/hanzoai/zip"
+	"github.com/zap-proto/zip"
 )
 
 type stubInvoker struct {
