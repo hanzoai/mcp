@@ -38,7 +38,7 @@ jobs:
     # pull is circular. github.server_url is setting.AppURL on Gitea
     # (services/actions/context.go:89), so this is the exact test for "am I upstream".
     if: ${{ github.server_url == 'https://github.com' }}
-    runs-on: ubuntu-latest
+    runs-on: [hanzo-build-linux-amd64]
     timeout-minutes: 2
     steps:
       - name: Nudge git.hanzo.ai to pull HEAD (mirror-sync)
