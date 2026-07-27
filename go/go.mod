@@ -5,7 +5,7 @@ go 1.26.4
 require (
 	github.com/hanzoai/cloud v0.1.0
 	github.com/luxfi/log v1.4.3
-	github.com/zap-proto/zip v1.9.0
+	github.com/zap-proto/zip v1.10.0
 )
 
 require (
@@ -27,7 +27,7 @@ require (
 	github.com/valyala/fasthttp v1.70.0 // indirect
 	github.com/zap-proto/fiber/v3 v3.2.1 // indirect
 	github.com/zap-proto/go v1.3.0 // indirect
-	github.com/zap-proto/http v0.2.2 // indirect
+	github.com/zap-proto/http v0.3.0 // indirect
 	golang.org/x/crypto v0.50.0 // indirect
 	golang.org/x/net v0.53.0 // indirect
 	golang.org/x/sys v0.43.0 // indirect
