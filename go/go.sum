@@ -56,10 +56,10 @@ github.com/zap-proto/fiber/v3 v3.2.1 h1:k45oKyTwySPtGt8sPz2Ao8OUHc7pDEhai8Np2Ym6
 github.com/zap-proto/fiber/v3 v3.2.1/go.mod h1:eDm2z+ufJrkuE4MeX0Mea4oc/p7/HpXiZjVB+BXCKOA=
 github.com/zap-proto/go v1.3.0 h1:S3rMoawwhH/BbSZ4G8zG05hJoQnMSMDPzIq75diCTqE=
 github.com/zap-proto/go v1.3.0/go.mod h1:914SNGTH6Rv3Yu1MweWJBPEN8FZlo5C39QyhaB0C7Q0=
-github.com/zap-proto/http v0.2.0 h1:WiTqJ7Wh0O2qA3DNhvyi0b9F4j2wX8ctZDlW46WMxWQ=
-github.com/zap-proto/http v0.2.0/go.mod h1:UYfGhDDCetgxs65XSev8Lpf65COg5vKQK+cWwZGh4zQ=
-github.com/zap-proto/zip v1.8.3 h1:oSDtwtgOGaQJPwolZ/Ga4YRR/Mips+n6CpowX4V9BW4=
-github.com/zap-proto/zip v1.8.3/go.mod h1:TJ8ZwpwLQphqr1pYRr2cjzL8DbMmUljRKmrAPzM9S+4=
+github.com/zap-proto/http v0.2.2 h1:1gBkr/Q5AaIrLZvWhcERtaRM5Qu9ndPnFSiHaF7dTZ4=
+github.com/zap-proto/http v0.2.2/go.mod h1:UYfGhDDCetgxs65XSev8Lpf65COg5vKQK+cWwZGh4zQ=
+github.com/zap-proto/zip v1.9.0 h1:GrFp+CnJ2zzHri7wQCE9/UsiaLoEsM4PGS8QnKT0Lns=
+github.com/zap-proto/zip v1.9.0/go.mod h1:E+TXbd1YpPLl8l2Og9b01Kb1qDJxJYtOV+rD/zviXX8=
 golang.org/x/crypto v0.50.0 h1:zO47/JPrL6vsNkINmLoo/PH1gcxpls50DNogFvB5ZGI=
 golang.org/x/crypto v0.50.0/go.mod h1:3muZ7vA7PBCE6xgPX7nkzzjiUq87kRItoJQM1Yo8S+Q=
 golang.org/x/net v0.53.0 h1:d+qAbo5L0orcWAr0a9JweQpjXF19LMXJE8Ey7hwOdUA=
