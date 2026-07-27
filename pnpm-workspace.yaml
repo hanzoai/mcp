@@ -1,0 +1,25 @@
+# pnpm settings for this package. There is no workspace here — mcp is one package —
+# but pnpm reads its settings from this file, so this is where they live.
+
+# pnpm does not run a dependency's install scripts unless it is named here. Each of
+# these ships a native binary or generates code at install time and does not work
+# without doing so: esbuild is what `pnpm build` invokes to bundle, sharp and
+# jsautogui are native addons, protobufjs generates its runtime, and unrs-resolver
+# unpacks a platform binary. Anything not listed stays inert, which is the point — a
+# new transitive dependency cannot run code at install time just by arriving.
+allowBuilds:
+  esbuild: true
+  jsautogui: true
+  protobufjs: true
+  sharp: true
+  unrs-resolver: true
+
+# pnpm refuses packages published in the last few days, so a compromised release has
+# to survive a cooling-off period before it can reach a build. Keep that for the
+# registry at large; exclude our own scopes, which we publish and consume the same
+# hour. Excluding by SCOPE rather than by version matters: pnpm rewrites a
+# per-version entry on every bump, and a file that rewrites itself during install
+# makes --frozen-lockfile fail in CI.
+minimumReleaseAgeExclude:
+  - '@hanzo/*'
+  - '@hanzogui/*'

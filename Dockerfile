@@ -28,10 +28,10 @@ COPY --chown=mcp:nodejs package.json package-lock.json* ./
 USER mcp
 
 # Install dependencies
-RUN npm ci --only=production && npm cache clean --force
+RUN corepack enable && pnpm install --prod --frozen-lockfile && pnpm store prune
 
 # Install dev dependencies for building
-RUN npm ci
+RUN corepack enable && pnpm install --frozen-lockfile
 
 # ===== Builder Stage =====
 FROM deps AS builder
@@ -40,7 +40,7 @@ FROM deps AS builder
 COPY --chown=mcp:nodejs . .
 
 # Build the application
-RUN npm run build
+RUN pnpm build
 
 # ===== Development Stage =====
 FROM deps AS development
@@ -52,7 +52,7 @@ COPY --chown=mcp:nodejs . .
 ENV NODE_ENV=development
 
 # Development command with hot reload
-CMD ["npm", "run", "dev"]
+CMD ["pnpm", "dev"]
 
 # ===== Production Stage =====
 FROM base AS production
@@ -64,7 +64,7 @@ COPY --chown=mcp:nodejs package.json package-lock.json* ./
 USER mcp
 
 # Install only production dependencies
-RUN npm ci --only=production && npm cache clean --force
+RUN corepack enable && pnpm install --prod --frozen-lockfile && pnpm store prune
 
 # Copy built application from builder
 COPY --from=builder --chown=mcp:nodejs /app/dist ./dist
