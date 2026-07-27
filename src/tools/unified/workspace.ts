@@ -90,7 +90,7 @@ export const workspaceTool: Tool = {
               python: hasPython,
               rust: hasCargo,
             },
-            tools: ['fs', 'exec', 'code', 'git', 'fetch', 'computer', 'workspace', 'browser', 'think', 'llm', 'memory', 'hanzo', 'plan', 'tasks', 'mode'],
+            tools: ['fs', 'exec', 'code', 'git', 'fetch', 'computer', 'workspace', 'browser', 'think', 'llm', 'memory', 'hanzo', 'tracker', 'queue', 'plan', 'tasks', 'mode'],
           }, 'capabilities');
         }
 
@@ -109,6 +109,8 @@ export const workspaceTool: Tool = {
               llm: 'LLM operations: query, consensus, models, enable, disable, test',
               memory: 'Memory: store, recall, list, delete, search, stats, clear, export, import, merge, tag, untag',
               hanzo: 'Hanzo Cloud: iam, kms, paas, commerce, storage, auth, api',
+              tracker: 'Hanzo Tracker (remote): projects & issues with agent claim/release/heartbeat',
+              queue: 'Hanzo Tasks durable queue (remote): enqueue, list, get, cancel, events',
               plan: 'Planning: create, show, update, list, next, archive, add_step, remove_step, estimate, progress',
             }
           }, 'help');
