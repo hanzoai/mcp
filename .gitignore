@@ -52,3 +52,9 @@ GEMINI.md
 QWEN.md
 # Generated site
 site/
+
+# pnpm is the one package manager here — pnpm-lock.yaml is the tracked lockfile.
+# A lockfile from any other manager is a second source of truth that silently drifts.
+package-lock.json
+yarn.lock
+bun.lockb
