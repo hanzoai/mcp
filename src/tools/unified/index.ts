@@ -4,7 +4,7 @@
  * 8 core tools + optional tools. One canonical way to do everything.
  *
  * Core:    fs, exec, code, git, fetch, workspace, ui
- * Optional: think, llm, memory, hanzo, plan, tasks, mode
+ * Optional: think, llm, memory, hanzo, tracker, queue, plan, tasks, mode
  */
 
 import { Tool } from '../../types/index.js';
@@ -32,6 +32,8 @@ import { planTool } from '../plan.js';
 import { tasksTool } from '../tasks.js';
 import { modeTool } from '../mode-preset.js';
 import { hanzoTool } from './hanzo.js';
+import { trackerTool } from './tracker.js';
+import { queueTool } from './queue.js';
 
 // The canonical tool surface
 export const coreTools: Tool[] = [
@@ -48,6 +50,8 @@ export const optionalTools: Tool[] = [
   thinkTool,   // Structured reasoning
   memoryTool,  // Persistent storage
   hanzoTool,   // Hanzo platform (iam/kms/paas/commerce/storage/auth/api)
+  trackerTool, // Hanzo Tracker (remote): projects/issues + agent claim/release/heartbeat
+  queueTool,   // Hanzo Tasks durable queue (remote): enqueue/list/get/cancel/events
   planTool,    // Task planning
   tasksTool,   // Task tracking
   modeTool,    // Developer modes
@@ -66,3 +70,5 @@ export { codeTool } from './code.js';
 export { fetchTool } from './fetch.js';
 export { workspaceTool } from './workspace.js';
 export { hanzoTool } from './hanzo.js';
+export { trackerTool } from './tracker.js';
+export { queueTool } from './queue.js';

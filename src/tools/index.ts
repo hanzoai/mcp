@@ -16,6 +16,8 @@ import { codeTool } from './unified/code.js';
 import { fetchTool } from './unified/fetch.js';
 import { workspaceTool } from './unified/workspace.js';
 import { hanzoTool } from './unified/hanzo.js';
+import { trackerTool } from './unified/tracker.js';
+import { queueTool } from './unified/queue.js';
 
 // Individual tools (legacy, available for backwards compat)
 import { fileTools } from './file-ops.js';
@@ -73,7 +75,7 @@ export const coreToolMap = new Map<string, Tool>(coreTools.map(tool => [tool.nam
 export const toolMap = new Map<string, Tool>(allTools.map(tool => [tool.name, tool]));
 
 // Re-export unified tools
-export { fsTool, execTool, codeTool, fetchTool, workspaceTool, hanzoTool };
+export { fsTool, execTool, codeTool, fetchTool, workspaceTool, hanzoTool, trackerTool, queueTool };
 export { allUnifiedTools, optionalTools } from './unified/index.js';
 
 // Re-export legacy tools (for backwards compat imports)
