@@ -6,7 +6,7 @@
 //! - Script flags and platform detection
 //! - Process management (ps, kill, logs)
 
-use hanzo_mcp::tools::{ShellTool, ProcToolArgs};
+use hanzo_mcp::tools::{ExecTool, ExecToolArgs};
 use serde_json::Value;
 use std::collections::HashMap;
 use tempfile::TempDir;
@@ -14,7 +14,7 @@ use tempfile::TempDir;
 /// Test proc tool creation
 #[test]
 fn test_proc_tool_creation() {
-    let tool = ShellTool::new();
+    let tool = ExecTool::new();
     // Tool exists and is properly initialized
     assert!(true);
 }
@@ -22,8 +22,8 @@ fn test_proc_tool_creation() {
 /// Test proc tool with help action
 #[tokio::test]
 async fn test_proc_help_action() {
-    let tool = ShellTool::new();
-    let args = ProcToolArgs {
+    let tool = ExecTool::new();
+    let args = ExecToolArgs {
         action: "help".to_string(),
         ..Default::default()
     };
@@ -41,8 +41,8 @@ async fn test_proc_help_action() {
 /// Test simple echo command execution
 #[tokio::test]
 async fn test_proc_exec_simple() {
-    let tool = ShellTool::new();
-    let args = ProcToolArgs {
+    let tool = ExecTool::new();
+    let args = ExecToolArgs {
         action: "exec".to_string(),
         command: Some(Value::String("echo hello".to_string())),
         ..Default::default()
@@ -64,9 +64,9 @@ async fn test_proc_exec_simple() {
 #[tokio::test]
 async fn test_proc_exec_with_cwd() {
     let temp_dir = TempDir::new().unwrap();
-    let tool = ShellTool::new();
+    let tool = ExecTool::new();
 
-    let args = ProcToolArgs {
+    let args = ExecToolArgs {
         action: "exec".to_string(),
         command: Some(Value::String("pwd".to_string())),
         cwd: Some(temp_dir.path().to_string_lossy().to_string()),
@@ -93,12 +93,12 @@ async fn test_proc_exec_with_cwd() {
 /// Test command with environment variables
 #[tokio::test]
 async fn test_proc_exec_with_env() {
-    let tool = ShellTool::new();
+    let tool = ExecTool::new();
 
     let mut env_map = HashMap::new();
     env_map.insert("TEST_VAR".to_string(), "test_value".to_string());
 
-    let args = ProcToolArgs {
+    let args = ExecToolArgs {
         action: "exec".to_string(),
         command: Some(Value::String("echo $TEST_VAR".to_string())),
         env: Some(env_map),
@@ -119,10 +119,10 @@ async fn test_proc_exec_with_env() {
 /// Test command timeout (backgrounds process after timeout)
 #[tokio::test]
 async fn test_proc_exec_timeout() {
-    let tool = ShellTool::new();
+    let tool = ExecTool::new();
 
     // Command that would take too long - shell tool backgrounds on timeout
-    let args = ProcToolArgs {
+    let args = ExecToolArgs {
         action: "exec".to_string(),
         command: Some(Value::String("sleep 10".to_string())),
         timeout: Some(1), // 1 second timeout
@@ -155,9 +155,9 @@ async fn test_proc_exec_timeout() {
 /// Test array command format (HIP-0300 compatibility)
 #[tokio::test]
 async fn test_proc_exec_array_command() {
-    let tool = ShellTool::new();
+    let tool = ExecTool::new();
 
-    let args = ProcToolArgs {
+    let args = ExecToolArgs {
         action: "exec".to_string(),
         command: Some(Value::Array(vec![
             Value::String("echo".to_string()),
@@ -177,9 +177,9 @@ async fn test_proc_exec_array_command() {
 /// Test process listing (ps action)
 #[tokio::test]
 async fn test_proc_ps_action() {
-    let tool = ShellTool::new();
+    let tool = ExecTool::new();
 
-    let args = ProcToolArgs {
+    let args = ExecToolArgs {
         action: "ps".to_string(),
         ..Default::default()
     };
@@ -197,10 +197,10 @@ async fn test_proc_ps_action() {
 /// Test command with exit code
 #[tokio::test]
 async fn test_proc_exec_exit_code() {
-    let tool = ShellTool::new();
+    let tool = ExecTool::new();
 
     // Command that exits with non-zero
-    let args = ProcToolArgs {
+    let args = ExecToolArgs {
         action: "exec".to_string(),
         command: Some(Value::String("exit 42".to_string())),
         ..Default::default()
@@ -220,9 +220,9 @@ async fn test_proc_exec_exit_code() {
 /// Test stderr capture
 #[tokio::test]
 async fn test_proc_exec_stderr() {
-    let tool = ShellTool::new();
+    let tool = ExecTool::new();
 
-    let args = ProcToolArgs {
+    let args = ExecToolArgs {
         action: "exec".to_string(),
         command: Some(Value::String("echo error >&2".to_string())),
         ..Default::default()
@@ -242,9 +242,9 @@ async fn test_proc_exec_stderr() {
 /// Test piped commands
 #[tokio::test]
 async fn test_proc_exec_pipe() {
-    let tool = ShellTool::new();
+    let tool = ExecTool::new();
 
-    let args = ProcToolArgs {
+    let args = ExecToolArgs {
         action: "exec".to_string(),
         command: Some(Value::String("echo hello world | wc -w".to_string())),
         ..Default::default()
@@ -261,9 +261,9 @@ async fn test_proc_exec_pipe() {
 /// Test chained commands with &&
 #[tokio::test]
 async fn test_proc_exec_chained() {
-    let tool = ShellTool::new();
+    let tool = ExecTool::new();
 
-    let args = ProcToolArgs {
+    let args = ExecToolArgs {
         action: "exec".to_string(),
         command: Some(Value::String("echo first && echo second".to_string())),
         ..Default::default()
@@ -281,9 +281,9 @@ async fn test_proc_exec_chained() {
 #[tokio::test]
 async fn test_proc_workdir_alias() {
     let temp_dir = TempDir::new().unwrap();
-    let tool = ShellTool::new();
+    let tool = ExecTool::new();
 
-    let args = ProcToolArgs {
+    let args = ExecToolArgs {
         action: "exec".to_string(),
         command: Some(Value::String("pwd".to_string())),
         workdir: Some(temp_dir.path().to_string_lossy().to_string()),
@@ -297,9 +297,9 @@ async fn test_proc_workdir_alias() {
 /// Test shell override
 #[tokio::test]
 async fn test_proc_shell_override() {
-    let tool = ShellTool::new();
+    let tool = ExecTool::new();
 
-    let args = ProcToolArgs {
+    let args = ExecToolArgs {
         action: "exec".to_string(),
         command: Some(Value::String("echo 'test'".to_string())),
         shell: Some("bash".to_string()),
@@ -314,9 +314,9 @@ async fn test_proc_shell_override() {
 /// Test default action (should be help or exec)
 #[tokio::test]
 async fn test_proc_default_action() {
-    let tool = ShellTool::new();
+    let tool = ExecTool::new();
 
-    let args = ProcToolArgs {
+    let args = ExecToolArgs {
         ..Default::default()
     };
 
@@ -327,13 +327,13 @@ async fn test_proc_default_action() {
 /// Test multi-env variables
 #[tokio::test]
 async fn test_proc_multi_env() {
-    let tool = ShellTool::new();
+    let tool = ExecTool::new();
 
     let mut env_map = HashMap::new();
     env_map.insert("VAR1".to_string(), "value1".to_string());
     env_map.insert("VAR2".to_string(), "value2".to_string());
 
-    let args = ProcToolArgs {
+    let args = ExecToolArgs {
         action: "exec".to_string(),
         command: Some(Value::String("echo $VAR1 $VAR2".to_string())),
         env: Some(env_map),
@@ -356,10 +356,10 @@ mod integration_tests {
     #[tokio::test]
     #[ignore] // Run with --ignored flag
     async fn test_real_shell_execution() {
-        let tool = ShellTool::new();
+        let tool = ExecTool::new();
 
         // Test bash
-        let bash_args = ProcToolArgs {
+        let bash_args = ExecToolArgs {
             action: "exec".to_string(),
             command: Some(Value::String("echo 'bash works'".to_string())),
             shell: Some("bash".to_string()),
@@ -373,7 +373,7 @@ mod integration_tests {
 
         // Test zsh if available
         if which::which("zsh").is_ok() {
-            let zsh_args = ProcToolArgs {
+            let zsh_args = ExecToolArgs {
                 action: "exec".to_string(),
                 command: Some(Value::String("echo 'zsh works'".to_string())),
                 shell: Some("zsh".to_string()),
