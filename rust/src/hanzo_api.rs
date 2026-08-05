@@ -6,7 +6,7 @@
 //! Auth: `hk-` bearer key from `HANZO_API_KEY`, else `~/.hanzo/config.json`
 //! field `apiKey`. Base URL: `HANZO_API_BASE`, else `https://api.hanzo.ai`.
 
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use serde_json::{json, Value};
 use std::time::Duration;
 
@@ -69,17 +69,45 @@ impl HanzoApi {
         self.send(req).await
     }
 
-    async fn send(&self, mut req: reqwest::RequestBuilder) -> Result<Value> {
-        if let Some(key) = &self.api_key {
-            req = req.bearer_auth(key);
+    /// POST `path` with a JSON body over `text/event-stream`, returning the
+    /// stream's decoded `data:` frames in order.
+    ///
+    /// The body arrives complete before it is decoded: a tool answers its caller
+    /// once, so nothing downstream can consume a partial stream, and the whole
+    /// response is exactly what [`frames`] already parses. An HTTP failure is an
+    /// `Err` carrying the status and body — a stream that never started is not
+    /// an empty stream.
+    pub async fn events(&self, path: &str, body: Value) -> Result<Vec<Value>> {
+        let req = self
+            .client
+            .post(join_url(&self.base_url, path))
+            .header(reqwest::header::ACCEPT, "text/event-stream")
+            .json(&body);
+        let resp = self.auth(req).send().await?;
+        let status = resp.status();
+        let text = resp.text().await?;
+        if !status.is_success() {
+            return Err(anyhow!("{} {}", status.as_u16(), text.trim()));
         }
+        Ok(frames(&text))
+    }
+
+    async fn send(&self, req: reqwest::RequestBuilder) -> Result<Value> {
         // A transport error (DNS/refused/timeout) becomes Err so callers may
         // fall back to a local path; an HTTP error body is still JSON we pass on.
-        let resp = req.send().await?;
+        let resp = self.auth(req).send().await?;
         let status = resp.status().as_u16();
         let text = resp.text().await?;
         Ok(serde_json::from_str::<Value>(&text)
             .unwrap_or_else(|_| json!({ "status": status, "body": text })))
+    }
+
+    /// Attach the bearer key. The one place credentials meet a request.
+    fn auth(&self, req: reqwest::RequestBuilder) -> reqwest::RequestBuilder {
+        match &self.api_key {
+            Some(key) => req.bearer_auth(key),
+            None => req,
+        }
     }
 }
 
@@ -87,6 +115,43 @@ impl Default for HanzoApi {
     fn default() -> Self {
         Self::from_env()
     }
+}
+
+/// Decode an SSE body into its `data:` payloads, in order.
+///
+/// Hanzo's streams are data-only JSON that self-describes via `type`, so an
+/// `event:` line carries nothing and is skipped. Per the SSE rule, repeated
+/// `data:` lines within one frame join with a newline. The terminal `[DONE]`
+/// sentinel mirrors the OpenAI convention and is a marker, not an event, so it
+/// is dropped along with any payload that is not JSON.
+pub fn frames(body: &str) -> Vec<Value> {
+    fn flush(data: &mut String, out: &mut Vec<Value>) {
+        let payload = std::mem::take(data);
+        let payload = payload.trim();
+        if payload.is_empty() || payload == "[DONE]" {
+            return;
+        }
+        if let Ok(v) = serde_json::from_str::<Value>(payload) {
+            out.push(v);
+        }
+    }
+
+    let mut out = Vec::new();
+    let mut data = String::new();
+    for line in body.lines() {
+        if line.trim().is_empty() {
+            flush(&mut data, &mut out);
+            continue;
+        }
+        if let Some(rest) = line.strip_prefix("data:") {
+            if !data.is_empty() {
+                data.push('\n');
+            }
+            data.push_str(rest.strip_prefix(' ').unwrap_or(rest));
+        }
+    }
+    flush(&mut data, &mut out);
+    out
 }
 
 /// Resolve the `hk-` API key: `HANZO_API_KEY` first, then `~/.hanzo/config.json`.
@@ -149,5 +214,34 @@ mod tests {
     #[test]
     fn default_base_url_is_wired() {
         assert_eq!(DEFAULT_BASE_URL, "https://api.hanzo.ai");
+    }
+
+    #[test]
+    fn frames_decode_in_order_and_drop_the_done_sentinel() {
+        let body = concat!(
+            "data: {\"type\":\"status\",\"stage\":\"searching\"}\n\n",
+            "data: {\"type\":\"text\",\"delta\":\"a\"}\n\n",
+            "data: [DONE]\n\n",
+        );
+        let f = frames(body);
+        assert_eq!(f.len(), 2, "[DONE] is a marker, not an event");
+        assert_eq!(f[0]["stage"], "searching");
+        assert_eq!(f[1]["delta"], "a");
+    }
+
+    #[test]
+    fn frames_join_multiline_data_and_skip_non_events() {
+        let body = ": keep-alive\nevent: ignored\ndata: {\"type\":\"text\",\n\
+                    data: \"delta\":\"x\"}\n\nretry: 100\ndata: not json\n\n";
+        let f = frames(body);
+        assert_eq!(f.len(), 1);
+        assert_eq!(f[0]["delta"], "x");
+    }
+
+    #[test]
+    fn frames_read_crlf_and_an_unterminated_last_frame() {
+        let f = frames("data: {\"type\":\"done\",\"answer\":\"ok\"}\r\n");
+        assert_eq!(f.len(), 1);
+        assert_eq!(f[0]["answer"], "ok");
     }
 }

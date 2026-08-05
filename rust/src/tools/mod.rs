@@ -51,7 +51,7 @@ pub use browser_tool::{BrowserTool, BrowserToolArgs, BrowserToolDefinition};
 pub use personality::{ToolPersonality, PersonalityRegistry};
 // Cloud-backed tools (api.hanzo.ai) — registered via the generic MCPTool seam.
 pub use cloud_code::{CodeSearchTool, CodeContextTool, CodeAskTool, CodeIndexTool};
-pub use cloud_web::{WebSearchTool, WebReadTool};
+pub use cloud_web::{WebSearchTool, WebReadTool, ResearchTool};
 pub use vision_tool::VisionTool;
 pub use config_tool::ConfigTool;
 pub use llm_tool::LlmTool;
@@ -145,7 +145,7 @@ pub fn parity_status() -> serde_json::Value {
         },
         "cloud": {
             "backend": "api.hanzo.ai",
-            "tools": ["code_search", "code_context", "code_ask", "code_index", "web_search", "web_read", "vision"],
+            "tools": ["code_search", "code_context", "code_ask", "code_index", "web_search", "web_read", "research", "vision"],
             "auth": "hk- bearer from HANZO_API_KEY or ~/.hanzo/config.json .apiKey"
         },
         "notes": "Local tree-sitter AST engine for single-file ops; cloud tools for cross-repo search/index, web, and vision. Browser tool available as extension."

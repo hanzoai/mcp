@@ -28,7 +28,7 @@ const CRITICAL: &[&str] = &["system", "tool", "version", "stats", "config", "mod
 
 /// Cloud-backed tool names exposed alongside the local HIP-0300 surface.
 const CLOUD_TOOLS: &[&str] =
-    &["code_search", "code_context", "code_ask", "code_index", "web_search", "web_read", "vision"];
+    &["code_search", "code_context", "code_ask", "code_index", "web_search", "web_read", "research", "vision"];
 
 #[derive(Debug, Default, Deserialize)]
 struct SystemArgs {

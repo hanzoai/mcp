@@ -323,6 +323,7 @@ impl ToolRegistry {
         registry.register(Box::new(tools::CodeIndexTool::new()));
         registry.register(Box::new(tools::WebSearchTool::new()));
         registry.register(Box::new(tools::WebReadTool::new()));
+        registry.register(Box::new(tools::ResearchTool::new()));
         registry.register(Box::new(tools::VisionTool::new()));
 
         // Ported tool surface (HIP-0300 parity with python-sdk): config, llm, ui,
@@ -396,12 +397,12 @@ mod tests {
     fn test_cloud_tools_registered_and_discoverable() {
         let registry = ToolRegistry::with_defaults();
         let names = registry.list();
-        for t in ["code_search", "code_context", "code_ask", "code_index", "web_search", "web_read", "vision"] {
+        for t in ["code_search", "code_context", "code_ask", "code_index", "web_search", "web_read", "research", "vision"] {
             assert!(names.contains(&t.to_string()), "{t} missing from registry.list()");
         }
         // Each cloud tool must also expose a definition (name + inputSchema) for MCP tools/list.
         let defs = registry.get_definitions();
-        for t in ["code_search", "code_context", "code_ask", "code_index", "web_search", "web_read", "vision"] {
+        for t in ["code_search", "code_context", "code_ask", "code_index", "web_search", "web_read", "research", "vision"] {
             assert!(
                 defs.iter().any(|d| d["name"] == t && d["inputSchema"].is_object()),
                 "{t} missing a definition"
