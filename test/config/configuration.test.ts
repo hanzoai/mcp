@@ -7,6 +7,7 @@ const UNIFIED_TOOLSET = [
   'fs', 'exec', 'code', 'git', 'fetch', 'workspace', 'ui',              // core
   'think', 'memory', 'hanzo', 'plan', 'tasks', 'mode', 'gimp',          // optional
   'code_search', 'code_context', 'code_ask', 'code_index',             // code intelligence
+  'tracker_boards', 'tracker_issues', 'tracker_create', 'tracker_update', // work items
 ];
 
 describe('Configuration System', () => {

@@ -24,6 +24,8 @@ import { gimpTool } from '../gimp.js';
 
 // Code intelligence — Hanzo /v1/code/* surface (search, context, ask, index)
 import { codeIntelTools } from '../code-intel.js';
+// Work items — Hanzo /v1/tracker (the ONE work-item primitive; boards, issues)
+import { trackerTools } from '../tracker.js';
 
 // UI — already unified
 import { unifiedUITool } from '../unified-ui.js';
@@ -61,6 +63,7 @@ export const allUnifiedTools: Tool[] = [
   ...coreTools,
   ...optionalTools,
   ...codeIntelTools,   // code_search, code_context, code_ask, code_index
+  ...trackerTools,     // tracker_boards, tracker_issues, tracker_create, tracker_update
 ];
 
 // Re-exports
@@ -71,3 +74,4 @@ export { fetchTool } from './fetch.js';
 export { workspaceTool } from './workspace.js';
 export { hanzoTool } from './hanzo.js';
 export { codeIntelTools, codeSearchTool, codeContextTool, codeAskTool, codeIndexTool } from '../code-intel.js';
+export { trackerTools, trackerBoardsTool, trackerIssuesTool, trackerCreateTool, trackerUpdateTool } from '../tracker.js';

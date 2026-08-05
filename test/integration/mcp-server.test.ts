@@ -7,7 +7,7 @@ import {
 import * as path from 'path';
 
 // HIP-0300 unified tool names
-const UNIFIED_TOOLS = ['fs', 'exec', 'code', 'git', 'fetch', 'workspace', 'ui', 'think', 'memory', 'hanzo', 'plan', 'tasks', 'mode', 'gimp', 'code_search', 'code_context', 'code_ask', 'code_index'];
+const UNIFIED_TOOLS = ['fs', 'exec', 'code', 'git', 'fetch', 'workspace', 'ui', 'think', 'memory', 'hanzo', 'plan', 'tasks', 'mode', 'gimp', 'code_search', 'code_context', 'code_ask', 'code_index', 'tracker_boards', 'tracker_issues', 'tracker_create', 'tracker_update'];
 
 describe('MCP Server Integration', () => {
   let server: any;
