@@ -387,4 +387,4 @@ MIT License - see LICENSE file for details.
 For issues and questions:
 - GitHub Issues: https://github.com/hanzoai/mcp/issues
 - Documentation: https://docs.hanzo.ai/mcp
-- Discord: https://discord.gg/hanzo
+- Discord: https://discord.gg/CJCyAsm9Vr
