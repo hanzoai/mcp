@@ -57,7 +57,7 @@ async fn test_browser_status_action() {
     let output = result.unwrap();
     let json: serde_json::Value = serde_json::from_str(&output).unwrap();
 
-    assert!(json.get("playwright_available").is_some());
+    assert!(json.get("driver_running").is_some());   // CDP driver replaced Playwright
     assert!(json.get("headless").is_some());
     assert!(json.get("cdp_port").is_some());
     assert!(json.get("categories").is_some());
