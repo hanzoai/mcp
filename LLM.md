@@ -38,6 +38,27 @@ board renders that session's live status on the row.
 `tracker_create` defaults `source` to `agent`, because the board's "an agent's
 work" filter (`?source=agent`) is only true if agents say so.
 
+## `research` — one door, one mode
+
+`research` (Rust `rust/src/tools/cloud_web.rs`) is POST `/v1/ask` with
+`mode: "research"` and `Accept: text/event-stream`. Deep research is a MODE of
+that one endpoint, never a second route, and the plan → search → read → rank →
+synthesize → cite loop runs server-side where it is bounded and billed — so the
+tool reads a stream and folds it, it does not re-implement the loop.
+
+The frames are the `@hanzo/ai` `SearchEvent` union verbatim —
+`status | sources | text | follow_ups | done | error`, data-only JSON that
+self-describes via `type`. Two rules the wire depends on:
+
+- the terminal `data: [DONE]` is an OpenAI-convention marker, NOT an event
+- `deep` is `research`'s retired name; the server resolves it, and so do we
+
+`web_search`, `web_read` and `research` are the same web capability at three
+depths (a snippet, a page, a report), so `ToolsConfig::web_search` governs all
+three — research is not a second flag to toggle.
+
+Contracts: cloud `apps/answer/{mode,stream}.go`, SDK `hanzo-js/ai/src/search.ts`.
+
 ## Canonical role
 Part of the AI/agents SDK line. This TS package (`@hanzo/mcp`) is canonical; the
 Python `hanzo-mcp` (PyPI) and Rust `hanzo-mcp::brain` mirror the same tool surface
