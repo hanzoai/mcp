@@ -1,0 +1,15 @@
+# Canonical caller — every knob lives in /hanzo.yml, none here.
+# Runs on the git-runner fleet at git.hanzo.ai, the only pool serving these
+# labels. github.com resolves only .github/workflows and has no runner for
+# them, so a caller placed there is a gate that cannot be scheduled.
+name: CI/CD
+on:
+  push:
+    branches: [main, master]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+jobs:
+  cicd:
+    uses: hanzoai/ci/.hanzo/workflows/build.yml@v1
+    secrets: inherit
