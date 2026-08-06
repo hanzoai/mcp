@@ -59,6 +59,40 @@ three — research is not a second flag to toggle.
 
 Contracts: cloud `apps/answer/{mode,stream}.go`, SDK `hanzo-js/ai/src/search.ts`.
 
+## `lsp` — one tool, two planes
+
+`lsp` (Rust `rust/src/tools/lsp_tool.rs`, Python
+`python-sdk/pkg/hanzo-tools-lsp`) answers the same questions from either a
+language server on the local tree or the indexed corpus behind
+`/v1/code/lsp`. `file` names the file; **`repo` (a git.hanzo.ai slug, with
+optional `rev`) is what picks the plane** — cloud when present, local
+otherwise. It is one tool, not two: a local server cannot see a dependency it
+has no source for, and the cloud index cannot edit your working tree.
+
+Actions map onto `/v1/code/lsp` ops. `locate` is one op carrying a `relation`,
+because "where is X" is one question with four answers, not four routes:
+
+| action | op | relation |
+|---|---|---|
+| `definition` | `/v1/code/lsp/locate` | `definition` |
+| `references` | `/v1/code/lsp/locate` | `reference` |
+| `type` | `/v1/code/lsp/locate` | `type` |
+| `implementation` | `/v1/code/lsp/locate` | `implementation` |
+| `hover` | `/v1/code/lsp/hover` | — |
+| `symbols` | `/v1/code/lsp/symbols` | — |
+| `diagnostics` | `/v1/code/lsp/diagnostics` | — |
+| `completion` | `/v1/code/lsp/complete` | — |
+
+Body: `{repo, rev?, path, line, character, relation?}`. The wire is LSP's own
+frame — **0-based line, 0-based UTF-16 character** — while the tool's `line`
+stays 1-based for callers, so both planes shift it at the same boundary.
+`rename`, `code_action`, `organize_imports` and `status` need a working tree
+and say so rather than calling out; `type`, `implementation` and `symbols` are
+the index's to answer and say so rather than spawning a server.
+
+LSP lives UNDER `/v1/code` beside `search`, `context`, `ask`, `index` — one
+home for code intelligence.
+
 ## Canonical role
 Part of the AI/agents SDK line. This TS package (`@hanzo/mcp`) is canonical; the
 Python `hanzo-mcp` (PyPI) and Rust `hanzo-mcp::brain` mirror the same tool surface

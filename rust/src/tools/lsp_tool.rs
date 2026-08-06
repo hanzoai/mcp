@@ -1,13 +1,17 @@
 //! Language Server Protocol tool for code intelligence (HIP-0300).
 //!
-//! Spawns a language server per `language:root` and speaks LSP JSON-RPC over
-//! stdio (Content-Length framing). On-demand install + a global server
-//! registry keyed by `<language>:<root>` keep one server alive per project.
+//! One tool, two planes, chosen by the data the caller already supplies:
 //!
-//! Actions: status, definition, references, rename, hover, completion,
-//! code_action, organize_imports, diagnostics. Servers are auto-installed as
-//! needed. Languages: Go, Python, TypeScript/JavaScript, Rust, Java, C/C++,
-//! Ruby, Lua.
+//! - no `repo` — a language server per `language:root`, spoken to over stdio
+//!   JSON-RPC (Content-Length framing). On-demand install + a global registry
+//!   keyed by `<language>:<root>` keep one server alive per project. Answers
+//!   what a working tree knows, including the edits it can apply back to disk.
+//! - with `repo` — the indexed corpus behind `/v1/code/lsp` on api.hanzo.ai,
+//!   which answers across a repo's dependencies without checking anything out.
+//!
+//! `file` names the file either way; `repo` says which world that file lives
+//! in. Languages (local plane): Go, Python, TypeScript/JavaScript, Rust, Java,
+//! C/C++, Ruby, Lua.
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -25,6 +29,7 @@ use tokio::process::{Child, ChildStdin, ChildStdout, Command};
 use tokio::sync::Mutex;
 use tokio::time::timeout;
 
+use crate::hanzo_api::HanzoApi;
 use crate::{MCPTool, ToolResult};
 
 // ---------------------------------------------------------------------------
@@ -169,6 +174,8 @@ static REGISTRY: Lazy<Mutex<HashMap<String, Arc<LspServer>>>> =
 struct LspArgs {
     action: Option<String>,
     file: Option<String>,
+    repo: Option<String>,
+    rev: Option<String>,
     line: Option<i64>,
     character: Option<i64>,
     new_name: Option<String>,
@@ -178,11 +185,13 @@ struct LspArgs {
     range: Option<Value>,
 }
 
-pub struct LspTool;
+pub struct LspTool {
+    api: HanzoApi,
+}
 
 impl LspTool {
     pub fn new() -> Self {
-        Self
+        Self { api: HanzoApi::from_env() }
     }
 
     pub fn schema() -> Value {
@@ -194,13 +203,16 @@ impl LspTool {
                 "properties": {
                     "action": {
                         "type": "string",
-                        "enum": ["status", "definition", "references", "rename", "hover",
-                                 "completion", "code_action", "organize_imports", "diagnostics"],
+                        "enum": ["status", "definition", "references", "type", "implementation",
+                                 "symbols", "rename", "hover", "completion", "code_action",
+                                 "organize_imports", "diagnostics"],
                         "description": "LSP operation to perform"
                     },
-                    "file": { "type": "string", "description": "Path to the source file" },
+                    "file": { "type": "string", "description": "The source file: a local path, or the path within `repo`" },
+                    "repo": { "type": "string", "description": "git.hanzo.ai repo slug — answer from the cloud index (spans the repo's dependencies) instead of a local server" },
+                    "rev": { "type": "string", "description": "Branch, tag or sha to read `repo` at (default: its head)" },
                     "line": { "type": "integer", "description": "1-based line of the symbol/position" },
-                    "character": { "type": "integer", "description": "0-based character on the line" },
+                    "character": { "type": "integer", "description": "0-based UTF-16 character on the line" },
                     "new_name": { "type": "string", "description": "New identifier for rename" },
                     "apply_edits": { "type": "boolean", "description": "Apply rename/code_action edits to disk", "default": false },
                     "only": { "type": "array", "items": { "type": "string" }, "description": "Restrict code_action to these kinds" },
@@ -212,10 +224,14 @@ impl LspTool {
     }
 
     fn describe() -> &'static str {
-        "Language Server Protocol code intelligence. Actions: status, definition, \
-         references, rename, hover, completion, code_action, organize_imports, \
-         diagnostics. Auto-installs servers. Languages: Go, Python, \
-         TypeScript/JavaScript, Rust, Java, C/C++, Ruby, Lua."
+        "Language Server Protocol code intelligence. Local (a language server on \
+         your tree, auto-installed): status, definition, references, rename, \
+         hover, completion, code_action, organize_imports, diagnostics — Go, \
+         Python, TypeScript/JavaScript, Rust, Java, C/C++, Ruby, Lua. Pass `repo` \
+         (a git.hanzo.ai slug, optionally `rev`) to answer from the cloud index \
+         instead, which reaches across the repo's dependencies: definition, \
+         references, type, implementation, symbols, hover, completion, \
+         diagnostics."
     }
 }
 
@@ -225,10 +241,29 @@ impl Default for LspTool {
     }
 }
 
-const VALID_ACTIONS: &[&str] = &[
+/// Actions a local language server answers.
+const LOCAL_ACTIONS: &[&str] = &[
     "definition", "references", "rename", "diagnostics", "hover",
     "completion", "code_action", "organize_imports", "status",
 ];
+
+/// The `/v1/code/lsp` op each action asks for, and the `relation` a `locate`
+/// op carries. "Where is X" is one question with four answers, so it is one op.
+const CLOUD_OPS: &[(&str, &str, Option<&str>)] = &[
+    ("hover", "hover", None),
+    ("definition", "locate", Some("definition")),
+    ("references", "locate", Some("reference")),
+    ("type", "locate", Some("type")),
+    ("implementation", "locate", Some("implementation")),
+    ("symbols", "symbols", None),
+    ("diagnostics", "diagnostics", None),
+    ("completion", "complete", None),
+];
+
+/// Actions the cloud index answers.
+fn cloud_actions() -> Vec<&'static str> {
+    CLOUD_OPS.iter().map(|(action, _, _)| *action).collect()
+}
 
 #[async_trait]
 impl MCPTool for LspTool {
@@ -243,20 +278,36 @@ impl MCPTool for LspTool {
     }
     async fn execute(&self, params: Value) -> Result<ToolResult> {
         let args: LspArgs = serde_json::from_value(params).unwrap_or_default();
-        Ok(ToolResult::ok(run(args).await))
+        Ok(ToolResult::ok(run(&self.api, args).await))
     }
 }
 
-async fn run(args: LspArgs) -> Value {
+async fn run(api: &HanzoApi, args: LspArgs) -> Value {
     let action = args.action.clone().unwrap_or_default();
     let file = match args.file.clone() {
         Some(f) if !f.trim().is_empty() => f,
-        _ => return json!({ "error": "file is required" }),
+        _ => return json!({ "error": "file is required: a local path, or the path within `repo`" }),
     };
 
-    if !VALID_ACTIONS.contains(&action.as_str()) {
+    if !LOCAL_ACTIONS.contains(&action.as_str()) && cloud_op(&action).is_none() {
+        let cloud_only: Vec<&str> = cloud_actions()
+            .into_iter()
+            .filter(|a| !LOCAL_ACTIONS.contains(a))
+            .collect();
+        let known = [LOCAL_ACTIONS, &cloud_only].concat();
         return json!({
-            "error": format!("Invalid action. Must be one of: {}", VALID_ACTIONS.join(", "))
+            "error": format!("Invalid action. Must be one of: {}", known.join(", "))
+        });
+    }
+
+    if let Some(repo) = args.repo.clone().filter(|r| !r.trim().is_empty()) {
+        return cloud(api, &repo, &action, &file, &args).await;
+    }
+
+    if !LOCAL_ACTIONS.contains(&action.as_str()) {
+        return json!({
+            "error": format!("Action '{}' is answered by the cloud index; pass `repo`", action),
+            "local_actions": LOCAL_ACTIONS,
         });
     }
 
@@ -304,6 +355,62 @@ async fn run(args: LspArgs) -> Value {
     };
 
     execute_action(&server, language, &action, &file, &args).await
+}
+
+// ---------------------------------------------------------------------------
+// Cloud plane: /v1/code/lsp — the indexed corpus, dependencies included.
+// ---------------------------------------------------------------------------
+
+/// The op and `relation` for an action, or `None` when only a working tree can
+/// answer it.
+fn cloud_op(action: &str) -> Option<(&'static str, Option<&'static str>)> {
+    CLOUD_OPS
+        .iter()
+        .find(|(a, _, _)| *a == action)
+        .map(|(_, op, relation)| (*op, *relation))
+}
+
+/// Ask the cloud index. The answer is whatever `/v1/code/lsp` returns, verbatim.
+async fn cloud(api: &HanzoApi, repo: &str, action: &str, file: &str, args: &LspArgs) -> Value {
+    let (op, relation) = match cloud_op(action) {
+        Some(pair) => pair,
+        None => {
+            return json!({
+                "action": action,
+                "repo": repo,
+                "error": format!("Action '{}' needs a working tree; call it without `repo`", action),
+                "cloud_actions": cloud_actions(),
+            })
+        }
+    };
+    if !api.has_key() {
+        return json!({
+            "action": action,
+            "repo": repo,
+            "error": "no hk- key: set HANZO_API_KEY or ~/.hanzo/config.json .apiKey",
+        });
+    }
+
+    // The wire speaks LSP's own frame: 0-based line, 0-based UTF-16 character.
+    // The tool's `line` is 1-based, so it is shifted here exactly as the local
+    // plane shifts it before a JSON-RPC request.
+    let mut body = json!({
+        "repo": repo,
+        "path": file,
+        "line": args.line.map(|l| l - 1).unwrap_or(0),
+        "character": args.character.unwrap_or(0),
+    });
+    if let Some(rev) = args.rev.as_deref().map(str::trim).filter(|r| !r.is_empty()) {
+        body["rev"] = json!(rev);
+    }
+    if let Some(relation) = relation {
+        body["relation"] = json!(relation);
+    }
+
+    match api.post(&format!("/v1/code/lsp/{}", op), body).await {
+        Ok(result) => result,
+        Err(e) => json!({ "action": action, "repo": repo, "error": e.to_string() }),
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -1410,7 +1517,7 @@ mod tests {
 
     #[tokio::test]
     async fn unsupported_file_reports_supported_languages() {
-        let out = run(LspArgs {
+        let out = run(&HanzoApi::from_env(), LspArgs {
             action: Some("definition".into()),
             file: Some("notes.txt".into()),
             ..Default::default()
@@ -1422,12 +1529,83 @@ mod tests {
 
     #[tokio::test]
     async fn invalid_action_is_rejected() {
-        let out = run(LspArgs {
+        let out = run(&HanzoApi::from_env(), LspArgs {
             action: Some("frobnicate".into()),
             file: Some("main.go".into()),
             ..Default::default()
         })
         .await;
         assert!(out["error"].as_str().unwrap().contains("Invalid action"));
+    }
+
+    #[tokio::test]
+    async fn neither_file_nor_repo_is_rejected() {
+        let out = run(&HanzoApi::from_env(), LspArgs {
+            action: Some("definition".into()),
+            ..Default::default()
+        })
+        .await;
+        assert!(out["error"].as_str().unwrap().starts_with("file is required"));
+    }
+
+    #[test]
+    fn cloud_ops_map_every_cloud_action() {
+        assert_eq!(cloud_op("hover"), Some(("hover", None)));
+        assert_eq!(cloud_op("definition"), Some(("locate", Some("definition"))));
+        assert_eq!(cloud_op("references"), Some(("locate", Some("reference"))));
+        assert_eq!(cloud_op("type"), Some(("locate", Some("type"))));
+        assert_eq!(cloud_op("implementation"), Some(("locate", Some("implementation"))));
+        assert_eq!(cloud_op("symbols"), Some(("symbols", None)));
+        assert_eq!(cloud_op("diagnostics"), Some(("diagnostics", None)));
+        assert_eq!(cloud_op("completion"), Some(("complete", None)));
+        for action in ["rename", "code_action", "organize_imports", "status"] {
+            assert!(cloud_op(action).is_none(), "{action} needs a working tree");
+        }
+    }
+
+    /// Every action the schema advertises is served by one plane or the other.
+    #[test]
+    fn advertised_actions_are_served() {
+        let schema = LspTool::schema();
+        let advertised = schema["inputSchema"]["properties"]["action"]["enum"]
+            .as_array()
+            .expect("action enum")
+            .iter()
+            .map(|a| a.as_str().expect("string").to_string())
+            .collect::<Vec<_>>();
+        for action in &advertised {
+            assert!(
+                LOCAL_ACTIONS.contains(&action.as_str()) || cloud_op(action).is_some(),
+                "{action} is advertised but no plane answers it"
+            );
+        }
+        for action in LOCAL_ACTIONS.iter().copied().chain(cloud_actions()) {
+            assert!(advertised.iter().any(|a| a == action), "{action} is served but not advertised");
+        }
+    }
+
+    #[tokio::test]
+    async fn a_local_only_action_with_repo_says_so_without_calling_out() {
+        let out = run(&HanzoApi::from_env(), LspArgs {
+            action: Some("rename".into()),
+            file: Some("main.go".into()),
+            repo: Some("hanzoai/mcp".into()),
+            new_name: Some("x".into()),
+            ..Default::default()
+        })
+        .await;
+        assert!(out["error"].as_str().unwrap().contains("needs a working tree"));
+        assert_eq!(out["repo"], "hanzoai/mcp");
+    }
+
+    #[tokio::test]
+    async fn a_cloud_only_action_without_repo_says_so() {
+        let out = run(&HanzoApi::from_env(), LspArgs {
+            action: Some("symbols".into()),
+            file: Some("main.go".into()),
+            ..Default::default()
+        })
+        .await;
+        assert!(out["error"].as_str().unwrap().contains("pass `repo`"));
     }
 }
