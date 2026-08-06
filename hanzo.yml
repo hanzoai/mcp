@@ -1,0 +1,21 @@
+# hanzoai/mcp — the Hanzo MCP server/toolkit (TypeScript). Publishes to npm; the
+# image lane is not declared here, so this is a gate and nothing else.
+#
+# TYPECHECK, THEN BUNDLE, and the order is the whole point. `pnpm build` is
+# esbuild, and esbuild does not typecheck — it happily bundles a tree full of
+# type errors. So the bundle alone is a gate that cannot go red for the defect
+# this codebase is most likely to have. `tsc --noEmit` against the repo's own
+# tsconfig asks the question esbuild skips; the bundle then proves the entry
+# points still resolve and that the externals list has not gone stale.
+#
+# Not `pnpm test`: five of the eighteen jest suites reach a network or a live
+# tool surface (search-engine, unified/fetch, tracker, code-intel,
+# configuration). Those belong in an integration lane with the services they
+# need, not in the gate every push must pass.
+test:
+  - name: typecheck-and-build
+    run: |
+      set -e
+      pnpm install --frozen-lockfile
+      pnpm exec tsc --noEmit
+      pnpm build
