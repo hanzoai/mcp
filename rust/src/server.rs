@@ -3,7 +3,7 @@ use anyhow::Result;
 use jsonrpc_core::{IoHandler, Params};
 use jsonrpc_http_server::ServerBuilder;
 use log::{debug, info, error};
-use serde_json::json;
+use serde_json::{json, Value};
 use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
@@ -30,11 +30,18 @@ impl MCPServer {
             let tools = tools_clone.clone();
             Box::pin(async move {
                 debug!("Received initialize request: {:?}", params);
-                
+
                 let _tools = tools.read().await;
-                
+
+                // Answer the revision the CLIENT asked for when we speak it.
+                let requested = params
+                    .parse::<Value>()
+                    .ok()
+                    .and_then(|v| v.get("protocolVersion").and_then(Value::as_str).map(str::to_owned));
+                let version = crate::protocol::negotiate_version(requested.as_deref());
+
                 Ok(json!({
-                    "protocolVersion": "2024-11-05",
+                    "protocolVersion": version,
                     "serverInfo": {
                         "name": "hanzo-mcp",
                         "version": env!("CARGO_PKG_VERSION")
