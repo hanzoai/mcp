@@ -14,8 +14,8 @@
 //!
 //! Mirrors the Python `hanzo` surface (hanzo-tools-api) and the ten service
 //! HTTP clients (hanzo-tools-{iam,kms,paas,billing,commerce,ingress,mpc,team}).
-//! Credential is the shared `hk-` bearer resolved the same way as `HanzoApi`
-//! (`HANZO_API_KEY`, else `~/.hanzo/config.json` field `apiKey`).
+//! Credential is the shared `pk-`/`sk-` bearer resolved the same way as
+//! `HanzoApi` (`HANZO_API_KEY`, else `~/.hanzo/config.json` field `apiKey`).
 
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
@@ -159,7 +159,7 @@ fn join(base: &str, path: &str) -> String {
     format!("{}/{}", base.trim_end_matches('/'), path.trim_start_matches('/'))
 }
 
-/// Resolve the shared `hk-` bearer: `HANZO_API_KEY`, else `~/.hanzo/config.json`.
+/// Resolve the shared bearer: `HANZO_API_KEY`, else `~/.hanzo/config.json`.
 fn resolve_key() -> Option<String> {
     if let Ok(k) = std::env::var("HANZO_API_KEY") {
         let k = k.trim().to_string();
@@ -292,7 +292,7 @@ impl HanzoTool {
                 "hanzo",
                 &action,
                 "NOT_AUTHENTICATED",
-                "no hk- key: run `hanzo login` or set HANZO_API_KEY",
+                crate::hanzo_api::NO_KEY,
             ));
         }
 
@@ -324,9 +324,9 @@ impl HanzoTool {
                 action,
                 json!({
                     "authenticated": self.has_key(),
-                    "credential": if self.has_key() { "hk- bearer" } else { "none" },
+                    "credential": if self.has_key() { "pk-/sk- bearer" } else { "none" },
                     "message": if self.has_key() {
-                        "Authenticated via hk- key."
+                        "Authenticated via an API key."
                     } else {
                         "Not authenticated. Run `hanzo login` or set HANZO_API_KEY."
                     }

@@ -436,7 +436,7 @@ impl MCPTool for UiTool {
             "semantic_search" => {
                 if !self.api.has_key() {
                     return Ok(ToolResult::ok(envelope_err("ui", "semantic_search", "NO_API_KEY",
-                        "no hk- key: set HANZO_API_KEY or ~/.hanzo/config.json .apiKey")));
+                        crate::hanzo_api::NO_KEY)));
                 }
                 let q = match args.query.filter(|q| !q.trim().is_empty()) {
                     Some(q) => q,

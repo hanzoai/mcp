@@ -3,8 +3,9 @@
 //! One value owns credentials, base URL, and the HTTP client so every
 //! cloud-backed tool composes over the same seam (HIP-0300).
 //!
-//! Auth: `hk-` bearer key from `HANZO_API_KEY`, else `~/.hanzo/config.json`
-//! field `apiKey`. Base URL: `HANZO_API_BASE`, else `https://api.hanzo.ai`.
+//! Auth: a `pk-`/`sk-` bearer key from `HANZO_API_KEY`, else
+//! `~/.hanzo/config.json` field `apiKey`. Base URL: `HANZO_API_BASE`, else
+//! `https://api.hanzo.ai`.
 
 use anyhow::{anyhow, Result};
 use serde_json::{json, Value};
@@ -12,6 +13,14 @@ use std::time::Duration;
 
 /// Default base URL for the Hanzo cloud API.
 pub const DEFAULT_BASE_URL: &str = "https://api.hanzo.ai";
+
+/// What every cloud-backed tool says when no key resolved — one sentence in one
+/// place, so the shapes cannot drift apart tool by tool.
+///
+/// Cloud admits two: `pk-` is the publishable key you may ship in a browser
+/// bundle, `sk-` is the one you may not. `APIKeyPrefixes` in cloud's
+/// `auth_identity.go` is the authority; anything else resolves to no principal.
+pub const NO_KEY: &str = "no API key: run `hanzo login` or set HANZO_API_KEY (pk-/sk-)";
 
 /// Client for the Hanzo cloud API (code knowledge, web, vision).
 #[derive(Clone)]
@@ -154,7 +163,7 @@ pub fn frames(body: &str) -> Vec<Value> {
     out
 }
 
-/// Resolve the `hk-` API key: `HANZO_API_KEY` first, then `~/.hanzo/config.json`.
+/// Resolve the API key: `HANZO_API_KEY` first, then `~/.hanzo/config.json`.
 fn resolve_api_key() -> Option<String> {
     if let Ok(key) = std::env::var("HANZO_API_KEY") {
         let key = key.trim().to_string();
@@ -192,8 +201,8 @@ mod tests {
 
     #[test]
     fn extracts_api_key() {
-        let doc = r#"{"apiKey":"hk-abc123","accessToken":"x","user":{}}"#;
-        assert_eq!(api_key_from_config_json(doc).as_deref(), Some("hk-abc123"));
+        let doc = r#"{"apiKey":"sk-abc123","accessToken":"x","user":{}}"#;
+        assert_eq!(api_key_from_config_json(doc).as_deref(), Some("sk-abc123"));
     }
 
     #[test]

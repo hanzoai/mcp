@@ -30,7 +30,7 @@ fn require_key(api: &HanzoApi, tool: &'static str, action: &'static str) -> Opti
             tool,
             action,
             "NO_API_KEY",
-            "no hk- key: set HANZO_API_KEY or ~/.hanzo/config.json .apiKey",
+            crate::hanzo_api::NO_KEY,
         ))))
     }
 }

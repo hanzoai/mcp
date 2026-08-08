@@ -91,7 +91,7 @@ async fn serve(reply: Value) -> (String, JoinHandle<Seen>) {
 async fn call(reply: Value, params: Value) -> (Value, Seen) {
     let (base, served) = serve(reply).await;
     std::env::set_var("HANZO_API_BASE", &base);
-    std::env::set_var("HANZO_API_KEY", "hk-test");
+    std::env::set_var("HANZO_API_KEY", "sk-test");
 
     let out = ToolRegistry::with_defaults()
         .execute("lsp", params)
@@ -127,7 +127,7 @@ async fn repo_asks_the_cloud_and_file_stays_local() {
 
     assert_eq!(out, hit, "the cloud's answer comes back verbatim");
     assert_eq!(seen.start, "POST /v1/code/lsp/locate HTTP/1.1");
-    assert_eq!(seen.headers.get("authorization").map(String::as_str), Some("Bearer hk-test"));
+    assert_eq!(seen.headers.get("authorization").map(String::as_str), Some("Bearer sk-test"));
     assert_eq!(
         seen.body,
         json!({
@@ -188,7 +188,7 @@ async fn repo_asks_the_cloud_and_file_stays_local() {
 async fn file_alone_stays_on_the_local_plane() {
     let _env = own_env();
     std::env::set_var("HANZO_API_BASE", "http://127.0.0.1:1");
-    std::env::set_var("HANZO_API_KEY", "hk-test");
+    std::env::set_var("HANZO_API_KEY", "sk-test");
     let registry = ToolRegistry::with_defaults();
 
     let out = registry

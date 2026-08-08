@@ -344,7 +344,7 @@ impl ThinkTool {
         Ok(json!({
             "ok": true,
             "data": { "id": id, "topic": topic, "perspectives": perspectives, "recorded": true,
-                "hint": "Multi-perspective consensus reasoning recorded (no hk- key: set HANZO_API_KEY to poll models)." },
+                "hint": "Multi-perspective consensus reasoning recorded (no API key: set HANZO_API_KEY (pk-/sk-) to poll models)." },
             "error": null,
             "meta": { "tool": "think", "action": "consensus" }
         }))
@@ -382,7 +382,7 @@ impl ThinkTool {
         Ok(json!({
             "ok": true,
             "data": { "id": id, "goal": goal, "recorded": true,
-                "hint": "Agent reasoning recorded (no hk- key: set HANZO_API_KEY to plan with a model)." },
+                "hint": "Agent reasoning recorded (no API key: set HANZO_API_KEY (pk-/sk-) to plan with a model)." },
             "error": null,
             "meta": { "tool": "think", "action": "agent" }
         }))
@@ -462,7 +462,7 @@ impl ThinkTool {
         Ok(json!({
             "ok": true,
             "data": { "input_length": content.len(),
-                "hint": "Embedding placeholder (no hk- key: set HANZO_API_KEY to embed via api.hanzo.ai)." },
+                "hint": "Embedding placeholder (no API key: set HANZO_API_KEY (pk-/sk-) to embed via api.hanzo.ai)." },
             "error": null,
             "meta": { "tool": "think", "action": "embed" }
         }))
