@@ -94,7 +94,7 @@ async fn research_asks_the_one_door_and_folds_the_stream() {
 
     let (base, served) = serve(stream).await;
     std::env::set_var("HANZO_API_BASE", &base);
-    std::env::set_var("HANZO_API_KEY", "hk-test");
+    std::env::set_var("HANZO_API_KEY", "sk-test");
 
     let out = ToolRegistry::with_defaults()
         .execute("research", json!({ "query": "is simple easy", "mode": "deep" }))
@@ -119,7 +119,7 @@ async fn research_asks_the_one_door_and_folds_the_stream() {
     let seen = served.await.expect("server");
     assert_eq!(seen.start, "POST /v1/ask HTTP/1.1");
     assert_eq!(seen.headers.get("accept").map(String::as_str), Some("text/event-stream"));
-    assert_eq!(seen.headers.get("authorization").map(String::as_str), Some("Bearer hk-test"));
+    assert_eq!(seen.headers.get("authorization").map(String::as_str), Some("Bearer sk-test"));
     assert_eq!(seen.body, json!({ "q": "is simple easy", "mode": "research" }));
 }
 

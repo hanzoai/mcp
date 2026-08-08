@@ -2,7 +2,7 @@
 //!
 //! `llm` — query language models through the live api.hanzo.ai gateway
 //! (POST /v1/chat/completions, OpenAI-compatible). The gateway routes by model
-//! id, so a single hk- bearer key reaches every provider SKU it fronts.
+//! id, so a single bearer key reaches every provider SKU it fronts.
 //!
 //! Actions:
 //! - `query`     → one model, returns the assistant text (default action)
@@ -344,7 +344,7 @@ impl MCPTool for LlmTool {
                 "llm",
                 &action,
                 "NO_API_KEY",
-                "no hk- key: set HANZO_API_KEY or ~/.hanzo/config.json .apiKey",
+                crate::hanzo_api::NO_KEY,
             )));
         }
 

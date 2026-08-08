@@ -387,7 +387,7 @@ async fn cloud(api: &HanzoApi, repo: &str, action: &str, file: &str, args: &LspA
         return json!({
             "action": action,
             "repo": repo,
-            "error": "no hk- key: set HANZO_API_KEY or ~/.hanzo/config.json .apiKey",
+            "error": crate::hanzo_api::NO_KEY,
         });
     }
 

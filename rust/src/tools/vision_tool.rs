@@ -103,7 +103,7 @@ impl MCPTool for VisionTool {
                 "vision",
                 "analyze",
                 "NO_API_KEY",
-                "no hk- key: set HANZO_API_KEY or ~/.hanzo/config.json .apiKey",
+                crate::hanzo_api::NO_KEY,
             )));
         }
         let args: VisionArgs = serde_json::from_value(params).unwrap_or_default();

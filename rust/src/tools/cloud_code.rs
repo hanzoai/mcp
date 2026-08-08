@@ -43,7 +43,7 @@ fn require_key(api: &HanzoApi, tool: &'static str, action: &'static str) -> Opti
             tool,
             action,
             "NO_API_KEY",
-            "no hk- key: set HANZO_API_KEY or ~/.hanzo/config.json .apiKey",
+            crate::hanzo_api::NO_KEY,
         ))))
     }
 }
@@ -483,7 +483,7 @@ mod tests {
     }
 
     /// Live end-to-end via the registry: index a repo, then find a symbol in it.
-    /// Requires a live api.hanzo.ai + hk- key. Run: `cargo test -- --ignored`.
+    /// Requires a live api.hanzo.ai + `sk-` key. Run: `cargo test -- --ignored`.
     #[tokio::test]
     #[ignore]
     async fn live_index_then_search_via_registry() {
