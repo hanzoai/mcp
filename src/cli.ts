@@ -8,12 +8,14 @@
 import { Command } from 'commander';
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import {
   CallToolRequestSchema,
   ListResourcesRequestSchema,
   ListToolsRequestSchema,
   ReadResourceRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js';
+import * as http from 'http';
 import * as fs from 'fs/promises';
 import * as os from 'os';
 import * as path from 'path';
@@ -111,8 +113,10 @@ program
     
     if (options.transport === 'stdio') {
       await startStdioServer(options, toolConfig);
+    } else if (options.transport === 'http') {
+      await startHttpServer(options, toolConfig);
     } else {
-      console.error('HTTP transport not yet implemented');
+      console.error(`Unknown transport: ${options.transport} (use stdio or http)`);
       process.exit(1);
     }
   });
@@ -590,6 +594,106 @@ program
     await program.parseAsync(['node', 'cli', 'install', '--claude-desktop'], { from: 'user' });
   });
 
+// Register the MCP request handlers shared by every transport.
+function registerHandlers(
+  server: Server,
+  options: any,
+  configuredTools: any[],
+  toolMap: Map<string, any>,
+) {
+  server.setRequestHandler(ListToolsRequestSchema, async () => {
+    return {
+      tools: configuredTools.map(tool => ({
+        name: tool.name,
+        description: tool.description,
+        inputSchema: tool.inputSchema,
+      })),
+    };
+  });
+
+  server.setRequestHandler(CallToolRequestSchema, async (request) => {
+    const tool = toolMap.get(request.params.name);
+    if (!tool) {
+      return {
+        content: [{ type: 'text', text: `Unknown tool: ${request.params.name}` }],
+        isError: true,
+      };
+    }
+    try {
+      console.error(`Executing tool: ${tool.name}`);
+      return await tool.handler(request.params.arguments || {});
+    } catch (error: any) {
+      console.error(`Tool error: ${error.message}`);
+      return {
+        content: [{ type: 'text', text: `Error executing ${tool.name}: ${error.message}` }],
+        isError: true,
+      };
+    }
+  });
+
+  server.setRequestHandler(ListResourcesRequestSchema, async () => {
+    return {
+      resources: [{
+        uri: 'hanzo://system-prompt',
+        name: 'System Prompt',
+        mimeType: 'text/plain',
+        description: 'Hanzo MCP system prompt and context',
+      }],
+    };
+  });
+
+  server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
+    if (request.params.uri === 'hanzo://system-prompt') {
+      const systemPrompt = await getSystemPrompt(options.project);
+      return {
+        contents: [{ uri: request.params.uri, mimeType: 'text/plain', text: systemPrompt }],
+      };
+    }
+    return {
+      contents: [{ uri: request.params.uri, mimeType: 'text/plain', text: 'Resource not found' }],
+    };
+  });
+}
+
+// Serve the tools over streamable http. A fresh server and transport per request
+// keeps the door stateless — no session header, each POST answered on its own,
+// the shape the current protocol revision settled on.
+async function startHttpServer(options: any, toolConfig: ToolConfig) {
+  const configuredTools = getConfiguredTools(toolConfig);
+  const toolMap = new Map<string, any>(configuredTools.map(t => [t.name, t]));
+  console.error(`Registering ${configuredTools.length} tools...`);
+
+  const port = parseInt(options.port, 10) || 3000;
+  const host = process.env.HOST || '127.0.0.1';
+
+  const httpServer = http.createServer(async (req, res) => {
+    if (req.method !== 'POST') {
+      res.writeHead(405, { Allow: 'POST' }).end();
+      return;
+    }
+    const server = new Server(
+      { name: 'hanzo-mcp', version: packageJson.version },
+      { capabilities: { tools: {}, resources: {} } },
+    );
+    registerHandlers(server, options, configuredTools, toolMap);
+    const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
+    res.on('close', () => { void transport.close(); void server.close(); });
+    try {
+      await server.connect(transport);
+      await transport.handleRequest(req, res);
+    } catch (error: any) {
+      console.error(`HTTP request error: ${error.message}`);
+      if (!res.headersSent) res.writeHead(500).end();
+    }
+  });
+
+  httpServer.listen(port, host, () => {
+    console.error(`Hanzo MCP server (streamable http) on http://${host}:${port}`);
+  });
+
+  await new Promise<never>(() => {});
+}
+
 async function startStdioServer(options: any, toolConfig: ToolConfig) {
   const server = new Server(
     {
@@ -607,83 +711,11 @@ async function startStdioServer(options: any, toolConfig: ToolConfig) {
   // Get configured tools
   const configuredTools = getConfiguredTools(toolConfig);
   const toolMap = new Map(configuredTools.map(t => [t.name, t]));
-  
+
   // Register all tools
   console.error(`Registering ${configuredTools.length} tools...`);
 
-  // Handle tool listing
-  server.setRequestHandler(ListToolsRequestSchema, async () => {
-    return {
-      tools: configuredTools.map(tool => ({
-        name: tool.name,
-        description: tool.description,
-        inputSchema: tool.inputSchema
-      }))
-    };
-  });
-
-  // Handle tool execution
-  server.setRequestHandler(CallToolRequestSchema, async (request, extra) => {
-    const tool = toolMap.get(request.params.name);
-    
-    if (!tool) {
-      return {
-        content: [{
-          type: 'text',
-          text: `Unknown tool: ${request.params.name}`
-        }],
-        isError: true
-      };
-    }
-    
-    try {
-      console.error(`Executing tool: ${tool.name}`);
-      const result = await tool.handler(request.params.arguments || {});
-      return result;
-    } catch (error: any) {
-      console.error(`Tool error: ${error.message}`);
-      return {
-        content: [{
-          type: 'text',
-          text: `Error executing ${tool.name}: ${error.message}`
-        }],
-        isError: true
-      };
-    }
-  });
-
-  // Handle resources (for system prompt)
-  server.setRequestHandler(ListResourcesRequestSchema, async () => {
-    return {
-      resources: [{
-        uri: 'hanzo://system-prompt',
-        name: 'System Prompt',
-        mimeType: 'text/plain',
-        description: 'Hanzo MCP system prompt and context'
-      }]
-    };
-  });
-
-  server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
-    if (request.params.uri === 'hanzo://system-prompt') {
-      const systemPrompt = await getSystemPrompt(options.project);
-      return {
-        contents: [{
-          uri: request.params.uri,
-          mimeType: 'text/plain',
-          text: systemPrompt
-        }]
-      };
-    }
-    
-    return {
-      contents: [{
-        uri: request.params.uri,
-        mimeType: 'text/plain',
-        text: 'Resource not found'
-      }]
-    };
-  });
+  registerHandlers(server, options, configuredTools, toolMap);
 
   // Start ZAP server for browser extension discovery (binary transport, full MCP parity)
   const methodHandlers: Record<string, (params: any) => Promise<any>> = {
