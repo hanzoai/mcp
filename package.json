@@ -1,6 +1,6 @@
 {
   "name": "@hanzo/mcp",
-  "version": "2.4.6",
+  "version": "2.4.7",
   "packageManager": "pnpm@11.17.0",
   "description": "Hanzo MCP Server - Unified tool surface with AI, cloud control, vector search, and multi-framework UI",
   "main": "dist/index.js",
@@ -19,8 +19,8 @@
   ],
   "scripts": {
     "build": "pnpm build:lib && pnpm build:cli",
-    "build:lib": "esbuild src/index.ts --bundle --platform=node --target=node18 --format=esm --outfile=dist/index.js --external:@modelcontextprotocol/sdk --external:glob --external:commander --external:zod --external:zod-to-json-schema --external:mime-types --external:@lancedb/lancedb --external:@xenova/transformers --external:jsautogui --external:playwright --external:playwright-core --external:ws --external:path --external:fs --external:fs/promises --external:os --external:url",
-    "build:cli": "esbuild src/cli.ts --bundle --platform=node --target=node18 --format=esm --outfile=dist/cli.js --external:@modelcontextprotocol/sdk --external:glob --external:commander --external:zod --external:zod-to-json-schema --external:mime-types --external:@lancedb/lancedb --external:@xenova/transformers --external:jsautogui --external:playwright --external:playwright-core --external:ws --external:path --external:fs --external:fs/promises --external:os --external:url && chmod +x dist/cli.js",
+    "build:lib": "esbuild src/index.ts --bundle --platform=node --target=node18 --format=esm --outfile=dist/index.js --external:@modelcontextprotocol/sdk --external:glob --external:commander --external:zod --external:zod-to-json-schema --external:mime-types --external:@lancedb/lancedb --external:@xenova/transformers --external:jsautogui --external:playwright --external:playwright-core --external:path --external:fs --external:fs/promises --external:os --external:url",
+    "build:cli": "esbuild src/cli.ts --bundle --platform=node --target=node18 --format=esm --outfile=dist/cli.js --external:@modelcontextprotocol/sdk --external:glob --external:commander --external:zod --external:zod-to-json-schema --external:mime-types --external:@lancedb/lancedb --external:@xenova/transformers --external:jsautogui --external:playwright --external:playwright-core --external:path --external:fs --external:fs/promises --external:os --external:url && chmod +x dist/cli.js",
     "dev": "tsc --watch",
     "smoke": "node scripts/smoke-mcp.mjs",
     "test": "jest",
@@ -44,7 +44,6 @@
     "glob": "^13.0.6",
     "mime-types": "^3.0.2",
     "minimatch": "^10.2.4",
-    "ws": "^8.20.0",
     "zod": "^4.3.6",
     "zod-to-json-schema": "^3.25.1"
   },
@@ -61,7 +60,6 @@
     "@types/jest": "^30.0.0",
     "@types/minimatch": "^6.0.0",
     "@types/node": "^25.5.0",
-    "@types/ws": "^8.18.1",
     "esbuild": "^0.28.1",
     "jest": "^30.3.0",
     "ts-jest": "^29.4.6",
