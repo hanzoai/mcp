@@ -1,0 +1,105 @@
+name: publish
+
+# Publishes @hanzo/mcp when the registry serves something older than this tree.
+# hanzoai/mcp is the canonical home of this package; the copy vendored in
+# hanzoai/extension is a build input and is marked private so it can never
+# publish over this line.
+#
+# A version already on the registry is skipped, so re-runs are safe.
+
+on:
+  push:
+    branches: [main]
+    # No `paths:` filter. There is ONE question here — "does npmjs serve
+    # something older than this tree?" — and the skip step below answers it
+    # against the registry itself rather than guessing from the shape of a diff.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: hanzo-build-linux-amd64
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org/
+
+      - name: Skip if already published
+        id: check
+        run: |
+          NAME=$(jq -r .name package.json)
+          VER=$(jq -r .version package.json)
+          if curl -fsSL "https://registry.npmjs.org/$NAME/$VER" > /dev/null 2>&1; then
+            echo "$NAME@$VER already on registry; skipping"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "npm serves something older than $VER — shipping."
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      # Typecheck, then bundle, and the order is the point: esbuild does not
+      # typecheck, so the bundle alone cannot go red for the defect this tree is
+      # most likely to have. dist/ is gitignored, so this is also what puts the
+      # entry points in the tarball. Same three commands /hanzo.yml declares.
+      #
+      # Not `pnpm test`: five of the jest suites reach a network or a live tool
+      # surface, which belongs in an integration lane with the services it needs,
+      # not in front of a publish.
+      - name: Typecheck and build
+        if: steps.check.outputs.skip != 'true'
+        run: |
+          corepack enable
+          pnpm install --frozen-lockfile
+          pnpm exec tsc --noEmit
+          pnpm build
+
+      - name: Fetch the npm token from KMS
+        id: npmtok
+        if: steps.check.outputs.skip != 'true'
+        # KMS is where a secret lives. The token is read at run time with the
+        # same machine identity the rest of the fleet uses, so there is nothing
+        # new to rotate and no npm credential is stored on the forge.
+        # @hanzo/ui and @hanzo/logo read it from the same place — one way.
+        env:
+          KMS_CLIENT_ID: ${{ secrets.KMS_CLIENT_ID }}
+          KMS_CLIENT_SECRET: ${{ secrets.KMS_CLIENT_SECRET }}
+          KMS_ENDPOINT: ${{ vars.KMS_ENDPOINT || 'https://kms.hanzo.ai' }}
+          KMS_SECRET_ENV: ${{ vars.KMS_SECRET_ENV || 'prod' }}
+          # NPM_TOKEN sits at the org root. Empty means root; set KMS_NPM_PATH to
+          # move it without editing this file.
+          KMS_NPM_PATH: ${{ vars.KMS_NPM_PATH || '' }}
+        run: |
+          token=$(curl -fsS "${KMS_ENDPOINT}/v1/kms/auth/login" \
+            -H 'Content-Type: application/json' \
+            -d "{\"clientId\":\"${KMS_CLIENT_ID}\",\"clientSecret\":\"${KMS_CLIENT_SECRET}\"}" \
+            | jq -r '.accessToken // empty')
+          if [ -z "${token}" ]; then
+            echo "::error::KMS login failed at ${KMS_ENDPOINT}/v1/kms/auth/login (check KMS_CLIENT_ID/KMS_CLIENT_SECRET)."
+            exit 1
+          fi
+          # The read is org-scoped by the TOKEN's owner claim, not by a path
+          # segment: the flat form is what cloud's embedded KMS serves, and it
+          # answers {name, env, value}.
+          url="${KMS_ENDPOINT}/v1/kms/secrets/${KMS_NPM_PATH:+${KMS_NPM_PATH}/}NPM_TOKEN?env=${KMS_SECRET_ENV}"
+          # No -f: a 404 must report WHICH path was empty, not just exit 22.
+          npm_token=$(curl -sS "${url}" -H "Authorization: Bearer ${token}" | jq -r '.value // empty')
+          if [ -z "${npm_token}" ]; then
+            echo "::error::No NPM_TOKEN at ${url}."
+            echo "::error::Put it there, or set the KMS_NPM_PATH variable to the path that has it."
+            exit 1
+          fi
+          # Masked before it is ever an output, so it cannot surface in a log.
+          echo "::add-mask::${npm_token}"
+          echo "token=${npm_token}" >> "$GITHUB_OUTPUT"
+
+      - name: Publish
+        if: steps.check.outputs.skip != 'true'
+        # npm, not pnpm: pnpm publish adds git checks a CI checkout fails.
+        # --no-provenance: a token publish 422s without it.
+        run: npm publish --access public --no-provenance
+        env:
+          NODE_AUTH_TOKEN: ${{ steps.npmtok.outputs.token }}
