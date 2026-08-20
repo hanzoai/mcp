@@ -47,7 +47,6 @@ rust/target/
 target/
 # Local symlinks
 AGENTS.md
-CLAUDE.md
 GEMINI.md
 QWEN.md
 # Generated site
