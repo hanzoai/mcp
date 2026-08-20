@@ -169,26 +169,75 @@ export const fetchTool: Tool = {
 
         case 'search': {
           if (!args.query) return fail('INVALID_PARAMS', 'query required');
-          // Use DuckDuckGo HTML search (no API key needed)
-          const searchUrl = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(args.query)}`;
-          const searchResp = await fetch(searchUrl, {
-            headers: { 'User-Agent': 'Mozilla/5.0 (compatible; HanzoBot/1.0)' },
+          /**
+           * OUR OWN SEARCH, not a scrape of somebody else's results page.
+           *
+           * This used to GET html.duckduckgo.com and pull results out with a
+           * regex over `class="result__title"`. Measured 2026-08-20, that
+           * returns HTTP 202 — DuckDuckGo's anti-bot challenge — and the markup
+           * carries no `result__title` at all, so the regex matched nothing and
+           * the tool answered `{results: [], count: 0}`: BLIND rendered as
+           * EMPTY, for every query, with no way for a caller to tell the two
+           * apart. A scraper of a third party's HTML is one class rename away
+           * from that on any day, which is the argument for our own endpoint
+           * rather than a better regex.
+           *
+           * Hanzo Cloud serves this at POST /v1/websearch — the same meta-search
+           * the product uses — so the tool now asks the API we ship. Credential
+           * and base URL come from the same env the tracker tool reads, so the
+           * MCP has ONE way to reach cloud rather than a second one here.
+           */
+          const base = process.env.API_URL || 'https://api.hanzo.ai';
+          const key =
+            process.env.HANZO_API_KEY || process.env.API_KEY || process.env.API_TOKEN || process.env.HANZO_TOKEN || '';
+          // Refuse LOUDLY without a credential. Returning an empty result list
+          // here would reproduce the exact defect this replaced: the caller
+          // cannot distinguish "the web has nothing" from "we never asked".
+          if (!key) {
+            return fail(
+              'NO_CREDENTIAL',
+              'web search needs a Hanzo API key: set HANZO_API_KEY (pk- or sk-). Cloud refuses anonymous search.',
+            );
+          }
+          const searchResp = await fetch(`${base}/v1/websearch`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Accept: 'application/json',
+              Authorization: `Bearer ${key}`,
+            },
+            body: JSON.stringify({ q: args.query }),
             signal: AbortSignal.timeout(args.timeout || 15000),
           });
-          const searchHtml = await searchResp.text();
-          // Extract results with regex (no DOM parser in Node by default)
-          const resultRe = /class="result__title"[^>]*>[\s\S]*?href="([^"]*)"[^>]*>([\s\S]*?)<\/a>[\s\S]*?class="result__snippet"[^>]*>([\s\S]*?)<\//g;
-          const results: any[] = [];
-          let match;
-          const maxResults = args.limit || 10;
-          while ((match = resultRe.exec(searchHtml)) !== null && results.length < maxResults) {
-            results.push({
-              url: match[1].replace(/&amp;/g, '&'),
-              title: match[2].replace(/<[^>]+>/g, '').trim(),
-              snippet: match[3].replace(/<[^>]+>/g, '').trim(),
-            });
+          const searchText = await searchResp.text();
+          if (!searchResp.ok) {
+            // Cloud's own words reach the agent verbatim — "sign in to search the
+            // web" is a different problem from a 500, and flattening both into
+            // "search failed" is what makes an outage look like a bad query.
+            return fail('SEARCH_FAILED', `${searchResp.status}: ${searchText.substring(0, 200)}`);
           }
-          return envelope({ query: args.query, results, count: results.length }, 'search');
+          let payload: any;
+          try {
+            payload = JSON.parse(searchText);
+          } catch {
+            return fail('SEARCH_FAILED', `unreadable response from ${base}/v1/websearch`);
+          }
+          const maxResults = args.limit || 10;
+          const results = (Array.isArray(payload?.results) ? payload.results : [])
+            .slice(0, maxResults)
+            .map((r: any) => ({ url: r?.url ?? '', title: r?.title ?? '', snippet: r?.content ?? r?.snippet ?? '' }));
+          return envelope(
+            {
+              query: payload?.query ?? args.query,
+              results,
+              count: results.length,
+              // Which engines answered. A zero-result search with engines listed
+              // is a real empty; one with none is a search that did not happen.
+              engines: Array.isArray(payload?.engines) ? payload.engines : [],
+              total: payload?.number_of_results ?? null,
+            },
+            'search',
+          );
         }
 
         case 'crawl': {
