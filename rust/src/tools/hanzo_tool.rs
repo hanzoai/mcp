@@ -222,10 +222,24 @@ impl HanzoTool {
             req = req.bearer_auth(k);
         }
         let resp = req.send().await?;
-        let status = resp.status().as_u16();
+        let status = resp.status();
         let text = resp.text().await?;
-        Ok(serde_json::from_str::<Value>(&text)
-            .unwrap_or_else(|_| json!({ "status": status, "body": text })))
+        let parsed = serde_json::from_str::<Value>(&text).ok();
+        if !status.is_success() {
+            // RFC 9457 `detail`, else the envelope `msg`, else `title`, else the body.
+            let why = parsed
+                .as_ref()
+                .and_then(|v| {
+                    ["detail", "msg", "title"]
+                        .iter()
+                        .find_map(|k| v.get(*k).and_then(Value::as_str))
+                        .filter(|s| !s.is_empty())
+                })
+                .map(str::to_string)
+                .unwrap_or_else(|| text.chars().take(300).collect());
+            anyhow::bail!("{} {}: {}", status.as_u16(), path, why);
+        }
+        Ok(parsed.unwrap_or_else(|| json!({ "status": status.as_u16(), "body": text })))
     }
 
     pub async fn execute(&self, args: HanzoToolArgs) -> Result<Value> {
@@ -350,106 +364,116 @@ impl HanzoTool {
 
     async fn iam(&self, action: &str, p: &Map<String, Value>) -> Result<Value> {
         let ok = |d| Ok(envelope_ok("hanzo", action, d));
-        let owner = pstr(p, "owner").unwrap_or_else(|| "hanzo".to_string());
+        let id = pstr(p, "id");
+        // Scope follows the caller: name an owner only when the caller names one,
+        // and the server resolves the rest from the credential.
+        let owner = pstr(p, "owner");
+        let scope: Vec<(String, String)> =
+            owner.iter().map(|o| ("owner".to_string(), o.clone())).collect();
+        let with = |keys: &[&str]| {
+            let mut q = scope.clone();
+            for k in keys {
+                if let Some(v) = pstr(p, k) {
+                    q.push(((*k).to_string(), v));
+                }
+            }
+            q
+        };
         match action {
-            "users" => ok(self.call("iam", "GET", "/v1/iam/get-users", &[("owner".into(), owner)], None).await?),
-            "user" => match pstr(p, "id") {
-                Some(id) => ok(self.call("iam", "GET", "/v1/iam/get-user", &[("id".into(), id)], None).await?),
-                None => Ok(need(action, "id")),
+            "users" => ok(self
+                .call("iam", "GET", "/v1/iam/users", &with(&["email", "limit", "offset"]), None)
+                .await?),
+            "user" => match row("users", id.as_deref()) {
+                Some(path) => ok(self.call("iam", "GET", &path, &[], None).await?),
+                None => Ok(need(action, "id as owner/name")),
             },
             "create_user" => {
-                let (name, email) = (pstr(p, "name"), pstr(p, "email"));
-                let (Some(name), Some(email)) = (name, email) else {
-                    return Ok(need(action, "name, email"));
+                let (Some(owner), Some(name), Some(email)) =
+                    (owner.clone(), pstr(p, "name"), pstr(p, "email"))
+                else {
+                    return Ok(need(action, "owner, name, email"));
                 };
                 let display = pstr(p, "display_name").unwrap_or_else(|| name.clone());
-                let mut user = json!({
-                    "owner": owner,
-                    "name": name,
-                    "email": email,
-                    "displayName": display,
+                let mut body = json!({
+                    "user": { "owner": owner, "name": name, "email": email, "displayName": display }
                 });
                 if let Some(pw) = pstr(p, "password") {
-                    user["password"] = json!(pw);
+                    body["password"] = json!(pw);
                 }
-                ok(self.call("iam", "POST", "/v1/iam/add-user", &[], Some(json!({ "user": user }))).await?)
+                ok(self.call("iam", "POST", "/v1/iam/users", &[], Some(body)).await?)
             }
-            "update_user" | "delete_user" => {
-                let Some(id) = pstr(p, "id") else {
-                    return Ok(need(action, "id"));
+            "update_user" => {
+                let Some(path) = row("users", id.as_deref()) else {
+                    return Ok(need(action, "id as owner/name"));
                 };
-                let current = self
-                    .call("iam", "GET", "/v1/iam/get-user", &[("id".into(), id.clone())], None)
-                    .await?;
-                let Value::Object(mut user) = current else {
-                    return Ok(envelope_err("hanzo", action, "NOT_FOUND", format!("User not found: {}", id)));
+                let Value::Object(mut user) = self.call("iam", "GET", &path, &[], None).await? else {
+                    return Ok(envelope_err("hanzo", action, "UPSTREAM", "user record is not an object"));
                 };
-                let endpoint = if action == "update_user" {
-                    for k in ["name", "email", "display_name"] {
-                        if let Some(v) = pstr(p, k) {
-                            let field = if k == "display_name" { "displayName" } else { k };
-                            user.insert(field.into(), json!(v));
-                        }
+                for k in ["name", "email", "display_name"] {
+                    if let Some(v) = pstr(p, k) {
+                        let field = if k == "display_name" { "displayName" } else { k };
+                        user.insert(field.into(), json!(v));
                     }
-                    "/v1/iam/update-user"
-                } else {
-                    "/v1/iam/delete-user"
-                };
-                ok(self.call("iam", "POST", endpoint, &[], Some(json!({ "user": user }))).await?)
-            }
-            "orgs" => ok(self.call("iam", "GET", "/v1/iam/get-organizations", &[("owner".into(), "admin".into())], None).await?),
-            "org" => match pstr(p, "id") {
-                Some(id) => ok(self.call("iam", "GET", "/v1/iam/get-organization", &[("id".into(), id)], None).await?),
-                None => Ok(need(action, "id")),
-            },
-            "roles" => ok(self.call("iam", "GET", "/v1/iam/get-roles", &[("owner".into(), owner)], None).await?),
-            "role" => match pstr(p, "id") {
-                Some(id) => ok(self.call("iam", "GET", "/v1/iam/get-role", &[("id".into(), id)], None).await?),
-                None => Ok(need(action, "id")),
-            },
-            "permissions" => ok(self.call("iam", "GET", "/v1/iam/get-permissions", &[("owner".into(), owner)], None).await?),
-            "enforce" => {
-                let (model, resource, check) = (
-                    pstr(p, "model"),
-                    pstr(p, "resource"),
-                    pstr(p, "permission_action").or_else(|| pstr(p, "action_check")),
-                );
-                let (Some(model), Some(resource), Some(check)) = (model, resource, check) else {
-                    return Ok(need(action, "model, resource, permission_action"));
-                };
-                let q = vec![
-                    ("owner".into(), owner),
-                    ("model".into(), model),
-                    ("resource".into(), resource),
-                    ("action".into(), check),
-                ];
-                ok(self.call("iam", "GET", "/v1/iam/enforce", &q, None).await?)
-            }
-            "providers" => ok(self.call("iam", "GET", "/v1/iam/get-providers", &[("owner".into(), "admin".into())], None).await?),
-            "apps" => ok(self.call("iam", "GET", "/v1/iam/get-applications", &[("owner".into(), "admin".into())], None).await?),
-            "tokens" => ok(self.call("iam", "GET", "/v1/iam/get-tokens", &[("owner".into(), "admin".into())], None).await?),
-            "sessions" => ok(self.call("iam", "GET", "/v1/iam/get-sessions", &[("owner".into(), "admin".into())], None).await?),
-            "invitations" => ok(self.call("iam", "GET", "/v1/iam/get-invitations", &[("owner".into(), "admin".into())], None).await?),
-            "invite" => match pstr(p, "email") {
-                Some(email) => {
-                    let invitation = json!({
-                        "owner": "admin",
-                        "name": email.replace('@', "-at-").replace('.', "-"),
-                        "email": email,
-                        "organization": pstr(p, "org").unwrap_or_else(|| "hanzo".to_string()),
-                    });
-                    ok(self.call("iam", "POST", "/v1/iam/add-invitation", &[], Some(json!({ "invitation": invitation }))).await?)
                 }
-                None => Ok(need(action, "email")),
+                ok(self.call("iam", "PUT", &path, &[], Some(json!({ "user": user }))).await?)
+            }
+            "delete_user" => match row("users", id.as_deref()) {
+                Some(path) => ok(self.call("iam", "DELETE", &path, &[], None).await?),
+                None => Ok(need(action, "id as owner/name")),
             },
-            "records" => ok(self.call("iam", "GET", "/v1/iam/get-records", &[("owner".into(), "admin".into())], None).await?),
-            "system_info" => ok(self.call("iam", "GET", "/v1/iam/get-system-info", &[], None).await?),
-            "health" => ok(self.call("iam", "GET", "/v1/iam/healthz", &[], None).await?),
-            _ => Ok(unknown(action, &[
-                "users", "user", "create_user", "update_user", "delete_user", "orgs", "org",
-                "roles", "role", "permissions", "enforce", "providers", "apps", "tokens",
-                "sessions", "invitations", "invite", "records", "system_info", "health",
-            ])),
+            "orgs" => {
+                let mut q = Vec::new();
+                if let Some(v) = pstr(p, "q").or_else(|| pstr(p, "query")) {
+                    q.push(("q".to_string(), v));
+                }
+                for k in ["limit", "cursor"] {
+                    if let Some(v) = pstr(p, k) {
+                        q.push((k.to_string(), v));
+                    }
+                }
+                ok(self.call("iam", "GET", "/v1/iam/organizations", &q, None).await?)
+            }
+            "org" => match row("organizations", id.as_deref()) {
+                Some(path) => ok(self.call("iam", "GET", &path, &[], None).await?),
+                None => Ok(need(action, "id as owner/name")),
+            },
+            "roles" => ok(self.call("iam", "GET", "/v1/iam/roles", &scope, None).await?),
+            "role" => match row("roles", id.as_deref()) {
+                Some(path) => ok(self.call("iam", "GET", &path, &[], None).await?),
+                None => Ok(need(action, "id as owner/name")),
+            },
+            "permissions" => ok(self.call("iam", "GET", "/v1/iam/permissions", &scope, None).await?),
+            "providers" => ok(self.call("iam", "GET", "/v1/iam/providers", &scope, None).await?),
+            // Applications are listed one owner at a time; ask rather than guess.
+            "apps" => {
+                if owner.is_none() {
+                    return Ok(need(action, "owner"));
+                }
+                ok(self.call("iam", "GET", "/v1/iam/applications", &scope, None).await?)
+            }
+            "tokens" => ok(self
+                .call("iam", "GET", "/v1/iam/tokens", &with(&["organization"]), None)
+                .await?),
+            "sessions" => ok(self
+                .call("iam", "GET", "/v1/iam/sessions", &with(&["name", "application"]), None)
+                .await?),
+            "invitations" => ok(self.call("iam", "GET", "/v1/iam/invitations", &scope, None).await?),
+            "invite" => {
+                let (Some(owner), Some(email)) = (owner.clone(), pstr(p, "email")) else {
+                    return Ok(need(action, "owner, email"));
+                };
+                let mut invitation = json!({
+                    "owner": owner,
+                    "name": email.replace('@', "-at-").replace('.', "-"),
+                    "email": email,
+                });
+                if let Some(org) = pstr(p, "org").or_else(|| pstr(p, "organization")) {
+                    invitation["organization"] = json!(org);
+                }
+                ok(self.call("iam", "POST", "/v1/iam/invitations", &[], Some(invitation)).await?)
+            }
+            "records" => ok(self.call("iam", "GET", "/v1/iam/audit-logs", &scope, None).await?),
+            _ => Ok(unknown(action, IAM_ACTIONS)),
         }
     }
 
@@ -525,9 +549,6 @@ impl HanzoTool {
         );
         match action {
             "whoami" => Ok(self.auth("whoami")),
-            "users" => ok(self.call("iam", "GET", "/v1/iam/get-users", &[("owner".into(), "hanzo".into())], None).await?),
-            "orgs" => ok(self.call("iam", "GET", "/v1/iam/get-organizations", &[("owner".into(), "admin".into())], None).await?),
-            "roles" => ok(self.call("iam", "GET", "/v1/iam/get-roles", &[("owner".into(), "hanzo".into())], None).await?),
             "projects" => match org {
                 Some(org) => ok(self.call("paas", "GET", &format!("/v1/org/{}/project", org), &[], None).await?),
                 None => Ok(need(action, "org")),
@@ -567,10 +588,7 @@ impl HanzoTool {
                 let templates = self.call("paas", "GET", "/v1/cluster/templates", &[], None).await?;
                 ok(json!({ "cluster": info, "templates": templates }))
             }
-            _ => Ok(unknown(action, &[
-                "whoami", "users", "orgs", "roles", "projects", "env", "deployments",
-                "deploy", "logs", "redeploy", "services",
-            ])),
+            _ => Ok(unknown(action, PAAS_ACTIONS)),
         }
     }
 
@@ -873,20 +891,32 @@ impl HanzoTool {
     }
 }
 
+const IAM_ACTIONS: &[&str] = &[
+    "users", "user", "create_user", "update_user", "delete_user", "orgs", "org", "roles",
+    "role", "permissions", "providers", "apps", "tokens", "sessions", "invitations",
+    "invite", "records",
+];
+
+const PAAS_ACTIONS: &[&str] = &[
+    "whoami", "projects", "env", "deployments", "deploy", "logs", "redeploy", "services",
+];
+
+/// Address of one typed IAM record. `id` is spelled `owner/name`.
+fn row(kind: &str, id: Option<&str>) -> Option<String> {
+    let (owner, name) = id?.split_once('/')?;
+    if owner.is_empty() || name.is_empty() || name.contains('/') {
+        return None;
+    }
+    Some(format!("/v1/iam/{}/{}/{}", kind, owner, name))
+}
+
 /// Actions advertised for a service when called with no action (progressive reveal).
 fn actions_for(service: &str) -> Vec<&'static str> {
     match service {
-        "iam" => vec![
-            "users", "user", "create_user", "update_user", "delete_user", "orgs", "org",
-            "roles", "role", "permissions", "enforce", "providers", "apps", "tokens",
-            "sessions", "invitations", "invite", "records", "system_info", "health",
-        ],
+        "iam" => IAM_ACTIONS.to_vec(),
         "auth" => vec!["status", "whoami", "logout", "refresh"],
         "kms" => vec!["list", "get", "set", "delete", "inject"],
-        "paas" => vec![
-            "whoami", "users", "orgs", "roles", "projects", "env", "deployments", "deploy",
-            "logs", "redeploy", "services",
-        ],
+        "paas" => PAAS_ACTIONS.to_vec(),
         "ingress" => vec![
             "routers", "services", "middlewares", "entrypoints", "overview", "tcp_routers",
             "domains", "add_domain", "remove_domain", "verify_domain", "tls_status",
@@ -929,6 +959,41 @@ fn unknown(action: &str, available: &[&str]) -> Value {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Serialises the tests that read or write the process environment.
+    static ENV: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+    /// A listener that answers one request, and reports what it was asked.
+    fn one_shot(status: &str, body: &str) -> (String, std::sync::mpsc::Receiver<String>) {
+        use std::io::{Read, Write};
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let addr = listener.local_addr().unwrap();
+        let (tx, rx) = std::sync::mpsc::channel();
+        let (status, body) = (status.to_string(), body.to_string());
+        std::thread::spawn(move || {
+            let (mut sock, _) = listener.accept().unwrap();
+            let mut buf = [0u8; 4096];
+            let n = sock.read(&mut buf).unwrap();
+            let _ = tx.send(String::from_utf8_lossy(&buf[..n]).to_string());
+            let resp = format!(
+                "HTTP/1.1 {status}\r\ncontent-type: application/json\r\ncontent-length: {}\r\nconnection: close\r\n\r\n{body}",
+                body.len()
+            );
+            let _ = sock.write_all(resp.as_bytes());
+        });
+        (format!("http://{addr}"), rx)
+    }
+
+    async fn iam_call(status: &str, body: &str, args: HanzoToolArgs) -> (Value, String) {
+        let _guard = ENV.lock().unwrap_or_else(|e| e.into_inner());
+        let (base, rx) = one_shot(status, body);
+        std::env::set_var("IAM_URL", &base);
+        std::env::set_var("HANZO_API_KEY", "sk-test");
+        let out = HanzoTool::new().execute(args).await.unwrap();
+        let req = rx.recv().unwrap();
+        std::env::remove_var("IAM_URL");
+        (out, req)
+    }
 
     #[tokio::test]
     async fn test_hanzo_list_resources() {
@@ -996,6 +1061,7 @@ mod tests {
 
     #[test]
     fn test_base_urls_match_python_defaults() {
+        let _guard = ENV.lock().unwrap_or_else(|e| e.into_inner());
         std::env::remove_var("IAM_URL");
         std::env::remove_var("HANZO_KMS_URL");
         std::env::remove_var("HANZO_PAAS_URL");
@@ -1011,7 +1077,64 @@ mod tests {
 
     #[test]
     fn test_join_normalizes_slashes() {
-        assert_eq!(join("https://hanzo.id", "/v1/iam/get-users"), "https://hanzo.id/v1/iam/get-users");
+        assert_eq!(join("https://hanzo.id", "/v1/iam/users"), "https://hanzo.id/v1/iam/users");
         assert_eq!(join("https://api.hanzo.ai/team", "/workspaces"), "https://api.hanzo.ai/team/workspaces");
+    }
+
+    #[test]
+    fn test_row_needs_owner_and_name() {
+        assert_eq!(row("users", Some("hanzo/z")).unwrap(), "/v1/iam/users/hanzo/z");
+        assert_eq!(row("roles", Some("admin/ops")).unwrap(), "/v1/iam/roles/admin/ops");
+        for bad in ["z", "/z", "hanzo/", "a/b/c", ""] {
+            assert!(row("users", Some(bad)).is_none(), "accepted {bad}");
+        }
+        assert!(row("users", None).is_none());
+    }
+
+    #[tokio::test]
+    async fn test_iam_reads_a_row_by_owner_and_name() {
+        let (out, req) = iam_call(
+            "200 OK",
+            r#"{"owner":"hanzo","name":"z"}"#,
+            HanzoToolArgs {
+                resource: Some("iam".into()),
+                action: Some("user".into()),
+                id: Some("hanzo/z".into()),
+                ..Default::default()
+            },
+        )
+        .await;
+        assert!(req.starts_with("GET /v1/iam/users/hanzo/z "), "{req}");
+        assert_eq!(out["ok"], true);
+        assert_eq!(out["data"]["name"], "z");
+    }
+
+    #[tokio::test]
+    async fn test_refusal_carries_its_reason() {
+        let (out, _) = iam_call(
+            "404 Not Found",
+            r#"{"type":"about:blank","title":"Not Found","status":404,"detail":"no such user"}"#,
+            HanzoToolArgs {
+                resource: Some("iam".into()),
+                action: Some("user".into()),
+                id: Some("hanzo/nobody".into()),
+                ..Default::default()
+            },
+        )
+        .await;
+        assert_eq!(out["ok"], false);
+        assert_eq!(out["error"]["code"], "UPSTREAM");
+        let msg = out["error"]["message"].as_str().unwrap();
+        assert!(msg.contains("404") && msg.contains("no such user"), "{msg}");
+    }
+
+    #[test]
+    fn test_iam_owns_the_identity_actions() {
+        let iam = actions_for("iam");
+        assert!(iam.contains(&"users") && iam.contains(&"orgs") && iam.contains(&"roles"));
+        let paas = actions_for("paas");
+        for identity in ["users", "orgs", "roles"] {
+            assert!(!paas.contains(&identity), "paas still answers {identity}");
+        }
     }
 }

@@ -93,6 +93,31 @@ the index's to answer and say so rather than spawning a server.
 LSP lives UNDER `/v1/code` beside `search`, `context`, `ask`, `index` — one
 home for code intelligence.
 
+## `iam` — how identity is addressed
+
+IAM's CRUD lives under `/v1/iam/` and nowhere else. A row is a path, not a query:
+`/v1/iam/{plural}/{owner}/{name}` for users, organizations, roles, applications,
+providers, permissions, invitations and tokens; sessions carry the application
+too (`/v1/iam/sessions/{owner}/{name}/{application}`). Audit rows are
+`/v1/iam/audit-logs`.
+
+A list GET answers one object keyed by the plural (`{"users":[…],"total":N}`); an
+item GET answers the bare record, except providers, which wrap
+(`{"provider":{…}}`). A refusal is RFC 9457 problem+json and absence is 404 —
+so a non-2xx answer is an error to raise, never a payload to read. The
+`{status,msg,data}` envelope survives on `/v1/iam/account`, `/v1/iam/memberships`,
+`/v1/iam/keys/{principal,org}` and `POST /v1/iam/delete-membership`. Write bodies
+are the flat row, except users: `{"user":{…},"password":"…"}`.
+
+`owner` is scope, not a constant. Send it only when the caller names one and let
+the server resolve the rest from the credential — a hardcoded org answers 403 to
+everyone outside it, and IAM's capability allowlists decide the rest.
+`/v1/iam/applications` is the one list that requires `owner`; ask for it.
+
+Two callers: `src/tools/hanzo-cloud.ts` (the `iam` and `auth` tools) and
+`rust/src/tools/hanzo_tool.rs` (the `hanzo` router's `iam` service). Identity
+questions belong to `iam` alone — `paas` answers for deployments.
+
 ## Canonical role
 Part of the AI/agents SDK line. This TS package (`@hanzo/mcp`) is canonical; the
 Python `hanzo-mcp` (PyPI) and Rust `hanzo-mcp::brain` mirror the same tool surface
