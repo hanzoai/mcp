@@ -365,8 +365,11 @@ impl HanzoTool {
     async fn iam(&self, action: &str, p: &Map<String, Value>) -> Result<Value> {
         let ok = |d| Ok(envelope_ok("hanzo", action, d));
         let id = pstr(p, "id");
-        // Scope follows the caller: name an owner only when the caller names one,
-        // and the server resolves the rest from the credential.
+        // `owner` is passed through when the caller names one and left off when
+        // they do not. Which routes insist on one is the server's to decide and
+        // it varies by release, so nothing here keeps a copy of that rule — a
+        // refusal arrives carrying its reason, and the reason is what the caller
+        // sees.
         let owner = pstr(p, "owner");
         let scope: Vec<(String, String)> =
             owner.iter().map(|o| ("owner".to_string(), o.clone())).collect();
@@ -445,12 +448,7 @@ impl HanzoTool {
             "permissions" => ok(self.call("iam", "GET", "/v1/iam/permissions", &scope, None).await?),
             "providers" => ok(self.call("iam", "GET", "/v1/iam/providers", &scope, None).await?),
             // Applications are listed one owner at a time; ask rather than guess.
-            "apps" => {
-                if owner.is_none() {
-                    return Ok(need(action, "owner"));
-                }
-                ok(self.call("iam", "GET", "/v1/iam/applications", &scope, None).await?)
-            }
+            "apps" => ok(self.call("iam", "GET", "/v1/iam/applications", &scope, None).await?),
             "tokens" => ok(self
                 .call("iam", "GET", "/v1/iam/tokens", &with(&["organization"]), None)
                 .await?),

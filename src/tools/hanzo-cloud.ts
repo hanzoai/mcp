@@ -77,7 +77,7 @@ export const iamTool: Tool = {
         'list_permissions', 'assign_role', 'remove_role',
         'list_sessions', 'delete_session'
       ] },
-      owner: { type: 'string', description: 'Organization owning the row; omit to let the credential decide' },
+      owner: { type: 'string', description: 'Organization to scope the call to; the server decides which routes require it' },
       id: { type: 'string', description: 'owner/name — owner/name/application for delete_session' },
       name: { type: 'string' }, email: { type: 'string' }, password: { type: 'string' },
       displayName: { type: 'string' }, phone: { type: 'string' },
