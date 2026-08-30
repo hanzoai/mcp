@@ -118,20 +118,18 @@ function getGitHubClient(): GitHubAPIClient {
 }
 
 /**
- * Check if Hanzo registry is available
+ * Answers whether the component registry is reachable.
+ *
+ * One address. The fallback this replaced asked `/api/registry`, which the estate
+ * does not serve — it 301s to a 404 — and it was reached only when the first
+ * fetch THREW, so a dead address stood in for a second chance nobody had.
  */
 async function checkHanzoRegistry(): Promise<boolean> {
   try {
     const response = await fetch('https://ui.hanzo.ai/registry/index.json');
     return response.ok;
   } catch {
-    // Try alternate endpoints
-    try {
-      const response = await fetch('https://ui.hanzo.ai/api/registry');
-      return response.ok;
-    } catch {
-      return false;
-    }
+    return false;
   }
 }
 
