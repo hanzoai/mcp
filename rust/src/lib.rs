@@ -12,6 +12,7 @@
 /// - mode: Development modes
 /// - search: Unified code search
 
+pub mod catalog;
 pub mod brain;
 pub mod config;
 pub mod ffi;

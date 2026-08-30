@@ -138,6 +138,20 @@ A `tools/call` answer IS a tool result and is returned as one. Re-wrapping it
 buries the fleet's own `isError` inside a body that reads as a success — a
 refusal a client cannot see is worse than no answer, because it is acted on.
 
+**The Rust runtime reads the SAME file** (`rust/src/catalog.rs`,
+`include_str!("../../src/tools/catalog.json")`), which is what makes "the runtimes
+mirror one-to-one" true rather than aspirational. Its `hanzo` tool went from 1,017
+lines to 460: nine hand-written service routers over four hosts became one
+dispatch to `api.hanzo.ai/v1/mcp`, and its `SERVICES` list became a read of the
+catalog. Two things that list had were worse than stale — it named `paas` and
+`commerce`, which the fleet no longer serves, and `base_url("commerce")` was
+`https://api.hanzo.ai/api/v1`, an `/api/` prefix this estate does not serve.
+
+**The aliases are gone, not renamed.** `platform -> paas`, `identity -> iam`,
+`payments -> billing`, `store -> commerce` pointed at the OLD names, so three of
+the four mapped a caller off the surface the fleet serves. `resolve_service`
+normalises spelling and renames nothing; one thing has one name.
+
 ## Canonical role
 Part of the AI/agents SDK line. This TS package (`@hanzo/mcp`) is canonical; the
 Python `hanzo-mcp` (PyPI) and Rust `hanzo-mcp::brain` mirror the same tool surface
