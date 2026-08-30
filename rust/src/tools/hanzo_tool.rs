@@ -25,21 +25,24 @@ use std::collections::HashMap;
 use super::{envelope_err, envelope_ok};
 use crate::hanzo_api::api_key_from_config_json;
 
-const SERVICES: &[&str] = &[
-    "api", "auth", "billing", "commerce", "iam", "ingress", "kms", "mpc", "paas", "team",
-];
+/// `auth` is answered locally from credential state; every other name comes from
+/// the generated catalog, so this list cannot describe an API that has moved.
+fn services() -> Vec<&'static str> {
+    let mut v = vec!["auth"];
+    v.extend(crate::catalog::services());
+    v.sort_unstable();
+    v
+}
 
-/// Aliases accepted for `service` — one canonical name, several ergonomic spellings.
+fn serves(service: &str) -> bool {
+    service == "auth" || crate::catalog::serves(service)
+}
+
+/// resolve_service normalises spelling only. It no longer renames: the aliases it
+/// carried pointed at the OLD names (platform -> paas, store -> commerce), so
+/// they mapped a caller off the surface the fleet actually serves.
 fn resolve_service(raw: &str) -> String {
-    let key = raw.trim().to_lowercase().replace('-', "_");
-    match key.as_str() {
-        "platform" => "paas",
-        "identity" => "iam",
-        "payments" => "billing",
-        "store" => "commerce",
-        other => other,
-    }
-    .to_string()
+    raw.trim().to_lowercase().replace('-', "_")
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -118,7 +121,7 @@ impl HanzoToolDefinition {
                 "properties": {
                     "resource": {
                         "type": "string",
-                        "enum": SERVICES,
+                        "enum": services(),
                         "description": "Target platform service (alias: service)"
                     },
                     "action": { "type": "string", "description": "Service action" },
@@ -136,28 +139,6 @@ impl HanzoToolDefinition {
 }
 
 /// Per-service base URL, honoring the same env overrides as the Python clients.
-fn base_url(service: &str) -> String {
-    fn env(var: &str, default: &str) -> String {
-        std::env::var(var)
-            .ok()
-            .map(|s| s.trim().trim_end_matches('/').to_string())
-            .filter(|s| !s.is_empty())
-            .unwrap_or_else(|| default.to_string())
-    }
-    match service {
-        "iam" | "auth" => env("IAM_URL", "https://hanzo.id"),
-        "kms" => env("HANZO_KMS_URL", "https://kms.hanzo.ai"),
-        "paas" | "ingress" | "mpc" => env("HANZO_PAAS_URL", "https://platform.hanzo.ai"),
-        "billing" => env("HANZO_BILLING_API_URL", "https://api.hanzo.ai/v1/billing"),
-        "commerce" => env("HANZO_COMMERCE_API_URL", "https://api.hanzo.ai/api/v1"),
-        "team" => env("HANZO_TEAM_URL", "https://api.hanzo.ai/team"),
-        _ => env("HANZO_API_BASE", "https://api.hanzo.ai"),
-    }
-}
-
-fn join(base: &str, path: &str) -> String {
-    format!("{}/{}", base.trim_end_matches('/'), path.trim_start_matches('/'))
-}
 
 /// Resolve the shared bearer: `HANZO_API_KEY`, else `~/.hanzo/config.json`.
 fn resolve_key() -> Option<String> {
@@ -200,42 +181,13 @@ impl HanzoTool {
         self.key.as_deref().map_or(false, |k| !k.is_empty())
     }
 
-    /// One HTTP request to `service`'s base, path appended, bearer attached.
-    async fn call(
-        &self,
-        service: &str,
-        method: &str,
-        path: &str,
-        query: &[(String, String)],
-        body: Option<Value>,
-    ) -> Result<Value> {
-        let url = join(&base_url(service), path);
-        let verb = reqwest::Method::from_bytes(method.as_bytes()).unwrap_or(reqwest::Method::GET);
-        let mut req = self.client.request(verb, url);
-        if !query.is_empty() {
-            req = req.query(query);
-        }
-        if let Some(b) = body {
-            req = req.json(&b);
-        }
-        if let Some(k) = &self.key {
-            req = req.bearer_auth(k);
-        }
-        let resp = req.send().await?;
-        let status = resp.status().as_u16();
-        let text = resp.text().await?;
-        Ok(serde_json::from_str::<Value>(&text)
-            .unwrap_or_else(|_| json!({ "status": status, "body": text })))
-    }
-
     pub async fn execute(&self, args: HanzoToolArgs) -> Result<Value> {
         let service = match &args.resource {
             None => {
                 return Ok(json!({
                     "ok": true,
                     "data": {
-                        "services": SERVICES,
-                        "aliases": { "platform": "paas", "identity": "iam", "payments": "billing", "store": "commerce" },
+                        "services": services(),
                         "hint": "Call hanzo(resource=\"iam\") to see that service's actions"
                     },
                     "error": null,
@@ -248,18 +200,18 @@ impl HanzoTool {
         if service == "services" || service == "list" {
             return Ok(json!({
                 "ok": true,
-                "data": { "services": SERVICES },
+                "data": { "services": services() },
                 "error": null,
                 "meta": { "tool": "hanzo", "action": "list" }
             }));
         }
 
-        if !SERVICES.contains(&service.as_str()) {
+        if !serves(&service) {
             return Ok(envelope_err(
                 "hanzo",
                 "route",
                 "UNKNOWN_SERVICE",
-                format!("Unknown service: {}. Available: {}", service, SERVICES.join(", ")),
+                format!("Unknown service: {}. Available: {}", service, services().join(", ")),
             ));
         }
 
@@ -296,18 +248,7 @@ impl HanzoTool {
             ));
         }
 
-        let routed = match service.as_str() {
-            "iam" => self.iam(&action, &p).await,
-            "kms" => self.kms(&action, &p).await,
-            "paas" => self.paas(&action, &p).await,
-            "ingress" => self.ingress(&action, &p).await,
-            "mpc" => self.mpc(&action, &p).await,
-            "billing" => self.billing(&action, &p).await,
-            "commerce" => self.commerce(&action, &p).await,
-            "team" => self.team(&action, &p).await,
-            "api" => self.api(&action, &p).await,
-            _ => unreachable!(),
-        };
+        let routed = self.ask(&service, &action, &p).await;
 
         Ok(match routed {
             Ok(v) => v,
@@ -346,571 +287,61 @@ impl HanzoTool {
         }
     }
 
-    // -- iam (hanzo.id /v1/iam) ---------------------------------------------
+    // -- the fleet ------------------------------------------------------------
 
-    async fn iam(&self, action: &str, p: &Map<String, Value>) -> Result<Value> {
-        let ok = |d| Ok(envelope_ok("hanzo", action, d));
-        let owner = pstr(p, "owner").unwrap_or_else(|| "hanzo".to_string());
-        match action {
-            "users" => ok(self.call("iam", "GET", "/v1/iam/get-users", &[("owner".into(), owner)], None).await?),
-            "user" => match pstr(p, "id") {
-                Some(id) => ok(self.call("iam", "GET", "/v1/iam/get-user", &[("id".into(), id)], None).await?),
-                None => Ok(need(action, "id")),
-            },
-            "create_user" => {
-                let (name, email) = (pstr(p, "name"), pstr(p, "email"));
-                let (Some(name), Some(email)) = (name, email) else {
-                    return Ok(need(action, "name, email"));
-                };
-                let display = pstr(p, "display_name").unwrap_or_else(|| name.clone());
-                let mut user = json!({
-                    "owner": owner,
-                    "name": name,
-                    "email": email,
-                    "displayName": display,
-                });
-                if let Some(pw) = pstr(p, "password") {
-                    user["password"] = json!(pw);
-                }
-                ok(self.call("iam", "POST", "/v1/iam/add-user", &[], Some(json!({ "user": user }))).await?)
-            }
-            "update_user" | "delete_user" => {
-                let Some(id) = pstr(p, "id") else {
-                    return Ok(need(action, "id"));
-                };
-                let current = self
-                    .call("iam", "GET", "/v1/iam/get-user", &[("id".into(), id.clone())], None)
-                    .await?;
-                let Value::Object(mut user) = current else {
-                    return Ok(envelope_err("hanzo", action, "NOT_FOUND", format!("User not found: {}", id)));
-                };
-                let endpoint = if action == "update_user" {
-                    for k in ["name", "email", "display_name"] {
-                        if let Some(v) = pstr(p, k) {
-                            let field = if k == "display_name" { "displayName" } else { k };
-                            user.insert(field.into(), json!(v));
-                        }
-                    }
-                    "/v1/iam/update-user"
-                } else {
-                    "/v1/iam/delete-user"
-                };
-                ok(self.call("iam", "POST", endpoint, &[], Some(json!({ "user": user }))).await?)
-            }
-            "orgs" => ok(self.call("iam", "GET", "/v1/iam/get-organizations", &[("owner".into(), "admin".into())], None).await?),
-            "org" => match pstr(p, "id") {
-                Some(id) => ok(self.call("iam", "GET", "/v1/iam/get-organization", &[("id".into(), id)], None).await?),
-                None => Ok(need(action, "id")),
-            },
-            "roles" => ok(self.call("iam", "GET", "/v1/iam/get-roles", &[("owner".into(), owner)], None).await?),
-            "role" => match pstr(p, "id") {
-                Some(id) => ok(self.call("iam", "GET", "/v1/iam/get-role", &[("id".into(), id)], None).await?),
-                None => Ok(need(action, "id")),
-            },
-            "permissions" => ok(self.call("iam", "GET", "/v1/iam/get-permissions", &[("owner".into(), owner)], None).await?),
-            "enforce" => {
-                let (model, resource, check) = (
-                    pstr(p, "model"),
-                    pstr(p, "resource"),
-                    pstr(p, "permission_action").or_else(|| pstr(p, "action_check")),
-                );
-                let (Some(model), Some(resource), Some(check)) = (model, resource, check) else {
-                    return Ok(need(action, "model, resource, permission_action"));
-                };
-                let q = vec![
-                    ("owner".into(), owner),
-                    ("model".into(), model),
-                    ("resource".into(), resource),
-                    ("action".into(), check),
-                ];
-                ok(self.call("iam", "GET", "/v1/iam/enforce", &q, None).await?)
-            }
-            "providers" => ok(self.call("iam", "GET", "/v1/iam/get-providers", &[("owner".into(), "admin".into())], None).await?),
-            "apps" => ok(self.call("iam", "GET", "/v1/iam/get-applications", &[("owner".into(), "admin".into())], None).await?),
-            "tokens" => ok(self.call("iam", "GET", "/v1/iam/get-tokens", &[("owner".into(), "admin".into())], None).await?),
-            "sessions" => ok(self.call("iam", "GET", "/v1/iam/get-sessions", &[("owner".into(), "admin".into())], None).await?),
-            "invitations" => ok(self.call("iam", "GET", "/v1/iam/get-invitations", &[("owner".into(), "admin".into())], None).await?),
-            "invite" => match pstr(p, "email") {
-                Some(email) => {
-                    let invitation = json!({
-                        "owner": "admin",
-                        "name": email.replace('@', "-at-").replace('.', "-"),
-                        "email": email,
-                        "organization": pstr(p, "org").unwrap_or_else(|| "hanzo".to_string()),
-                    });
-                    ok(self.call("iam", "POST", "/v1/iam/add-invitation", &[], Some(json!({ "invitation": invitation }))).await?)
-                }
-                None => Ok(need(action, "email")),
-            },
-            "records" => ok(self.call("iam", "GET", "/v1/iam/get-records", &[("owner".into(), "admin".into())], None).await?),
-            "system_info" => ok(self.call("iam", "GET", "/v1/iam/get-system-info", &[], None).await?),
-            "health" => ok(self.call("iam", "GET", "/v1/iam/healthz", &[], None).await?),
-            _ => Ok(unknown(action, &[
-                "users", "user", "create_user", "update_user", "delete_user", "orgs", "org",
-                "roles", "role", "permissions", "enforce", "providers", "apps", "tokens",
-                "sessions", "invitations", "invite", "records", "system_info", "health",
-            ])),
+    /// call hands one operation to the fleet and returns what it answered.
+    ///
+    /// There is one address and one request shape, because the fleet already
+    /// routes: naming a subsystem and an operation is the whole of what a caller
+    /// decides. What this replaced was nine hand-written routers over four hosts,
+    /// which had drifted from the API they described — `paas` had become
+    /// `platform`, `storage` had become `s3`, and `iam` carried 97 operations
+    /// against the handful reachable here.
+    async fn ask(&self, service: &str, action: &str, p: &Map<String, Value>) -> Result<Value> {
+        let body = json!({
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "tools/call",
+            "params": { "name": service, "arguments": { "op": action, "input": Value::Object(p.clone()) } },
+        });
+        let base = std::env::var("HANZO_API_URL").unwrap_or_else(|_| "https://api.hanzo.ai".into());
+        let mut req = self.client.post(format!("{base}/v1/mcp")).json(&body);
+        if let Some(k) = &self.key {
+            req = req.bearer_auth(k);
         }
-    }
+        let text = req.send().await?.text().await?;
+        let answer: Value = serde_json::from_str(&text)
+            .unwrap_or_else(|_| json!({ "error": { "message": text } }));
 
-    // -- kms (kms.hanzo.ai /v1/secrets) -------------------------------------
-
-    async fn kms(&self, action: &str, p: &Map<String, Value>) -> Result<Value> {
-        let ok = |d| Ok(envelope_ok("hanzo", action, d));
-        let (project, env) = (pstr(p, "project"), pstr(p, "environment"));
-        let path = pstr(p, "path").unwrap_or_else(|| "/".to_string());
-        let scope = |extra: Vec<(String, String)>| {
-            let mut q = vec![("path".into(), path.clone())];
-            if let Some(pr) = &project {
-                q.push(("project".into(), pr.clone()));
-            }
-            if let Some(e) = &env {
-                q.push(("environment".into(), e.clone()));
-            }
-            q.extend(extra);
-            q
-        };
-        match action {
-            "list" | "inject" => {
-                if project.is_none() || env.is_none() {
-                    return Ok(need(action, "project, environment"));
-                }
-                ok(self.call("kms", "GET", "/v1/secrets", &scope(vec![]), None).await?)
-            }
-            "get" => {
-                let Some(name) = pstr(p, "secret_name") else {
-                    return Ok(need(action, "project, environment, secret_name"));
-                };
-                if project.is_none() || env.is_none() {
-                    return Ok(need(action, "project, environment, secret_name"));
-                }
-                ok(self.call("kms", "GET", &format!("/v1/secrets/{}", name), &scope(vec![]), None).await?)
-            }
-            "set" => {
-                let (name, value) = (pstr(p, "secret_name"), pstr(p, "secret_value"));
-                let (Some(name), Some(value)) = (name, value) else {
-                    return Ok(need(action, "project, environment, secret_name, secret_value"));
-                };
-                if project.is_none() || env.is_none() {
-                    return Ok(need(action, "project, environment, secret_name, secret_value"));
-                }
-                let body = json!({
-                    "project": project.clone(), "environment": env.clone(), "path": path.clone(),
-                    "secretName": name, "secretValue": value,
-                });
-                ok(self.call("kms", "POST", "/v1/secrets", &[], Some(body)).await?)
-            }
-            "delete" => {
-                let Some(name) = pstr(p, "secret_name") else {
-                    return Ok(need(action, "project, environment, secret_name"));
-                };
-                if project.is_none() || env.is_none() {
-                    return Ok(need(action, "project, environment, secret_name"));
-                }
-                ok(self.call("kms", "DELETE", &format!("/v1/secrets/{}", name), &scope(vec![]), None).await?)
-            }
-            _ => Ok(unknown(action, &["list", "get", "set", "delete", "inject"])),
+        // A refusal is the fleet declining, and it is reported as one. Folding it
+        // into a success whose body happens to say it failed is a refusal the
+        // caller cannot see, which is worse than no answer because it is acted on.
+        if let Some(e) = answer.get("error") {
+            let msg = e.get("message").and_then(Value::as_str).unwrap_or("refused").to_string();
+            return Ok(envelope_err("hanzo", action, "REFUSED", msg));
         }
-    }
-
-    // -- paas (platform.hanzo.ai /v1) ---------------------------------------
-
-    async fn paas(&self, action: &str, p: &Map<String, Value>) -> Result<Value> {
-        let ok = |d| Ok(envelope_ok("hanzo", action, d));
-        let (org, project, env, container) = (
-            pstr(p, "org"),
-            pstr(p, "project"),
-            pstr(p, "environment"),
-            pstr(p, "container"),
-        );
-        match action {
-            "whoami" => Ok(self.auth("whoami")),
-            "users" => ok(self.call("iam", "GET", "/v1/iam/get-users", &[("owner".into(), "hanzo".into())], None).await?),
-            "orgs" => ok(self.call("iam", "GET", "/v1/iam/get-organizations", &[("owner".into(), "admin".into())], None).await?),
-            "roles" => ok(self.call("iam", "GET", "/v1/iam/get-roles", &[("owner".into(), "hanzo".into())], None).await?),
-            "projects" => match org {
-                Some(org) => ok(self.call("paas", "GET", &format!("/v1/org/{}/project", org), &[], None).await?),
-                None => Ok(need(action, "org")),
-            },
-            "env" => match (org, project) {
-                (Some(org), Some(project)) => ok(self
-                    .call("paas", "GET", &format!("/v1/org/{}/project/{}/env", org, project), &[], None)
-                    .await?),
-                _ => Ok(need(action, "org, project")),
-            },
-            "deployments" => match (org, project, env) {
-                (Some(org), Some(project), Some(env)) => ok(self
-                    .call("paas", "GET", &format!("/v1/org/{}/project/{}/env/{}/container", org, project, env), &[], None)
-                    .await?),
-                _ => Ok(need(action, "org, project, environment")),
-            },
-            "deploy" | "logs" => match (org, project, env, container) {
-                (Some(org), Some(project), Some(env), Some(container)) => {
-                    let mut path = format!("/v1/org/{}/project/{}/env/{}/container/{}", org, project, env, container);
-                    if action == "logs" {
-                        path.push_str("/logs");
-                    }
-                    ok(self.call("paas", "GET", &path, &[], None).await?)
-                }
-                _ => Ok(need(action, "org, project, environment, container")),
-            },
-            "redeploy" => match (org, project, env, container) {
-                (Some(org), Some(project), Some(env), Some(container)) => {
-                    let path = format!("/v1/org/{}/project/{}/env/{}/container/{}", org, project, env, container);
-                    let current = self.call("paas", "GET", &path, &[], None).await?;
-                    ok(self.call("paas", "PUT", &path, &[], Some(current)).await?)
-                }
-                _ => Ok(need(action, "org, project, environment, container")),
-            },
-            "services" => {
-                let info = self.call("paas", "GET", "/v1/cluster/info", &[], None).await?;
-                let templates = self.call("paas", "GET", "/v1/cluster/templates", &[], None).await?;
-                ok(json!({ "cluster": info, "templates": templates }))
-            }
-            _ => Ok(unknown(action, &[
-                "whoami", "users", "orgs", "roles", "projects", "env", "deployments",
-                "deploy", "logs", "redeploy", "services",
-            ])),
+        let result = answer.get("result").cloned().unwrap_or(answer);
+        if result.get("isError").and_then(Value::as_bool).unwrap_or(false) {
+            let msg = result
+                .get("content")
+                .and_then(Value::as_array)
+                .and_then(|c| c.first())
+                .and_then(|f| f.get("text"))
+                .and_then(Value::as_str)
+                .unwrap_or("refused")
+                .to_string();
+            return Ok(envelope_err("hanzo", action, "REFUSED", msg));
         }
+        Ok(envelope_ok("hanzo", action, result))
     }
 
-    // -- ingress (platform.hanzo.ai /v1/ingress + domains) ------------------
-
-    async fn ingress(&self, action: &str, p: &Map<String, Value>) -> Result<Value> {
-        let ok = |d| Ok(envelope_ok("hanzo", action, d));
-        let (project, domain) = (pstr(p, "project_id"), pstr(p, "domain"));
-        match action {
-            "routers" => ok(self.call("ingress", "GET", "/v1/ingress/http/routers", &[], None).await?),
-            "services" => ok(self.call("ingress", "GET", "/v1/ingress/http/services", &[], None).await?),
-            "middlewares" => ok(self.call("ingress", "GET", "/v1/ingress/http/middlewares", &[], None).await?),
-            "entrypoints" => ok(self.call("ingress", "GET", "/v1/ingress/entrypoints", &[], None).await?),
-            "overview" => ok(self.call("ingress", "GET", "/v1/ingress/overview", &[], None).await?),
-            "tcp_routers" => ok(self.call("ingress", "GET", "/v1/ingress/tcp/routers", &[], None).await?),
-            "domains" => match project {
-                Some(project) => ok(self.call("ingress", "GET", &format!("/v1/project/{}/domain", project), &[], None).await?),
-                None => Ok(need(action, "project_id")),
-            },
-            "add_domain" => match (project, domain) {
-                (Some(project), Some(domain)) => ok(self
-                    .call("ingress", "POST", &format!("/v1/project/{}/domain", project), &[], Some(json!({ "domain": domain })))
-                    .await?),
-                _ => Ok(need(action, "project_id, domain")),
-            },
-            "remove_domain" => match (project, domain) {
-                (Some(project), Some(domain)) => ok(self
-                    .call("ingress", "DELETE", &format!("/v1/project/{}/domain/{}", project, domain), &[], None)
-                    .await?),
-                _ => Ok(need(action, "project_id, domain")),
-            },
-            "verify_domain" => match (project, domain) {
-                (Some(project), Some(domain)) => ok(self
-                    .call("ingress", "POST", &format!("/v1/project/{}/domain/{}/verify", project, domain), &[], None)
-                    .await?),
-                _ => Ok(need(action, "project_id, domain")),
-            },
-            "tls_status" => match domain {
-                Some(domain) => ok(self.call("ingress", "GET", &format!("/v1/domain/{}/tls", domain), &[], None).await?),
-                None => Ok(need(action, "domain")),
-            },
-            _ => Ok(unknown(action, &[
-                "routers", "services", "middlewares", "entrypoints", "overview", "tcp_routers",
-                "domains", "add_domain", "remove_domain", "verify_domain", "tls_status",
-            ])),
-        }
-    }
-
-    // -- mpc (platform.hanzo.ai /v1/mpc) ------------------------------------
-
-    async fn mpc_get(&self, path: &str) -> Result<Value> {
-        self.call("mpc", "GET", &format!("/v1/mpc{}", path), &[], None).await
-    }
-
-    async fn mpc_post(&self, path: &str, body: Value) -> Result<Value> {
-        self.call("mpc", "POST", &format!("/v1/mpc{}", path), &[], Some(body)).await
-    }
-
-    async fn mpc(&self, action: &str, p: &Map<String, Value>) -> Result<Value> {
-        let ok = |d| Ok(envelope_ok("hanzo", action, d));
-        match action {
-            "status" => ok(self.mpc_get("/status").await?),
-            "vaults" => ok(self.mpc_get("/vaults").await?),
-            "vault" => match pstr(p, "vault_id") {
-                Some(id) => ok(self.mpc_get(&format!("/vaults/{}", id)).await?),
-                None => Ok(need(action, "vault_id")),
-            },
-            "create_vault" => match pstr(p, "name") {
-                Some(name) => {
-                    let mut body = json!({ "name": name });
-                    if let Some(d) = pstr(p, "description") {
-                        body["description"] = json!(d);
-                    }
-                    ok(self.mpc_post("/vaults", body).await?)
-                }
-                None => Ok(need(action, "name")),
-            },
-            "wallets" => match pstr(p, "vault_id") {
-                Some(id) => ok(self.mpc_get(&format!("/vaults/{}/wallets", id)).await?),
-                None => Ok(need(action, "vault_id")),
-            },
-            "wallet" => match pstr(p, "wallet_id") {
-                Some(id) => ok(self.mpc_get(&format!("/wallets/{}", id)).await?),
-                None => Ok(need(action, "wallet_id")),
-            },
-            "create_wallet" => {
-                let (vault, name) = (pstr(p, "vault_id"), pstr(p, "name"));
-                let (Some(vault), Some(name)) = (vault, name) else {
-                    return Ok(need(action, "vault_id, name"));
-                };
-                let mut body = json!({ "name": name });
-                if let Some(c) = pstr(p, "curve") {
-                    body["curve"] = json!(c);
-                }
-                if let Some(t) = p.get("threshold") {
-                    body["threshold"] = t.clone();
-                }
-                if let Some(pt) = p.get("parties") {
-                    body["parties"] = pt.clone();
-                }
-                ok(self.mpc_post(&format!("/vaults/{}/wallets", vault), body).await?)
-            }
-            "transactions" => ok(self.mpc_get("/transactions").await?),
-            "transaction" => match pstr(p, "transaction_id") {
-                Some(id) => ok(self.mpc_get(&format!("/transactions/{}", id)).await?),
-                None => Ok(need(action, "transaction_id")),
-            },
-            "create_transaction" => match pstr(p, "wallet_id") {
-                Some(wallet) => {
-                    let mut body = json!({ "walletId": wallet });
-                    for k in ["type", "chain", "to", "amount"] {
-                        if let Some(v) = pstr(p, k) {
-                            body[k] = json!(v);
-                        }
-                    }
-                    ok(self.mpc_post("/transactions", body).await?)
-                }
-                None => Ok(need(action, "wallet_id")),
-            },
-            "approve" | "reject" | "broadcast" => match pstr(p, "transaction_id") {
-                Some(id) => ok(self.mpc_post(&format!("/transactions/{}/{}", id, action), json!({})).await?),
-                None => Ok(need(action, "transaction_id")),
-            },
-            "policies" => ok(self.mpc_get("/policies").await?),
-            "smart_wallets" => ok(self.mpc_get("/smart-wallets").await?),
-            "whitelist" => ok(self.mpc_get("/whitelist").await?),
-            "bridge_sign" => {
-                let (wallet, src, dst) = (pstr(p, "wallet_id"), pstr(p, "source_chain"), pstr(p, "dest_chain"));
-                let (Some(wallet), Some(src), Some(dst)) = (wallet, src, dst) else {
-                    return Ok(need(action, "wallet_id, source_chain, dest_chain"));
-                };
-                let mut body = json!({ "walletId": wallet, "sourceChain": src, "destChain": dst });
-                for k in ["token", "amount", "recipient"] {
-                    if let Some(v) = pstr(p, k) {
-                        body[k] = json!(v);
-                    }
-                }
-                ok(self.mpc_post("/bridge/sign", body).await?)
-            }
-            _ => Ok(unknown(action, &[
-                "status", "vaults", "vault", "create_vault", "wallets", "wallet", "create_wallet",
-                "transactions", "transaction", "create_transaction", "approve", "reject",
-                "broadcast", "policies", "smart_wallets", "whitelist", "bridge_sign",
-            ])),
-        }
-    }
-
-    // -- billing (api.hanzo.ai /v1/billing) ---------------------------------
-
-    async fn billing(&self, action: &str, p: &Map<String, Value>) -> Result<Value> {
-        let ok = |d| Ok(envelope_ok("hanzo", action, d));
-        let user = pstr(p, "user");
-        let user_q = || user.clone().map(|u| vec![("user".into(), u)]).unwrap_or_default();
-        match action {
-            "balance" => ok(self.call("billing", "GET", "/balance", &user_q(), None).await?),
-            "usage" => {
-                let mut q = user_q();
-                if let Some(period) = pstr(p, "period") {
-                    q.push(("period".into(), period));
-                }
-                ok(self.call("billing", "GET", "/usage", &q, None).await?)
-            }
-            "plans" => ok(self.call("billing", "GET", "/plans", &[], None).await?),
-            "subscriptions" => ok(self.call("billing", "GET", "/subscriptions", &user_q(), None).await?),
-            "subscription" => match pstr(p, "subscription_id") {
-                Some(id) => ok(self.call("billing", "GET", &format!("/subscriptions/{}", id), &[], None).await?),
-                None => Ok(need(action, "subscription_id")),
-            },
-            "invoices" => ok(self.call("billing", "GET", "/invoices", &user_q(), None).await?),
-            "invoice" => match pstr(p, "invoice_id") {
-                Some(id) => ok(self.call("billing", "GET", &format!("/invoices/{}", id), &[], None).await?),
-                None => Ok(need(action, "invoice_id")),
-            },
-            "payment_methods" => ok(self.call("billing", "GET", "/payment-methods", &user_q(), None).await?),
-            "spend_alerts" => ok(self.call("billing", "GET", "/spend-alerts", &user_q(), None).await?),
-            "credit_balance" => ok(self.call("billing", "GET", "/credits", &user_q(), None).await?),
-            "meters" => ok(self.call("billing", "GET", "/meters", &user_q(), None).await?),
-            "deposit" => match p.get("amount").and_then(|v| v.as_f64()).filter(|a| *a > 0.0) {
-                Some(amount) => {
-                    let mut body = json!({ "amount": amount });
-                    if let Some(u) = &user {
-                        body["user"] = json!(u);
-                    }
-                    ok(self.call("billing", "POST", "/deposit", &[], Some(body)).await?)
-                }
-                None => Ok(need(action, "amount (positive number)")),
-            },
-            "credit" => {
-                let mut body = json!({});
-                if let Some(u) = &user {
-                    body["user"] = json!(u);
-                }
-                ok(self.call("billing", "POST", "/credit", &[], Some(body)).await?)
-            }
-            _ => Ok(unknown(action, &[
-                "balance", "usage", "plans", "subscriptions", "subscription", "invoices",
-                "invoice", "payment_methods", "spend_alerts", "credit_balance", "meters",
-                "deposit", "credit",
-            ])),
-        }
-    }
-
-    // -- commerce (api.hanzo.ai /api/v1) ------------------------------------
-
-    async fn commerce(&self, action: &str, p: &Map<String, Value>) -> Result<Value> {
-        let ok = |d| Ok(envelope_ok("hanzo", action, d));
-        let query = pstr(p, "query");
-        let q = || query.clone().map(|q| vec![("q".into(), q)]).unwrap_or_default();
-        match action {
-            "orders" => ok(self.call("commerce", "GET", "/orders", &q(), None).await?),
-            "order" => match pstr(p, "order_id") {
-                Some(id) => ok(self.call("commerce", "GET", &format!("/orders/{}", id), &[], None).await?),
-                None => Ok(need(action, "order_id")),
-            },
-            "products" => ok(self.call("commerce", "GET", "/products", &q(), None).await?),
-            "product" => match pstr(p, "product_id") {
-                Some(id) => ok(self.call("commerce", "GET", &format!("/products/{}", id), &[], None).await?),
-                None => Ok(need(action, "product_id")),
-            },
-            "collections" => ok(self.call("commerce", "GET", "/collections", &[], None).await?),
-            "search_users" => match &query {
-                Some(query) => ok(self.call("commerce", "GET", "/users", &[("q".into(), query.clone())], None).await?),
-                None => Ok(need(action, "query")),
-            },
-            "search_orders" => match &query {
-                Some(query) => ok(self.call("commerce", "GET", "/orders", &[("q".into(), query.clone())], None).await?),
-                None => Ok(need(action, "query")),
-            },
-            "stores" => ok(self.call("commerce", "GET", "/stores", &[], None).await?),
-            "discounts" => ok(self.call("commerce", "GET", "/discounts", &[], None).await?),
-            "webhooks" => ok(self.call("commerce", "GET", "/webhooks", &[], None).await?),
-            _ => Ok(unknown(action, &[
-                "orders", "order", "products", "product", "collections", "search_users",
-                "search_orders", "stores", "discounts", "webhooks",
-            ])),
-        }
-    }
-
-    // -- team (api.hanzo.ai /team) ------------------------------------------
-
-    async fn team(&self, action: &str, p: &Map<String, Value>) -> Result<Value> {
-        let ok = |d| Ok(envelope_ok("hanzo", action, d));
-        let ws = pstr(p, "workspace_id");
-        match action {
-            "workspaces" => ok(self.call("team", "GET", "/workspaces", &[], None).await?),
-            "workspace" => match ws {
-                Some(id) => ok(self.call("team", "GET", &format!("/workspaces/{}", id), &[], None).await?),
-                None => Ok(need(action, "workspace_id")),
-            },
-            "create_workspace" => match pstr(p, "name") {
-                Some(name) => ok(self.call("team", "POST", "/workspaces", &[], Some(json!({ "name": name }))).await?),
-                None => Ok(need(action, "name")),
-            },
-            "delete_workspace" => match ws {
-                Some(id) => ok(self.call("team", "DELETE", &format!("/workspaces/{}", id), &[], None).await?),
-                None => Ok(need(action, "workspace_id")),
-            },
-            "members" => match ws {
-                Some(id) => ok(self.call("team", "GET", &format!("/workspaces/{}/members", id), &[], None).await?),
-                None => Ok(need(action, "workspace_id")),
-            },
-            "invite" => {
-                let (ws, email) = (ws, pstr(p, "email"));
-                let (Some(ws), Some(email)) = (ws, email) else {
-                    return Ok(need(action, "workspace_id, email"));
-                };
-                let mut body = json!({ "email": email });
-                if let Some(role) = pstr(p, "role") {
-                    body["role"] = json!(role);
-                }
-                ok(self.call("team", "POST", &format!("/workspaces/{}/invitations", ws), &[], Some(body)).await?)
-            }
-            "account" => ok(self.call("team", "GET", "/account", &[], None).await?),
-            _ => Ok(unknown(action, &[
-                "workspaces", "workspace", "create_workspace", "delete_workspace", "members",
-                "invite", "account",
-            ])),
-        }
-    }
-
-    // -- api (generic api.hanzo.ai bridge) ----------------------------------
-
-    async fn api(&self, action: &str, p: &Map<String, Value>) -> Result<Value> {
-        match action {
-            "list" => Ok(envelope_ok(
-                "hanzo",
-                action,
-                json!({ "services": SERVICES, "hint": "hanzo(resource=\"api\", action=\"call\", method=\"GET\", path=\"/v1/...\")" }),
-            )),
-            "call" | "raw" | "request" => {
-                let Some(path) = pstr(p, "path") else {
-                    return Ok(need(action, "path"));
-                };
-                let method = pstr(p, "method").unwrap_or_else(|| "GET".to_string()).to_uppercase();
-                let body = p.get("body").filter(|b| !b.is_null()).cloned();
-                Ok(envelope_ok("hanzo", action, self.call("api", &method, &path, &[], body).await?))
-            }
-            _ => Ok(unknown(action, &["list", "call"])),
-        }
-    }
 }
 
-/// Actions advertised for a service when called with no action (progressive reveal).
+/// actions_for names a subsystem's operations, read from the generated catalog
+/// rather than listed here — a subsystem that gains an operation gains it the
+/// day the catalog is regenerated.
 fn actions_for(service: &str) -> Vec<&'static str> {
-    match service {
-        "iam" => vec![
-            "users", "user", "create_user", "update_user", "delete_user", "orgs", "org",
-            "roles", "role", "permissions", "enforce", "providers", "apps", "tokens",
-            "sessions", "invitations", "invite", "records", "system_info", "health",
-        ],
-        "auth" => vec!["status", "whoami", "logout", "refresh"],
-        "kms" => vec!["list", "get", "set", "delete", "inject"],
-        "paas" => vec![
-            "whoami", "users", "orgs", "roles", "projects", "env", "deployments", "deploy",
-            "logs", "redeploy", "services",
-        ],
-        "ingress" => vec![
-            "routers", "services", "middlewares", "entrypoints", "overview", "tcp_routers",
-            "domains", "add_domain", "remove_domain", "verify_domain", "tls_status",
-        ],
-        "mpc" => vec![
-            "status", "vaults", "vault", "create_vault", "wallets", "wallet", "create_wallet",
-            "transactions", "transaction", "create_transaction", "approve", "reject",
-            "broadcast", "policies", "smart_wallets", "whitelist", "bridge_sign",
-        ],
-        "billing" => vec![
-            "balance", "usage", "plans", "subscriptions", "subscription", "invoices", "invoice",
-            "payment_methods", "spend_alerts", "credit_balance", "meters", "deposit", "credit",
-        ],
-        "commerce" => vec![
-            "orders", "order", "products", "product", "collections", "search_users",
-            "search_orders", "stores", "discounts", "webhooks",
-        ],
-        "team" => vec![
-            "workspaces", "workspace", "create_workspace", "delete_workspace", "members",
-            "invite", "account",
-        ],
-        "api" => vec!["list", "call"],
-        _ => vec![],
-    }
+    crate::catalog::actions(service)
 }
 
 fn need(action: &str, required: &str) -> Value {
@@ -953,16 +384,22 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_service_alias_resolves() {
+    async fn a_subsystem_is_named_as_the_fleet_names_it() {
+        // The fleet's name is `iam`; `identity` was a second name for it. One
+        // name, so an alias is not offered and does not resolve.
         let tool = HanzoTool::new();
-        let result = tool
-            .execute(HanzoToolArgs {
-                resource: Some("identity".to_string()),
-                ..Default::default()
-            })
+        let named = tool
+            .execute(HanzoToolArgs { resource: Some("iam".to_string()), ..Default::default() })
             .await
             .unwrap();
-        assert_eq!(result["data"]["service"], "iam");
+        assert_eq!(named["data"]["service"], "iam");
+
+        let aliased = tool
+            .execute(HanzoToolArgs { resource: Some("identity".to_string()), ..Default::default() })
+            .await
+            .unwrap();
+        assert_eq!(aliased["ok"], false);
+        assert_eq!(aliased["error"]["code"], "UNKNOWN_SERVICE");
     }
 
     #[tokio::test]
@@ -994,24 +431,30 @@ mod tests {
         assert!(result["data"]["authenticated"].is_boolean());
     }
 
+
     #[test]
-    fn test_base_urls_match_python_defaults() {
-        std::env::remove_var("IAM_URL");
-        std::env::remove_var("HANZO_KMS_URL");
-        std::env::remove_var("HANZO_PAAS_URL");
-        assert_eq!(base_url("iam"), "https://hanzo.id");
-        assert_eq!(base_url("kms"), "https://kms.hanzo.ai");
-        assert_eq!(base_url("paas"), "https://platform.hanzo.ai");
-        assert_eq!(base_url("ingress"), "https://platform.hanzo.ai");
-        assert_eq!(base_url("billing"), "https://api.hanzo.ai/v1/billing");
-        assert_eq!(base_url("commerce"), "https://api.hanzo.ai/api/v1");
-        assert_eq!(base_url("team"), "https://api.hanzo.ai/team");
-        assert_eq!(base_url("api"), "https://api.hanzo.ai");
+    fn the_services_are_the_fleets() {
+        // What this tool offers is what cloud generated, not a list kept here.
+        let s = services();
+        assert!(s.contains(&"iam"), "iam is served");
+        assert!(s.contains(&"platform"), "platform is the name paas became");
+        assert!(!s.contains(&"paas"), "paas is the name the fleet left behind");
+        assert!(s.contains(&"auth"), "auth is answered locally and stays");
+        assert!(s.len() > 100, "expected the fleet, got {}", s.len());
     }
 
     #[test]
-    fn test_join_normalizes_slashes() {
-        assert_eq!(join("https://hanzo.id", "/v1/iam/get-users"), "https://hanzo.id/v1/iam/get-users");
-        assert_eq!(join("https://api.hanzo.ai/team", "/workspaces"), "https://api.hanzo.ai/team/workspaces");
+    fn an_action_is_the_fleets_operation() {
+        assert!(actions_for("iam").contains(&"get_iam_users"));
+        // Withheld once, in cloud, and absent here because of it.
+        assert!(!actions_for("iam").contains(&"post_iam_users"));
+    }
+
+    #[test]
+    fn a_retired_alias_no_longer_redirects() {
+        // These aliases pointed at the OLD names, so they mapped a caller off the
+        // surface the fleet serves. Spelling is normalised; nothing is renamed.
+        assert_eq!(resolve_service(" Platform "), "platform");
+        assert_eq!(resolve_service("zero-trust"), "zero_trust");
     }
 }
