@@ -8,7 +8,7 @@
 //! - paas, ingress,   -> platform.hanzo.ai   (/v1/*)
 //!   mpc
 //! - billing          -> api.hanzo.ai        (/v1/billing/*)
-//! - commerce         -> api.hanzo.ai        (/api/v1/*)
+
 //! - team             -> api.hanzo.ai        (/team/*)
 //! - api              -> api.hanzo.ai        (generic method/path/body bridge)
 //!

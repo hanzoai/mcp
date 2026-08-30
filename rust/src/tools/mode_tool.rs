@@ -312,6 +312,16 @@ impl ModeToolDefinition {
 
 #[cfg(test)]
 mod tests {
+
+    /// The active mode is a process-wide singleton (`personality::REGISTRY`) and
+    /// cargo runs these in parallel threads of ONE process, so a test that
+    /// activates and then reads back can have another test's activation land in
+    /// between. They take turns rather than racing; the state is genuinely
+    /// shared, so serialising the tests is the honest fix and not a workaround.
+    fn mode_turn() -> std::sync::MutexGuard<'static, ()> {
+        static TURN: std::sync::Mutex<()> = std::sync::Mutex::new(());
+        TURN.lock().unwrap_or_else(|e| e.into_inner())
+    }
     use super::*;
 
     #[tokio::test]
@@ -347,6 +357,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_activate_mode() {
+        let _turn = mode_turn();
         let tool = ModeTool::new();
         let args = ModeToolArgs {
             action: "activate".to_string(),
@@ -362,6 +373,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_current_mode() {
+        let _turn = mode_turn();
         let tool = ModeTool::new();
         
         // Activate a mode first
