@@ -93,6 +93,51 @@ the index's to answer and say so rather than spawning a server.
 LSP lives UNDER `/v1/code` beside `search`, `context`, `ask`, `index` — one
 home for code intelligence.
 
+## The cloud surface is GENERATED, and it is not written here
+
+`src/tools/cloud.ts` offers the fleet the way the fleet offers itself: one tool
+per subsystem carrying that subsystem's operation names in an enum, plus
+`describe`, which answers one operation's prose and schema. The names come from
+`src/tools/catalog.json`, generated out of cloud's own typed operations
+(`plugin/gen-mcp-catalog`). Nothing in it is hand-written, so this client cannot
+come to disagree with the API about what exists.
+
+It replaced 1,051 hand-written lines offering seven resources — `iam`, `kms`,
+`paas`, `commerce`, `storage`, `auth`, `api` — against a fleet serving 114
+subsystems. Two of those names had already moved (`paas` is `platform`, `storage`
+is `s3`) and `auth` had folded into `iam`, which alone carries 97 operations
+where the hand-written tool carried a handful. It also dialled four hosts
+(`api.` / `iam.` / `kms.` / `platform.`) for one API; every call now goes to
+`api.hanzo.ai`.
+
+**It is a catalog and not a fetch because a tool list is assembled
+synchronously**, before any request has been made. `pnpm sync:catalog` refreshes
+it — from a cloud checkout with `HANZO_CLOUD=<dir>`, otherwise from the running
+fleet. It REFUSES to write a smaller catalog than it replaces without `--shrink`:
+a fleet answering partially and a fleet that lost capabilities look identical,
+and the quiet direction of that mistake is a client that stops offering
+operations the API still serves.
+
+**The withholding rule is applied ONCE, in cloud.** The endpoint keeps an
+operation off the agent surface when its name discloses a bearer secret at any
+verb, or when a mutating verb acts on identity or authority — 124 of 1,540 here.
+The generator asks `fleet.Withheld`, the same predicate the endpoint asks, rather
+than carrying a second copy of the words: a client deriving its set from the raw
+catalog offers what the fleet refuses, so the policy would hold on one transport
+and not on the other, and the half left unenforced is the one where an agent is
+already holding the tool. `get_iam_users` survives and `post_iam_users` does not,
+which is the rule's own distinction — knowing who holds a role is not granting
+one.
+
+**The default surface did not grow.** `getConfiguredTools({})` is still 22 tools;
+the fleet sits behind `hanzo`, whose `resource` enum is derived from the catalog
+rather than listed, so a subsystem the fleet gains is reachable the day it is
+generated. The 114 individual tools appear only on the legacy branch.
+
+A `tools/call` answer IS a tool result and is returned as one. Re-wrapping it
+buries the fleet's own `isError` inside a body that reads as a success — a
+refusal a client cannot see is worse than no answer, because it is acted on.
+
 ## Canonical role
 Part of the AI/agents SDK line. This TS package (`@hanzo/mcp`) is canonical; the
 Python `hanzo-mcp` (PyPI) and Rust `hanzo-mcp::brain` mirror the same tool surface

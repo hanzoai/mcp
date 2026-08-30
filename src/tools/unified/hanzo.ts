@@ -9,12 +9,14 @@
 
 import { Tool } from '../../types/index.js';
 
-// Import existing cloud tools for delegation
-import { hanzoCloudTools } from '../hanzo-cloud.js';
+// The fleet's own subsystems, generated from cloud's typed operations.
+import { cloudTools } from '../cloud.js';
 
-const cloudToolMap = new Map(hanzoCloudTools.map(t => [t.name, t]));
+const cloudToolMap = new Map(cloudTools.map(t => [t.name, t]));
 
-const RESOURCES = ['iam', 'kms', 'paas', 'commerce', 'storage', 'auth', 'api'] as const;
+// Derived, never listed: a subsystem the fleet gains is reachable here the day
+// it is generated, and a name that stopped existing cannot be offered.
+const RESOURCES = cloudTools.map(t => t.name).sort();
 
 function envelope(data: any, action: string) {
   return { content: [{ type: 'text' as const, text: JSON.stringify({ ok: true, data, error: null, meta: { tool: 'hanzo', action } }, null, 2) }] };
@@ -30,7 +32,7 @@ export const hanzoTool: Tool = {
   inputSchema: {
     type: 'object',
     properties: {
-      resource: { type: 'string', enum: [...RESOURCES], description: 'Platform resource (iam, kms, paas, commerce, storage, auth, api)' },
+      resource: { type: 'string', enum: RESOURCES, description: 'The fleet subsystem to act on.' },
       action: { type: 'string', description: 'Resource action' },
       // Pass-through params for cloud tools
       id: { type: 'string' },
@@ -52,7 +54,7 @@ export const hanzoTool: Tool = {
       // No resource — show available resources
       if (!args.resource) {
         return envelope({
-          resources: RESOURCES.map(r => r),
+          resources: RESOURCES,
           hint: 'Call hanzo(resource="iam") to see available actions for that resource',
         }, 'list');
       }
