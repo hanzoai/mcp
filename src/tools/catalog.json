@@ -1,0 +1,1874 @@
+{
+ "account": {
+  "ops": [
+   "get_account_appearance",
+   "get_account_csrf",
+   "get_account_embed",
+   "get_account_keys",
+   "post_account_appearance",
+   "post_account_orgs"
+  ]
+ },
+ "ad": {
+  "ops": [
+   "delete_ad_campaigns_by_id",
+   "get_ad_campaigns",
+   "get_ad_campaigns_by_id",
+   "get_ad_summary",
+   "post_ad_campaigns",
+   "put_ad_campaigns_by_id"
+  ]
+ },
+ "affiliate": {
+  "ops": [
+   "get_affiliate",
+   "get_affiliate_leaderboard",
+   "get_affiliate_me",
+   "get_affiliate_me_earnings",
+   "get_affiliate_me_links",
+   "post_affiliate_apply",
+   "post_affiliate_attribute",
+   "post_affiliate_click",
+   "post_affiliate_me_handle",
+   "post_affiliate_me_links"
+  ]
+ },
+ "agents": {
+  "ops": [
+   "delete_agents_by_ref",
+   "delete_agents_targets_by_id",
+   "get_agents",
+   "get_agents_activity",
+   "get_agents_builds",
+   "get_agents_builds_by_org_by_project",
+   "get_agents_by_ref",
+   "get_agents_by_ref_runs",
+   "get_agents_metrics",
+   "get_agents_runs",
+   "get_agents_sessions",
+   "get_agents_sessions_by_id",
+   "get_agents_sessions_by_id_control",
+   "get_agents_sessions_by_id_progress",
+   "get_agents_sessions_by_id_tree",
+   "get_agents_targets",
+   "get_agents_targets_by_id",
+   "patch_agents_by_ref",
+   "patch_agents_sessions_by_id",
+   "patch_agents_targets_by_id",
+   "post_agents",
+   "post_agents_coding",
+   "post_agents_sessions",
+   "post_agents_sessions_by_id_events",
+   "post_agents_sessions_by_id_message",
+   "post_agents_sessions_by_id_pause",
+   "post_agents_sessions_by_id_resume",
+   "post_agents_sessions_by_id_stop",
+   "post_agents_targets",
+   "post_agents_targets_by_id_claim",
+   "post_agents_targets_by_id_runs_by_runid_report"
+  ]
+ },
+ "ai": {
+  "ops": [
+   "aiMCPTools"
+  ]
+ },
+ "allowance": {
+  "ops": [
+   "get_allowance"
+  ]
+ },
+ "ask": {
+  "ops": [
+   "research_web"
+  ]
+ },
+ "audit": {
+  "ops": [
+   "get_audit"
+  ]
+ },
+ "author": {
+  "ops": [
+   "get_author",
+   "get_author_basis",
+   "post_author_connect",
+   "post_author_deploys_record",
+   "post_author_repos_verify"
+  ]
+ },
+ "auto": {
+  "ops": [
+   "delete_auto_flows_by_id",
+   "get_auto_connectors",
+   "get_auto_flows",
+   "get_auto_flows_by_id",
+   "get_auto_flows_by_id_versions",
+   "get_auto_runs",
+   "get_auto_runs_by_id",
+   "patch_auto_flows_by_id",
+   "post_auto_connectors_by_id_run",
+   "post_auto_flows",
+   "post_auto_flows_by_id_disable",
+   "post_auto_flows_by_id_enable",
+   "post_auto_flows_by_id_run",
+   "post_auto_flows_by_id_versions"
+  ]
+ },
+ "base": {
+  "ops": [
+   "get_base_bases",
+   "get_base_bases_by_org",
+   "get_base_health"
+  ]
+ },
+ "benchmark": {
+  "ops": [
+   "get_benchmark_catalog",
+   "get_benchmark_claims",
+   "get_benchmark_compare",
+   "get_benchmark_history",
+   "get_benchmark_leaderboard",
+   "get_benchmark_presets",
+   "post_benchmark_claims",
+   "post_benchmark_presets",
+   "post_benchmark_runs"
+  ]
+ },
+ "billing": {
+  "ops": [
+   "cancelSubscription",
+   "collectInvoice",
+   "delete_billing_alerts_by_id",
+   "delete_billing_methods_by_id",
+   "delete_billing_portal_methods_by_id",
+   "getInvoice",
+   "get_billing_accounts",
+   "get_billing_accounts_by_id_members",
+   "get_billing_alerts",
+   "get_billing_alerts_authorize",
+   "get_billing_credit-balance",
+   "get_billing_credit-balance_breakdown",
+   "get_billing_credits",
+   "get_billing_crypto_deposit_by_id",
+   "get_billing_crypto_options",
+   "get_billing_invoices",
+   "get_billing_ledger",
+   "get_billing_payouts",
+   "get_billing_recharge",
+   "get_billing_settings",
+   "get_billing_subscriptions",
+   "get_billing_tier",
+   "get_billing_transactions",
+   "get_billing_transactions_by_id",
+   "get_billing_usage_accounts",
+   "get_billing_usage_rollup",
+   "get_billing_wire",
+   "issueInvoice",
+   "patch_billing_alerts_by_id",
+   "post_billing_alerts",
+   "post_billing_crypto_deposit",
+   "post_billing_mode",
+   "post_billing_recharge_run-all",
+   "post_billing_topup",
+   "put_billing_recharge",
+   "raiseInvoice",
+   "reactivateSubscription",
+   "voidInvoice"
+  ]
+ },
+ "blueprint": {
+  "ops": [
+   "get_blueprint",
+   "get_blueprint_health"
+  ]
+ },
+ "books": {
+  "ops": [
+   "get_books_accounts",
+   "get_books_bank_transactions",
+   "get_books_bank_unreconciled",
+   "get_books_export",
+   "get_books_gl",
+   "get_books_inbox",
+   "get_books_metrics",
+   "get_books_pnl",
+   "get_books_position",
+   "get_books_questions",
+   "get_books_rules",
+   "get_books_transactions",
+   "get_books_trial",
+   "get_books_vendors",
+   "post_books_ask",
+   "post_books_bank_sync",
+   "post_books_rules",
+   "post_books_scan_book",
+   "post_books_sync",
+   "post_books_vendors"
+  ]
+ },
+ "bot": {
+  "ops": [
+   "get_bot_runs",
+   "post_bot_runs",
+   "post_bot_runs_by_runid_stop"
+  ]
+ },
+ "campaign": {
+  "ops": [
+   "delete_campaign_by_id",
+   "delete_campaign_by_id_channels_by_kind",
+   "get_campaign",
+   "get_campaign_by_id",
+   "get_campaign_by_id_metrics",
+   "get_campaign_summary",
+   "post_campaign",
+   "post_campaign_by_id_channels",
+   "put_campaign_by_id"
+  ]
+ },
+ "captable": {
+  "ops": [
+   "delete_captable_convertibles_by_id",
+   "delete_captable_options_by_id",
+   "delete_captable_safes_by_id",
+   "delete_captable_shares_by_id",
+   "delete_captable_stakeholders_by_id",
+   "get_captable_classes",
+   "get_captable_company",
+   "get_captable_convertibles",
+   "get_captable_investments",
+   "get_captable_options",
+   "get_captable_plans",
+   "get_captable_rounds",
+   "get_captable_rounds_by_id",
+   "get_captable_safes",
+   "get_captable_shares",
+   "get_captable_stakeholders",
+   "get_captable_summary",
+   "patch_captable_classes_by_id",
+   "patch_captable_stakeholders_by_id",
+   "post_captable_classes",
+   "post_captable_convertibles",
+   "post_captable_options",
+   "post_captable_plans",
+   "post_captable_rounds",
+   "post_captable_rounds_by_id_close",
+   "post_captable_rounds_by_id_investments",
+   "post_captable_safes",
+   "post_captable_shares",
+   "post_captable_shares_transfer",
+   "put_captable_company"
+  ]
+ },
+ "catalog": {
+  "ops": [
+   "get_catalog"
+  ]
+ },
+ "channels": {
+  "ops": [
+   "get_channels",
+   "get_channels_allowlist",
+   "get_channels_inbox",
+   "get_channels_pairing",
+   "post_channels_pairing_approve",
+   "put_channels_allowlist"
+  ]
+ },
+ "cloudflare": {
+  "ops": [
+   "delete_cloudflare_d1_databases_by_database",
+   "delete_cloudflare_kv_namespaces_by_namespace",
+   "delete_cloudflare_kv_namespaces_by_namespace_values_by_key",
+   "delete_cloudflare_pages_projects_by_project",
+   "delete_cloudflare_pages_projects_by_project_domains_by_domain",
+   "delete_cloudflare_r2_buckets_by_bucket",
+   "delete_cloudflare_workers_scripts_by_script",
+   "delete_cloudflare_workers_zones_by_zone_routes_by_route",
+   "get_cloudflare_d1_databases",
+   "get_cloudflare_kv_namespaces",
+   "get_cloudflare_pages_projects",
+   "get_cloudflare_pages_projects_by_project",
+   "get_cloudflare_r2_buckets",
+   "get_cloudflare_workers_scripts",
+   "get_cloudflare_workers_subdomain",
+   "get_cloudflare_workers_zones_by_zone_routes",
+   "get_cloudflare_zones",
+   "get_cloudflare_zones_by_zone",
+   "get_cloudflare_zones_by_zone_analytics",
+   "post_cloudflare_d1_databases",
+   "post_cloudflare_d1_databases_by_database_query",
+   "post_cloudflare_kv_namespaces",
+   "post_cloudflare_pages_projects",
+   "post_cloudflare_pages_projects_by_project_domains",
+   "post_cloudflare_r2_buckets",
+   "post_cloudflare_workers_scripts_by_script_subdomain",
+   "post_cloudflare_workers_zones_by_zone_routes",
+   "post_cloudflare_zones_by_zone_purge",
+   "put_cloudflare_workers_scripts_by_script"
+  ]
+ },
+ "code": {
+  "ops": [
+   "get_code_ask",
+   "get_code_file",
+   "get_code_search",
+   "get_code_tree",
+   "post_code_ask",
+   "post_code_context",
+   "post_code_index"
+  ]
+ },
+ "commerce": {
+  "ops": [
+   "discardCart",
+   "getCart",
+   "get_commerce_health",
+   "openCart",
+   "setCartItem"
+  ]
+ },
+ "company": {
+  "ops": [
+   "get_company",
+   "get_company_register",
+   "get_company_register_summary",
+   "get_company_review",
+   "post_company",
+   "post_company_advance",
+   "post_company_documents",
+   "post_company_ein",
+   "post_company_esign",
+   "post_company_esign_complete",
+   "post_company_founders",
+   "post_company_fundraise_round",
+   "post_company_fundraise_safe",
+   "post_company_genesis",
+   "post_company_import_captable",
+   "post_company_import_documents",
+   "post_company_kyc",
+   "post_company_kyc_decision",
+   "post_company_kyc_refresh",
+   "post_company_payment",
+   "post_company_skip",
+   "post_company_tariff",
+   "put_company_structure"
+  ]
+ },
+ "compliance": {
+  "ops": [
+   "get_compliance_accreditation",
+   "get_compliance_accreditation_by_id",
+   "get_compliance_audit",
+   "get_compliance_health",
+   "get_compliance_records",
+   "get_compliance_status",
+   "get_compliance_subjects",
+   "get_compliance_subjects_by_id",
+   "get_compliance_verifications",
+   "get_compliance_verifications_by_id",
+   "post_compliance_accreditation",
+   "post_compliance_accreditation_by_id_decision",
+   "post_compliance_subjects",
+   "post_compliance_verifications",
+   "post_compliance_verifications_by_id_decision",
+   "post_compliance_verifications_by_id_refresh"
+  ]
+ },
+ "content": {
+  "ops": [
+   "get_content_board",
+   "get_content_channels",
+   "get_content_lifecycle",
+   "post_content_by_doctype_by_name_transition",
+   "post_content_generate",
+   "post_content_publish"
+  ]
+ },
+ "crawl": {
+  "ops": [
+   "read_page"
+  ]
+ },
+ "dataroom": {
+  "ops": [
+   "get_dataroom_analytics_dataroom_by_dataroomid",
+   "get_dataroom_analytics_link_by_linkid",
+   "get_dataroom_datarooms",
+   "get_dataroom_datarooms_by_id",
+   "get_dataroom_documents",
+   "get_dataroom_documents_by_id",
+   "get_dataroom_health",
+   "get_dataroom_links",
+   "get_dataroom_trust",
+   "get_dataroom_trust_center_by_slug",
+   "patch_dataroom_trust_artifacts_by_id",
+   "post_dataroom_datarooms",
+   "post_dataroom_datarooms_by_id_documents",
+   "post_dataroom_links",
+   "post_dataroom_trust_artifacts",
+   "post_dataroom_trust_center_by_slug_requests",
+   "post_dataroom_trust_requests_by_id_grant",
+   "post_dataroom_trust_requests_by_id_refuse",
+   "put_dataroom_trust"
+  ]
+ },
+ "dataset": {
+  "ops": [
+   "riskCreateDataset",
+   "riskDataset",
+   "riskDatasetLineage",
+   "riskDatasets",
+   "riskDeleteDataset",
+   "riskExportDataset",
+   "riskMaterializeDataset"
+  ]
+ },
+ "deploy": {
+  "ops": [
+   "get_deploy_applications",
+   "get_deploy_applications_by_name",
+   "get_deploy_applications_by_name_resource-tree",
+   "get_deploy_applications_by_name_revisions_by_revision_metadata",
+   "get_deploy_applications_by_name_syncwindows",
+   "get_deploy_clusters",
+   "get_deploy_gitops",
+   "get_deploy_health",
+   "get_deploy_projects",
+   "get_deploy_session_userinfo",
+   "get_deploy_settings",
+   "get_deploy_version",
+   "post_deploy_applications_by_name_rollback",
+   "post_deploy_applications_by_name_sync",
+   "post_deploy_logout",
+   "post_deploy_reconcile"
+  ]
+ },
+ "destination": {
+  "ops": [
+   "delete_destination_by_platform",
+   "get_destination",
+   "get_destination_by_platform",
+   "post_destination_by_platform_test"
+  ]
+ },
+ "domain": {
+  "ops": [
+   "get_domain_availability",
+   "get_domain_domains",
+   "get_domain_health",
+   "get_domain_search",
+   "post_domain_register",
+   "post_domain_renew",
+   "post_domain_transfer"
+  ]
+ },
+ "engine": {
+  "ops": [
+   "engineModel",
+   "engineModels",
+   "engineStatus",
+   "engineSystem"
+  ]
+ },
+ "entitlement": {
+  "ops": [
+   "get_entitlement",
+   "get_entitlement_orgs_by_org",
+   "post_entitlement_orgs_by_org"
+  ]
+ },
+ "esign": {
+  "ops": [
+   "get_esign_documents",
+   "get_esign_documents_by_id",
+   "get_esign_documents_by_id_audit",
+   "get_esign_documents_by_id_download",
+   "get_esign_health",
+   "post_esign_documents",
+   "post_esign_documents_by_id_fields",
+   "post_esign_documents_by_id_recipients",
+   "post_esign_documents_by_id_send"
+  ]
+ },
+ "eval": {
+  "ops": [
+   "delete_eval_datasets_by_name",
+   "get_eval_datasets",
+   "get_eval_datasets_by_name",
+   "get_eval_datasets_by_name_items",
+   "get_eval_evaluators",
+   "get_eval_metrics",
+   "get_eval_rubrics",
+   "get_eval_runs",
+   "get_eval_scores",
+   "get_eval_traces",
+   "post_eval_datasets",
+   "post_eval_datasets_by_name_items",
+   "post_eval_evaluators",
+   "post_eval_rubrics",
+   "post_eval_runs",
+   "post_eval_scores"
+  ]
+ },
+ "event": {
+  "ops": [
+   "get_event_errors",
+   "get_event_health",
+   "get_event_insights_events",
+   "get_event_insights_health",
+   "get_event_overview",
+   "get_event_timeseries",
+   "get_event_top"
+  ]
+ },
+ "exec": {
+  "ops": [
+   "get_exec_files_by_sid",
+   "post_exec",
+   "post_exec_programmatic"
+  ]
+ },
+ "experiment": {
+  "ops": [
+   "get_experiment",
+   "get_experiment_by_id",
+   "get_experiment_by_id_assign",
+   "get_experiment_health",
+   "post_experiment",
+   "post_experiment_by_id_analyze",
+   "post_experiment_by_id_decide"
+  ]
+ },
+ "explorer": {
+  "ops": [
+   "get_explorer_indexers",
+   "get_explorer_oracles"
+  ]
+ },
+ "flags": {
+  "ops": [
+   "delete_flags_defs_by_key",
+   "get_flags_activity",
+   "get_flags_defs",
+   "get_flags_defs_by_key",
+   "get_flags_health",
+   "post_flags",
+   "post_flags_decide",
+   "put_flags_defs_by_key"
+  ]
+ },
+ "flow": {
+  "ops": [
+   "delete_flow_workflows_by_workflow",
+   "get_flow_runs",
+   "get_flow_status",
+   "get_flow_workflows",
+   "get_flow_workflows_by_workflow",
+   "patch_flow_workflows_by_workflow",
+   "post_flow_runs",
+   "post_flow_workflows"
+  ]
+ },
+ "framework": {
+  "ops": [
+   "delete_framework_by_doctype_by_name",
+   "delete_framework_doctypes_by_name",
+   "get_framework_by_doctype",
+   "get_framework_by_doctype_by_name",
+   "get_framework_doctypes",
+   "get_framework_doctypes_by_name",
+   "get_framework_modules",
+   "get_framework_modules_by_module",
+   "get_framework_summary",
+   "post_framework_by_doctype_by_name_cancel",
+   "post_framework_by_doctype_by_name_submit",
+   "post_framework_doctypes",
+   "post_framework_modules_by_module_install",
+   "put_framework_doctypes_by_name"
+  ]
+ },
+ "functions": {
+  "ops": [
+   "delete_functions_by_name",
+   "get_functions",
+   "get_functions_by_name",
+   "get_functions_by_name_invocations",
+   "get_functions_by_name_logs",
+   "get_functions_deployments",
+   "get_functions_metrics",
+   "get_functions_triggers",
+   "post_functions",
+   "post_functions_by_name_invoke"
+  ]
+ },
+ "gateway": {
+  "ops": [
+   "gatewayTraffic",
+   "get_gateway_config",
+   "put_gateway_config"
+  ]
+ },
+ "git": {
+  "ops": [
+   "delete_git_repos_by_name",
+   "delete_git_repos_by_name_mirrors_by_id",
+   "delete_git_repos_by_name_subscriptions_by_id",
+   "get_git_keys",
+   "get_git_repos",
+   "get_git_repos_by_name",
+   "get_git_repos_by_name_blob",
+   "get_git_repos_by_name_commits",
+   "get_git_repos_by_name_files",
+   "get_git_repos_by_name_mirrors",
+   "get_git_repos_by_name_pulls",
+   "get_git_repos_by_name_pulls_by_number",
+   "get_git_repos_by_name_readme",
+   "get_git_repos_by_name_refs",
+   "get_git_repos_by_name_subscriptions",
+   "get_git_repos_by_name_tree",
+   "get_git_usage",
+   "patch_git_repos_by_name",
+   "post_git_repos",
+   "post_git_repos_by_name_gc",
+   "post_git_repos_by_name_mirror",
+   "post_git_repos_by_name_mirrors",
+   "post_git_repos_by_name_pulls",
+   "post_git_repos_by_name_pulls_by_number_merge",
+   "post_git_repos_by_name_push",
+   "post_git_repos_by_name_subscriptions"
+  ]
+ },
+ "graph": {
+  "ops": [
+   "graphAssert",
+   "graphNeighbors",
+   "graphRead",
+   "graphResolve",
+   "graphSearch",
+   "graphVocabulary"
+  ]
+ },
+ "guide": {
+  "ops": [
+   "delete_guide_curriculum",
+   "get_guide",
+   "get_guide_actions",
+   "get_guide_analytics",
+   "get_guide_blueprint",
+   "get_guide_blueprint_versions",
+   "get_guide_curriculum",
+   "get_guide_profile",
+   "get_guide_strategies",
+   "get_guide_suggest",
+   "post_guide_chat",
+   "post_guide_steps_by_id_done",
+   "post_guide_steps_by_id_reset",
+   "post_guide_steps_by_id_skip",
+   "post_guide_steps_by_id_start"
+  ]
+ },
+ "help": {
+  "ops": [
+   "get_help_articles",
+   "get_help_articles_by_slug",
+   "get_help_categories",
+   "post_help_tickets"
+  ]
+ },
+ "iam": {
+  "ops": [
+   "addProvider",
+   "createOrganization",
+   "deleteOrganization",
+   "deleteProvider",
+   "getOrganization",
+   "getProvider",
+   "get_iam_applications",
+   "get_iam_applications_by_owner_by_name",
+   "get_iam_audit-logs",
+   "get_iam_audit-logs_by_owner_by_name",
+   "get_iam_auth_application",
+   "get_iam_auth_methods",
+   "get_iam_certs",
+   "get_iam_certs_by_owner_by_name",
+   "get_iam_invitations",
+   "get_iam_invitations_by_owner_by_name",
+   "get_iam_keys",
+   "get_iam_keys_by_owner_by_name",
+   "get_iam_memberships",
+   "get_iam_permissions",
+   "get_iam_permissions_by_owner_by_name",
+   "get_iam_projects",
+   "get_iam_projects_by_owner_by_name",
+   "get_iam_roles",
+   "get_iam_roles_by_owner_by_name",
+   "get_iam_scim_v2_resourcetypes",
+   "get_iam_scim_v2_resourcetypes_by_name",
+   "get_iam_scim_v2_schemas",
+   "get_iam_scim_v2_schemas_by_id",
+   "get_iam_scim_v2_serviceproviderconfig",
+   "get_iam_service-accounts",
+   "get_iam_teams",
+   "get_iam_teams_by_name",
+   "get_iam_users",
+   "get_iam_users_by_owner_by_name",
+   "get_iam_workspaces",
+   "get_iam_workspaces_by_owner_by_name",
+   "listOrganizations",
+   "listProviders",
+   "setOrganizationAvatar",
+   "setOrganizationProfile",
+   "updateOrganization",
+   "updateProvider",
+   "upsertApplication"
+  ]
+ },
+ "index": {
+  "ops": [
+   "delete_index_indexes_by_uid",
+   "delete_index_indexes_by_uid_documents_by_id",
+   "get_index_health",
+   "get_index_indexes",
+   "get_index_indexes_by_uid",
+   "get_index_indexes_by_uid_documents",
+   "get_index_indexes_by_uid_documents_by_id",
+   "get_index_indexes_by_uid_settings",
+   "get_index_stats",
+   "get_index_tasks_by_uid",
+   "get_index_version",
+   "patch_index_indexes_by_uid_settings",
+   "post_index_indexes",
+   "post_index_indexes_by_uid_search"
+  ]
+ },
+ "ingress": {
+  "ops": [
+   "delete_ingress_middlewares_by_id",
+   "delete_ingress_routes_by_id",
+   "delete_ingress_services_by_id",
+   "get_ingress_middlewares",
+   "get_ingress_middlewares_by_id",
+   "get_ingress_routes",
+   "get_ingress_routes_by_id",
+   "get_ingress_services",
+   "get_ingress_services_by_id",
+   "get_ingress_status",
+   "get_ingress_tls",
+   "post_ingress_middlewares",
+   "post_ingress_routes",
+   "post_ingress_services",
+   "put_ingress_middlewares_by_id",
+   "put_ingress_routes_by_id",
+   "put_ingress_services_by_id",
+   "put_ingress_tls"
+  ]
+ },
+ "integrations": {
+  "ops": [
+   "delete_integrations_connectors_by_id",
+   "delete_integrations_github_repos_by_repo_pages",
+   "get_integrations",
+   "get_integrations_by_provider",
+   "get_integrations_connectors",
+   "get_integrations_connectors_providers",
+   "get_integrations_github_installations",
+   "get_integrations_github_repos",
+   "get_integrations_github_repos_by_repo_pages",
+   "get_integrations_gitlab_projects",
+   "post_integrations_by_provider_connect",
+   "post_integrations_by_provider_disconnect",
+   "post_integrations_by_provider_verify",
+   "post_integrations_connectors_by_id_refresh",
+   "post_integrations_connectors_by_provider_device",
+   "post_integrations_connectors_by_provider_device_by_flow_poll",
+   "post_integrations_github_claim",
+   "post_integrations_github_fork",
+   "post_integrations_github_issues_backfill",
+   "post_integrations_github_repos_by_repo_pages",
+   "post_integrations_github_repos_by_repo_pages_builds",
+   "post_integrations_github_repos_import",
+   "post_integrations_github_search",
+   "post_integrations_telegram_connect",
+   "put_integrations_github_repos_by_repo_pages"
+  ]
+ },
+ "kms": {
+  "ops": [
+   "get_kms_config",
+   "get_kms_health"
+  ]
+ },
+ "knowledge": {
+  "ops": [
+   "delete_knowledge_connectors_by_provider",
+   "get_knowledge_connectors",
+   "get_knowledge_connectors_by_provider_callback",
+   "get_knowledge_connectors_by_provider_connect",
+   "get_knowledge_connectors_catalog",
+   "get_knowledge_graph",
+   "post_knowledge_connectors_by_provider_sync",
+   "post_knowledge_search"
+  ]
+ },
+ "kv": {
+  "ops": [
+   "delete_kv_by_bucket",
+   "delete_kv_by_bucket_by_key",
+   "get_kv_by_bucket_by_key",
+   "get_kv_by_bucket_by_key_history",
+   "post_kv_by_bucket",
+   "put_kv_by_bucket_by_key"
+  ]
+ },
+ "label": {
+  "ops": [
+   "riskDisposeLabels",
+   "riskHoldLabels",
+   "riskLabel",
+   "riskLabelCoverage",
+   "riskLabelVocabulary",
+   "riskLabels",
+   "riskResolveLabels"
+  ]
+ },
+ "leaderboard": {
+  "ops": [
+   "get_leaderboard",
+   "get_leaderboard_activity",
+   "get_leaderboard_optin",
+   "put_leaderboard_optin",
+   "put_leaderboard_optin_org"
+  ]
+ },
+ "legal": {
+  "ops": [
+   "get_legal_documents",
+   "get_legal_documents_by_id",
+   "get_legal_filings",
+   "get_legal_health",
+   "get_legal_templates",
+   "get_legal_templates_by_id",
+   "post_legal_documents",
+   "post_legal_documents_by_id_sign",
+   "post_legal_filings",
+   "put_legal_templates_by_id"
+  ]
+ },
+ "licensing": {
+  "ops": [
+   "get_licensing_download_by_release",
+   "get_licensing_healthz",
+   "get_licensing_jwks",
+   "get_licensing_pubkey",
+   "get_licensing_releases",
+   "get_licensing_releases_by_release",
+   "post_licensing_fingerprint",
+   "post_licensing_issue",
+   "post_licensing_releases",
+   "post_licensing_revoke",
+   "post_licensing_verify"
+  ]
+ },
+ "link": {
+  "ops": [
+   "delete_link_by_id",
+   "get_link",
+   "get_link_by_id",
+   "get_link_devices_by_machine",
+   "get_link_route",
+   "get_link_usage",
+   "get_link_usage_accounts",
+   "get_link_usage_summary",
+   "post_link",
+   "post_link_devices_by_machine_revoke",
+   "post_link_usage"
+  ]
+ },
+ "lsp": {
+  "ops": [
+   "post_lsp_complete",
+   "post_lsp_diagnostics",
+   "post_lsp_hover",
+   "post_lsp_locate",
+   "post_lsp_symbols"
+  ]
+ },
+ "market": {
+  "ops": [
+   "get_market_chains",
+   "get_market_pools",
+   "get_market_survey"
+  ]
+ },
+ "marketing": {
+  "ops": [
+   "delete_marketing_audiences_by_id",
+   "delete_marketing_calendar_by_id",
+   "delete_marketing_campaigns_by_id",
+   "delete_marketing_suppressions",
+   "get_marketing_audiences",
+   "get_marketing_audiences_by_id",
+   "get_marketing_audiences_by_id_preview",
+   "get_marketing_calendar",
+   "get_marketing_calendar_by_id",
+   "get_marketing_campaigns",
+   "get_marketing_campaigns_by_id",
+   "get_marketing_promos",
+   "get_marketing_promos_by_code_eligibility",
+   "get_marketing_promos_by_code_redemption",
+   "get_marketing_sequences",
+   "get_marketing_sequences_by_id",
+   "get_marketing_sequences_by_id_enrollments",
+   "get_marketing_sequences_by_id_steps",
+   "get_marketing_summary",
+   "get_marketing_suppressions",
+   "get_marketing_unsubscribe",
+   "post_marketing_audiences",
+   "post_marketing_calendar",
+   "post_marketing_calendar_by_id_publish",
+   "post_marketing_campaigns",
+   "post_marketing_campaigns_by_id_schedule",
+   "post_marketing_promos_by_code_redeem",
+   "post_marketing_sequences",
+   "post_marketing_sequences_by_id_enroll",
+   "post_marketing_sequences_by_id_enrollments_by_eid_cancel",
+   "post_marketing_sequences_by_id_status",
+   "post_marketing_sequences_by_id_steps",
+   "post_marketing_suppressions",
+   "put_marketing_calendar_by_id",
+   "put_marketing_campaigns_by_id"
+  ]
+ },
+ "marketplace": {
+  "ops": [
+   "delete_marketplace_listings_by_id",
+   "get_marketplace",
+   "get_marketplace_listings",
+   "post_marketplace_install",
+   "post_marketplace_listings",
+   "post_marketplace_uninstall"
+  ]
+ },
+ "meet": {
+  "ops": [
+   "get_meet_health",
+   "meetCall",
+   "meetRecordRead",
+   "meetRecordStart",
+   "meetRecordStop"
+  ]
+ },
+ "ml": {
+  "ops": [
+   "delete_ml_models_by_name",
+   "get_ml_models",
+   "get_ml_models_by_name",
+   "post_ml_models"
+  ]
+ },
+ "mq": {
+  "ops": [
+   "delete_mq_stream_by_name",
+   "delete_mq_stream_by_name_message_by_seq",
+   "delete_mq_stream_by_stream_consumer_by_name",
+   "get_mq_health",
+   "get_mq_info",
+   "get_mq_stream",
+   "get_mq_stream_by_name",
+   "get_mq_stream_by_name_message",
+   "get_mq_stream_by_stream_consumer",
+   "get_mq_stream_by_stream_consumer_by_name",
+   "post_mq_stream",
+   "post_mq_stream_by_name_purge",
+   "post_mq_stream_by_stream_consumer",
+   "post_mq_stream_by_stream_consumer_by_name_next",
+   "put_mq_stream_by_name"
+  ]
+ },
+ "network": {
+  "ops": [
+   "get_network",
+   "get_network_by_id",
+   "get_network_routers",
+   "get_network_services"
+  ]
+ },
+ "node": {
+  "ops": [
+   "get_node"
+  ]
+ },
+ "notify": {
+  "ops": [
+   "get_notify_health",
+   "post_notify_send",
+   "post_notify_send_email",
+   "post_notify_send_sms"
+  ]
+ },
+ "o11y": {
+  "ops": [
+   "AgentCheckIn",
+   "AgentCheckInDeprecated",
+   "AuthzCheck",
+   "CloneDashboardV2",
+   "CreateAccount",
+   "CreateChannel",
+   "CreateDashboardV2",
+   "CreateDashboardView",
+   "CreateDowntimeSchedule",
+   "CreateLLMAnnotation",
+   "CreateLLMScore",
+   "CreateMetricReductionRule",
+   "CreateOrUpdateLLMPricingRules",
+   "CreatePublicDashboard",
+   "CreateRule",
+   "CreateSpanMapper",
+   "CreateSpanMapperGroup",
+   "CreateTraceFunnel",
+   "DeleteChannelByID",
+   "DeleteDashboardV2",
+   "DeleteDashboardView",
+   "DeleteDowntimeScheduleByID",
+   "DeleteLLMPricingRule",
+   "DeleteLLMScore",
+   "DeleteMetricReductionRuleByID",
+   "DeletePublicDashboard",
+   "DeleteRuleByID",
+   "DeleteSpanMapper",
+   "DeleteSpanMapperGroup",
+   "DeleteTraceFunnel",
+   "DisconnectAccount",
+   "GetAccount",
+   "GetAccountService",
+   "GetAlerts",
+   "GetAllRoutePolicies",
+   "GetAuthDomain",
+   "GetChannelByID",
+   "GetDashboardV2",
+   "GetDowntimeScheduleByID",
+   "GetDraftFunnelErrorTraces",
+   "GetDraftFunnelOverview",
+   "GetDraftFunnelSlowTraces",
+   "GetDraftFunnelStepMetrics",
+   "GetDraftFunnelStepOverview",
+   "GetFlamegraph",
+   "GetHosts",
+   "GetIngestionKeys",
+   "GetIntegration",
+   "GetIntegrationConnectionStatus",
+   "GetLLMPricingRule",
+   "GetLLMScore",
+   "GetMetricAlerts",
+   "GetMetricAttributes",
+   "GetMetricDashboardsV2",
+   "GetMetricHighlights",
+   "GetMetricMetadata",
+   "GetMetricReductionRuleByID",
+   "GetMetricReductionRuleStats",
+   "GetMetricReductionRuleTimeseries",
+   "GetMetricsOnboardingStatus",
+   "GetMetricsStats",
+   "GetMetricsTreemap",
+   "GetMyOrganization",
+   "GetMyServiceAccount",
+   "GetMyUser",
+   "GetMyUserDeprecated",
+   "GetOrgPreference",
+   "GetOverallStateTransitions",
+   "GetPublicDashboard",
+   "GetPublicDashboardData",
+   "GetPublicDashboardWidgetQueryRange",
+   "GetQuickFilters",
+   "GetRole",
+   "GetRolesByUserID",
+   "GetRoutePolicyByID",
+   "GetRuleByID",
+   "GetRuleHistoryFilterKeys",
+   "GetRuleHistoryFilterValues",
+   "GetRuleHistoryOverallStatus",
+   "GetRuleHistoryStats",
+   "GetRuleHistoryTimeline",
+   "GetRuleHistoryTopContributors",
+   "GetRuleStateHistory",
+   "GetRuleStateHistoryTopContributors",
+   "GetRuleStats",
+   "GetService",
+   "GetServiceAccount",
+   "GetServiceAccountRoles",
+   "GetSignalFilters",
+   "GetTraceAggregations",
+   "GetTraceFields",
+   "GetTraceFunnel",
+   "GetTraceFunnelErrorTraces",
+   "GetTraceFunnelOverview",
+   "GetTraceFunnelSlowTraces",
+   "GetTraceFunnelStepMetrics",
+   "GetTraceFunnelStepOverview",
+   "GetUser",
+   "GetUserDeprecated",
+   "GetUserPreference",
+   "GetUsersByRoleID",
+   "GetWaterfallV4",
+   "InspectMetrics",
+   "InstallIntegration",
+   "ListAccountServicesMetadata",
+   "ListAccounts",
+   "ListAuthDomains",
+   "ListChannels",
+   "ListDashboardViews",
+   "ListDashboardsForUserV2",
+   "ListDashboardsV2",
+   "ListDowntimeSchedules",
+   "ListIntegrations",
+   "ListLLMAnnotations",
+   "ListLLMObservations",
+   "ListLLMPricingRules",
+   "ListLLMScores",
+   "ListLLMSessions",
+   "ListLLMTraces",
+   "ListLLMUsers",
+   "ListMetricReductionRules",
+   "ListMetrics",
+   "ListOrgPreferences",
+   "ListRoles",
+   "ListRules",
+   "ListServiceAccountKeys",
+   "ListServiceAccounts",
+   "ListServicesMetadata",
+   "ListSpanMapperGroups",
+   "ListSpanMappers",
+   "ListTraceFunnels",
+   "ListUserPreferences",
+   "ListUsers",
+   "ListUsersDeprecated",
+   "LockDashboardV2",
+   "PatchDashboardV2",
+   "PatchRuleByID",
+   "PinDashboardV2",
+   "PreviewMetricReductionRule",
+   "PutHost",
+   "PutProfile",
+   "SearchIngestionKeys",
+   "SearchTraces",
+   "TestChannel",
+   "TestChannelDeprecated",
+   "TestRule",
+   "TestRuleNotification",
+   "UninstallIntegration",
+   "UnlockDashboardV2",
+   "UnpinDashboardV2",
+   "UpdateAccount",
+   "UpdateChannelByID",
+   "UpdateDashboardV2",
+   "UpdateDashboardView",
+   "UpdateDowntimeScheduleByID",
+   "UpdateMetricMetadata",
+   "UpdateMetricReductionRuleByID",
+   "UpdateMyOrganization",
+   "UpdateOrgPreference",
+   "UpdatePublicDashboard",
+   "UpdateQuickFilters",
+   "UpdateRuleByID",
+   "UpdateService",
+   "UpdateSpanMapper",
+   "UpdateSpanMapperGroup",
+   "UpdateTraceField",
+   "UpdateTraceFunnel",
+   "UpdateTraceFunnelSteps",
+   "ValidateDraftFunnelTraces",
+   "ValidateTraceFunnelTraces",
+   "delete_o11y_explorer_views_by_viewid",
+   "delete_o11y_reviews_by_id",
+   "delete_o11y_sentinel_projects_by_id",
+   "get_o11y_autocomplete_aggregate_attributes",
+   "get_o11y_autocomplete_attribute_keys",
+   "get_o11y_autocomplete_attribute_values",
+   "get_o11y_availability",
+   "get_o11y_clusters_attribute_keys",
+   "get_o11y_clusters_attribute_values",
+   "get_o11y_daemonsets_attribute_keys",
+   "get_o11y_daemonsets_attribute_values",
+   "get_o11y_deployments_attribute_keys",
+   "get_o11y_deployments_attribute_values",
+   "get_o11y_disks",
+   "get_o11y_errorfromerrorid",
+   "get_o11y_errorfromgroupid",
+   "get_o11y_errortracking_issues",
+   "get_o11y_errortracking_issues_by_id",
+   "get_o11y_explorer_views",
+   "get_o11y_explorer_views_by_viewid",
+   "get_o11y_features",
+   "get_o11y_fields_keys",
+   "get_o11y_fields_values",
+   "get_o11y_filter_suggestions",
+   "get_o11y_global_config",
+   "get_o11y_health",
+   "get_o11y_hosts_attribute_keys",
+   "get_o11y_hosts_attribute_values",
+   "get_o11y_infra_monitoring_checks",
+   "get_o11y_infra_onboarding_k8s_status",
+   "get_o11y_jobs_attribute_keys",
+   "get_o11y_jobs_attribute_values",
+   "get_o11y_licenses",
+   "get_o11y_licenses_active",
+   "get_o11y_logs",
+   "get_o11y_logs_aggregate",
+   "get_o11y_logs_fields",
+   "get_o11y_logs_pipelines_by_version",
+   "get_o11y_logs_promote_paths",
+   "get_o11y_metric_metric_metadata",
+   "get_o11y_namespaces_attribute_keys",
+   "get_o11y_namespaces_attribute_values",
+   "get_o11y_nextpreverrorids",
+   "get_o11y_nodes_attribute_keys",
+   "get_o11y_nodes_attribute_values",
+   "get_o11y_pods_attribute_keys",
+   "get_o11y_pods_attribute_values",
+   "get_o11y_processes_attribute_keys",
+   "get_o11y_processes_attribute_values",
+   "get_o11y_product_metrics",
+   "get_o11y_pvcs_attribute_keys",
+   "get_o11y_pvcs_attribute_values",
+   "get_o11y_query",
+   "get_o11y_query_range",
+   "get_o11y_reviews",
+   "get_o11y_reviews_by_id",
+   "get_o11y_reviews_by_id_items",
+   "get_o11y_sentinel_events_by_id",
+   "get_o11y_sentinel_issues",
+   "get_o11y_sentinel_issues_by_id",
+   "get_o11y_sentinel_issues_by_id_events",
+   "get_o11y_sentinel_logs",
+   "get_o11y_sentinel_projects",
+   "get_o11y_sentinel_projects_by_id",
+   "get_o11y_sentinel_stats",
+   "get_o11y_sentinel_traces",
+   "get_o11y_sentinel_traces_by_id",
+   "get_o11y_services_list",
+   "get_o11y_settings_apdex",
+   "get_o11y_settings_ttl",
+   "get_o11y_statefulsets_attribute_keys",
+   "get_o11y_statefulsets_attribute_values",
+   "get_o11y_stats",
+   "get_o11y_status",
+   "get_o11y_summary",
+   "get_o11y_traces",
+   "get_o11y_usage",
+   "get_o11y_version",
+   "patch_o11y_reviews_by_id",
+   "patch_o11y_reviews_by_id_items_by_itemid",
+   "post_o11y_auto_complete_attribute_values",
+   "post_o11y_clusters_list",
+   "post_o11y_counterrors",
+   "post_o11y_daemonsets_list",
+   "post_o11y_dependency_graph",
+   "post_o11y_deployments_list",
+   "post_o11y_errortracking_issues_by_id",
+   "post_o11y_event",
+   "post_o11y_explorer_views",
+   "post_o11y_hosts_list",
+   "post_o11y_infra_monitoring_clusters",
+   "post_o11y_infra_monitoring_daemonsets",
+   "post_o11y_infra_monitoring_deployments",
+   "post_o11y_infra_monitoring_hosts",
+   "post_o11y_infra_monitoring_jobs",
+   "post_o11y_infra_monitoring_namespaces",
+   "post_o11y_infra_monitoring_nodes",
+   "post_o11y_infra_monitoring_pods",
+   "post_o11y_infra_monitoring_pvcs",
+   "post_o11y_infra_monitoring_statefulsets",
+   "post_o11y_jobs_list",
+   "post_o11y_listerrors",
+   "post_o11y_logs_fields",
+   "post_o11y_logs_pipelines",
+   "post_o11y_logs_pipelines_preview",
+   "post_o11y_logs_promote_paths",
+   "post_o11y_messaging-queues_kafka_consumer-lag_consumer-details",
+   "post_o11y_messaging-queues_kafka_consumer-lag_network-latency",
+   "post_o11y_messaging-queues_kafka_consumer-lag_producer-details",
+   "post_o11y_messaging-queues_kafka_onboarding_consumers",
+   "post_o11y_messaging-queues_kafka_onboarding_kafka",
+   "post_o11y_messaging-queues_kafka_onboarding_producers",
+   "post_o11y_messaging-queues_kafka_partition-latency_consumer",
+   "post_o11y_messaging-queues_kafka_partition-latency_overview",
+   "post_o11y_messaging-queues_kafka_span_evaluation",
+   "post_o11y_messaging-queues_kafka_topic-throughput_consumer",
+   "post_o11y_messaging-queues_kafka_topic-throughput_consumer-details",
+   "post_o11y_messaging-queues_kafka_topic-throughput_producer",
+   "post_o11y_messaging-queues_kafka_topic-throughput_producer-details",
+   "post_o11y_messaging-queues_queue-overview",
+   "post_o11y_namespaces_list",
+   "post_o11y_nodes_list",
+   "post_o11y_pods_list",
+   "post_o11y_processes_list",
+   "post_o11y_pvcs_list",
+   "post_o11y_query_filter_analyze",
+   "post_o11y_query_range",
+   "post_o11y_query_range_format",
+   "post_o11y_query_range_preview",
+   "post_o11y_register",
+   "post_o11y_reviews",
+   "post_o11y_reviews_by_id_items",
+   "post_o11y_sentinel_discover",
+   "post_o11y_sentinel_projects",
+   "post_o11y_service_entry_point_operations",
+   "post_o11y_service_top_level_operations",
+   "post_o11y_service_top_operations",
+   "post_o11y_services",
+   "post_o11y_settings_apdex",
+   "post_o11y_settings_ttl",
+   "post_o11y_span_percentile",
+   "post_o11y_statefulsets_list",
+   "post_o11y_substitute_vars",
+   "post_o11y_third-party-apis_overview_domain",
+   "post_o11y_third-party-apis_overview_list",
+   "post_o11y_variables_query",
+   "put_o11y_explorer_views_by_viewid",
+   "put_o11y_sentinel_issues_by_id"
+  ]
+ },
+ "plan": {
+  "ops": [
+   "get_plan",
+   "get_plan_blockchain",
+   "get_plan_dns",
+   "get_plan_entitlements_by_id",
+   "get_plan_gpu",
+   "get_plan_health",
+   "get_plan_policy",
+   "get_plan_regions",
+   "get_plan_resolve_by_id",
+   "get_plan_schema",
+   "get_plan_storage",
+   "get_plan_subscriptions",
+   "get_plan_tools",
+   "get_plan_vocab"
+  ]
+ },
+ "platform": {
+  "ops": [
+   "delete_platform_projects_by_project_apps_by_app",
+   "delete_platform_projects_by_project_apps_by_app_domains_by_host",
+   "get_platform_apps",
+   "get_platform_apps_by_app",
+   "get_platform_apps_by_app_cd",
+   "get_platform_builds",
+   "get_platform_cd",
+   "get_platform_environments",
+   "get_platform_fleet",
+   "get_platform_fleet_by_app",
+   "get_platform_health",
+   "get_platform_pipelines",
+   "get_platform_projects",
+   "get_platform_projects_by_project",
+   "get_platform_projects_by_project_apps",
+   "get_platform_projects_by_project_apps_by_app",
+   "get_platform_projects_by_project_apps_by_app_deployments",
+   "get_platform_projects_by_project_apps_by_app_deployments_by_id",
+   "get_platform_projects_by_project_apps_by_app_deployments_by_id_logs",
+   "get_platform_projects_by_project_apps_by_app_domains",
+   "get_platform_releases",
+   "post_platform_fleet_by_app_deploy",
+   "post_platform_projects_by_project_apps",
+   "post_platform_projects_by_project_apps_by_app_deploy",
+   "post_platform_projects_by_project_apps_by_app_domains",
+   "post_platform_projects_by_project_apps_by_app_domains_by_host_verify",
+   "post_platform_projects_by_project_apps_by_app_preview",
+   "post_platform_projects_by_project_apps_by_app_promote",
+   "post_platform_projects_by_project_apps_by_app_rollback",
+   "post_platform_projects_by_project_apps_by_app_start",
+   "post_platform_projects_by_project_apps_by_app_stop",
+   "post_platform_run",
+   "post_platform_runner",
+   "put_platform_projects_by_project_apps_by_app_env"
+  ]
+ },
+ "pref": {
+  "ops": [
+   "get_pref"
+  ]
+ },
+ "pricing": {
+  "ops": [
+   "get_pricing",
+   "get_pricing_base",
+   "get_pricing_blockchain",
+   "get_pricing_cloud",
+   "get_pricing_cloud_plans",
+   "get_pricing_cloud_regions",
+   "get_pricing_cloud_storage",
+   "get_pricing_compute",
+   "get_pricing_compute_presets",
+   "get_pricing_datastore",
+   "get_pricing_enablement",
+   "get_pricing_featured",
+   "get_pricing_free",
+   "get_pricing_gpu",
+   "get_pricing_health",
+   "get_pricing_iam",
+   "get_pricing_model_by_name",
+   "get_pricing_models",
+   "get_pricing_paas",
+   "get_pricing_policy",
+   "get_pricing_providers",
+   "get_pricing_services",
+   "get_pricing_subscriptions",
+   "get_pricing_summary",
+   "get_pricing_tools",
+   "post_pricing_enablement_optin",
+   "post_pricing_enablement_optout",
+   "post_pricing_sync"
+  ]
+ },
+ "projects": {
+  "ops": [
+   "delete_projects_by_slug",
+   "delete_projects_by_slug_domains_by_host",
+   "delete_projects_by_slug_star",
+   "get_projects",
+   "get_projects_by_slug",
+   "get_projects_by_slug_deployments",
+   "get_projects_by_slug_deployments_by_id",
+   "get_projects_by_slug_domains",
+   "get_projects_by_slug_releases",
+   "get_projects_edge",
+   "get_projects_sites",
+   "get_projects_sites_by_slug",
+   "patch_projects_by_slug",
+   "post_projects",
+   "post_projects_by_slug_deployments",
+   "post_projects_by_slug_deployments_by_id_complete",
+   "post_projects_by_slug_domains",
+   "post_projects_by_slug_domains_by_host_verify",
+   "post_projects_by_slug_publish",
+   "post_projects_by_slug_purge",
+   "post_projects_by_slug_releases",
+   "post_projects_by_slug_releases_by_release_activate",
+   "post_projects_fork",
+   "post_projects_sites",
+   "post_projects_sites_deploy",
+   "put_projects_by_slug_star"
+  ]
+ },
+ "prompt": {
+  "ops": [
+   "delete_prompt_by_name",
+   "get_prompt",
+   "get_prompt_by_name",
+   "get_prompt_catalog",
+   "get_prompt_metrics",
+   "post_prompt"
+  ]
+ },
+ "provisioning": {
+  "ops": [
+   "delete_provisioning_datastore_by_name",
+   "delete_provisioning_docdb_by_name",
+   "delete_provisioning_kv_by_name",
+   "delete_provisioning_s3_by_name",
+   "delete_provisioning_search_by_name",
+   "delete_provisioning_sql_by_name",
+   "delete_provisioning_vector_by_name",
+   "get_provisioning_datastore",
+   "get_provisioning_datastore_by_name",
+   "get_provisioning_docdb",
+   "get_provisioning_docdb_by_name",
+   "get_provisioning_kv",
+   "get_provisioning_kv_by_name",
+   "get_provisioning_s3",
+   "get_provisioning_s3_by_name",
+   "get_provisioning_search",
+   "get_provisioning_search_by_name",
+   "get_provisioning_sql",
+   "get_provisioning_sql_by_name",
+   "get_provisioning_vector",
+   "get_provisioning_vector_by_name",
+   "post_provisioning_datastore",
+   "post_provisioning_docdb",
+   "post_provisioning_kv",
+   "post_provisioning_s3",
+   "post_provisioning_search",
+   "post_provisioning_sql",
+   "post_provisioning_vector"
+  ]
+ },
+ "pubsub": {
+  "ops": [
+   "post_pubsub_publish",
+   "post_pubsub_request"
+  ]
+ },
+ "reference": {
+  "ops": [
+   "riskClearReference",
+   "riskReference",
+   "riskReferenceSets",
+   "riskRefreshReference",
+   "riskResolveReference",
+   "riskSetReference"
+  ]
+ },
+ "referral": {
+  "ops": [
+   "get_referral",
+   "post_referral_claim"
+  ]
+ },
+ "registry": {
+  "ops": [
+   "get_registry_images",
+   "get_registry_packages",
+   "get_registry_projects",
+   "get_registry_status",
+   "get_registry_tags"
+  ]
+ },
+ "risk": {
+  "ops": [
+   "riskAdoptModel",
+   "riskFeatures",
+   "riskLearn",
+   "riskPolicy",
+   "riskPublishModel",
+   "riskScore",
+   "riskSearch",
+   "riskSearchResult",
+   "riskState"
+  ]
+ },
+ "s3": {
+  "ops": [
+   "delete_s3_buckets_by_bucket",
+   "get_s3_buckets",
+   "get_s3_buckets_by_bucket_objects",
+   "get_s3_health",
+   "post_s3_buckets",
+   "post_s3_buckets_by_bucket_objects"
+  ]
+ },
+ "sandbox": {
+  "ops": [
+   "delete_sandbox_by_id",
+   "end_sandbox",
+   "get_sandbox",
+   "get_sandbox_by_id",
+   "lease_sandbox",
+   "post_sandbox",
+   "post_sandbox_by_id_exec",
+   "post_sandbox_by_id_screen_ticket",
+   "post_sandbox_by_id_terminal_ticket",
+   "read_sandbox_file",
+   "run_in_sandbox",
+   "stop_run",
+   "write_sandbox_file"
+  ]
+ },
+ "sbom": {
+  "ops": [
+   "get_sbom_health",
+   "post_sbom"
+  ]
+ },
+ "search": {
+  "ops": [
+   "search"
+  ]
+ },
+ "security": {
+  "ops": [
+   "get_security_findings",
+   "get_security_findings_by_id",
+   "get_security_health",
+   "get_security_rules",
+   "get_security_scans",
+   "get_security_scans_by_id",
+   "post_security_scans"
+  ]
+ },
+ "seo": {
+  "ops": [
+   "seoAudit",
+   "seoBacklink",
+   "seoCompetitor",
+   "seoIdea",
+   "seoKeyword",
+   "seoRank",
+   "seoRate"
+  ]
+ },
+ "settings": {
+  "ops": [
+   "get_settings_by_product",
+   "put_settings_by_product"
+  ]
+ },
+ "share": {
+  "ops": [
+   "get_share",
+   "post_share_enable"
+  ]
+ },
+ "social": {
+  "ops": [
+   "delete_social_accounts_by_id",
+   "delete_social_posts_by_id",
+   "get_social_accounts",
+   "get_social_accounts_by_id",
+   "get_social_posts",
+   "get_social_posts_by_id",
+   "get_social_providers",
+   "get_social_summary",
+   "post_social_accounts",
+   "post_social_posts",
+   "post_social_posts_by_id_publish",
+   "put_social_accounts_by_id",
+   "put_social_posts_by_id"
+  ]
+ },
+ "space": {
+  "ops": [
+   "delete_space_by_space_drives_by_drive",
+   "get_space_by_space_drives",
+   "get_space_by_space_drives_by_drive_files",
+   "get_space_health",
+   "get_space_spaces",
+   "post_space_by_space_drives",
+   "post_space_spaces"
+  ]
+ },
+ "standing": {
+  "ops": [
+   "post_standing_upkeep"
+  ]
+ },
+ "sync": {
+  "ops": [
+   "delete_sync_by_id",
+   "get_sync",
+   "get_sync_by_id",
+   "patch_sync_by_id",
+   "post_sync",
+   "post_sync_by_id_run"
+  ]
+ },
+ "taxonomy": {
+  "ops": [
+   "delete_taxonomy_categories_by_id",
+   "delete_taxonomy_taxa_by_id",
+   "get_taxonomy",
+   "put_taxonomy_categories_by_id",
+   "put_taxonomy_taxa_by_id"
+  ]
+ },
+ "team": {
+  "ops": [
+   "delete_team_account_cookie",
+   "delete_team_files_by_space_by_filename",
+   "get_team_account_providers",
+   "get_team_billing_plan",
+   "get_team_bots",
+   "get_team_rooms",
+   "get_team_transactor_statistics",
+   "post_team_bots_sync",
+   "post_team_collaborator_rpc_by_documentid",
+   "post_team_rooms",
+   "put_team_rooms_by_id"
+  ]
+ },
+ "tel": {
+  "ops": [
+   "delete_tel_calls_by_id",
+   "delete_tel_numbers_by_id",
+   "get_tel_calls",
+   "get_tel_messages",
+   "get_tel_numbers",
+   "get_tel_numbers_available",
+   "get_tel_summary",
+   "post_tel_calls",
+   "post_tel_messages",
+   "post_tel_numbers"
+  ]
+ },
+ "template": {
+  "ops": [
+   "delete_template_by_slug",
+   "get_template",
+   "get_template_by_slug",
+   "post_template",
+   "put_template_by_slug"
+  ]
+ },
+ "todo": {
+  "ops": [
+   "get_todo_board",
+   "get_todo_issues",
+   "get_todo_projects",
+   "get_todo_projects_by_key",
+   "get_todo_projects_by_key_issues",
+   "get_todo_projects_by_key_issues_by_num",
+   "get_todo_rooms_by_room",
+   "patch_todo_projects_by_key_issues_by_num",
+   "post_todo_projects_by_key_issues",
+   "post_todo_projects_by_key_issues_by_num_claim"
+  ]
+ },
+ "tools": {
+  "ops": [
+   "delete_tools_mcp_servers_by_id",
+   "delete_tools_plugins_authored_by_id",
+   "delete_tools_skills_by_id",
+   "get_tools",
+   "get_tools_activation",
+   "get_tools_catalog",
+   "get_tools_catalog_by_id",
+   "get_tools_mcp_servers",
+   "get_tools_plugins",
+   "get_tools_plugins_authored",
+   "get_tools_skills",
+   "get_tools_skills_authored",
+   "patch_tools_catalog_by_id",
+   "post_tools_call",
+   "post_tools_catalog_sync",
+   "post_tools_mcp_servers",
+   "post_tools_plugins_build",
+   "post_tools_skills",
+   "put_tools_activation"
+  ]
+ },
+ "translate": {
+  "ops": [
+   "get_translate_memory",
+   "put_translate_memory"
+  ]
+ },
+ "treasury": {
+  "ops": [
+   "get_treasury",
+   "get_treasury_accounts"
+  ]
+ },
+ "trust": {
+  "ops": [
+   "delete_trust_by_kind_by_id",
+   "get_trust",
+   "get_trust_controls",
+   "get_trust_controls_by_id",
+   "get_trust_coverage",
+   "get_trust_coverage_by_framework",
+   "get_trust_documents",
+   "get_trust_evidence",
+   "get_trust_faq",
+   "get_trust_frameworks",
+   "get_trust_policies",
+   "get_trust_profile",
+   "get_trust_published_by_org",
+   "get_trust_risk",
+   "get_trust_subprocessors",
+   "get_trust_updates",
+   "put_trust_by_kind_by_id"
+  ]
+ },
+ "usage": {
+  "ops": [
+   "get_usage_analytics",
+   "get_usage_analytics_access",
+   "get_usage_samples",
+   "get_usage_summary",
+   "post_usage"
+  ]
+ },
+ "validator": {
+  "ops": [
+   "get_validator",
+   "get_validator_by_tokenid",
+   "get_validator_challenge",
+   "post_validator"
+  ]
+ },
+ "visor": {
+  "ops": [
+   "attachCluster",
+   "bindMachineAgent",
+   "cancelFleetJob",
+   "createKubernetesCluster",
+   "createNodePool",
+   "deleteBot",
+   "deleteKubernetesCluster",
+   "deleteMachine",
+   "deleteNodePool",
+   "detachCluster",
+   "getBot",
+   "getKubernetesCluster",
+   "getMachine",
+   "getMachineAgent",
+   "get_visor_compute_regions",
+   "get_visor_compute_sizes",
+   "listBots",
+   "listClusters",
+   "listFleet",
+   "listFleetJobs",
+   "listFleetSamples",
+   "listFleetWorkers",
+   "listGpuAlerts",
+   "listGpus",
+   "listKubernetesClusters",
+   "listKubernetesNodes",
+   "listMachineAgents",
+   "listMachines",
+   "recordFleetSample",
+   "scaleNodePool",
+   "unbindMachineAgent"
+  ]
+ },
+ "wallet": {
+  "ops": [
+   "get_wallet",
+   "get_wallet_accounts",
+   "get_wallet_by_id",
+   "post_wallet",
+   "post_wallet_accounts",
+   "post_wallet_by_id_sign",
+   "post_wallet_by_id_transactions"
+  ]
+ },
+ "web3": {
+  "ops": [
+   "get_web3_chains",
+   "get_web3_chains_by_chain",
+   "post_web3_rpc_by_chain"
+  ]
+ },
+ "webhook": {
+  "ops": [
+   "delete_webhook_by_id",
+   "get_webhook",
+   "get_webhook_by_id",
+   "get_webhook_by_id_deliveries",
+   "post_webhook",
+   "post_webhook_by_id_test",
+   "put_webhook_by_id"
+  ]
+ },
+ "websearch": {
+  "ops": [
+   "search_web"
+  ]
+ },
+ "world": {
+  "ops": [
+   "get_world",
+   "get_world_limits",
+   "get_world_news",
+   "get_world_pipeline",
+   "put_world_pipeline"
+  ]
+ },
+ "x402": {
+  "ops": [
+   "get_x402_settlements_by_id"
+  ]
+ }
+}
