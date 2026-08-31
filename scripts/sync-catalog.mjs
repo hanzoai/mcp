@@ -19,8 +19,17 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const here = dirname(fileURLToPath(import.meta.url));
-const target = join(here, '..', 'src', 'tools', 'catalog.json');
 const shrink = process.argv.includes('--shrink');
+
+// Every published runtime carries the catalog, because a tool list is answered
+// before any request. They are written together so they cannot drift: the Rust
+// crate reads the first of these directly, and the Python package ships its own
+// copy in its wheel. A sibling that is not checked out is skipped, not invented.
+const targets = [
+  join(here, '..', 'src', 'tools', 'catalog.json'),
+  join(here, '..', '..', 'python-sdk', 'pkg', 'hanzo-tools-cloud', 'hanzo_tools', 'cloud', 'catalog.json'),
+];
+const target = targets[0];
 
 const count = (c) => Object.values(c).reduce((n, e) => n + e.ops.length, 0);
 
@@ -67,8 +76,16 @@ if (now < was && !shrink) {
   process.exit(1);
 }
 
-writeFileSync(target, JSON.stringify(next, null, 1) + '\n');
+const body = JSON.stringify(next, null, 1) + '\n';
+const written = [];
+for (const t of targets) {
+  // A sibling repo that is not checked out here is not this script's to create.
+  if (t !== target && !existsSync(dirname(t))) continue;
+  writeFileSync(t, body);
+  written.push(t.replace(join(here, '..', '..') + '/', ''));
+}
 console.log(
-  `catalog.json: ${Object.keys(next).length} subsystems, ${now} operations, from ${source}` +
-    (now === was ? ' (unchanged)' : ` (was ${was})`),
+  `${Object.keys(next).length} subsystems, ${now} operations, from ${source}` +
+    (now === was ? ' (unchanged)' : ` (was ${was})`) +
+    `\n  ${written.join('\n  ')}`,
 );
