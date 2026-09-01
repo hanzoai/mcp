@@ -1,12 +1,18 @@
 import { describe, test, expect, beforeEach, afterEach, jest } from '@jest/globals';
-import { autoguiTools } from '../../src/autogui/tools/autogui-tools.js';
 
 // Mock external dependencies
-jest.mock('../../src/autogui/factory.js', () => ({
+// unstable_mockModule + await import, NOT jest.mock + a static import: ESM has no
+// hoisting for jest.mock to rely on, so a static import binds the REAL module and
+// the suite dies on `mockReturnValue is not a function` — an absent mock reported
+// as a broken one.
+jest.unstable_mockModule('../../src/autogui/factory.js', () => ({
   createAutoGUI: jest.fn(),
   getAvailableAutoGUIImplementations: jest.fn(),
   getAutoGUIImplementationStatus: jest.fn(),
 }));
+
+const factory = await import('../../src/autogui/factory.js');
+const { autoguiTools } = await import('../../src/autogui/tools/autogui-tools.js');
 
 describe('AutoGUI Tools', () => {
   
@@ -14,7 +20,7 @@ describe('AutoGUI Tools', () => {
     jest.clearAllMocks();
     
     // Mock factory functions
-    const { createAutoGUI, getAvailableAutoGUIImplementations, getAutoGUIImplementationStatus } = require('../../src/autogui/factory.js');
+    const { createAutoGUI, getAvailableAutoGUIImplementations, getAutoGUIImplementationStatus } = factory;
     
     getAvailableAutoGUIImplementations.mockResolvedValue(['base', 'mock']);
     getAutoGUIImplementationStatus.mockResolvedValue({
@@ -204,7 +210,7 @@ describe('AutoGUI Tools', () => {
 
   describe('Error handling', () => {
     test('should handle AutoGUI initialization failures', async () => {
-      const { createAutoGUI } = require('../../src/autogui/factory.js');
+      const { createAutoGUI } = factory;
       createAutoGUI.mockRejectedValue(new Error('AutoGUI not available'));
       
       const statusTool = autoguiTools.find(tool => tool.name === 'autogui_status');
@@ -220,7 +226,7 @@ describe('AutoGUI Tools', () => {
     });
 
     test('should handle missing implementations', async () => {
-      const { getAvailableAutoGUIImplementations } = require('../../src/autogui/factory.js');
+      const { getAvailableAutoGUIImplementations } = factory;
       getAvailableAutoGUIImplementations.mockResolvedValue([]);
       
       const statusTool = autoguiTools.find(tool => tool.name === 'autogui_status');
@@ -260,7 +266,7 @@ describe('AutoGUI Tools', () => {
 
   describe('Factory integration', () => {
     test('should interact with factory functions', () => {
-      const { createAutoGUI, getAvailableAutoGUIImplementations, getAutoGUIImplementationStatus } = require('../../src/autogui/factory.js');
+      const { createAutoGUI, getAvailableAutoGUIImplementations, getAutoGUIImplementationStatus } = factory;
       
       // Verify mocks are set up (indicates proper factory integration)
       expect(createAutoGUI).toBeDefined();
@@ -281,7 +287,7 @@ describe('AutoGUI Tools', () => {
 
         expect(result1.content[0].text).toBe(result2.content[0].text);
 
-        const { getAvailableAutoGUIImplementations } = require('../../src/autogui/factory.js');
+        const { getAvailableAutoGUIImplementations } = factory;
         expect(getAvailableAutoGUIImplementations).toHaveBeenCalled();
       }
     });

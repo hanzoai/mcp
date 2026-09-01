@@ -1,5 +1,6 @@
 # Install scripts run only for packages listed here.
 allowBuilds:
+  '@swc/core': true
   esbuild: true
   jsautogui: true
   protobufjs: true
@@ -11,3 +12,4 @@ allowBuilds:
 minimumReleaseAgeExclude:
   - '@hanzo/*'
   - '@hanzogui/*'
+

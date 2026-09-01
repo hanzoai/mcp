@@ -1,12 +1,17 @@
 import { describe, test, expect, beforeEach, afterEach, jest } from '@jest/globals';
-import { uiTools } from '../../src/ui/ui-tools.js';
 
 // Mock external dependencies
-jest.mock('../../src/ui/registry-api.js', () => ({
+// unstable_mockModule + await import, NOT jest.mock + a static import: ESM has no
+// hoisting for jest.mock to rely on, so a static import binds the REAL module and
+// the suite dies on `mockReturnValue is not a function`.
+jest.unstable_mockModule('../../src/ui/registry-api.js', () => ({
   fetchRegistry: jest.fn(),
   getRegistryItem: jest.fn(),
   getRegistryItemUrl: jest.fn(),
 }));
+
+const registry = await import('../../src/ui/registry-api.js');
+const { uiTools } = await import('../../src/ui/ui-tools.js');
 
 describe('UI Tools', () => {
   
@@ -52,7 +57,7 @@ describe('UI Tools', () => {
       const tool = uiTools.find(t => t.name.includes('list') || t.name.includes('registry'));
       
       if (tool) {
-        const { fetchRegistry } = require('../../src/ui/registry-api.js');
+        const { fetchRegistry } = registry;
         fetchRegistry.mockRejectedValue(new Error('Network error'));
         
         const result = await tool.handler({});
@@ -115,7 +120,7 @@ describe('UI Tools', () => {
 
   describe('Error handling', () => {
     test('should handle network failures', async () => {
-      const { fetchRegistry } = require('../../src/ui/registry-api.js');
+      const { fetchRegistry } = registry;
       fetchRegistry.mockRejectedValue(new Error('Network timeout'));
       
       // Try to execute tools that might depend on network
@@ -137,7 +142,7 @@ describe('UI Tools', () => {
     });
 
     test('should handle malformed registry data', async () => {
-      const { fetchRegistry } = require('../../src/ui/registry-api.js');
+      const { fetchRegistry } = registry;
       fetchRegistry.mockResolvedValue([{ invalid: 'data' }]);
       
       const registryTools = uiTools.filter(tool => 

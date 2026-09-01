@@ -4,27 +4,23 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, jest } from '@jest/globals';
-import { executeSearch, executeFetch, executeSearchTool } from '../../src/search/index.js';
-import { SearchEngine } from '../../src/search/search-engine.js';
-import { getSecureTunnel } from '../../src/search/secure-tunnel.js';
-import { getUrlHelper, configureUrlHelper } from '../../src/search/url-helper.js';
-import * as fs from 'fs';
 import * as path from 'path';
-import { spawn } from 'child_process';
 
 // Mock glob to avoid ESM/CJS resolution issues
-jest.mock('glob', () => ({
+// unstable_mockModule + await import, NOT jest.mock + a static import: ESM has no
+// hoisting for jest.mock to rely on, so a static import binds the REAL module.
+jest.unstable_mockModule('glob', () => ({
   glob: jest.fn<() => Promise<string[]>>().mockResolvedValue([]),
   Glob: jest.fn(),
 }));
 
 // Mock child_process for ngrok
-jest.mock('child_process', () => ({
+jest.unstable_mockModule('child_process', () => ({
   spawn: jest.fn()
 }));
 
 // Mock file system for testing
-jest.mock('fs', () => ({
+jest.unstable_mockModule('fs', () => ({
   promises: {
     readFile: jest.fn(),
     stat: jest.fn(),
@@ -32,6 +28,13 @@ jest.mock('fs', () => ({
     access: jest.fn()
   }
 }));
+
+const fs = await import('fs');
+const { executeSearch, executeFetch, executeSearchTool } = await import('../../src/search/index.js');
+const { SearchEngine } = await import('../../src/search/search-engine.js');
+const { getSecureTunnel } = await import('../../src/search/secure-tunnel.js');
+const { getUrlHelper, configureUrlHelper } = await import('../../src/search/url-helper.js');
+const { spawn } = await import('child_process');
 
 describe('MCP Search Integration', () => {
   let originalEnv: NodeJS.ProcessEnv;
