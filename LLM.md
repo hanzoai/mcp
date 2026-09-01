@@ -111,12 +111,20 @@ where the hand-written tool carried a handful. It also dialled four hosts
 `api.hanzo.ai`.
 
 **It is a catalog and not a fetch because a tool list is assembled
-synchronously**, before any request has been made. `pnpm sync:catalog` refreshes
-it — from a cloud checkout with `HANZO_CLOUD=<dir>`, otherwise from the running
-fleet. It REFUSES to write a smaller catalog than it replaces without `--shrink`:
-a fleet answering partially and a fleet that lost capabilities look identical,
-and the quiet direction of that mistake is a client that stops offering
-operations the API still serves.
+synchronously**, before any request has been made, and a client that needs the
+network to say what it can do has nothing to say when the network is what failed.
+
+**Refresh it FROM CLOUD, which is where the operations are declared:**
+`make -f mk/fleet.mk mcp` in `hanzoai/cloud` writes `fleet/mcp.json` and every
+sibling checkout's copy in one pass — this file and python-sdk's. A sibling that
+is not checked out beside cloud is skipped, never created. It REFUSES to write a
+smaller catalog than it replaces without `--shrink`: a fleet answering partially
+and a fleet that lost capabilities look identical, and the quiet direction of that
+mistake is a client that stops offering operations the API still serves.
+
+There was a `pnpm sync:catalog` here doing the same job in JavaScript. Two
+generators for one projection is how they come to disagree about the rule, and
+the rule is cloud's — so the script is deleted and the Go one writes every copy.
 
 **The withholding rule is applied ONCE, in cloud.** The endpoint keeps an
 operation off the agent surface when its name discloses a bearer secret at any

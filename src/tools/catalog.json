@@ -269,10 +269,12 @@
  "channels": {
   "ops": [
    "get_channels",
+   "get_channels_agent",
    "get_channels_allowlist",
    "get_channels_inbox",
    "get_channels_pairing",
    "post_channels_pairing_approve",
+   "put_channels_agent",
    "put_channels_allowlist"
   ]
  },
@@ -790,6 +792,9 @@
    "post_integrations_github_repos_by_repo_pages_builds",
    "post_integrations_github_repos_import",
    "post_integrations_github_search",
+   "post_integrations_linear_claim",
+   "post_integrations_linear_comments",
+   "post_integrations_linear_issues_backfill",
    "post_integrations_telegram_connect",
    "put_integrations_github_repos_by_repo_pages"
   ]
