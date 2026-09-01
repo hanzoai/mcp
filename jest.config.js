@@ -1,23 +1,22 @@
 /** @type {import('jest').Config} */
 export default {
-  preset: 'ts-jest/presets/default-esm',
   extensionsToTreatAsEsm: ['.ts'],
   testEnvironment: 'node',
   testMatch: [
     '**/test/**/*.test.ts',
     '**/test/**/*.spec.ts'
   ],
+  // swc, not ts-jest: ts-jest peers on `typescript >=4.3 <7` and this repo builds
+  // against 7, so every suite died in ConfigSet before a test ran — 20 files, 0
+  // tests, reported as twenty separate failures. swc strips types instead of
+  // asking the compiler to, so it has no TypeScript version to disagree with.
+  //
+  // Nothing is lost by not typechecking here: `tsc --noEmit` is a gate of its own
+  // and runs on every push, so a type error fails the build rather than one suite.
   transform: {
-    '^.+\\.ts$': ['ts-jest', {
-      useESM: true,
-      tsconfig: {
-        module: 'ESNext',
-        moduleResolution: 'node',
-        // Tests live outside ./src; widen rootDir so ts-jest can typecheck
-        // suites that import test/setup.ts (the production build uses esbuild
-        // and its own entrypoints, so this override is test-only).
-        rootDir: '.'
-      }
+    '^.+\\.ts$': ['@swc/jest', {
+      jsc: { parser: { syntax: 'typescript' }, target: 'es2022' },
+      module: { type: 'es6' },
     }]
   },
   moduleNameMapper: {

@@ -23,7 +23,7 @@
     "build:cli": "esbuild src/cli.ts --bundle --platform=node --target=node18 --format=esm --outfile=dist/cli.js --external:@modelcontextprotocol/sdk --external:glob --external:commander --external:zod --external:zod-to-json-schema --external:mime-types --external:@lancedb/lancedb --external:@xenova/transformers --external:jsautogui --external:playwright --external:playwright-core --external:path --external:fs --external:fs/promises --external:os --external:url && chmod +x dist/cli.js",
     "dev": "tsc --watch",
     "smoke": "node scripts/smoke-mcp.mjs",
-    "test": "jest",
+    "test": "NODE_OPTIONS=--experimental-vm-modules jest",
     "lint": "echo 'No linter configured'",
     "prepublishOnly": "pnpm build"
   },
@@ -56,6 +56,8 @@
   },
   "devDependencies": {
     "@jest/globals": "^30.3.0",
+    "@swc/core": "^1.16.1",
+    "@swc/jest": "^0.2.39",
     "@types/glob": "^9.0.0",
     "@types/jest": "^30.0.0",
     "@types/minimatch": "^6.0.0",

@@ -8,6 +8,7 @@
  * into the default list would undo that without failing anything else.
  */
 
+import { describe, it, expect, beforeEach, afterEach, jest } from '@jest/globals';
 import { cloudTools, operations } from '../src/tools/cloud.js';
 import { getConfiguredTools } from '../src/tools/index.js';
 import catalog from '../src/tools/catalog.json';

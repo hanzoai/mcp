@@ -5,13 +5,19 @@
 import { describe, it, expect, beforeEach, afterEach, jest } from '@jest/globals';
 import { IncomingMessage, ServerResponse } from 'http';
 import { Socket } from 'net';
-import { SecureTunnel, SecureTunnelConfig, getSecureTunnel, shouldEnableNgrok } from '../../src/search/secure-tunnel.js';
-import { spawn } from 'child_process';
 
 // Mock child_process spawn
-jest.mock('child_process', () => ({
+// unstable_mockModule + await import, NOT jest.mock + a static import: ESM has no
+// hoisting for jest.mock to rely on, so a static import binds the REAL module and
+// the suite dies on `mockReturnValue is not a function` — an absent mock reported
+// as a broken one.
+jest.unstable_mockModule('child_process', () => ({
   spawn: jest.fn()
 }));
+
+const { SecureTunnel, SecureTunnelConfig, getSecureTunnel, shouldEnableNgrok } = await import('../../src/search/secure-tunnel.js');
+
+const { spawn } = await import('child_process');
 
 describe('SecureTunnel', () => {
   let tunnel: SecureTunnel;

@@ -3,16 +3,22 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, jest } from '@jest/globals';
-import { UrlHelper, UrlConfig, getUrlHelper, configureUrlHelper, resetUrlHelper } from '../../src/search/url-helper.js';
-import * as secureTunnel from '../../src/search/secure-tunnel.js';
 import path from 'path';
 
-// Mock secure tunnel
-jest.mock('../../src/search/secure-tunnel.js', () => ({
+// unstable_mockModule + await import, NOT jest.mock + a static import. Under ESM
+// there is no hoisting for jest.mock to rely on, so the static import binds the
+// REAL module and the suite fails on the first `mockReturnValue is not a
+// function` — which reads as a broken mock rather than an absent one.
+jest.unstable_mockModule('../../src/search/secure-tunnel.js', () => ({
   getSecureTunnel: jest.fn(() => ({
     getTunnelUrl: jest.fn(() => null)
   }))
 }));
+
+const secureTunnel = await import('../../src/search/secure-tunnel.js');
+const { UrlHelper, getUrlHelper, configureUrlHelper, resetUrlHelper } =
+  await import('../../src/search/url-helper.js');
+type UrlConfig = import('../../src/search/url-helper.js').UrlConfig;
 
 describe('UrlHelper', () => {
   let urlHelper: UrlHelper;
