@@ -530,7 +530,7 @@ export class MCPTestRunner extends EventEmitter {
 <head>
     <title>MCP Test Suite Results</title>
     <style>
-        body { font-family: Arial, sans-serif; margin: 20px; }
+        body { font-family: Zen, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; margin: 20px; }
         .summary { background: #f5f5f5; padding: 20px; border-radius: 5px; margin-bottom: 20px; }
         .success { color: green; }
         .failure { color: red; }
