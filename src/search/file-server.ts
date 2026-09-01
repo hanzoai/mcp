@@ -241,7 +241,7 @@ export class FileServer {
   <title>${fileName}</title>
   <style>
     body {
-      font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+      font-family: Zen Mono, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
       margin: 0;
       padding: 20px;
       background: #1e1e1e;
