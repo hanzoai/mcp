@@ -278,6 +278,12 @@
    "put_channels_allowlist"
   ]
  },
+ "ci": {
+  "ops": [
+   "get_ci_fleet",
+   "get_ci_runs"
+  ]
+ },
  "cloudflare": {
   "ops": [
    "delete_cloudflare_d1_databases_by_database",
@@ -1676,10 +1682,12 @@
    "get_team_billing_plan",
    "get_team_bots",
    "get_team_rooms",
+   "get_team_rooms_by_id_messages",
    "get_team_transactor_statistics",
    "post_team_bots_sync",
    "post_team_collaborator_rpc_by_documentid",
    "post_team_rooms",
+   "post_team_rooms_by_id_messages",
    "put_team_rooms_by_id"
   ]
  },
