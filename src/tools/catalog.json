@@ -621,31 +621,31 @@
  "git": {
   "ops": [
    "delete_git_repos_by_name",
-   "delete_git_repos_by_name_mirrors_by_id",
    "delete_git_repos_by_name_subscriptions_by_id",
+   "delete_git_repos_by_name_targets_by_id",
    "get_git_keys",
    "get_git_repos",
    "get_git_repos_by_name",
    "get_git_repos_by_name_blob",
    "get_git_repos_by_name_commits",
    "get_git_repos_by_name_files",
-   "get_git_repos_by_name_mirrors",
    "get_git_repos_by_name_pulls",
    "get_git_repos_by_name_pulls_by_number",
    "get_git_repos_by_name_readme",
    "get_git_repos_by_name_refs",
    "get_git_repos_by_name_subscriptions",
+   "get_git_repos_by_name_targets",
    "get_git_repos_by_name_tree",
    "get_git_usage",
    "patch_git_repos_by_name",
    "post_git_repos",
    "post_git_repos_by_name_gc",
    "post_git_repos_by_name_mirror",
-   "post_git_repos_by_name_mirrors",
    "post_git_repos_by_name_pulls",
    "post_git_repos_by_name_pulls_by_number_merge",
    "post_git_repos_by_name_push",
-   "post_git_repos_by_name_subscriptions"
+   "post_git_repos_by_name_subscriptions",
+   "post_git_repos_by_name_targets"
   ]
  },
  "graph": {
@@ -801,6 +801,7 @@
    "post_integrations_linear_claim",
    "post_integrations_linear_comments",
    "post_integrations_linear_issues_backfill",
+   "post_integrations_slack_join",
    "post_integrations_telegram_connect",
    "put_integrations_github_repos_by_repo_pages"
   ]
@@ -820,6 +821,7 @@
    "get_knowledge_connectors_catalog",
    "get_knowledge_graph",
    "post_knowledge_connectors_by_provider_sync",
+   "post_knowledge_reindex",
    "post_knowledge_search"
   ]
  },
@@ -1002,8 +1004,10 @@
   "ops": [
    "get_network",
    "get_network_by_id",
+   "get_network_identities",
    "get_network_routers",
-   "get_network_services"
+   "get_network_services",
+   "post_network_services"
   ]
  },
  "node": {
@@ -1681,6 +1685,7 @@
    "get_team_account_providers",
    "get_team_billing_plan",
    "get_team_bots",
+   "get_team_public",
    "get_team_rooms",
    "get_team_rooms_by_id_messages",
    "get_team_transactor_statistics",
