@@ -10,13 +10,14 @@
 //! request has been made, and because a client that needs the network to say
 //! what it can do has nothing to say when the network is what failed.
 //!
-//! Refresh it with `pnpm sync:catalog` at the repo root.
+//! After refreshing cloud's catalog, run `python3 scripts/sync-rust-catalog.py`.
+//! The packaged copy is checked against the canonical file during repo builds.
 
 use serde::Deserialize;
 use std::collections::BTreeMap;
 use std::sync::OnceLock;
 
-const CATALOG: &str = include_str!("../../src/tools/catalog.json");
+const CATALOG: &str = include_str!("../catalog.json");
 
 #[derive(Debug, Deserialize)]
 struct Entry {
