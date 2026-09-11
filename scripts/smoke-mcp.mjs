@@ -9,9 +9,12 @@
 //   4. tools/call fs list  — list the cwd, expect our temp file in the result
 //   5. resources/list      — system-prompt resource present
 //   6. resources/read      — body of hanzo://system-prompt non-empty
+//   7. list-tools          — every tool from 2, and no group without a tool
+//   8. --core-only         — serve and list-tools narrow to the core group
+//   9. install --claude-code — runs `claude mcp add` (a stand-in claude on PATH)
 // Any failure -> exit 1 with the diagnostic. No silent passes.
 
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import fs from "node:fs/promises";
 import os from "node:os";
@@ -144,7 +147,48 @@ try {
   }
   ok(`resources/read → system prompt (${body.length} bytes)`);
 
-  console.log(`PASS  hanzo-mcp ${init.serverInfo.version} integration smoke (6/6)`);
+  // 7 — list-tools prints what tools/list offered, under groups that each have a tool
+  const run = (args, { env = {}, input } = {}) =>
+    spawnSync(process.execPath, [cli, ...args], {
+      cwd: tmp, input, encoding: "utf8", timeout: 20_000,
+      env: { ...process.env, HANZO_MCP_NO_ZAP: "1", ...env },
+    });
+  const listed = (out) => out.split("\n").filter((l) => l.startsWith("  - ")).map((l) => l.slice(4).split(":")[0]);
+  const lt = run(["list-tools"]);
+  const lines = lt.stdout.split("\n");
+  const empty = lines.filter((l, i) => /^\S.*:$/.test(l) && !l.includes("(") && !lines[i + 1]?.startsWith("  - "));
+  const shown = listed(lt.stdout);
+  const unlisted = [...names].filter((n) => !shown.includes(n));
+  if (lt.status !== 0 || empty.length || unlisted.length || shown.length !== names.size) {
+    die(`list-tools: exit ${lt.status}, empty groups ${JSON.stringify(empty)}, unlisted ${JSON.stringify(unlisted)}, ${shown.length} listed of ${names.size}`);
+  }
+  ok(`list-tools → ${shown.length} tools, no empty group`);
+
+  // 8 — --core-only narrows serve and list-tools to the core group
+  const CORE = "fs exec code git fetch workspace ui";
+  const input = [
+    { jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "smoke", version: "1.0" } } },
+    { jsonrpc: "2.0", method: "notifications/initialized" },
+    { jsonrpc: "2.0", id: 2, method: "tools/list" },
+  ].map((m) => JSON.stringify(m) + "\n").join("");
+  const answer = run(["serve", "--core-only"], { input }).stdout.split("\n").find((l) => l.includes('"id":2'));
+  const served = answer ? JSON.parse(answer).result.tools.map((t) => t.name).join(" ") : "";
+  const coreListed = listed(run(["list-tools", "--core-only"]).stdout).join(" ");
+  if (served !== CORE || coreListed !== CORE) die(`--core-only: serve offered "${served}", list-tools printed "${coreListed}"`);
+  ok(`--core-only → ${CORE}`);
+
+  // 9 — install --claude-code has claude register the server, through a stand-in on PATH
+  const bin = path.join(tmp, "bin");
+  await fs.mkdir(bin);
+  await fs.writeFile(path.join(bin, "claude"), '#!/bin/sh\nprintf "%s\\n" "$@" > "$HOME/argv"\n', { mode: 0o755 });
+  const inst = run(["install", "--claude-code"], { env: { HOME: tmp, PATH: `${bin}${path.delimiter}${process.env.PATH}` } });
+  const argv = (await fs.readFile(path.join(tmp, "argv"), "utf8").catch(() => "")).trim().split("\n").join(" ");
+  if (inst.status !== 0 || argv !== "mcp add --scope user hanzo -- npx -y @hanzo/mcp serve") {
+    die(`install --claude-code: exit ${inst.status}, claude ran with "${argv}"`);
+  }
+  ok(`install --claude-code → claude ${argv}`);
+
+  console.log(`PASS  hanzo-mcp ${init.serverInfo.version} integration smoke (9/9)`);
   child.kill("SIGTERM");
   await fs.rm(tmp, { recursive: true, force: true });
   process.exit(0);

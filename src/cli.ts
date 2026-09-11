@@ -17,6 +17,7 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 import * as http from 'http';
 import * as fs from 'fs/promises';
+import { spawnSync } from 'child_process';
 import * as os from 'os';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
@@ -27,7 +28,11 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 // Import our tools
-import { getConfiguredTools, ToolConfig } from './tools/index.js';
+import {
+  getConfiguredTools, ToolConfig, coreTools, optionalTools, codeIntelTools, trackerTools, uiTools,
+  autoguiTools, orchestrationTools, uiRegistryTools, githubUITools, desktopTools, cryptuonCommunityTools,
+} from './tools/index.js';
+import { Tool } from './types/index.js';
 import { getSystemPrompt } from './prompts/system.js';
 
 // Version from package.json
@@ -59,28 +64,11 @@ program
   .option('--disable-ui', 'Disable UI tools for component development')
   .option('--disable-autogui', 'Disable AutoGUI tools for computer control')
   .option('--disable-orchestration', 'Disable orchestration tools for agent management')
-  .option('--core-only', 'Enable only core tools (files, search, shell, edit)')
+  .option('--core-only', 'Offer only the core tools: fs, exec, code, git, fetch, workspace, ui')
   .option('--disable-tools <tools>', 'Comma-separated list of tools to disable')
   .option('--enable-categories <categories>', 'Comma-separated list of categories to enable (files,search,shell,edit)')
   .action(async (options) => {
-    const fullSurface = Boolean(options.fullSurface);
-    const coreOnly = Boolean(options.coreOnly);
-
-    // Configure tools based on options
-    const toolConfig: ToolConfig = {
-      enableCore: !coreOnly || options.enableCategories,
-      enableUI: coreOnly ? false : (fullSurface ? !options.disableUi : Boolean(options.enableUi) && !options.disableUi),
-      enableAutoGUI: coreOnly ? false : (fullSurface ? !options.disableAutogui : Boolean(options.enableAutogui) && !options.disableAutogui),
-      enableOrchestration: coreOnly ? false : (fullSurface ? !options.disableOrchestration : Boolean(options.enableOrchestration) && !options.disableOrchestration),
-      enableUIRegistry: coreOnly ? false : (fullSurface ? true : Boolean(options.enableUiRegistry)),
-      enableGitHubUI: coreOnly ? false : (fullSurface ? true : Boolean(options.enableGithubUi)),
-      enableDesktop: coreOnly ? false : Boolean(options.enableDesktop),
-      enableCommunityCryptuon: coreOnly ? false : Boolean(options.enableCommunityCryptuon),
-      dedupeTools: true,
-      enabledCategories: options.enableCategories ? options.enableCategories.split(',') : [],
-      disabledTools: options.disableTools ? options.disableTools.split(',') : []
-    };
-
+    const toolConfig = surface(options);
     const tools = getConfiguredTools(toolConfig);
 
     // Diagnostic preamble. Always-on (stderr only; doesn't pollute JSON-RPC
@@ -134,101 +122,35 @@ program
   .option('--disable-ui', 'Exclude UI tools from listing')
   .option('--disable-autogui', 'Exclude AutoGUI tools from listing')
   .option('--disable-orchestration', 'Exclude orchestration tools from listing')
-  .option('--core-only', 'Show only core tools')
-  .option('--category <category>', 'Filter by category (files, search, shell, edit, ui, autogui)')
+  .option('--core-only', 'List only the core tools')
+  .option('--category <group>', 'List one group: core, optional, code intelligence, tracker, ui, autogui, orchestration, ui registry, github ui, desktop, community, other')
   .action(async (options) => {
-    const fullSurface = Boolean(options.fullSurface);
-    const coreOnly = Boolean(options.coreOnly);
+    const tools = getConfiguredTools(surface(options));
+    const left = new Map(tools.map(t => [t.name, t]));
+    // The groups README.md names, then the sets the flags add. A tool in none of
+    // them is listed under `other`, so every tool the server offers is printed.
+    const sets: Array<[string, Tool[]]> = [
+      ['core', coreTools],
+      ['optional', optionalTools],
+      ['code intelligence', codeIntelTools],
+      ['tracker', trackerTools],
+      ['ui', uiTools],
+      ['autogui', autoguiTools],
+      ['orchestration', orchestrationTools],
+      ['ui registry', uiRegistryTools],
+      ['github ui', githubUITools],
+      ['desktop', desktopTools],
+      ['community', cryptuonCommunityTools],
+    ];
+    const groups = sets.map(([group, set]): [string, Tool[]] => [group, set.filter(t => left.delete(t.name))]);
+    groups.push(['other', [...left.values()]]);
+    const wanted = options.category?.toLowerCase();
 
-    // Configure tools based on options
-    const toolConfig: ToolConfig = {
-      enableCore: true,
-      enableUI: coreOnly ? false : (fullSurface ? !options.disableUi : Boolean(options.enableUi) && !options.disableUi),
-      enableAutoGUI: coreOnly ? false : (fullSurface ? !options.disableAutogui : Boolean(options.enableAutogui) && !options.disableAutogui),
-      enableOrchestration: coreOnly ? false : (fullSurface ? !options.disableOrchestration : Boolean(options.enableOrchestration) && !options.disableOrchestration),
-      enableUIRegistry: coreOnly ? false : (fullSurface ? true : Boolean(options.enableUiRegistry)),
-      enableGitHubUI: coreOnly ? false : (fullSurface ? true : Boolean(options.enableGithubUi)),
-      enableDesktop: coreOnly ? false : Boolean(options.enableDesktop),
-      enableCommunityCryptuon: coreOnly ? false : Boolean(options.enableCommunityCryptuon),
-      dedupeTools: true,
-    };
-
-    const tools = getConfiguredTools(toolConfig);
-    const toolMap = new Map(tools.map(t => [t.name, t]));
-    
     console.log(`\nHanzo MCP Tools (${tools.length} total):\n`);
-    
-    // Group tools by category
-    const categories: Record<string, string[]> = {
-      'File Operations': ['read', 'write', 'list', 'info', 'tree'],
-      'Search': ['grep', 'find', 'search'],
-      'Editing': ['edit', 'patch', 'create', 'delete', 'move'],
-      'Shell': ['bash', 'bg', 'ps', 'logs', 'kill']
-    };
-    
-    // Add UI tools category if enabled
-    if (toolConfig.enableUI) {
-      categories['UI Tools'] = [
-        'ui_init', 'ui_list_components', 'ui_get_component', 'ui_get_component_source',
-        'ui_get_component_demo', 'ui_add_component', 'ui_list_blocks', 'ui_get_block',
-        'ui_list_styles', 'ui_search_registry', 'ui_get_installation_guide',
-        'ui'
-      ];
-    }
-    
-    // Add AutoGUI tools category if enabled
-    if (toolConfig.enableAutoGUI) {
-      categories['AutoGUI Tools'] = [
-        'autogui_status', 'autogui_configure', 'autogui_get_screen_size', 'autogui_get_screens',
-        'autogui_get_mouse_position', 'autogui_move_mouse', 'autogui_click', 'autogui_drag', 'autogui_scroll',
-        'autogui_type', 'autogui_press_key', 'autogui_hotkey', 'autogui_screenshot', 'autogui_get_pixel',
-        'autogui_locate_image', 'autogui_get_windows', 'autogui_control_window', 'autogui_sleep'
-      ];
-    }
-    
-    // Add Orchestration tools category if enabled
-    if (toolConfig.enableOrchestration) {
-      categories['Orchestration Tools'] = [
-        'spawn', 'swarm', 'critic', 'node', 'router', 'consensus',
-        'spawn_agent', 'swarm_orchestration', 'critic_agent', 'hanzo_node', 'llm_router'
-      ];
-    }
-
-    if (toolConfig.enableUIRegistry) {
-      categories['UI Registry Tools'] = [
-        'ui_list_components', 'ui_search_components', 'ui_get_component',
-        'ui_install_component', 'ui_create_composition', 'ui_get_registry'
-      ];
-    }
-
-    if (toolConfig.enableGitHubUI) {
-      categories['GitHub UI Tools'] = [
-        'ui_fetch_component', 'ui_fetch_demo', 'ui_fetch_block', 'ui_get_block',
-        'ui_list_github_components', 'ui_list_github_blocks', 'ui_list_blocks',
-        'ui_component_metadata', 'ui_get_component_demo', 'ui_get_component_metadata',
-        'ui_get_directory_structure', 'ui_directory_structure', 'ui_github_rate_limit'
-      ];
-    }
-
-    if (toolConfig.enableDesktop) {
-      categories['Desktop Tools'] = ['hanzo_desktop', 'playwright_control'];
-    }
-    
-    // Filter by category if specified
-    const categoriesToShow = options.category 
-      ? Object.entries(categories).filter(([cat]) => cat.toLowerCase().includes(options.category.toLowerCase()))
-      : Object.entries(categories);
-    
-    for (const [category, toolNames] of categoriesToShow) {
-      console.log(`${category}:`);
-      const shown = new Set<string>();
-      for (const toolName of toolNames) {
-        const tool = toolMap.get(toolName);
-        if (tool && !shown.has(tool.name)) {
-          shown.add(tool.name);
-          console.log(`  - ${tool.name}: ${tool.description}`);
-        }
-      }
+    for (const [group, members] of groups) {
+      if (!members.length || (wanted && !group.includes(wanted))) continue;
+      console.log(`${group}:`);
+      for (const tool of members) console.log(`  - ${tool.name}: ${tool.description.split('\n')[0]}`);
       console.log();
     }
   });
@@ -283,37 +205,18 @@ program
       }
     };
     
-    // Helper function to install for Claude Code
+    // Helper function to install for Claude Code. Claude Code reads the servers
+    // `claude mcp add` registered, not a file written beside its config.
     const installClaudeCode = async () => {
       console.log('📦 Installing for Claude Code...');
-      const configDir = path.join(os.homedir(), '.config', 'claude-code');
-      const configFile = path.join(configDir, 'mcp.json');
-      
-      try {
-        await fs.mkdir(configDir, { recursive: true });
-        let config: any = {};
-        try {
-          const configContent = await fs.readFile(configFile, 'utf-8');
-          config = JSON.parse(configContent);
-        } catch {
-          // Config doesn't exist yet
-        }
-        
-        if (!config.servers) {
-          config.servers = {};
-        }
-        
-        config.servers['hanzo-mcp'] = {
-          command: 'npx',
-          args: ['-y', '--package=@hanzo/mcp', 'hanzo-mcp', 'serve'],
-          env: {}
-        };
-        
-        await fs.writeFile(configFile, JSON.stringify(config, null, 2));
-        console.log(`✓ Claude Code configured: ${configFile}`);
-      } catch (error: any) {
-        console.error(`✗ Claude Code installation failed: ${error.message}`);
+      const args = ['mcp', 'add', '--scope', 'user', 'hanzo', '--', 'npx', '-y', '@hanzo/mcp', 'serve'];
+      const run = spawnSync('claude', args, { stdio: 'inherit' });
+      if (run.error || run.status !== 0) {
+        const why = run.error ? `did not run: ${run.error.message}` : `exited ${run.status}`;
+        console.error(`✗ Claude Code: claude ${args.join(' ')} ${why}`);
+        return;
       }
+      console.log('✓ Claude Code configured for every project (claude mcp list shows hanzo)');
     };
     
     // Helper function to install for Cursor
@@ -592,6 +495,26 @@ program
     // Call the new install command with claude-desktop flag
     await program.parseAsync(['node', 'cli', 'install', '--claude-desktop'], { from: 'user' });
   });
+
+// The tool set the surface flags select. serve and list-tools take the same
+// flags, and both read them here.
+function surface(options: any): ToolConfig {
+  const full = Boolean(options.fullSurface);
+  const core = Boolean(options.coreOnly);
+  return {
+    coreOnly: core,
+    enableUI: !core && (full ? !options.disableUi : Boolean(options.enableUi) && !options.disableUi),
+    enableAutoGUI: !core && (full ? !options.disableAutogui : Boolean(options.enableAutogui) && !options.disableAutogui),
+    enableOrchestration: !core && (full ? !options.disableOrchestration : Boolean(options.enableOrchestration) && !options.disableOrchestration),
+    enableUIRegistry: !core && (full || Boolean(options.enableUiRegistry)),
+    enableGitHubUI: !core && (full || Boolean(options.enableGithubUi)),
+    enableDesktop: !core && Boolean(options.enableDesktop),
+    enableCommunityCryptuon: !core && Boolean(options.enableCommunityCryptuon),
+    dedupeTools: true,
+    enabledCategories: options.enableCategories ? options.enableCategories.split(',') : [],
+    disabledTools: options.disableTools ? options.disableTools.split(',') : [],
+  };
+}
 
 // Register the MCP request handlers shared by every transport.
 function registerHandlers(

@@ -16,6 +16,9 @@ The package declares Node 18 or newer. For Claude Code:
 claude mcp add hanzo -- npx -y @hanzo/mcp serve
 ```
 
+`npx -y @hanzo/mcp install --claude-code` runs that command with `--scope user`,
+which registers the server for every project.
+
 `claude mcp list` then reports `hanzo: npx -y @hanzo/mcp serve - ✔ Connected`.
 With `--scope project` the entry goes into the project's `.mcp.json` instead,
 and Claude Code asks before it starts a server from that file. Other MCP clients
@@ -57,6 +60,7 @@ Flags on `serve` change the set:
 | flag | effect |
 |---|---|
 | `--disable-tools plan,tasks` | removes the named tools |
+| `--core-only` | only the core group |
 | `--enable-ui` | adds the `ui_*` component tools |
 | `--enable-desktop` | adds `hanzo_desktop` and `playwright_control` |
 | `--enable-autogui`, `--enable-orchestration`, `--enable-ui-registry`, `--enable-github-ui`, `--enable-community-cryptuon` | add those tool sets |

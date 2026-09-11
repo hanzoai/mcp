@@ -113,6 +113,8 @@ export interface ToolConfig {
   unified?: boolean;
   /** Enable legacy individual tools instead */
   enableLegacy?: boolean;
+  /** Offer only the core group of the unified surface */
+  coreOnly?: boolean;
   enableCore?: boolean;
   enableAI?: boolean;
   enableAST?: boolean;
@@ -151,6 +153,7 @@ export function getConfiguredTools(config: ToolConfig = {}): Tool[] {
   const {
     unified = true,
     enableLegacy = false,
+    coreOnly = false,
     enableUI = false,
     enableAutoGUI = false,
     enableOrchestration = false,
@@ -167,7 +170,7 @@ export function getConfiguredTools(config: ToolConfig = {}): Tool[] {
 
   if (unified && !enableLegacy) {
     // HIP-0300 canonical surface
-    tools = [...allUnifiedTools];
+    tools = coreOnly ? [...unifiedCoreTools] : [...allUnifiedTools];
   } else {
     // Legacy individual tools
     const {
