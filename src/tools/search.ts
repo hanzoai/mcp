@@ -243,7 +243,7 @@ export const searchTool: Tool = {
       
       // Search in file contents
       if (searchType === 'all' || searchType === 'code' || searchType === 'text') {
-        const useRipgrep = await hasRipgrep();
+        const useRipgrep = await onPath('rg');
         let command: string;
         
         if (useRipgrep) {
