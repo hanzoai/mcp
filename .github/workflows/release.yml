@@ -25,7 +25,29 @@ permissions:
   contents: write
 
 jobs:
+  # The release has to exist before anything can be attached to it, and four
+  # matrix jobs racing to create it is three failures and a coin toss. One job,
+  # first, and the builds wait on it.
+  open:
+    runs-on: linux-amd64
+    steps:
+      - uses: actions/checkout@v4
+      - name: Open the release if it is not already there
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -eu
+          if gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "$GITHUB_REF_NAME already exists — attaching to it"
+          else
+            gh release create "$GITHUB_REF_NAME" \
+              --repo "$GITHUB_REPOSITORY" \
+              --title "hanzo-mcp ${GITHUB_REF_NAME#rust-v}" \
+              --generate-notes
+          fi
+
   build:
+    needs: open
     strategy:
       # One target failing leaves the others published rather than the release
       # empty. A missing target is a missing file somebody can chase; a missing
