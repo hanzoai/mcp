@@ -5,25 +5,40 @@
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import { glob } from 'glob';
+import { existsSync } from 'fs';
+import { join } from 'path';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import { Tool, ToolResult, SearchResult } from '../types';
 
 const execAsync = promisify(exec);
 
-// Check if ripgrep is available
-const hasRipgrep = async (): Promise<boolean> => {
+const onPath = async (bin: string): Promise<boolean> => {
   try {
-    await execAsync(process.platform === 'win32' ? 'where rg' : 'which rg');
+    await execAsync(`${process.platform === 'win32' ? 'where' : 'which'} ${bin}`);
     return true;
   } catch {
     return false;
   }
 };
 
+// tgrep is preferred, but ONLY where the tree carries its trigram index.
+//
+// The index is what makes it fast: a query it can prune never opens most files.
+// Measured on one repo, warm, identical hit counts — 23ms against ripgrep's 78ms
+// for a symbol that is absent, which is most of what a search asks. Where many
+// files match it cannot prune and loses (128ms against 78ms), and with NO index
+// it is worse than plain grep (1000ms against 244ms) while printing a warning
+// nobody reads. So the index is the condition, not the binary.
+const searcher = async (dir: string): Promise<'tgrep' | 'rg' | 'grep'> => {
+  if (existsSync(join(dir, '.tgrep')) && (await onPath('tgrep'))) return 'tgrep';
+  if (await onPath('rg')) return 'rg';
+  return 'grep';
+};
+
 export const grepTool: Tool = {
   name: 'grep',
-  description: 'Search for patterns in files using grep or ripgrep',
+  description: 'Search for patterns in files using tgrep, ripgrep or grep',
   inputSchema: {
     type: 'object',
     properties: {
@@ -60,10 +75,18 @@ export const grepTool: Tool = {
   },
   handler: async (args) => {
     try {
-      const useRipgrep = await hasRipgrep();
+      const dir = args.path || '.';
+      const tool = await searcher(dir);
       let command: string;
-      
-      if (useRipgrep) {
+
+      if (tool === 'tgrep') {
+        command = 'tgrep';
+        if (args.ignoreCase) command += ' -i';
+        if (args.showLineNumbers) command += ' -n';
+        if (args.contextLines > 0) command += ` -C ${args.contextLines}`;
+        if (args.filePattern) command += ` -g "${args.filePattern}"`;
+        command += ` "${args.pattern}" "${dir}"`;
+      } else if (tool === 'rg') {
         command = 'rg';
         if (args.ignoreCase) command += ' -i';
         if (args.showLineNumbers) command += ' -n';
