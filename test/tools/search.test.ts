@@ -64,7 +64,7 @@ This is a test project for searching functionality.
   describe('grepTool', () => {
     test('should have correct metadata', () => {
       expect(grepTool.name).toBe('grep');
-      expect(grepTool.description).toBe('Search for patterns in files using grep or ripgrep');
+      expect(grepTool.description).toBe('Search for patterns in files using tgrep, ripgrep or grep');
       expect(grepTool.inputSchema.type).toBe('object');
       expect(grepTool.inputSchema.required).toContain('pattern');
     });
