@@ -57,7 +57,8 @@ them at another host.
 
 `hanzo` reaches every Hanzo Cloud subsystem: `resource` names one, `action` one
 of its operations, `args` that operation's arguments. With no `action` it lists
-the resource's operations. The list is generated from cloud's catalog.
+the resource's operations, and `resource: "describe"` with `args: {subsystem, op}`
+says what one takes. The list is generated from cloud's catalog.
 
 ```json
 { "resource": "graph", "action": "graphResolve",

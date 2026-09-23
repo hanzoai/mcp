@@ -50,9 +50,56 @@ describe('the default surface did not grow', () => {
     expect(names.length).toBeLessThan(40);
   });
 
-  it('reaches every subsystem through that one tool', () => {
+  it('reaches every subsystem, and describe, through that one tool', () => {
     const hanzo = getConfiguredTools({}).find((t) => t.name === 'hanzo')!;
-    expect(hanzo.inputSchema.properties.resource.enum).toEqual(Object.keys(fleet).sort());
+    expect(hanzo.inputSchema.properties.resource.enum).toEqual(['describe', ...Object.keys(fleet)].sort());
+  });
+});
+
+/** sent runs fn against a stand-in fleet and returns the params of every call it made. */
+async function sent(fn: () => Promise<unknown>): Promise<unknown[]> {
+  const key = process.env.HANZO_API_KEY;
+  process.env.HANZO_API_KEY = 'test-key';
+  const fetchMock = jest.fn().mockResolvedValue({
+    ok: true,
+    text: async () => JSON.stringify({ jsonrpc: '2.0', id: 1, result: { content: [{ type: 'text', text: '{}' }] } }),
+  });
+  const real = globalThis.fetch;
+  (globalThis as any).fetch = fetchMock;
+  try {
+    await fn();
+    return (fetchMock.mock.calls as [string, { body: string }][]).map(([url, init]) => {
+      expect(url).toMatch(/\/v1\/mcp$/);
+      return JSON.parse(init.body).params;
+    });
+  } finally {
+    (globalThis as any).fetch = real;
+    if (key === undefined) delete process.env.HANZO_API_KEY;
+    else process.env.HANZO_API_KEY = key;
+  }
+}
+
+describe('the hanzo tool', () => {
+  const hanzo = () => getConfiguredTools({}).find((t) => t.name === 'hanzo')!;
+
+  it('reads what an action takes, through describe', async () => {
+    const calls = await sent(() => hanzo().handler({ resource: 'describe', args: { subsystem: 'graph', op: 'graphPath' } }));
+    expect(calls).toEqual([{ name: 'describe', arguments: { subsystem: 'graph', op: 'graphPath' } }]);
+  });
+
+  it('refuses arguments it would send as some other call', async () => {
+    const calls = await sent(async () => {
+      for (const call of [
+        { resource: 'graph', action: 'graphResolve', args: '{"entity":"a","relation":"b"}' },
+        { resource: 'graph', action: 'graphResolve', args: ['a', 'b'] },
+        { resource: 'graph', action: 'graphResolve', input: { entity: 'a', relation: 'b' } },
+      ]) {
+        const r = await hanzo().handler(call);
+        expect(r.isError).toBe(true);
+        expect(JSON.parse(r.content[0].text!).error.code).toBe('INVALID_ARGS');
+      }
+    });
+    expect(calls).toEqual([]);
   });
 });
 
@@ -77,31 +124,15 @@ describe('the graph is on the surface', () => {
   });
 
   it('sends an operation to the fleet as the graph tool, with its input', async () => {
-    const key = process.env.HANZO_API_KEY;
-    process.env.HANZO_API_KEY = 'test-key';
-    const fetchMock = jest.fn().mockResolvedValue({
-      ok: true,
-      text: async () => JSON.stringify({ jsonrpc: '2.0', id: 1, result: { content: [{ type: 'text', text: '{}' }] } }),
-    });
-    const real = globalThis.fetch;
-    (globalThis as any).fetch = fetchMock;
-    try {
-      const input = { from: 'acme/svc/api', to: 'acme/team/core', as_of: '2026-09-01T00:00:00Z' };
-      const want = { name: 'graph', arguments: { op: 'graphPath', input } };
+    const input = { from: 'acme/svc/api', to: 'acme/team/core', as_of: '2026-09-01T00:00:00Z' };
+    const want = { name: 'graph', arguments: { op: 'graphPath', input } };
+    const hanzo = getConfiguredTools({}).find((t) => t.name === 'hanzo')!;
+    const calls = await sent(async () => {
       await graph().handler({ op: 'graphPath', input });
       // The default surface reaches it through hanzo, and must send the same call.
-      const hanzo = getConfiguredTools({}).find((t) => t.name === 'hanzo')!;
       await hanzo.handler({ resource: 'graph', action: 'graphPath', args: input });
-      for (const [url, init] of fetchMock.mock.calls as [string, { body: string }][]) {
-        expect(url).toMatch(/\/v1\/mcp$/);
-        expect(JSON.parse(init.body).params).toEqual(want);
-      }
-      expect(fetchMock).toHaveBeenCalledTimes(2);
-    } finally {
-      (globalThis as any).fetch = real;
-      if (key === undefined) delete process.env.HANZO_API_KEY;
-      else process.env.HANZO_API_KEY = key;
-    }
+    });
+    expect(calls).toEqual([want, want]);
   });
 });
 
