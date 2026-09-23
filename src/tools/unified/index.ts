@@ -52,7 +52,7 @@ export const coreTools: Tool[] = [
 export const optionalTools: Tool[] = [
   thinkTool,   // Structured reasoning
   memoryTool,  // Persistent storage
-  hanzoTool,   // Hanzo platform (iam/kms/paas/commerce/storage/auth/api)
+  hanzoTool,   // Hanzo Cloud: every fleet subsystem, by resource and action
   planTool,    // Task planning
   tasksTool,   // Task tracking
   modeTool,    // Developer modes

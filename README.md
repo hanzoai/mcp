@@ -55,6 +55,15 @@ The core and optional tools take an `action` argument that picks the operation;
 `https://api.hanzo.ai` with the key in `HANZO_API_KEY`, and `API_URL` points
 them at another host.
 
+`hanzo` reaches every Hanzo Cloud subsystem: `resource` names one, `action` one
+of its operations, `args` that operation's arguments. With no `action` it lists
+the resource's operations. The list is generated from cloud's catalog.
+
+```json
+{ "resource": "graph", "action": "graphResolve",
+  "args": { "entity": "acme/svc/api", "relation": "owner", "as_of": "2026-09-01T00:00:00Z" } }
+```
+
 Flags on `serve` change the set:
 
 | flag | effect |

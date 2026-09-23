@@ -1,10 +1,10 @@
 /**
  * hanzo — Unified Hanzo platform tool (HIP-0300)
  *
- * One tool for the Platform axis.
- * resource + action two-level routing: iam, kms, paas, commerce, storage, auth, api
- *
- * Delegates to the existing cloud tool handlers.
+ * One tool for the Platform axis: `resource` names a fleet subsystem and
+ * `action` one of its operations, whose arguments ride in `args`. The call is
+ * the subsystem tool's own, `{op: action, input: args}`, the same shape the Rust
+ * runtime sends (rust/src/tools/hanzo_tool.rs).
  */
 
 import { Tool } from '../../types/index.js';
@@ -12,11 +12,12 @@ import { Tool } from '../../types/index.js';
 // The fleet's own subsystems, generated from cloud's typed operations.
 import { cloudTools } from '../cloud.js';
 
-const cloudToolMap = new Map(cloudTools.map(t => [t.name, t]));
-
 // Derived, never listed: a subsystem the fleet gains is reachable here the day
-// it is generated, and a name that stopped existing cannot be offered.
-const RESOURCES = cloudTools.map(t => t.name).sort();
+// it is generated, and a name that stopped existing cannot be offered. `describe`
+// is not a subsystem and takes no {op, input}, so it is not a resource.
+const subsystems = cloudTools.filter(t => t.name !== 'describe');
+const cloudToolMap = new Map(subsystems.map(t => [t.name, t]));
+const RESOURCES = subsystems.map(t => t.name).sort();
 
 function envelope(data: any, action: string) {
   return { content: [{ type: 'text' as const, text: JSON.stringify({ ok: true, data, error: null, meta: { tool: 'hanzo', action } }, null, 2) }] };
@@ -28,43 +29,40 @@ function fail(code: string, message: string) {
 
 export const hanzoTool: Tool = {
   name: 'hanzo',
-  description: 'Hanzo platform: iam, kms, paas, commerce, storage, auth, api — specify resource to see actions',
+  description:
+    'Hanzo Cloud: resource names a subsystem, action one of its operations, args its arguments. ' +
+    'No resource lists the subsystems; no action lists the resource\'s actions.',
   inputSchema: {
     type: 'object',
     properties: {
       resource: { type: 'string', enum: RESOURCES, description: 'The fleet subsystem to act on.' },
-      action: { type: 'string', description: 'Resource action' },
-      // Pass-through params for cloud tools
-      id: { type: 'string' },
-      data: { type: 'object' },
-      query: { type: 'string' },
-      method: { type: 'string' },
-      path: { type: 'string' },
-      body: { type: 'object' },
-      // Commerce sub-routing
-      sub_resource: { type: 'string' },
-      // General
-      limit: { type: 'number' },
-      offset: { type: 'number' },
+      action: { type: 'string', description: 'The operation to run.' },
+      args: { type: 'object', description: "The operation's own arguments (alias: data)." },
     },
     required: []
   },
-  handler: async (args) => {
+  handler: async ({ resource, action, args, data, ...rest }: any = {}) => {
     try {
-      // No resource — show available resources
-      if (!args.resource) {
+      if (!resource) {
         return envelope({
           resources: RESOURCES,
-          hint: 'Call hanzo(resource="iam") to see available actions for that resource',
+          hint: 'Call hanzo(resource="graph") to see that resource\'s actions',
         }, 'list');
       }
 
-      // Find the matching cloud tool
-      const tool = cloudToolMap.get(args.resource);
-      if (!tool) return fail('NOT_FOUND', `Unknown resource: ${args.resource}. Available: ${RESOURCES.join(', ')}`);
+      const tool = cloudToolMap.get(resource);
+      if (!tool) return fail('NOT_FOUND', `Unknown resource: ${resource}. Available: ${RESOURCES.join(', ')}`);
 
-      // Delegate to the existing cloud tool handler with all args forwarded
-      return await tool.handler(args);
+      if (!action) {
+        return envelope({
+          resource,
+          actions: tool.inputSchema.properties.op?.enum ?? [],
+          hint: `Call hanzo(resource="${resource}", action="<action>", args={...})`,
+        }, 'help');
+      }
+
+      // Top-level keys, then the bag: a caller may spell an argument either way.
+      return await tool.handler({ op: action, input: { ...rest, ...data, ...args } });
     } catch (error: any) {
       return fail('ERROR', error.message);
     }

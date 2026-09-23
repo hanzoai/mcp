@@ -52,7 +52,56 @@ describe('the default surface did not grow', () => {
 
   it('reaches every subsystem through that one tool', () => {
     const hanzo = getConfiguredTools({}).find((t) => t.name === 'hanzo')!;
-    expect(hanzo.inputSchema.properties.resource.enum).toEqual(cloudTools.map((t) => t.name).sort());
+    expect(hanzo.inputSchema.properties.resource.enum).toEqual(Object.keys(fleet).sort());
+  });
+});
+
+describe('the graph is on the surface', () => {
+  // Every operation cloud's graph serves. The names are this test's claim; the
+  // enum it is held against is cloud's generated catalog.
+  const ops = [
+    'graphAnswer', 'graphAssert', 'graphCommunities', 'graphDiff', 'graphErase',
+    'graphExtract', 'graphIngest', 'graphNeighbors', 'graphPath', 'graphRead',
+    'graphResolve', 'graphSearch', 'graphVocabulary',
+  ];
+  const graph = () => cloudTools.find((t) => t.name === 'graph')!;
+
+  it('offers every graph operation in the graph tool', () => {
+    expect(graph().inputSchema.properties.op.enum).toEqual(expect.arrayContaining(ops));
+  });
+
+  it('lists every graph operation as an action of the hanzo tool', async () => {
+    const hanzo = getConfiguredTools({}).find((t) => t.name === 'hanzo')!;
+    const r = await hanzo.handler({ resource: 'graph' });
+    expect(JSON.parse(r.content[0].text!).data.actions).toEqual(expect.arrayContaining(ops));
+  });
+
+  it('sends an operation to the fleet as the graph tool, with its input', async () => {
+    const key = process.env.HANZO_API_KEY;
+    process.env.HANZO_API_KEY = 'test-key';
+    const fetchMock = jest.fn().mockResolvedValue({
+      ok: true,
+      text: async () => JSON.stringify({ jsonrpc: '2.0', id: 1, result: { content: [{ type: 'text', text: '{}' }] } }),
+    });
+    const real = globalThis.fetch;
+    (globalThis as any).fetch = fetchMock;
+    try {
+      const input = { from: 'acme/svc/api', to: 'acme/team/core', as_of: '2026-09-01T00:00:00Z' };
+      const want = { name: 'graph', arguments: { op: 'graphPath', input } };
+      await graph().handler({ op: 'graphPath', input });
+      // The default surface reaches it through hanzo, and must send the same call.
+      const hanzo = getConfiguredTools({}).find((t) => t.name === 'hanzo')!;
+      await hanzo.handler({ resource: 'graph', action: 'graphPath', args: input });
+      for (const [url, init] of fetchMock.mock.calls as [string, { body: string }][]) {
+        expect(url).toMatch(/\/v1\/mcp$/);
+        expect(JSON.parse(init.body).params).toEqual(want);
+      }
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+    } finally {
+      (globalThis as any).fetch = real;
+      if (key === undefined) delete process.env.HANZO_API_KEY;
+      else process.env.HANZO_API_KEY = key;
+    }
   });
 });
 

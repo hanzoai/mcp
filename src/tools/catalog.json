@@ -33,39 +33,41 @@
    "post_affiliate_me_links"
   ]
  },
- "agents": {
+ "agent": {
   "ops": [
-   "delete_agents_by_ref",
-   "delete_agents_targets_by_id",
-   "get_agents",
-   "get_agents_activity",
-   "get_agents_builds",
-   "get_agents_builds_by_org_by_project",
-   "get_agents_by_ref",
-   "get_agents_by_ref_runs",
-   "get_agents_metrics",
-   "get_agents_runs",
-   "get_agents_sessions",
-   "get_agents_sessions_by_id",
-   "get_agents_sessions_by_id_control",
-   "get_agents_sessions_by_id_progress",
-   "get_agents_sessions_by_id_tree",
-   "get_agents_targets",
-   "get_agents_targets_by_id",
-   "patch_agents_by_ref",
-   "patch_agents_sessions_by_id",
-   "patch_agents_targets_by_id",
-   "post_agents",
-   "post_agents_coding",
-   "post_agents_sessions",
-   "post_agents_sessions_by_id_events",
-   "post_agents_sessions_by_id_message",
-   "post_agents_sessions_by_id_pause",
-   "post_agents_sessions_by_id_resume",
-   "post_agents_sessions_by_id_stop",
-   "post_agents_targets",
-   "post_agents_targets_by_id_claim",
-   "post_agents_targets_by_id_runs_by_runid_report"
+   "delete_agent_by_ref",
+   "delete_agent_targets_by_id",
+   "get_agent",
+   "get_agent_activity",
+   "get_agent_builds",
+   "get_agent_builds_by_org_by_project",
+   "get_agent_by_ref",
+   "get_agent_by_ref_runs",
+   "get_agent_by_ref_spend",
+   "get_agent_metrics",
+   "get_agent_runs",
+   "get_agent_sessions",
+   "get_agent_sessions_by_id",
+   "get_agent_sessions_by_id_control",
+   "get_agent_sessions_by_id_progress",
+   "get_agent_sessions_by_id_tree",
+   "get_agent_targets",
+   "get_agent_targets_by_id",
+   "patch_agent_by_ref",
+   "patch_agent_sessions_by_id",
+   "patch_agent_targets_by_id",
+   "post_agent",
+   "post_agent_coding",
+   "post_agent_sessions",
+   "post_agent_sessions_by_id_budget",
+   "post_agent_sessions_by_id_events",
+   "post_agent_sessions_by_id_message",
+   "post_agent_sessions_by_id_pause",
+   "post_agent_sessions_by_id_resume",
+   "post_agent_sessions_by_id_stop",
+   "post_agent_targets",
+   "post_agent_targets_by_id_claim",
+   "post_agent_targets_by_id_runs_by_runid_report"
   ]
  },
  "ai": {
@@ -100,19 +102,19 @@
  "auto": {
   "ops": [
    "delete_auto_flows_by_id",
-   "get_auto_connectors",
    "get_auto_flows",
    "get_auto_flows_by_id",
    "get_auto_flows_by_id_versions",
+   "get_auto_provider",
    "get_auto_runs",
    "get_auto_runs_by_id",
    "patch_auto_flows_by_id",
-   "post_auto_connectors_by_id_run",
    "post_auto_flows",
    "post_auto_flows_by_id_disable",
    "post_auto_flows_by_id_enable",
    "post_auto_flows_by_id_run",
-   "post_auto_flows_by_id_versions"
+   "post_auto_flows_by_id_versions",
+   "post_auto_provider_by_id_run"
   ]
  },
  "base": {
@@ -171,6 +173,7 @@
    "post_billing_mode",
    "post_billing_recharge_run-all",
    "post_billing_topup",
+   "post_billing_usage",
    "put_billing_recharge",
    "raiseInvoice",
    "reactivateSubscription",
@@ -209,6 +212,7 @@
  },
  "bot": {
   "ops": [
+   "get_bot_members",
    "get_bot_runs",
    "post_bot_runs",
    "post_bot_runs_by_runid_stop"
@@ -266,16 +270,16 @@
    "get_catalog"
   ]
  },
- "channels": {
+ "channel": {
   "ops": [
-   "get_channels",
-   "get_channels_agent",
-   "get_channels_allowlist",
-   "get_channels_inbox",
-   "get_channels_pairing",
-   "post_channels_pairing_approve",
-   "put_channels_agent",
-   "put_channels_allowlist"
+   "get_channel",
+   "get_channel_agent",
+   "get_channel_allowlist",
+   "get_channel_inbox",
+   "get_channel_pairing",
+   "post_channel_pairing_approve",
+   "put_channel_agent",
+   "put_channel_allowlist"
   ]
  },
  "ci": {
@@ -384,6 +388,38 @@
    "post_compliance_verifications_by_id_refresh"
   ]
  },
+ "compute": {
+  "ops": [
+   "attachCluster",
+   "bindMachineAgent",
+   "cancelFleetJob",
+   "createKubernetesCluster",
+   "createNodePool",
+   "deleteKubernetesCluster",
+   "deleteMachine",
+   "deleteNodePool",
+   "detachCluster",
+   "getKubernetesCluster",
+   "getMachine",
+   "getMachineAgent",
+   "get_compute_regions",
+   "get_compute_sizes",
+   "listClusters",
+   "listFleet",
+   "listFleetJobs",
+   "listFleetSamples",
+   "listFleetWorkers",
+   "listGpuAlerts",
+   "listGpus",
+   "listKubernetesClusters",
+   "listKubernetesNodes",
+   "listMachineAgents",
+   "listMachines",
+   "recordFleetSample",
+   "scaleNodePool",
+   "unbindMachineAgent"
+  ]
+ },
  "content": {
   "ops": [
    "get_content_board",
@@ -476,8 +512,10 @@
   "ops": [
    "engineModel",
    "engineModels",
+   "engineReplicas",
    "engineStatus",
-   "engineSystem"
+   "engineSystem",
+   "engineUpdateReplica"
   ]
  },
  "entitlement": {
@@ -555,16 +593,16 @@
    "get_explorer_oracles"
   ]
  },
- "flags": {
+ "flag": {
   "ops": [
-   "delete_flags_defs_by_key",
-   "get_flags_activity",
-   "get_flags_defs",
-   "get_flags_defs_by_key",
-   "get_flags_health",
-   "post_flags",
-   "post_flags_decide",
-   "put_flags_defs_by_key"
+   "delete_flag_defs_by_key",
+   "get_flag_activity",
+   "get_flag_defs",
+   "get_flag_defs_by_key",
+   "get_flag_health",
+   "post_flag",
+   "post_flag_decide",
+   "put_flag_defs_by_key"
   ]
  },
  "flow": {
@@ -597,18 +635,18 @@
    "put_framework_doctypes_by_name"
   ]
  },
- "functions": {
+ "function": {
   "ops": [
-   "delete_functions_by_name",
-   "get_functions",
-   "get_functions_by_name",
-   "get_functions_by_name_invocations",
-   "get_functions_by_name_logs",
-   "get_functions_deployments",
-   "get_functions_metrics",
-   "get_functions_triggers",
-   "post_functions",
-   "post_functions_by_name_invoke"
+   "delete_function_by_name",
+   "get_function",
+   "get_function_by_name",
+   "get_function_by_name_invocations",
+   "get_function_by_name_logs",
+   "get_function_deployments",
+   "get_function_metrics",
+   "get_function_triggers",
+   "post_function",
+   "post_function_by_name_invoke"
   ]
  },
  "gateway": {
@@ -624,6 +662,7 @@
    "delete_git_repos_by_name_subscriptions_by_id",
    "delete_git_repos_by_name_targets_by_id",
    "get_git_keys",
+   "get_git_pools",
    "get_git_repos",
    "get_git_repos_by_name",
    "get_git_repos_by_name_blob",
@@ -636,8 +675,13 @@
    "get_git_repos_by_name_subscriptions",
    "get_git_repos_by_name_targets",
    "get_git_repos_by_name_tree",
+   "get_git_runners",
+   "get_git_runs",
+   "get_git_runs_by_id",
    "get_git_usage",
+   "get_git_workflows",
    "patch_git_repos_by_name",
+   "post_git_pools",
    "post_git_repos",
    "post_git_repos_by_name_gc",
    "post_git_repos_by_name_mirror",
@@ -645,13 +689,26 @@
    "post_git_repos_by_name_pulls_by_number_merge",
    "post_git_repos_by_name_push",
    "post_git_repos_by_name_subscriptions",
-   "post_git_repos_by_name_targets"
+   "post_git_repos_by_name_targets",
+   "post_git_runs",
+   "post_runner_declare",
+   "post_runner_log",
+   "post_runner_register",
+   "post_runner_state",
+   "post_runner_task"
   ]
  },
  "graph": {
   "ops": [
+   "graphAnswer",
    "graphAssert",
+   "graphCommunities",
+   "graphDiff",
+   "graphErase",
+   "graphExtract",
+   "graphIngest",
    "graphNeighbors",
+   "graphPath",
    "graphRead",
    "graphResolve",
    "graphSearch",
@@ -771,39 +828,6 @@
    "put_ingress_routes_by_id",
    "put_ingress_services_by_id",
    "put_ingress_tls"
-  ]
- },
- "integrations": {
-  "ops": [
-   "delete_integrations_connectors_by_id",
-   "delete_integrations_github_repos_by_repo_pages",
-   "get_integrations",
-   "get_integrations_by_provider",
-   "get_integrations_connectors",
-   "get_integrations_connectors_providers",
-   "get_integrations_github_installations",
-   "get_integrations_github_repos",
-   "get_integrations_github_repos_by_repo_pages",
-   "get_integrations_gitlab_projects",
-   "post_integrations_by_provider_connect",
-   "post_integrations_by_provider_disconnect",
-   "post_integrations_by_provider_verify",
-   "post_integrations_connectors_by_id_refresh",
-   "post_integrations_connectors_by_provider_device",
-   "post_integrations_connectors_by_provider_device_by_flow_poll",
-   "post_integrations_github_claim",
-   "post_integrations_github_fork",
-   "post_integrations_github_issues_backfill",
-   "post_integrations_github_repos_by_repo_pages",
-   "post_integrations_github_repos_by_repo_pages_builds",
-   "post_integrations_github_repos_import",
-   "post_integrations_github_search",
-   "post_integrations_linear_claim",
-   "post_integrations_linear_comments",
-   "post_integrations_linear_issues_backfill",
-   "post_integrations_slack_join",
-   "post_integrations_telegram_connect",
-   "put_integrations_github_repos_by_repo_pages"
   ]
  },
  "kms": {
@@ -1060,7 +1084,6 @@
    "GetAccountService",
    "GetAlerts",
    "GetAllRoutePolicies",
-   "GetAuthDomain",
    "GetChannelByID",
    "GetDashboardV2",
    "GetDowntimeScheduleByID",
@@ -1090,7 +1113,6 @@
    "GetMyOrganization",
    "GetMyServiceAccount",
    "GetMyUser",
-   "GetMyUserDeprecated",
    "GetOrgPreference",
    "GetOverallStateTransitions",
    "GetPublicDashboard",
@@ -1098,7 +1120,6 @@
    "GetPublicDashboardWidgetQueryRange",
    "GetQuickFilters",
    "GetRole",
-   "GetRolesByUserID",
    "GetRoutePolicyByID",
    "GetRuleByID",
    "GetRuleHistoryFilterKeys",
@@ -1122,16 +1143,12 @@
    "GetTraceFunnelSlowTraces",
    "GetTraceFunnelStepMetrics",
    "GetTraceFunnelStepOverview",
-   "GetUser",
-   "GetUserDeprecated",
    "GetUserPreference",
-   "GetUsersByRoleID",
    "GetWaterfallV4",
    "InspectMetrics",
    "InstallIntegration",
    "ListAccountServicesMetadata",
    "ListAccounts",
-   "ListAuthDomains",
    "ListChannels",
    "ListDashboardViews",
    "ListDashboardsForUserV2",
@@ -1157,8 +1174,6 @@
    "ListSpanMappers",
    "ListTraceFunnels",
    "ListUserPreferences",
-   "ListUsers",
-   "ListUsersDeprecated",
    "LockDashboardV2",
    "PatchDashboardV2",
    "PatchRuleByID",
@@ -1324,7 +1339,6 @@
    "post_o11y_query_range",
    "post_o11y_query_range_format",
    "post_o11y_query_range_preview",
-   "post_o11y_register",
    "post_o11y_reviews",
    "post_o11y_reviews_by_id_items",
    "post_o11y_sentinel_discover",
@@ -1343,6 +1357,36 @@
    "post_o11y_variables_query",
    "put_o11y_explorer_views_by_viewid",
    "put_o11y_sentinel_issues_by_id"
+  ]
+ },
+ "patrol": {
+  "ops": [
+   "get_patrol_camera",
+   "get_patrol_camera_by_name_stream",
+   "get_patrol_camera_by_name_stream_by_ticket",
+   "get_patrol_event",
+   "get_patrol_incident",
+   "get_patrol_incident_by_name",
+   "get_patrol_key",
+   "get_patrol_key_by_name",
+   "get_patrol_note",
+   "get_patrol_site",
+   "get_patrol_site_by_name",
+   "get_patrol_snapshot",
+   "get_patrol_tenant_by_org",
+   "get_patrol_tour",
+   "get_patrol_unit",
+   "get_patrol_unit_near",
+   "post_patrol_alarm",
+   "post_patrol_event",
+   "post_patrol_incident",
+   "post_patrol_incident_by_name_step",
+   "post_patrol_note",
+   "post_patrol_point_by_name_confirm",
+   "post_patrol_report",
+   "post_patrol_unit_by_name_fix",
+   "post_patrol_unit_by_name_state",
+   "put_patrol_site_by_name"
   ]
  },
  "plan": {
@@ -1386,6 +1430,7 @@
    "get_platform_projects_by_project_apps_by_app_deployments_by_id_logs",
    "get_platform_projects_by_project_apps_by_app_domains",
    "get_platform_releases",
+   "post_build",
    "post_platform_fleet_by_app_deploy",
    "post_platform_projects_by_project_apps",
    "post_platform_projects_by_project_apps_by_app_deploy",
@@ -1397,7 +1442,6 @@
    "post_platform_projects_by_project_apps_by_app_start",
    "post_platform_projects_by_project_apps_by_app_stop",
    "post_platform_run",
-   "post_platform_runner",
    "put_platform_projects_by_project_apps_by_app_env"
   ]
  },
@@ -1432,17 +1476,30 @@
    "get_pricing_services",
    "get_pricing_subscriptions",
    "get_pricing_summary",
+   "get_pricing_tariff",
    "get_pricing_tools",
    "post_pricing_enablement_optin",
    "post_pricing_enablement_optout",
    "post_pricing_sync"
   ]
  },
- "projects": {
+ "project": {
   "ops": [
+   "delete_project_by_slug",
+   "delete_project_by_slug_domains_by_host",
+   "delete_project_by_slug_star",
    "delete_projects_by_slug",
    "delete_projects_by_slug_domains_by_host",
    "delete_projects_by_slug_star",
+   "get_project",
+   "get_project_by_slug",
+   "get_project_by_slug_deployments",
+   "get_project_by_slug_deployments_by_id",
+   "get_project_by_slug_domains",
+   "get_project_by_slug_releases",
+   "get_project_edge",
+   "get_project_sites",
+   "get_project_sites_by_slug",
    "get_projects",
    "get_projects_by_slug",
    "get_projects_by_slug_deployments",
@@ -1452,7 +1509,20 @@
    "get_projects_edge",
    "get_projects_sites",
    "get_projects_sites_by_slug",
+   "patch_project_by_slug",
    "patch_projects_by_slug",
+   "post_project",
+   "post_project_by_slug_deployments",
+   "post_project_by_slug_deployments_by_id_complete",
+   "post_project_by_slug_domains",
+   "post_project_by_slug_domains_by_host_verify",
+   "post_project_by_slug_publish",
+   "post_project_by_slug_purge",
+   "post_project_by_slug_releases",
+   "post_project_by_slug_releases_by_release_activate",
+   "post_project_fork",
+   "post_project_sites",
+   "post_project_sites_deploy",
    "post_projects",
    "post_projects_by_slug_deployments",
    "post_projects_by_slug_deployments_by_id_complete",
@@ -1465,6 +1535,7 @@
    "post_projects_fork",
    "post_projects_sites",
    "post_projects_sites_deploy",
+   "put_project_by_slug_star",
    "put_projects_by_slug_star"
   ]
  },
@@ -1476,6 +1547,46 @@
    "get_prompt_catalog",
    "get_prompt_metrics",
    "post_prompt"
+  ]
+ },
+ "provider": {
+  "ops": [
+   "delete_connection_by_id",
+   "delete_provider_github_repos_by_repo_pages",
+   "delete_provider_slack_messages",
+   "get_connection",
+   "get_connection_providers",
+   "get_provider",
+   "get_provider_by_provider",
+   "get_provider_github_installations",
+   "get_provider_github_repos",
+   "get_provider_github_repos_by_repo_pages",
+   "get_provider_gitlab_projects",
+   "get_provider_slack_channels",
+   "get_provider_slack_messages",
+   "post_connection_by_id_refresh",
+   "post_connection_by_provider_device",
+   "post_connection_by_provider_device_by_flow_poll",
+   "post_provider_by_provider_connect",
+   "post_provider_by_provider_disconnect",
+   "post_provider_by_provider_verify",
+   "post_provider_github_claim",
+   "post_provider_github_fork",
+   "post_provider_github_issues_backfill",
+   "post_provider_github_repos_by_repo_pages",
+   "post_provider_github_repos_by_repo_pages_builds",
+   "post_provider_github_repos_import",
+   "post_provider_github_search",
+   "post_provider_linear_claim",
+   "post_provider_linear_comments",
+   "post_provider_linear_issues_backfill",
+   "post_provider_slack_join",
+   "post_provider_slack_messages",
+   "post_provider_slack_reactions",
+   "post_provider_slack_search",
+   "post_provider_telegram_connect",
+   "put_provider_github_repos_by_repo_pages",
+   "put_provider_slack_messages"
   ]
  },
  "provisioning": {
@@ -1573,6 +1684,8 @@
    "lease_sandbox",
    "post_sandbox",
    "post_sandbox_by_id_exec",
+   "post_sandbox_by_id_pause",
+   "post_sandbox_by_id_resume",
    "post_sandbox_by_id_screen_ticket",
    "post_sandbox_by_id_terminal_ticket",
    "read_sandbox_file",
@@ -1669,6 +1782,20 @@
    "post_sync_by_id_run"
   ]
  },
+ "task": {
+  "ops": [
+   "get_task_board",
+   "get_task_issues",
+   "get_task_projects",
+   "get_task_projects_by_key",
+   "get_task_projects_by_key_issues",
+   "get_task_projects_by_key_issues_by_num",
+   "get_task_rooms_by_room",
+   "patch_task_projects_by_key_issues_by_num",
+   "post_task_projects_by_key_issues",
+   "post_task_projects_by_key_issues_by_num_claim"
+  ]
+ },
  "taxonomy": {
   "ops": [
    "delete_taxonomy_categories_by_id",
@@ -1684,12 +1811,10 @@
    "delete_team_files_by_space_by_filename",
    "get_team_account_providers",
    "get_team_billing_plan",
-   "get_team_bots",
    "get_team_public",
    "get_team_rooms",
    "get_team_rooms_by_id_messages",
    "get_team_transactor_statistics",
-   "post_team_bots_sync",
    "post_team_collaborator_rpc_by_documentid",
    "post_team_rooms",
    "post_team_rooms_by_id_messages",
@@ -1719,41 +1844,27 @@
    "put_template_by_slug"
   ]
  },
- "todo": {
+ "tool": {
   "ops": [
-   "get_todo_board",
-   "get_todo_issues",
-   "get_todo_projects",
-   "get_todo_projects_by_key",
-   "get_todo_projects_by_key_issues",
-   "get_todo_projects_by_key_issues_by_num",
-   "get_todo_rooms_by_room",
-   "patch_todo_projects_by_key_issues_by_num",
-   "post_todo_projects_by_key_issues",
-   "post_todo_projects_by_key_issues_by_num_claim"
-  ]
- },
- "tools": {
-  "ops": [
-   "delete_tools_mcp_servers_by_id",
-   "delete_tools_plugins_authored_by_id",
-   "delete_tools_skills_by_id",
-   "get_tools",
-   "get_tools_activation",
-   "get_tools_catalog",
-   "get_tools_catalog_by_id",
-   "get_tools_mcp_servers",
-   "get_tools_plugins",
-   "get_tools_plugins_authored",
-   "get_tools_skills",
-   "get_tools_skills_authored",
-   "patch_tools_catalog_by_id",
-   "post_tools_call",
-   "post_tools_catalog_sync",
-   "post_tools_mcp_servers",
-   "post_tools_plugins_build",
-   "post_tools_skills",
-   "put_tools_activation"
+   "delete_tool_mcp_servers_by_id",
+   "delete_tool_plugins_authored_by_id",
+   "delete_tool_skills_by_id",
+   "get_tool",
+   "get_tool_activation",
+   "get_tool_catalog",
+   "get_tool_catalog_by_id",
+   "get_tool_mcp_servers",
+   "get_tool_plugins",
+   "get_tool_plugins_authored",
+   "get_tool_skills",
+   "get_tool_skills_authored",
+   "patch_tool_catalog_by_id",
+   "post_tool_call",
+   "post_tool_catalog_sync",
+   "post_tool_mcp_servers",
+   "post_tool_plugins_build",
+   "post_tool_skills",
+   "put_tool_activation"
   ]
  },
  "translate": {
@@ -1804,41 +1915,6 @@
    "get_validator_by_tokenid",
    "get_validator_challenge",
    "post_validator"
-  ]
- },
- "visor": {
-  "ops": [
-   "attachCluster",
-   "bindMachineAgent",
-   "cancelFleetJob",
-   "createKubernetesCluster",
-   "createNodePool",
-   "deleteBot",
-   "deleteKubernetesCluster",
-   "deleteMachine",
-   "deleteNodePool",
-   "detachCluster",
-   "getBot",
-   "getKubernetesCluster",
-   "getMachine",
-   "getMachineAgent",
-   "get_visor_compute_regions",
-   "get_visor_compute_sizes",
-   "listBots",
-   "listClusters",
-   "listFleet",
-   "listFleetJobs",
-   "listFleetSamples",
-   "listFleetWorkers",
-   "listGpuAlerts",
-   "listGpus",
-   "listKubernetesClusters",
-   "listKubernetesNodes",
-   "listMachineAgents",
-   "listMachines",
-   "recordFleetSample",
-   "scaleNodePool",
-   "unbindMachineAgent"
   ]
  },
  "wallet": {
