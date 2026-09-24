@@ -10,10 +10,9 @@
 # Tagged rust-v*, because the binary is the Rust crate in rust/ — its
 # Cargo.toml is the one that calls itself hanzo-mcp.
 #
-# .github/workflows, because that is where this repository's pipelines already
-# live and what github.com resolves. The self-hosted pool is registered to the
-# hanzoai org on github.com, including the macOS arm64 machine this lane needs
-# — a caller under .hanzo/ would be a lane nothing schedules.
+# .hanzo/workflows, with every other pipeline in this repository. The forge
+# reads the FIRST of .hanzo/workflows and .github/workflows that exists, so a
+# file left in the other directory is a pipeline that never runs.
 name: release
 
 on:
