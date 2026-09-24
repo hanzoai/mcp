@@ -57,3 +57,6 @@ site/
 package-lock.json
 yarn.lock
 bun.lockb
+
+# Local symlinks to LLM.md
+CLAUDE.md
