@@ -114,7 +114,7 @@ async function one(type: string, args: any) {
 
 const WHEN = 'Reach for Kai when the answer is one of options you already know — classify, route, gate, rank, check. It writes no text; open-ended answers are a language model\'s job.';
 const TRUST = 'Probabilities are calibrated. confidence = (n·p_max − 1)/(n − 1) over the n options: 0 when all are equally likely, 1 when one is certain. Act when it clears your threshold; below it, escalate or ask a person.';
-const NOUL = 'Write a noul as a statement and describe both sides in criteria: Kai reads a bare yes/no question poorly. When a yes/no gates an action, a choice between described yes and no options (kai_choice, or a choice question in kai_decide) is usually sharper.';
+const NOUL = 'Write a noul as a statement and describe both sides in criteria, or ask a choice whose labels name the outcomes, such as refund and other rather than yes and no (kai_choice, or a choice question in kai_decide): Kai reads a bare yes/no question poorly.';
 
 const STATE = { type: ['string', 'object', 'array'], items: {}, description: 'The case to decide about: text, a JSON object or an array' };
 const INSTRUCTIONS = { type: ['string', 'object', 'array'], items: {}, description: 'Optional, recommended. What Kai answers' };

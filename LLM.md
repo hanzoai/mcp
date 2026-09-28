@@ -58,8 +58,8 @@ and 10. Whether a request fits the token budget is the server's to say (422
 (decision's `error.message`, the gateway's `msg`).
 
 The descriptions call `instructions` recommended and steer a noul to a statement
-with both sides described, or to a yes/no choice, because Kai reads a bare
-question-form yes/no poorly. They say to act on a score's argmax: `score` is the
+with both sides described, or to a choice whose labels name the outcomes (not
+yes and no), because Kai reads a bare question-form yes/no poorly. They say to act on a score's argmax: `score` is the
 mean level index, and `confidence` describes the likeliest level. A noul's
 `confidence` is |2p − 1|.
 

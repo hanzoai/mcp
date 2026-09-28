@@ -101,7 +101,11 @@ describe('the kai tool surface', () => {
       expect(t.description).toContain('recommended');
       expect(t.description).toContain('escalate');
     }
-    for (const t of [kaiDecideTool, kaiNoulTool]) expect(t.description).toContain('Write a noul as a statement');
+    for (const t of [kaiDecideTool, kaiNoulTool]) {
+      expect(t.description).toContain('Write a noul as a statement');
+      expect(t.description).toContain('a choice whose labels name the outcomes');
+      expect(t.description).not.toContain('described yes and no');
+    }
   });
 });
 
