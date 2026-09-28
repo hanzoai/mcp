@@ -233,18 +233,21 @@ vendors a copy under `packages/mcp` as a build input; it is marked `private` so
 a workspace-wide publish there can never ship a fork over this line. Leave it
 private.
 
-`.hanzo/workflows/publish.yml` runs on push to `main`, on the forge
-(`hanzo-build-linux-amd64`). It asks the registry whether the tree is ahead,
-typechecks, bundles (`dist/` is gitignored, so this is also what fills the
-tarball), reads `NPM_TOKEN` from KMS, then `npm publish`. A version already on
-the registry is skipped, so re-runs are safe. Same shape as `@hanzo/logo`.
+`.github/workflows/publish.yml` runs on push to `main`, on the hanzoai org
+runners on github.com (`linux-amd64`). git.hanzo.ai holds this repo as a pull
+mirror of GitHub with actions off, so a workflow under `.hanzo/workflows` runs
+nowhere; every pipeline here lives in `.github/workflows`. It asks the registry
+whether the tree is ahead, typechecks, bundles (`dist/` is gitignored, so this is
+also what fills the tarball), reads `NPM_TOKEN` from KMS, then `npm publish`. A
+version already on the registry is skipped, so re-runs are safe. Same shape as
+`@hanzo/logo`.
 
 The KMS read is the flat form, answering `{name, env, value}`:
 
     GET https://kms.hanzo.ai/v1/kms/secrets/NPM_TOKEN?env=prod   -> .value
 
 The org is not a path segment — the read is scoped by the token's owner claim,
-and `NPM_TOKEN` sits at the org root. The only credential on the forge is the
+and `NPM_TOKEN` sits at the org root. The only credential in GitHub is the
 machine identity (`KMS_CLIENT_ID`/`KMS_CLIENT_SECRET`, org-level secrets on
 `hanzoai`). `/hanzo.yml` stays a test gate; it publishes nothing.
 
