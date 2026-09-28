@@ -66,11 +66,11 @@ function fault(q: any): string {
     } else {
       return 'criteria must be {label: description} or [label, ...]';
     }
-    return n >= 2 && n <= 255 ? '' : `criteria must name 2 to 255 labels, not ${n}`;
+    return n >= 2 ? '' : `criteria must name at least 2 labels, not ${n}`;
   }
   if (q.type === 'score') {
     if (!Array.isArray(c)) return 'criteria must be the levels, lowest first: [level0, level1, ...]';
-    if (c.length < 1 || c.length > 10) return `criteria must list 1 to 10 levels, not ${c.length}`;
+    if (!c.length) return 'criteria must list at least 1 level';
     const i = c.findIndex((l: unknown) => l == null);
     return i < 0 ? '' : `score level ${i} is null; describe every level`;
   }
@@ -122,7 +122,7 @@ const MODEL = { type: 'string', description: 'Decision model (default kai)' };
 
 export const kaiDecideTool: Tool = {
   name: 'kai_decide',
-  description: `Ask Kai, Hanzo's decision model, typed questions about one case in one call (POST /v1/decisions). ${WHEN} \`questions\` maps a name to {type, instructions, criteria}, 1 to 100 of them; \`instructions\` is optional on every question but recommended, as the text Kai answers. choice picks one label: criteria {label: description} or [label, ...], 2 to 255 labels. score picks an ordinal level: criteria [level0, level1, ...], lowest first, 1 to 10 levels; act on the argmax of its probabilities, since its score is the mean level index. noul gives the probability a statement holds: criteria {"true": ..., "false": ...}, optional. Returns the decision {id, model, answers: {name: answer}, usage, ...}. ${TRUST} ${NOUL}`,
+  description: `Ask Kai, Hanzo's decision model, typed questions about one case in one call (POST /v1/decisions). ${WHEN} \`questions\` maps a name to {type, instructions, criteria}, 1 to 100 of them; \`instructions\` is optional on every question but recommended, as the text Kai answers. choice picks one label: criteria {label: description} or [label, ...], 2 labels or more; Kai narrows a wide choice by retrieval. score picks an ordinal level: criteria [level0, level1, ...], lowest first, 1 level or more; act on the argmax of its probabilities, since its score is the mean level index. noul gives the probability a statement holds: criteria {"true": ..., "false": ...}, optional. Returns the decision {id, model, answers: {name: answer}, usage, ...}. ${TRUST} ${NOUL}`,
   inputSchema: {
     type: 'object',
     properties: {
@@ -135,7 +135,7 @@ export const kaiDecideTool: Tool = {
           properties: {
             type: { type: 'string', enum: KINDS },
             instructions: INSTRUCTIONS,
-            criteria: { type: ['object', 'array'], items: {}, description: 'choice: {label: description} or [label, ...], 2 to 255 labels; score: [level0, level1, ...], lowest first, 1 to 10 levels; noul: {"true": ..., "false": ...}, optional' },
+            criteria: { type: ['object', 'array'], items: {}, description: 'choice: {label: description} or [label, ...], 2 labels or more; score: [level0, level1, ...], lowest first, none null; noul: {"true": ..., "false": ...}, optional' },
           },
           required: ['type'],
         },
@@ -155,13 +155,13 @@ export const kaiDecideTool: Tool = {
 
 export const kaiChoiceTool: Tool = {
   name: 'kai_choice',
-  description: `Ask Kai, Hanzo's decision model, to pick one label for a case: classify, route, triage, select. ${WHEN} \`instructions\` (optional, recommended) says what to decide; criteria names 2 to 255 labels, {label: description} or [label, ...]. Returns {answer: {choice, confidence, probabilities, answer_confidence}, id, model, usage}. ${TRUST}`,
+  description: `Ask Kai, Hanzo's decision model, to pick one label for a case: classify, route, triage, select. ${WHEN} \`instructions\` (optional, recommended) says what to decide; criteria names 2 labels or more, {label: description} or [label, ...]; Kai narrows a wide choice by retrieval. Returns {answer: {choice, confidence, probabilities, answer_confidence}, id, model, usage}. ${TRUST}`,
   inputSchema: {
     type: 'object',
     properties: {
       state: STATE,
       instructions: { ...INSTRUCTIONS, description: 'Optional, recommended. What to decide, e.g. "Which team should handle this ticket?"' },
-      criteria: { type: ['object', 'array'], items: { type: 'string' }, description: '{label: description} or [label, ...]; 2 to 255 labels' },
+      criteria: { type: ['object', 'array'], items: { type: 'string' }, description: '{label: description} or [label, ...]; 2 labels or more' },
       model: MODEL,
     },
     required: ['state', 'criteria'],
@@ -171,13 +171,13 @@ export const kaiChoiceTool: Tool = {
 
 export const kaiScoreTool: Tool = {
   name: 'kai_score',
-  description: `Ask Kai, Hanzo's decision model, for an ordinal level: severity, urgency, priority, risk, quality. ${WHEN} \`instructions\` (optional, recommended) says what to rate; criteria lists 1 to 10 levels lowest first, [level0, level1, ...]. Returns {answer: {score, confidence, legend, probabilities, answer_confidence}, id, model, usage}: probabilities are by level index and legend maps each index to its level. The likeliest level is the argmax of probabilities, and confidence and answer_confidence describe that level; score is the mean level index Σ i·p_i, which can sit between levels or round to a different one, so act on the argmax, not on score. ${TRUST}`,
+  description: `Ask Kai, Hanzo's decision model, for an ordinal level: severity, urgency, priority, risk, quality. ${WHEN} \`instructions\` (optional, recommended) says what to rate; criteria lists the levels lowest first, [level0, level1, ...]. Returns {answer: {score, confidence, legend, probabilities, answer_confidence}, id, model, usage}: probabilities are by level index and legend maps each index to its level. The likeliest level is the argmax of probabilities, and confidence and answer_confidence describe that level; score is the mean level index Σ i·p_i, which can sit between levels or round to a different one, so act on the argmax, not on score. ${TRUST}`,
   inputSchema: {
     type: 'object',
     properties: {
       state: STATE,
       instructions: { ...INSTRUCTIONS, description: 'Optional, recommended. What to rate, e.g. "How urgent is this ticket?"' },
-      criteria: { type: 'array', items: {}, description: 'The levels, lowest first: [level0, level1, ...]; 1 to 10, none null' },
+      criteria: { type: 'array', items: {}, description: 'The levels, lowest first: [level0, level1, ...]; none null' },
       model: MODEL,
     },
     required: ['state', 'criteria'],

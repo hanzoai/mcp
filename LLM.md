@@ -49,11 +49,13 @@ decision as served; the other three send one question of their type, named by th
 type, and return `{answer, id, model, usage}`. They check the shape the frozen
 wire contract fixes: `state` is text, an object or an array; `instructions` is
 optional on every question and, when given, the same; 1 to 100 questions; a
-choice names 2 to 255 labels (a repeated list label is one); a score lists 1 to 10
-levels, none null; a noul's sides are `true` and `false` only. Whether a state
-fits the model is the server's to say (422 `state_too_long`). A non-2xx returns
-`<status>: <the server's sentence>` (decision's `error.message`, the gateway's
-`msg`).
+choice names at least 2 labels (a repeated list label is one); a score lists at
+least 1 level, none null; a noul's sides are `true` and `false` only.
+`/v1/decisions` caps no label or level count (a wide choice is narrowed by
+retrieval), so neither do the tools; only `/v1/systemone` caps them, at Jev's 255
+and 10. Whether a request fits the token budget is the server's to say (422
+`state_too_long`). A non-2xx returns `<status>: <the server's sentence>`
+(decision's `error.message`, the gateway's `msg`).
 
 The descriptions call `instructions` recommended and steer a noul to a statement
 with both sides described, or to a yes/no choice, because Kai reads a bare

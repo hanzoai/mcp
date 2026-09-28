@@ -191,9 +191,22 @@ describe('kai_choice', () => {
     await kaiChoiceTool.handler({ state: 'x', instructions: 'Which team?', criteria: ['billing', 'technical'] });
     expect(last().body.questions.choice.criteria).toEqual(['billing', 'technical']);
   });
+
+  test('a wide choice goes whole, since /v1/decisions caps no label count', async () => {
+    const labels = Array.from({ length: 1000 }, (_, i) => `skill ${i}`);
+    const result = await kaiChoiceTool.handler({ state: 'x', instructions: 'Which skill fits?', criteria: labels });
+    expect(result.isError).toBeFalsy();
+    expect(last().body.questions.choice.criteria).toHaveLength(1000);
+  });
 });
 
 describe('kai_score', () => {
+  test('any number of levels goes, since /v1/decisions caps none', async () => {
+    const levels = Array.from({ length: 12 }, (_, i) => `level ${i}`);
+    await kaiScoreTool.handler({ state: 'x', instructions: 'How severe?', criteria: levels });
+    expect(last().body.questions.score.criteria).toEqual(levels);
+  });
+
   test('sends the levels lowest first and returns the level answer', async () => {
     const result = await kaiScoreTool.handler({ state: 'The site is down for every customer.', instructions: 'How urgent is this?', criteria: ['low', 'medium', 'high'] });
     expect(last().body.questions).toEqual({ score: { type: 'score', instructions: 'How urgent is this?', criteria: ['low', 'medium', 'high'] } });
@@ -245,13 +258,11 @@ describe('inputs are checked before any call', () => {
     ['a question of unknown type', kaiDecideTool, { state: 'x', questions: { q: { type: 'rank', instructions: 'y' } } }, "question 'q': type must be one of choice, score, noul"],
     ['instructions that are a number', kaiDecideTool, { state: 'x', questions: { q: { type: 'noul', instructions: 7 } } }, "question 'q': instructions must be text, an object or an array"],
     ['kai_choice without criteria', kaiChoiceTool, { state: 'x', instructions: 'y' }, 'criteria must be {label: description} or [label, ...]'],
-    ['kai_choice with no label', kaiChoiceTool, { state: 'x', instructions: 'y', criteria: {} }, 'criteria must name 2 to 255 labels, not 0'],
-    ['kai_choice with one label', kaiChoiceTool, { state: 'x', instructions: 'y', criteria: { billing: 'charges' } }, 'criteria must name 2 to 255 labels, not 1'],
-    ['a repeated label, which is one option', kaiChoiceTool, { state: 'x', instructions: 'y', criteria: ['a', 'a'] }, 'criteria must name 2 to 255 labels, not 1'],
-    ['256 labels', kaiChoiceTool, { state: 'x', instructions: 'y', criteria: Array.from({ length: 256 }, (_, i) => `l${i}`) }, 'criteria must name 2 to 255 labels, not 256'],
+    ['kai_choice with no label', kaiChoiceTool, { state: 'x', instructions: 'y', criteria: {} }, 'criteria must name at least 2 labels, not 0'],
+    ['kai_choice with one label', kaiChoiceTool, { state: 'x', instructions: 'y', criteria: { billing: 'charges' } }, 'criteria must name at least 2 labels, not 1'],
+    ['a repeated label, which is one option', kaiChoiceTool, { state: 'x', instructions: 'y', criteria: ['a', 'a'] }, 'criteria must name at least 2 labels, not 1'],
     ['a label that is not a string', kaiChoiceTool, { state: 'x', instructions: 'y', criteria: ['a', 2] }, 'criteria as a list must hold string labels'],
-    ['kai_score without levels', kaiScoreTool, { state: 'x', instructions: 'y', criteria: [] }, 'criteria must list 1 to 10 levels, not 0'],
-    ['11 levels', kaiScoreTool, { state: 'x', instructions: 'y', criteria: Array.from({ length: 11 }, (_, i) => `level ${i}`) }, 'criteria must list 1 to 10 levels, not 11'],
+    ['kai_score without levels', kaiScoreTool, { state: 'x', instructions: 'y', criteria: [] }, 'criteria must list at least 1 level'],
     ['levels as a map', kaiScoreTool, { state: 'x', instructions: 'y', criteria: { low: 'fine' } }, 'criteria must be the levels, lowest first'],
     ['a null level', kaiScoreTool, { state: 'x', instructions: 'y', criteria: ['low', null, 'high'] }, 'score level 1 is null'],
     ['a noul side other than true and false', kaiNoulTool, { state: 'x', instructions: 'y', criteria: { true: 'a', maybe: 'b' } }, 'criteria take only "true" and "false", not maybe'],
