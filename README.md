@@ -59,8 +59,9 @@ them at another host.
 The kai tools ask Kai, Hanzo's decision model, typed questions about a case
 (`POST /v1/decisions`) and answer with calibrated probabilities: `kai_choice`
 picks a label, `kai_score` an ordinal level, `kai_noul` the probability that a
-statement holds, and `kai_decide` asks several of them in one call.
-`instructions` is required on every question. A `kai_choice` call:
+statement holds, and `kai_decide` asks up to 100 of them in one call.
+`instructions` is optional on every question and recommended. A `kai_choice`
+call:
 
 ```json
 { "state": "I was charged twice for my March invoice. Please refund the duplicate.",

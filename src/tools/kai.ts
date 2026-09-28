@@ -45,24 +45,33 @@ function fail(m: string) { return { content: [{ type: 'text' as const, text: `Er
 
 const KINDS = ['choice', 'score', 'noul'];
 
-// given holds for what state and instructions take: non-empty text, an object or an array.
-function given(v: unknown): boolean {
-  return typeof v === 'string' ? v.trim() !== '' : typeof v === 'object' && v !== null;
+// content holds for the wire's Content: text, an object or an array.
+function content(v: unknown): boolean {
+  return typeof v === 'string' || (typeof v === 'object' && v !== null);
 }
 
-// fault says what is wrong with one question's shape, or '' when nothing is.
+// fault says what is wrong with one question's shape under the wire contract, or '' when nothing is.
 function fault(q: any): string {
   if (typeof q !== 'object' || q === null || Array.isArray(q)) return 'must be {type, instructions, criteria}';
   if (!KINDS.includes(q.type)) return `type must be one of ${KINDS.join(', ')}`;
-  if (!given(q.instructions)) return 'instructions required: non-empty text, an object or an array';
+  if (q.instructions != null && !content(q.instructions)) return 'instructions must be text, an object or an array';
   const c = q.criteria;
   if (q.type === 'choice') {
-    if (Array.isArray(c)) return c.length && c.every((l) => typeof l === 'string') ? '' : 'criteria as a list must hold string labels, at least one';
-    return typeof c === 'object' && c !== null && Object.keys(c).length ? '' : 'criteria must be {label: description} or [label, ...], at least one label';
+    let n: number;
+    if (Array.isArray(c)) {
+      if (!c.every((l: unknown) => typeof l === 'string')) return 'criteria as a list must hold string labels';
+      n = new Set(c).size;
+    } else if (typeof c === 'object' && c !== null) {
+      n = Object.keys(c).length;
+    } else {
+      return 'criteria must be {label: description} or [label, ...]';
+    }
+    return n >= 2 && n <= 255 ? '' : `criteria must name 2 to 255 labels, not ${n}`;
   }
   if (q.type === 'score') {
-    if (!Array.isArray(c) || !c.length) return 'criteria must be the levels, lowest first: [level0, level1, ...]';
-    const i = c.findIndex((l) => l == null);
+    if (!Array.isArray(c)) return 'criteria must be the levels, lowest first: [level0, level1, ...]';
+    if (c.length < 1 || c.length > 10) return `criteria must list 1 to 10 levels, not ${c.length}`;
+    const i = c.findIndex((l: unknown) => l == null);
     return i < 0 ? '' : `score level ${i} is null; describe every level`;
   }
   if (c == null) return '';
@@ -71,12 +80,14 @@ function fault(q: any): string {
   return odd.length ? `criteria take only "true" and "false", not ${odd.join(', ')}` : '';
 }
 
-// request checks a decision's shape and returns its body; model limits are the server's to enforce.
+// request checks a decision's shape and returns its body; whether a state fits the model is the server's to say.
 function request(state: unknown, questions: unknown, model: unknown): Record<string, unknown> {
-  if (!given(state)) throw new Error('state required: non-empty text, an object or an array');
-  if (typeof questions !== 'object' || questions === null || Array.isArray(questions) || !Object.keys(questions).length) {
+  if (!content(state)) throw new Error('state required: text, an object or an array');
+  if (typeof questions !== 'object' || questions === null || Array.isArray(questions)) {
     throw new Error('questions required: {name: {type, instructions, criteria}}');
   }
+  const n = Object.keys(questions).length;
+  if (n < 1 || n > 100) throw new Error(`questions must hold 1 to 100 questions, not ${n}`);
   for (const [name, q] of Object.entries(questions)) {
     const f = fault(q);
     if (f) throw new Error(`question '${name}': ${f}`);
@@ -89,7 +100,8 @@ function request(state: unknown, questions: unknown, model: unknown): Record<str
 // one asks a single question, named by its type, and returns its answer with id, model and usage.
 async function one(type: string, args: any) {
   try {
-    const q: Record<string, unknown> = { type, instructions: args.instructions };
+    const q: Record<string, unknown> = { type };
+    if (args.instructions != null && args.instructions !== '') q.instructions = args.instructions;
     if (args.criteria != null) q.criteria = args.criteria;
     const d = await decide(request(args.state, { [type]: q }, args.model));
     const answer = d.answers[type];
@@ -105,27 +117,27 @@ const TRUST = 'Probabilities are calibrated. confidence = (n·p_max − 1)/(n �
 const NOUL = 'Write a noul as a statement and describe both sides in criteria: Kai reads a bare yes/no question poorly. When a yes/no gates an action, a choice between described yes and no options (kai_choice, or a choice question in kai_decide) is usually sharper.';
 
 const STATE = { type: ['string', 'object', 'array'], items: {}, description: 'The case to decide about: text, a JSON object or an array' };
-const INSTRUCTIONS = { type: ['string', 'object', 'array'], items: {}, description: 'Required. What Kai answers' };
+const INSTRUCTIONS = { type: ['string', 'object', 'array'], items: {}, description: 'Optional, recommended. What Kai answers' };
 const MODEL = { type: 'string', description: 'Decision model (default kai)' };
 
 export const kaiDecideTool: Tool = {
   name: 'kai_decide',
-  description: `Ask Kai, Hanzo's decision model, typed questions about one case in one call (POST /v1/decisions). ${WHEN} \`questions\` maps a name to {type, instructions, criteria}, and \`instructions\` is required on every question. choice picks one label: criteria {label: description} or [label, ...]. score picks an ordinal level: criteria [level0, level1, ...], lowest first; act on the argmax of its probabilities, since its score is the mean level index. noul gives the probability a statement holds: criteria {"true": ..., "false": ...}, optional. Returns the decision {id, model, answers: {name: answer}, usage, ...}. ${TRUST} ${NOUL}`,
+  description: `Ask Kai, Hanzo's decision model, typed questions about one case in one call (POST /v1/decisions). ${WHEN} \`questions\` maps a name to {type, instructions, criteria}, 1 to 100 of them; \`instructions\` is optional on every question but recommended, as the text Kai answers. choice picks one label: criteria {label: description} or [label, ...], 2 to 255 labels. score picks an ordinal level: criteria [level0, level1, ...], lowest first, 1 to 10 levels; act on the argmax of its probabilities, since its score is the mean level index. noul gives the probability a statement holds: criteria {"true": ..., "false": ...}, optional. Returns the decision {id, model, answers: {name: answer}, usage, ...}. ${TRUST} ${NOUL}`,
   inputSchema: {
     type: 'object',
     properties: {
       state: STATE,
       questions: {
         type: 'object',
-        description: 'Question name → {type, instructions, criteria}',
+        description: 'Question name → {type, instructions, criteria}; 1 to 100 questions',
         additionalProperties: {
           type: 'object',
           properties: {
             type: { type: 'string', enum: KINDS },
             instructions: INSTRUCTIONS,
-            criteria: { type: ['object', 'array'], items: {}, description: 'choice: {label: description} or [label, ...]; score: [level0, level1, ...], lowest first; noul: {"true": ..., "false": ...}, optional' },
+            criteria: { type: ['object', 'array'], items: {}, description: 'choice: {label: description} or [label, ...], 2 to 255 labels; score: [level0, level1, ...], lowest first, 1 to 10 levels; noul: {"true": ..., "false": ...}, optional' },
           },
-          required: ['type', 'instructions'],
+          required: ['type'],
         },
       },
       model: MODEL,
@@ -143,48 +155,48 @@ export const kaiDecideTool: Tool = {
 
 export const kaiChoiceTool: Tool = {
   name: 'kai_choice',
-  description: `Ask Kai, Hanzo's decision model, to pick one label for a case: classify, route, triage, select. ${WHEN} \`instructions\` (required) says what to decide; criteria names the labels, {label: description} or [label, ...]. Returns {answer: {choice, confidence, probabilities, answer_confidence}, id, model, usage}. ${TRUST}`,
+  description: `Ask Kai, Hanzo's decision model, to pick one label for a case: classify, route, triage, select. ${WHEN} \`instructions\` (optional, recommended) says what to decide; criteria names 2 to 255 labels, {label: description} or [label, ...]. Returns {answer: {choice, confidence, probabilities, answer_confidence}, id, model, usage}. ${TRUST}`,
   inputSchema: {
     type: 'object',
     properties: {
       state: STATE,
-      instructions: { ...INSTRUCTIONS, description: 'Required. What to decide, e.g. "Which team should handle this ticket?"' },
-      criteria: { type: ['object', 'array'], items: { type: 'string' }, description: '{label: description} or [label, ...]' },
+      instructions: { ...INSTRUCTIONS, description: 'Optional, recommended. What to decide, e.g. "Which team should handle this ticket?"' },
+      criteria: { type: ['object', 'array'], items: { type: 'string' }, description: '{label: description} or [label, ...]; 2 to 255 labels' },
       model: MODEL,
     },
-    required: ['state', 'instructions', 'criteria'],
+    required: ['state', 'criteria'],
   },
   handler: async (args) => one('choice', args),
 };
 
 export const kaiScoreTool: Tool = {
   name: 'kai_score',
-  description: `Ask Kai, Hanzo's decision model, for an ordinal level: severity, urgency, priority, risk, quality. ${WHEN} \`instructions\` (required) says what to rate; criteria lists the levels lowest first, [level0, level1, ...]. Returns {answer: {score, confidence, legend, probabilities, answer_confidence}, id, model, usage}: probabilities are by level index and legend maps each index to its level. The likeliest level is the argmax of probabilities, and confidence and answer_confidence describe that level; score is the mean level index Σ i·p_i, which can sit between levels or round to a different one, so act on the argmax, not on score. ${TRUST}`,
+  description: `Ask Kai, Hanzo's decision model, for an ordinal level: severity, urgency, priority, risk, quality. ${WHEN} \`instructions\` (optional, recommended) says what to rate; criteria lists 1 to 10 levels lowest first, [level0, level1, ...]. Returns {answer: {score, confidence, legend, probabilities, answer_confidence}, id, model, usage}: probabilities are by level index and legend maps each index to its level. The likeliest level is the argmax of probabilities, and confidence and answer_confidence describe that level; score is the mean level index Σ i·p_i, which can sit between levels or round to a different one, so act on the argmax, not on score. ${TRUST}`,
   inputSchema: {
     type: 'object',
     properties: {
       state: STATE,
-      instructions: { ...INSTRUCTIONS, description: 'Required. What to rate, e.g. "How urgent is this ticket?"' },
-      criteria: { type: 'array', items: {}, description: 'The levels, lowest first: [level0, level1, ...]; none may be null' },
+      instructions: { ...INSTRUCTIONS, description: 'Optional, recommended. What to rate, e.g. "How urgent is this ticket?"' },
+      criteria: { type: 'array', items: {}, description: 'The levels, lowest first: [level0, level1, ...]; 1 to 10, none null' },
       model: MODEL,
     },
-    required: ['state', 'instructions', 'criteria'],
+    required: ['state', 'criteria'],
   },
   handler: async (args) => one('score', args),
 };
 
 export const kaiNoulTool: Tool = {
   name: 'kai_noul',
-  description: `Ask Kai, Hanzo's decision model, whether a statement holds about a case: gate, check, flag. ${WHEN} \`instructions\` (required) is the statement; criteria describes each side, {"true": ..., "false": ...}. Returns {answer: {noul, answer_confidence}, id, model, usage}: noul is the calibrated probability the statement holds, answer_confidence the likelier side's probability. confidence, (n·p_max − 1)/(n − 1) with n = 2, is |2·noul − 1| here: act when it clears your threshold; below it, escalate or ask a person. ${NOUL}`,
+  description: `Ask Kai, Hanzo's decision model, whether a statement holds about a case: gate, check, flag. ${WHEN} \`instructions\` (optional, recommended) is the statement; criteria describes each side, {"true": ..., "false": ...}. Returns {answer: {noul, confidence, answer_confidence}, id, model, usage}: noul is the calibrated probability the statement holds, confidence is |2·noul − 1|, which is (n·p_max − 1)/(n − 1) with n = 2, and answer_confidence the likelier side's probability. Act when confidence clears your threshold; below it, escalate or ask a person. ${NOUL}`,
   inputSchema: {
     type: 'object',
     properties: {
       state: STATE,
-      instructions: { ...INSTRUCTIONS, description: 'Required. The statement, e.g. "The customer asks for a refund."' },
+      instructions: { ...INSTRUCTIONS, description: 'Optional, recommended. The statement, e.g. "The customer asks for a refund."' },
       criteria: { type: 'object', description: 'What each side means: {"true": ..., "false": ...}' },
       model: MODEL,
     },
-    required: ['state', 'instructions'],
+    required: ['state'],
   },
   handler: async (args) => one('noul', args),
 };

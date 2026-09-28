@@ -46,16 +46,20 @@ Hanzo's decision model, at `POST /v1/decisions` on `API_URL` or
 `API_TOKEN`, `HANZO_TOKEN`), as the tracker tools do. `kai_decide` sends a whole
 request (`state`, named `questions`, `model` defaulting to `kai`) and returns the
 decision as served; the other three send one question of their type, named by the
-type, and return `{answer, id, model, usage}`. The tools check shape only: state
-and every question's `instructions` as non-blank text, an object or an array, and
-criteria per type. Limits on questions, state size and options are the server's.
-A non-2xx returns `<status>: <the server's sentence>` (decision's
-`error.message`, the gateway's `msg`).
+type, and return `{answer, id, model, usage}`. They check the shape the frozen
+wire contract fixes: `state` is text, an object or an array; `instructions` is
+optional on every question and, when given, the same; 1 to 100 questions; a
+choice names 2 to 255 labels (a repeated list label is one); a score lists 1 to 10
+levels, none null; a noul's sides are `true` and `false` only. Whether a state
+fits the model is the server's to say (422 `state_too_long`). A non-2xx returns
+`<status>: <the server's sentence>` (decision's `error.message`, the gateway's
+`msg`).
 
-The descriptions steer a noul to a statement with both sides described, or to a
-yes/no choice, because Kai reads a bare question-form yes/no poorly. They say to
-act on a score's argmax: `score` is the mean level index, and `confidence`
-describes the likeliest level.
+The descriptions call `instructions` recommended and steer a noul to a statement
+with both sides described, or to a yes/no choice, because Kai reads a bare
+question-form yes/no poorly. They say to act on a score's argmax: `score` is the
+mean level index, and `confidence` describes the likeliest level. A noul's
+`confidence` is |2p − 1|.
 
 Tools that run a whole decision program arrive with Kai's joint decoder.
 TypeScript only, like `tracker_*`: neither the Rust runtime nor Python `hanzo-mcp`

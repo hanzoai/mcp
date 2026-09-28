@@ -25,11 +25,11 @@ interface Sent {
 const sent: Sent[] = [];
 let reply: (body: any) => { status: number; text: string };
 
-// One answer per type, as api.hanzo.ai answered them for model kai.
+// One answer per type in the contract's shape, values from a live kai run; a noul's confidence is |2p-1|.
 const ANSWERS: Record<string, unknown> = {
   choice: { type: 'choice', choice: 'billing', confidence: 0.9995, probabilities: { billing: 0.9997, technical: 0.0003, sales: 0.0 }, answer_confidence: 0.9997 },
   score: { type: 'score', score: 1.3966, confidence: 0.3224, legend: { 0: 'low', 1: 'medium', 2: 'high' }, probabilities: { 0: 0.1516, 1: 0.3001, 2: 0.5482 }, answer_confidence: 0.5482 },
-  noul: { type: 'noul', noul: 0.7232, answer_confidence: 0.7232 },
+  noul: { type: 'noul', noul: 0.7232, confidence: 0.4464, answer_confidence: 0.7232 },
 };
 
 const ID = 'dec_56909080d4f6ae84865973380ac591e0';
@@ -85,12 +85,12 @@ describe('the kai tool surface', () => {
     expect(new Set(names).size).toBe(names.length);
   });
 
-  test('every question requires instructions, and choice and score their criteria', () => {
+  test('instructions is optional everywhere; choice and score require their criteria', () => {
     expect(kaiDecideTool.inputSchema.required).toEqual(['state', 'questions']);
-    expect(kaiDecideTool.inputSchema.properties.questions.additionalProperties.required).toEqual(['type', 'instructions']);
-    expect(kaiChoiceTool.inputSchema.required).toEqual(['state', 'instructions', 'criteria']);
-    expect(kaiScoreTool.inputSchema.required).toEqual(['state', 'instructions', 'criteria']);
-    expect(kaiNoulTool.inputSchema.required).toEqual(['state', 'instructions']);
+    expect(kaiDecideTool.inputSchema.properties.questions.additionalProperties.required).toEqual(['type']);
+    expect(kaiChoiceTool.inputSchema.required).toEqual(['state', 'criteria']);
+    expect(kaiScoreTool.inputSchema.required).toEqual(['state', 'criteria']);
+    expect(kaiNoulTool.inputSchema.required).toEqual(['state']);
   });
 
   test('each description says when to reach for Kai and how to read its confidence', () => {
@@ -98,6 +98,7 @@ describe('the kai tool surface', () => {
       expect(t.description).toContain('classify, route, gate, rank, check');
       expect(t.description).toContain('(n·p_max − 1)/(n − 1)');
       expect(t.description).toContain('`instructions`');
+      expect(t.description).toContain('recommended');
       expect(t.description).toContain('escalate');
     }
     for (const t of [kaiDecideTool, kaiNoulTool]) expect(t.description).toContain('Write a noul as a statement');
@@ -151,6 +152,25 @@ describe('kai_decide', () => {
     await kaiDecideTool.handler({ state: [{ role: 'user', content: 'refund please' }], questions });
     expect(last().body.state).toEqual([{ role: 'user', content: 'refund please' }]);
   });
+
+  test('a question without instructions goes as given', async () => {
+    const bare = { team: { type: 'choice', criteria: ['billing', 'technical'] } };
+    const result = await kaiDecideTool.handler({ state: 'x', questions: bare });
+    expect(result.isError).toBeFalsy();
+    expect(last().body.questions).toEqual(bare);
+  });
+
+  test('an empty state is text, and goes', async () => {
+    await kaiDecideTool.handler({ state: '', questions });
+    expect(last().body.state).toBe('');
+  });
+
+  test('a hundred questions go in one call', async () => {
+    const many = Object.fromEntries(Array.from({ length: 100 }, (_, i) => [`q${i}`, { type: 'noul', instructions: `Statement ${i} holds.` }]));
+    const result = await kaiDecideTool.handler({ state: 'x', questions: many });
+    expect(result.isError).toBeFalsy();
+    expect(Object.keys(last().body.questions)).toHaveLength(100);
+  });
 });
 
 describe('kai_choice', () => {
@@ -182,6 +202,16 @@ describe('kai_score', () => {
 });
 
 describe('kai_noul', () => {
+  test('sends the question with neither instructions nor criteria when none are given', async () => {
+    await kaiNoulTool.handler({ state: 'I was charged twice. Refund the duplicate.' });
+    expect(last().body.questions).toEqual({ noul: { type: 'noul' } });
+  });
+
+  test('an empty instructions argument is left out, as a client sends an unset option', async () => {
+    await kaiChoiceTool.handler({ state: 'x', instructions: '', criteria: ['a', 'b'] });
+    expect(last().body.questions).toEqual({ choice: { type: 'choice', criteria: ['a', 'b'] } });
+  });
+
   test('sends the statement alone when no criteria are given', async () => {
     const result = await kaiNoulTool.handler({ state: 'Refund the duplicate.', instructions: 'The customer asks for a refund.' });
     expect(last().body.questions).toEqual({ noul: { type: 'noul', instructions: 'The customer asks for a refund.' } });
@@ -206,19 +236,22 @@ describe('inputs are checked before any call', () => {
   test.each([
     ['kai_decide without state', kaiDecideTool, { questions: { q } }, 'state required'],
     ['a state that is a number', kaiDecideTool, { state: 7, questions: { q } }, 'state required'],
-    ['an empty state', kaiNoulTool, { state: ' ', instructions: 'y' }, 'state required'],
+    ['a null state', kaiNoulTool, { state: null, instructions: 'y' }, 'state required'],
     ['kai_decide without questions', kaiDecideTool, { state: 'x' }, 'questions required'],
-    ['kai_decide with no question', kaiDecideTool, { state: 'x', questions: {} }, 'questions required'],
     ['questions as a list', kaiDecideTool, { state: 'x', questions: [q] }, 'questions required'],
+    ['kai_decide with no question', kaiDecideTool, { state: 'x', questions: {} }, 'questions must hold 1 to 100 questions, not 0'],
+    ['101 questions', kaiDecideTool, { state: 'x', questions: Object.fromEntries(Array.from({ length: 101 }, (_, i) => [`q${i}`, q])) }, 'questions must hold 1 to 100 questions, not 101'],
     ['a question that is not an object', kaiDecideTool, { state: 'x', questions: { q: 'urgent?' } }, "question 'q': must be {type, instructions, criteria}"],
     ['a question of unknown type', kaiDecideTool, { state: 'x', questions: { q: { type: 'rank', instructions: 'y' } } }, "question 'q': type must be one of choice, score, noul"],
-    ['a question without instructions', kaiDecideTool, { state: 'x', questions: { q: { type: 'noul' } } }, "question 'q': instructions required"],
-    ['kai_choice without instructions', kaiChoiceTool, { state: 'x', criteria: ['a'] }, 'instructions required'],
-    ['blank instructions', kaiChoiceTool, { state: 'x', instructions: '  ', criteria: ['a'] }, 'instructions required'],
+    ['instructions that are a number', kaiDecideTool, { state: 'x', questions: { q: { type: 'noul', instructions: 7 } } }, "question 'q': instructions must be text, an object or an array"],
     ['kai_choice without criteria', kaiChoiceTool, { state: 'x', instructions: 'y' }, 'criteria must be {label: description} or [label, ...]'],
-    ['kai_choice with no label', kaiChoiceTool, { state: 'x', instructions: 'y', criteria: {} }, 'criteria must be {label: description} or [label, ...]'],
+    ['kai_choice with no label', kaiChoiceTool, { state: 'x', instructions: 'y', criteria: {} }, 'criteria must name 2 to 255 labels, not 0'],
+    ['kai_choice with one label', kaiChoiceTool, { state: 'x', instructions: 'y', criteria: { billing: 'charges' } }, 'criteria must name 2 to 255 labels, not 1'],
+    ['a repeated label, which is one option', kaiChoiceTool, { state: 'x', instructions: 'y', criteria: ['a', 'a'] }, 'criteria must name 2 to 255 labels, not 1'],
+    ['256 labels', kaiChoiceTool, { state: 'x', instructions: 'y', criteria: Array.from({ length: 256 }, (_, i) => `l${i}`) }, 'criteria must name 2 to 255 labels, not 256'],
     ['a label that is not a string', kaiChoiceTool, { state: 'x', instructions: 'y', criteria: ['a', 2] }, 'criteria as a list must hold string labels'],
-    ['kai_score without levels', kaiScoreTool, { state: 'x', instructions: 'y', criteria: [] }, 'criteria must be the levels, lowest first'],
+    ['kai_score without levels', kaiScoreTool, { state: 'x', instructions: 'y', criteria: [] }, 'criteria must list 1 to 10 levels, not 0'],
+    ['11 levels', kaiScoreTool, { state: 'x', instructions: 'y', criteria: Array.from({ length: 11 }, (_, i) => `level ${i}`) }, 'criteria must list 1 to 10 levels, not 11'],
     ['levels as a map', kaiScoreTool, { state: 'x', instructions: 'y', criteria: { low: 'fine' } }, 'criteria must be the levels, lowest first'],
     ['a null level', kaiScoreTool, { state: 'x', instructions: 'y', criteria: ['low', null, 'high'] }, 'score level 1 is null'],
     ['a noul side other than true and false', kaiNoulTool, { state: 'x', instructions: 'y', criteria: { true: 'a', maybe: 'b' } }, 'criteria take only "true" and "false", not maybe'],
