@@ -94,6 +94,7 @@ export { gitTools as vcsTools } from './git.js';
 export { gimpTools, gimpTool } from './gimp.js';
 export { codeIntelTools, codeSearchTool, codeContextTool, codeAskTool, codeIndexTool } from './code-intel.js';
 export { trackerTools, trackerBoardsTool, trackerIssuesTool, trackerCreateTool, trackerUpdateTool } from './tracker.js';
+export { kaiTools, kaiDecideTool, kaiChoiceTool, kaiScoreTool, kaiNoulTool } from './kai.js';
 export { refactorTools } from './refactor.js';
 export { memoryTools } from './memory.js';
 export { planTools } from './plan.js';

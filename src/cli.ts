@@ -29,7 +29,7 @@ const __dirname = dirname(__filename);
 
 // Import our tools
 import {
-  getConfiguredTools, ToolConfig, coreTools, optionalTools, codeIntelTools, trackerTools, uiTools,
+  getConfiguredTools, ToolConfig, coreTools, optionalTools, codeIntelTools, trackerTools, kaiTools, uiTools,
   autoguiTools, orchestrationTools, uiRegistryTools, githubUITools, desktopTools, cryptuonCommunityTools,
 } from './tools/index.js';
 import { Tool } from './types/index.js';
@@ -123,7 +123,7 @@ program
   .option('--disable-autogui', 'Exclude AutoGUI tools from listing')
   .option('--disable-orchestration', 'Exclude orchestration tools from listing')
   .option('--core-only', 'List only the core tools')
-  .option('--category <group>', 'List one group: core, optional, code intelligence, tracker, ui, autogui, orchestration, ui registry, github ui, desktop, community, other')
+  .option('--category <group>', 'List one group: core, optional, code intelligence, tracker, kai, ui, autogui, orchestration, ui registry, github ui, desktop, community, other')
   .action(async (options) => {
     const tools = getConfiguredTools(surface(options));
     const left = new Map(tools.map(t => [t.name, t]));
@@ -134,6 +134,7 @@ program
       ['optional', optionalTools],
       ['code intelligence', codeIntelTools],
       ['tracker', trackerTools],
+      ['kai', kaiTools],
       ['ui', uiTools],
       ['autogui', autoguiTools],
       ['orchestration', orchestrationTools],

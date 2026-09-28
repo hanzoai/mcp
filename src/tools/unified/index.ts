@@ -26,6 +26,8 @@ import { gimpTool } from '../gimp.js';
 import { codeIntelTools } from '../code-intel.js';
 // Work items — Hanzo /v1/tracker (the ONE work-item primitive; boards, issues)
 import { trackerTools } from '../tracker.js';
+// Decisions — Kai on Hanzo /v1/decisions (choice, score, noul)
+import { kaiTools } from '../kai.js';
 
 // UI — already unified
 import { unifiedUITool } from '../unified-ui.js';
@@ -64,6 +66,7 @@ export const allUnifiedTools: Tool[] = [
   ...optionalTools,
   ...codeIntelTools,   // code_search, code_context, code_ask, code_index
   ...trackerTools,     // tracker_boards, tracker_issues, tracker_create, tracker_update
+  ...kaiTools,         // kai_decide, kai_choice, kai_score, kai_noul
 ];
 
 // Re-exports
@@ -75,3 +78,4 @@ export { workspaceTool } from './workspace.js';
 export { hanzoTool } from './hanzo.js';
 export { codeIntelTools, codeSearchTool, codeContextTool, codeAskTool, codeIndexTool } from '../code-intel.js';
 export { trackerTools, trackerBoardsTool, trackerIssuesTool, trackerCreateTool, trackerUpdateTool } from '../tracker.js';
+export { kaiTools, kaiDecideTool, kaiChoiceTool, kaiScoreTool, kaiNoulTool } from '../kai.js';

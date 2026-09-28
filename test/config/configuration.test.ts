@@ -8,6 +8,7 @@ const UNIFIED_TOOLSET = [
   'think', 'memory', 'hanzo', 'plan', 'tasks', 'mode', 'gimp',          // optional
   'code_search', 'code_context', 'code_ask', 'code_index',             // code intelligence
   'tracker_boards', 'tracker_issues', 'tracker_create', 'tracker_update', // work items
+  'kai_decide', 'kai_choice', 'kai_score', 'kai_noul',                  // decisions
 ];
 
 describe('Configuration System', () => {

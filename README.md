@@ -49,11 +49,24 @@ defines:
 | optional | `think`, `memory`, `hanzo`, `plan`, `tasks`, `mode`, `gimp` |
 | code intelligence | `code_search`, `code_context`, `code_ask`, `code_index` |
 | tracker | `tracker_boards`, `tracker_issues`, `tracker_create`, `tracker_update` |
+| kai | `kai_decide`, `kai_choice`, `kai_score`, `kai_noul` |
 
 The core and optional tools take an `action` argument that picks the operation;
-`ui` takes `method`. The code intelligence and tracker tools call
+`ui` takes `method`. The code intelligence, tracker and kai tools call
 `https://api.hanzo.ai` with the key in `HANZO_API_KEY`, and `API_URL` points
 them at another host.
+
+The kai tools ask Kai, Hanzo's decision model, typed questions about a case
+(`POST /v1/decisions`) and answer with calibrated probabilities: `kai_choice`
+picks a label, `kai_score` an ordinal level, `kai_noul` the probability that a
+statement holds, and `kai_decide` asks several of them in one call.
+`instructions` is required on every question. A `kai_choice` call:
+
+```json
+{ "state": "I was charged twice for my March invoice. Please refund the duplicate.",
+  "instructions": "Which team should handle this ticket?",
+  "criteria": { "billing": "charges, invoices and refunds", "product": "how to use the product" } }
+```
 
 `hanzo` reaches every Hanzo Cloud subsystem: `resource` names one, `action` one
 of its operations, `args` that operation's arguments. With no `action` it lists

@@ -38,6 +38,29 @@ board renders that session's live status on the row.
 `tracker_create` defaults `source` to `agent`, because the board's "an agent's
 work" filter (`?source=agent`) is only true if agents say so.
 
+## `kai_*` — decisions
+
+`kai_decide`, `kai_choice`, `kai_score`, `kai_noul` (`src/tools/kai.ts`) ask Kai,
+Hanzo's decision model, at `POST /v1/decisions` on `API_URL` or
+`https://api.hanzo.ai`, with the bearer from `HANZO_API_KEY` (else `API_KEY`,
+`API_TOKEN`, `HANZO_TOKEN`), as the tracker tools do. `kai_decide` sends a whole
+request (`state`, named `questions`, `model` defaulting to `kai`) and returns the
+decision as served; the other three send one question of their type, named by the
+type, and return `{answer, id, model, usage}`. The tools check shape only: state
+and every question's `instructions` as non-blank text, an object or an array, and
+criteria per type. Limits on questions, state size and options are the server's.
+A non-2xx returns `<status>: <the server's sentence>` (decision's
+`error.message`, the gateway's `msg`).
+
+The descriptions steer a noul to a statement with both sides described, or to a
+yes/no choice, because Kai reads a bare question-form yes/no poorly. They say to
+act on a score's argmax: `score` is the mean level index, and `confidence`
+describes the likeliest level.
+
+Tools that run a whole decision program arrive with Kai's joint decoder.
+TypeScript only, like `tracker_*`: neither the Rust runtime nor Python `hanzo-mcp`
+carries the tracker or kai tools.
+
 ## `research` — one door, one mode
 
 `research` (Rust `rust/src/tools/cloud_web.rs`) is POST `/v1/ask` with
@@ -162,7 +185,7 @@ already holding the tool. `get_iam_users` survives and `post_iam_users` does not
 which is the rule's own distinction — knowing who holds a role is not granting
 one.
 
-**The default surface did not grow.** `getConfiguredTools({})` is still 22 tools;
+**The fleet does not grow the default surface.** `getConfiguredTools({})` is 26 tools;
 the fleet sits behind `hanzo`, whose `resource` enum is derived from the catalog
 rather than listed, so a subsystem the fleet gains is reachable the day it is
 generated. The 114 individual tools appear only on the legacy branch.
@@ -188,7 +211,8 @@ normalises spelling and renames nothing; one thing has one name.
 ## Canonical role
 Part of the AI/agents SDK line. This TS package (`@hanzo/mcp`) is canonical; the
 Python `hanzo-mcp` (PyPI) and Rust `hanzo-mcp::brain` mirror the same tool surface
-1-to-1 — tool names and action schemas identical across runtimes. DRY: one impl
+1-to-1 — tool names and action schemas identical across runtimes — except
+`tracker_*` and `kai_*`, which are TypeScript only. DRY: one impl
 per tool in its canonical home; do not duplicate tool logic across runtimes beyond
 the shared schema. Full model: `~/work/hanzo/SDK-ARCHITECTURE.md`.
 
