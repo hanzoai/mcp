@@ -1,0 +1,104 @@
+# Builds the hanzo-mcp binary for every target the installer offers, and
+# attaches each with its checksum.
+#
+# There was no such lane. hanzo.yml declares a TypeScript gate and publish.yml
+# ships the npm package; neither produces a binary, so the tarballs on the
+# rust-v1.1.23 release arrived some other way and only ever covered Linux.
+# hanzo.sh offers `mcp` as a native download, so on macOS it asked for a file
+# nobody had built.
+#
+# Tagged rust-v*, because the binary is the Rust crate in rust/ — its
+# Cargo.toml is the one that calls itself hanzo-mcp.
+#
+# .hanzo/workflows, with every other pipeline in this repository. The forge
+# reads the FIRST of .hanzo/workflows and .github/workflows that exists, so a
+# file left in the other directory is a pipeline that never runs.
+name: release
+
+on:
+  push:
+    tags: ['rust-v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  # The release has to exist before anything can be attached to it, and four
+  # matrix jobs racing to create it is three failures and a coin toss. One job,
+  # first, and the builds wait on it.
+  open:
+    runs-on: linux-amd64
+    steps:
+      - uses: actions/checkout@v4
+      - name: Open the release if it is not already there
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -eu
+          if gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "$GITHUB_REF_NAME already exists — attaching to it"
+          else
+            gh release create "$GITHUB_REF_NAME" \
+              --repo "$GITHUB_REPOSITORY" \
+              --title "hanzo-mcp ${GITHUB_REF_NAME#rust-v}" \
+              --generate-notes
+          fi
+
+  build:
+    needs: open
+    strategy:
+      # One target failing leaves the others published rather than the release
+      # empty. A missing target is a missing file somebody can chase; a missing
+      # release is an install that breaks for everyone.
+      fail-fast: false
+      matrix:
+        include:
+          - target: linux-amd64
+            on: linux-amd64
+            triple: x86_64-unknown-linux-gnu
+          - target: linux-arm64
+            on: hanzo-build-linux-arm64
+            triple: aarch64-unknown-linux-gnu
+          # Both macOS targets build on the arm64 machine: the Apple toolchain
+          # cross-compiles to x86_64 without a second host, which is why there
+          # is no Intel runner in this list and does not need to be.
+          - target: darwin-arm64
+            on: macos-arm64
+            triple: aarch64-apple-darwin
+          - target: darwin-amd64
+            on: macos-arm64
+            triple: x86_64-apple-darwin
+    runs-on: ${{ matrix.on }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build
+        working-directory: rust
+        run: |
+          set -eu
+          rustup target add "${{ matrix.triple }}" 2>/dev/null || true
+          cargo build --release --locked --bin hanzo-mcp --target "${{ matrix.triple }}"
+
+      # The name the installer asks for, and the checksum it refuses to install
+      # without. Both are part of the contract in hanzo.sh, not decoration.
+      - name: Package
+        run: |
+          set -eu
+          asset="hanzo-mcp-${{ matrix.target }}.tar.gz"
+          tar -C "rust/target/${{ matrix.triple }}/release" -czf "$asset" hanzo-mcp
+          if command -v sha256sum >/dev/null 2>&1; then
+            sha256sum "$asset" | cut -d' ' -f1 > "$asset.sha256"
+          else
+            shasum -a 256 "$asset" | cut -d' ' -f1 > "$asset.sha256"
+          fi
+          ls -l "$asset" "$asset.sha256"
+
+      - name: Attach
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload "${GITHUB_REF_NAME}" \
+            "hanzo-mcp-${{ matrix.target }}.tar.gz" \
+            "hanzo-mcp-${{ matrix.target }}.tar.gz.sha256" \
+            --clobber --repo "${GITHUB_REPOSITORY}"
