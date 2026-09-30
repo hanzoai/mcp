@@ -21,6 +21,7 @@ pub mod server;
 pub mod protocol;
 pub mod tools;
 pub mod search;
+pub mod zap;
 
 pub use config::Config;
 pub use server::MCPServer;
@@ -196,7 +197,8 @@ impl ToolRegistry {
             "browser" => {
                 let args: tools::BrowserToolArgs = serde_json::from_value(params)?;
                 let result = self.browser.read().await.execute(args).await?;
-                Ok(ToolResult::ok(serde_json::from_str(&result)?))
+                // A tree, a page or help is text; everything else JSON.
+                Ok(ToolResult::ok(serde_json::from_str(&result).unwrap_or(Value::String(result))))
             }
             "mode" => {
                 let args: tools::ModeToolArgs = serde_json::from_value(params)?;
@@ -336,6 +338,7 @@ impl ToolRegistry {
         registry.register(Box::new(tools::LspTool::new()));
         registry.register(Box::new(tools::RefactorTool::new()));
         registry.register(Box::new(tools::SystemTool::new()));
+        registry.register(Box::new(tools::CdpTool::new()));
 
         #[cfg(feature = "computer-control")]
         {

@@ -1,5 +1,5 @@
 use anyhow::Result;
-use clap::{Parser, ValueEnum};
+use clap::{Parser, Subcommand, ValueEnum};
 use hanzo_mcp::{Config, MCPServer};
 use log::info;
 use std::path::PathBuf;
@@ -40,11 +40,31 @@ struct Args {
     /// Port to listen on (http/sse transports)
     #[clap(short, long, default_value = "3333")]
     port: u16,
+
+    #[clap(subcommand)]
+    command: Option<Cmd>,
+}
+
+#[derive(Subcommand, Debug)]
+enum Cmd {
+    /// Print this user's browser pairing code, for a browser that cannot start
+    /// the native host and is not admitted by origin (snap or Flatpak Firefox,
+    /// Safari): paste it into the extension's popup.
+    Pair {
+        /// Mint a new code on a new port; every paired browser pairs again.
+        #[clap(long)]
+        reset: bool,
+    },
 }
 
 #[tokio::main]
 async fn main() -> Result<()> {
     let args = Args::parse();
+    if let Some(Cmd::Pair { reset }) = args.command {
+        let p = if reset { zapd::pair::reset()? } else { zapd::pair::load()? };
+        println!("{}", p.code());
+        return Ok(());
+    }
 
     // On stdio, logs must never pollute the JSON-RPC stream on stdout.
     let log_target = if args.transport == Transport::Stdio {
@@ -64,6 +84,10 @@ async fn main() -> Result<()> {
     } else {
         Config::default()
     };
+
+    // Stand for this user's ZAP router and take our seat on it, as every
+    // hanzo-mcp does: the browser tools reach the extension through it.
+    hanzo_mcp::zap::seat();
 
     let mut server = MCPServer::new(config, args.port)?;
     for root in args.project_dir {

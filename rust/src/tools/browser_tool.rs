@@ -1,29 +1,343 @@
-/// Browser automation tool (HIP-0300)
-///
-/// Full Playwright surface driven by ONE long-lived Node driver process.
-///
-/// Design (matches python-sdk/pkg/hanzo-tools-browser):
-/// - A single persistent `node` + `playwright` driver is spawned once and kept
-///   alive across MCP calls. It holds one browser + context + page, so
-///   multi-step flows keep their page state (navigate -> fill -> click -> read).
-/// - Each action is a newline-delimited JSON command on the driver's stdin; the
-///   driver replies with one newline-delimited JSON result on stdout.
-/// - When `cdp_endpoint`/`cdp_port` is set, the driver attaches to the existing
-///   browser over CDP (Chrome DevTools Protocol / the Hanzo extension bridge)
-///   instead of launching a fresh Chromium.
-/// - The full ~90-action surface is dispatched inside the driver, mirroring the
-///   Python `BrowserTool.execute` one-to-one. There is no Python fallback.
+//! The `browser` tool: the user's own browser through the Hanzo extension, or a
+//! headless Playwright Chromium when none is connected.
+//!
+//! The same surface as python-sdk `hanzo_tools.browser.browser_tool`: the same
+//! action names, the core parameters typed and the rest in `args`, the same
+//! extension methods. [`ACTIONS`] is the one table that names, routes and
+//! documents every action. An action with a `wire` method goes to the browser
+//! node on this user's ZAP router ([`crate::zap`]); with no browser registered
+//! it runs on one long-lived Node + Playwright driver, which keeps its page
+//! across calls. Refs (`@e2`) and annotated screenshots exist only in the
+//! extension, and an explicit backend (`BROWSER_BACKEND=chrome|firefox|extension`)
+//! means that browser: neither falls back.
 
 use anyhow::{anyhow, Result};
+use base64::Engine as _;
 use serde::{Deserialize, Serialize};
-use serde_json::{json, Value};
+use serde_json::{json, Map, Value};
 use std::process::Stdio;
 use std::sync::Arc;
+use std::time::Duration;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader, Lines};
 use tokio::process::{Child, ChildStdin, ChildStdout, Command};
 use tokio::sync::Mutex;
 
-/// Browser actions — the full Playwright surface.
+use crate::zap;
+
+/// One browser action: its help topic, one-line usage, the extension method
+/// that serves it (`None`: headless Playwright only), and the page-engine op
+/// for actions the extension answers with `hanzo.act`.
+pub struct Op {
+    pub name: &'static str,
+    pub topic: &'static str,
+    pub usage: &'static str,
+    pub wire: Option<&'static str>,
+    pub act: Option<&'static str>,
+}
+
+const fn ext(name: &'static str, topic: &'static str, usage: &'static str, wire: &'static str) -> Op {
+    Op { name, topic, usage, wire: Some(wire), act: None }
+}
+
+const fn act(name: &'static str, topic: &'static str, usage: &'static str, op: &'static str) -> Op {
+    Op { name, topic, usage, wire: Some("hanzo.act"), act: Some(op) }
+}
+
+const fn pw(name: &'static str, topic: &'static str, usage: &'static str) -> Op {
+    Op { name, topic, usage, wire: None, act: None }
+}
+
+/// Every action, once. The schema, the routing, the wire method and `help` are
+/// all read from here, so an action cannot exist in one and not the others.
+pub const ACTIONS: &[Op] = &[
+    // core: the default surface, and the loop an agent drives a page with
+    ext("navigate", "core", "url: open a URL; returns once it has loaded", "hanzo.navigate"),
+    ext("snapshot", "core", "[interactive] [compact] [depth] [selector] [args.urls]: the accessibility tree, [ref=eN] on every node you can act on", "hanzo.snapshot"),
+    act("click", "core", "selector: click a ref (@e2) or CSS selector; refused when another element covers it", "click"),
+    act("fill", "core", "selector, text: replace a field's value", "fill"),
+    act("type", "core", "text [selector]: type key by key into the element, or the focused one", "type"),
+    act("press", "core", "key [selector]: Enter, Tab, Escape, ArrowDown, Control+a", "press"),
+    ext("read", "core", "[outline] [filter]: the page as markdown, as the signed-in user sees it", "hanzo.read"),
+    ext("screenshot", "core", "[annotate] [args.full_page] [args.full_res] [args.path]: the viewport, downscaled unless full_res; annotate boxes each ref, label [N] = @eN, and returns the legend", "hanzo.screenshot"),
+    ext("evaluate", "core", "code: run JavaScript in the page and return its value", "Runtime.evaluate"),
+    ext("wait", "core", "selector | text [args.state=hidden] | timeout: until it shows (or goes), or for ms", "hanzo.wait"),
+    ext("tabs", "core", "open tabs; tab_id targets one in any action", "Target.getTargets"),
+    pw("help", "core", "[topic]: every other action, with how to call it"),
+    // interact: more ways to act on a ref or CSS selector
+    act("dblclick", "interact", "selector", "dblclick"),
+    act("hover", "interact", "selector", "hover"),
+    act("focus", "interact", "selector", "focus"),
+    act("select", "interact", "selector, args.value: choose a <select> option by value or label", "select"),
+    act("check", "interact", "selector: check a checkbox or radio (no-op when already checked)", "check"),
+    act("uncheck", "interact", "selector", "uncheck"),
+    act("scroll", "interact", "args.delta_x, args.delta_y [selector]: scroll the page, or an element, by pixels", "scroll"),
+    act("scroll_into_view", "interact", "selector", "scrollIntoView"),
+    act("get_text", "interact", "selector: rendered text; a field's value", "text"),
+    act("get_attribute", "interact", "selector, args.attribute", "attribute"),
+    act("count", "interact", "selector: how many elements a CSS selector matches", "count"),
+    pw("upload", "interact", "selector, args.files: set a file input's files"),
+    pw("drag", "interact", "selector, args.target_selector"),
+    pw("blur", "interact", "selector"),
+    pw("tap", "interact", "selector: a touch tap"),
+    pw("swipe", "interact", "selector, args.direction [args.distance]"),
+    pw("pinch", "interact", "selector [args.scale]"),
+    pw("mouse_move", "interact", "args.x, args.y"),
+    pw("mouse_down", "interact", "[args.button]"),
+    pw("mouse_up", "interact", "[args.button]"),
+    // navigation
+    ext("go_back", "navigation", "back one page", "Page.goBack"),
+    ext("go_forward", "navigation", "forward one page", "Page.goForward"),
+    ext("reload", "navigation", "reload the page", "Page.reload"),
+    ext("url", "navigation", "the tab's URL", "hanzo.url"),
+    ext("title", "navigation", "the tab's title", "hanzo.title"),
+    pw("set_content", "navigation", "args.html: replace the page's HTML"),
+    // tabs and browsers
+    ext("new_tab", "tabs", "[url]: open a tab", "Target.createTarget"),
+    ext("close_tab", "tabs", "tab_id (Playwright: args.tab_index)", "Target.closeTarget"),
+    ext("select_tab", "tabs", "tab_id (Playwright: args.tab_index): bring a tab to the front", "Target.activateTarget"),
+    pw("browsers", "tabs", "connected browsers; target_browser picks one"),
+    ext("status", "tabs", "the browser behind this tool", "Browser.getVersion"),
+    pw("close", "tabs", "close the Playwright browser"),
+    pw("new_context", "tabs", "[url] [args.device]: an isolated Playwright session (own cookies and storage)"),
+    pw("connect", "tabs", "args.cdp_endpoint: attach Playwright to a running Chrome"),
+    pw("set_headless", "tabs", "[args.headless]: relaunch Playwright headed or headless"),
+    // page: content and state
+    ext("get_html", "page", "[selector]: an element's HTML, or the page's", "hanzo.getHTML"),
+    pw("get_bounding_box", "page", "selector"),
+    pw("pdf", "page", "[args.path]: print the page to PDF"),
+    pw("is_visible", "page", "selector"),
+    pw("is_enabled", "page", "selector"),
+    pw("is_editable", "page", "selector"),
+    pw("is_checked", "page", "selector"),
+    pw("highlight", "page", "selector: outline an element on screen"),
+    // assert: fail unless the page matches (args.not_ negates)
+    pw("expect_visible", "assert", "selector"),
+    pw("expect_hidden", "assert", "selector"),
+    pw("expect_enabled", "assert", "selector"),
+    pw("expect_checked", "assert", "selector"),
+    pw("expect_text", "assert", "selector, args.expected"),
+    pw("expect_value", "assert", "selector, args.expected"),
+    pw("expect_attribute", "assert", "selector, args.attribute, args.expected"),
+    pw("expect_count", "assert", "selector, args.index (the count)"),
+    pw("expect_url", "assert", "args.expected (glob with *)"),
+    pw("expect_title", "assert", "args.expected (glob with *)"),
+    // storage
+    ext("cookies", "storage", "the page's cookies (Playwright: args.cookies sets them)", "hanzo.getCookies"),
+    pw("clear_cookies", "storage", "delete every cookie"),
+    pw("storage", "storage", "[args.storage_type=local|session] [args.storage_data]: read or write web storage"),
+    pw("storage_state", "storage", "args.auth_file: save cookies and storage there, or load them when it exists"),
+    // network
+    pw("route", "network", "args.pattern [args.block] [args.response] [args.status_code]: block or mock requests"),
+    pw("unroute", "network", "args.pattern"),
+    pw("wait_for_request", "network", "args.pattern"),
+    pw("wait_for_response", "network", "args.pattern"),
+    // emulation
+    pw("viewport", "emulation", "[args.width, args.height]: read or set the viewport"),
+    pw("emulate", "emulation", "args.device: mobile, tablet, laptop, iphone_14, pixel_7, ipad_pro …"),
+    pw("geolocation", "emulation", "args.latitude, args.longitude"),
+    pw("permissions", "emulation", "args.permission: grant it"),
+    // debug and events
+    pw("console", "debug", "[args.level]: the page's console messages"),
+    pw("errors", "debug", "uncaught page errors"),
+    pw("dialog", "debug", "[args.accept] [args.prompt_text]: answer a pending alert/confirm/prompt"),
+    pw("file_chooser", "debug", "[args.files]: answer a pending file chooser"),
+    pw("download", "debug", "[selector]: the pending download, or click selector and take its download"),
+    pw("wait_for_load", "debug", "[args.state=load|domcontentloaded|networkidle]"),
+    pw("wait_for_url", "debug", "args.pattern"),
+    pw("wait_for_function", "debug", "code: until the JavaScript returns truthy"),
+    pw("wait_for_event", "debug", "args.event: request, response, download, filechooser, popup"),
+    pw("trace_start", "debug", "record a Playwright trace"),
+    pw("trace_stop", "debug", "[args.trace_path]"),
+];
+
+/// The extension's page engine answers these as JSON the tool unpacks.
+const ENGINE: &[&str] = &["hanzo.navigate", "hanzo.snapshot", "hanzo.read", "hanzo.act", "hanzo.wait"];
+
+/// The parameters the schema types; everything else rides in `args`.
+const TYPED: &[&str] = &[
+    "action", "selector", "url", "text", "key", "code", "interactive", "compact", "depth", "outline",
+    "filter", "annotate", "timeout", "tab_id", "target_browser", "topic", "args",
+];
+
+const LOOP: &str = r#"The loop: snapshot, act on refs, snapshot again when the page changes.
+  browser(action="navigate", url="https://example.com")
+  browser(action="snapshot", interactive=true)     - button "Sign in" [ref=e2]
+  browser(action="click", selector="@e2")
+  browser(action="fill", selector="@e3", text="me@example.com")
+  browser(action="press", key="Enter")
+  browser(action="read", filter="pricing")         the page as markdown
+  browser(action="screenshot", annotate=true)      labels [N] on the image = @eN
+A ref stays valid while its element is on the page, across snapshots. After a
+navigation, or when an element was removed, the ref is refused: snapshot again.
+A click on an element covered by a consent banner, modal or overlay is refused
+and names the cover: act on the cover, then snapshot again.
+selector takes a ref (@e2) or a CSS selector. Parameters outside the core
+schema go in args, e.g. browser(action="select", selector="@e4", args={"value": "Weekly"})."#;
+
+const DESCRIPTION: &str = r#"Drive a browser: the user's own, signed in, through the Hanzo extension (headless Playwright when none is connected).
+
+Loop: snapshot, act on a ref, snapshot again when the page changes.
+  snapshot interactive=true        - button "Sign in" [ref=e2]
+  click selector="@e2"   fill selector="@e3" text="me@x.com"   press key="Enter"
+  read                             the page as markdown (outline=true, filter="…")
+  screenshot annotate=true         every ref boxed, label [N] = @eN
+selector takes a ref (@e2) or a CSS selector. A stale ref, or a click on an
+element under a banner or modal, is refused with what to do next.
+
+action="help" lists everything else (hover, select, check, scroll, back, cookies,
+network, emulation, assertions …); their parameters go in args."#;
+
+/// The action named `name`.
+pub fn op(name: &str) -> Option<&'static Op> {
+    ACTIONS.iter().find(|o| o.name == name)
+}
+
+fn topics() -> Vec<&'static str> {
+    let mut t: Vec<&str> = Vec::new();
+    for o in ACTIONS {
+        if !t.contains(&o.topic) {
+            t.push(o.topic);
+        }
+    }
+    t
+}
+
+fn core() -> Vec<&'static str> {
+    ACTIONS.iter().filter(|o| o.topic == "core").map(|o| o.name).collect()
+}
+
+/// The progressive half of the surface: the loop, then every action past the
+/// core by topic; `topic` narrows it to one (`core` included).
+pub fn help(topic: Option<&str>) -> String {
+    let topics = topics();
+    if let Some(t) = topic {
+        if !topics.contains(&t) {
+            return format!("No topic {t:?}. Topics: {}.", topics.join(", "));
+        }
+    }
+    let mut lines: Vec<String> = match topic {
+        Some(_) => Vec::new(),
+        None => vec![LOOP.to_string(), String::new()],
+    };
+    let shown: Vec<&str> = match topic {
+        Some(t) => vec![t],
+        None => topics[1..].to_vec(),
+    };
+    for t in shown {
+        lines.push(t.to_string());
+        for o in ACTIONS.iter().filter(|o| o.topic == t) {
+            let only = if o.wire.is_some() || matches!(o.name, "help" | "browsers") { "" } else { "  (Playwright)" };
+            lines.push(format!("  {:<18}{}{}", o.name, o.usage, only).trim_end().to_string());
+        }
+    }
+    lines.push(String::new());
+    lines.push("(Playwright): headless Playwright only, not the connected browser.".into());
+    lines.push(format!("browser(action=\"help\", topic=\"…\") shows one of: {}.", topics.join(", ")));
+    lines.join("\n")
+}
+
+/// `BROWSER_BACKEND`, else `~/.hanzo/extension/config.json` `.backend`, else
+/// `auto`: one of firefox | chrome | extension | playwright | auto.
+pub fn backend() -> String {
+    const OK: &[&str] = &["firefox", "chrome", "extension", "playwright", "auto"];
+    let pick = |s: &str| {
+        let s = s.trim().to_lowercase();
+        OK.contains(&s.as_str()).then_some(s)
+    };
+    if let Some(b) = std::env::var("BROWSER_BACKEND").ok().and_then(|s| pick(&s)) {
+        return b;
+    }
+    dirs::home_dir()
+        .and_then(|h| std::fs::read_to_string(h.join(".hanzo/extension/config.json")).ok())
+        .and_then(|s| serde_json::from_str::<Value>(&s).ok())
+        .and_then(|v| v.get("backend").and_then(Value::as_str).and_then(pick))
+        .unwrap_or_else(|| "auto".into())
+}
+
+/// A snapshot ref: `@e2` (or `e2`).
+fn is_ref(s: &str) -> bool {
+    let s = s.trim();
+    let s = s.strip_prefix('@').unwrap_or(s);
+    s.strip_prefix('e').is_some_and(|n| !n.is_empty() && n.bytes().all(|b| b.is_ascii_digit()))
+}
+
+/// `tab-12` or `12` as the wire's tab id.
+fn tab(v: &Value) -> String {
+    let s = match v {
+        Value::String(s) => s.as_str(),
+        other => return other.to_string(),
+    };
+    s.strip_prefix("tab-").unwrap_or(s).to_string()
+}
+
+/// A param value as the wire carries it: every value is a string, a flag reads
+/// "true", structure travels as JSON.
+pub(crate) fn wire_value(v: &Value) -> String {
+    match v {
+        Value::String(s) => s.clone(),
+        other => other.to_string(),
+    }
+}
+
+/// Pull the base64 payload out of a screenshot answer: raw base64, a data: URL,
+/// or JSON under data/base64/screenshot (incl. a nested CDP `{"result": {"data"}}`).
+pub(crate) fn extract_b64(text: &str) -> Option<String> {
+    let t = text.trim();
+    let strip = |v: &str| v.split_once(',').filter(|_| v.starts_with("data:")).map_or(v, |(_, b)| b).to_string();
+    if t.starts_with('{') {
+        let obj: Value = serde_json::from_str(t).ok()?;
+        for o in [Some(&obj), obj.get("result")].into_iter().flatten() {
+            for k in ["data", "base64", "screenshot"] {
+                if let Some(v) = o.get(k).and_then(Value::as_str).filter(|v| !v.is_empty()) {
+                    return Some(strip(v));
+                }
+            }
+        }
+        return None;
+    }
+    if t.starts_with("data:image") {
+        return Some(strip(t));
+    }
+    let b64 = |c: u8| c.is_ascii_alphanumeric() || matches!(c, b'+' | b'/' | b'=' | b'\n' | b'\r');
+    (t.len() > 100 && t.bytes().take(256).all(b64)).then(|| t.to_string())
+}
+
+/// Persist a capture and hand it back: the bytes go to `path` (default
+/// `~/.hanzo/screenshots/capture-<hex>.<fmt>`) and inline as `image`, which the
+/// server sends as a native MCP image block rather than base64 in the text.
+pub(crate) fn capture(raw: &[u8], path: Option<&str>) -> Value {
+    let fmt = if raw.starts_with(&[0xff, 0xd8, 0xff]) { "jpeg" } else { "png" };
+    let target = match path {
+        Some(p) => std::path::PathBuf::from(shellexpand::tilde(p).into_owned()),
+        None => {
+            let name = format!("capture-{:012x}.{fmt}", rand_id());
+            dirs::home_dir().unwrap_or_default().join(".hanzo/screenshots").join(name)
+        }
+    };
+    let mut out = json!({ "success": true, "format": fmt, "size": raw.len() });
+    let saved = target
+        .parent()
+        .map_or(Ok(()), std::fs::create_dir_all)
+        .and_then(|_| std::fs::write(&target, raw));
+    match saved {
+        Ok(()) => out["path"] = json!(target.display().to_string()),
+        Err(e) => out["note"] = json!(format!("not saved: {e}")),
+    }
+    out["image"] = json!({
+        "data": base64::engine::general_purpose::STANDARD.encode(raw),
+        "mimeType": format!("image/{fmt}"),
+    });
+    out
+}
+
+fn rand_id() -> u64 {
+    use std::hash::{BuildHasher, Hasher};
+    let mut h = std::collections::hash_map::RandomState::new().build_hasher();
+    h.write_u128(std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_nanos());
+    h.finish() & 0xffff_ffff_ffff
+}
+
+/// Playwright actions outside the shared table: locators, frames, events.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "snake_case")]
 pub enum BrowserAction {
@@ -154,137 +468,20 @@ pub enum BrowserAction {
     TraceStop,
     Console,
     Errors,
-    Help,
-}
-
-impl Default for BrowserAction {
-    fn default() -> Self {
-        Self::Status
-    }
 }
 
 impl std::str::FromStr for BrowserAction {
     type Err = anyhow::Error;
 
+    /// One name per action; `select` is the shared table's name for `select_option`.
     fn from_str(s: &str) -> Result<Self> {
-        match s.to_lowercase().as_str() {
-            "navigate" | "goto" | "go" => Ok(Self::Navigate),
-            "reload" | "refresh" => Ok(Self::Reload),
-            "go_back" | "back" => Ok(Self::GoBack),
-            "go_forward" | "forward" => Ok(Self::GoForward),
-            "close" => Ok(Self::Close),
-            "content" | "html" => Ok(Self::Content),
-            "url" => Ok(Self::Url),
-            "title" => Ok(Self::Title),
-            "set_content" => Ok(Self::SetContent),
-            "click" => Ok(Self::Click),
-            "dblclick" | "double_click" => Ok(Self::Dblclick),
-            "type" => Ok(Self::Type),
-            "fill" => Ok(Self::Fill),
-            "clear" => Ok(Self::Clear),
-            "press" | "press_key" => Ok(Self::Press),
-            "select_option" | "select" => Ok(Self::SelectOption),
-            "check" => Ok(Self::Check),
-            "uncheck" => Ok(Self::Uncheck),
-            "upload" => Ok(Self::Upload),
-            "hover" => Ok(Self::Hover),
-            "drag" => Ok(Self::Drag),
-            "mouse_move" => Ok(Self::MouseMove),
-            "mouse_down" => Ok(Self::MouseDown),
-            "mouse_up" => Ok(Self::MouseUp),
-            "mouse_wheel" => Ok(Self::MouseWheel),
-            "scroll" => Ok(Self::Scroll),
-            "tap" => Ok(Self::Tap),
-            "swipe" => Ok(Self::Swipe),
-            "pinch" => Ok(Self::Pinch),
-            "locator" => Ok(Self::Locator),
-            "frame_locator" => Ok(Self::FrameLocator),
-            "get_by_role" => Ok(Self::GetByRole),
-            "get_by_text" => Ok(Self::GetByText),
-            "get_by_label" => Ok(Self::GetByLabel),
-            "get_by_placeholder" => Ok(Self::GetByPlaceholder),
-            "get_by_test_id" => Ok(Self::GetByTestId),
-            "get_by_alt_text" => Ok(Self::GetByAltText),
-            "get_by_title" => Ok(Self::GetByTitle),
-            "first" => Ok(Self::First),
-            "last" => Ok(Self::Last),
-            "nth" => Ok(Self::Nth),
-            "filter" => Ok(Self::Filter),
-            "all" => Ok(Self::All),
-            "count" => Ok(Self::Count),
-            "get_text" => Ok(Self::GetText),
-            "get_inner_text" | "inner_text" => Ok(Self::GetInnerText),
-            "get_attribute" | "attribute" => Ok(Self::GetAttribute),
-            "get_value" | "value" => Ok(Self::GetValue),
-            "get_html" | "inner_html" => Ok(Self::GetHtml),
-            "get_bounding_box" | "bounding_box" => Ok(Self::GetBoundingBox),
-            "is_visible" => Ok(Self::IsVisible),
-            "is_enabled" => Ok(Self::IsEnabled),
-            "is_checked" => Ok(Self::IsChecked),
-            "is_hidden" => Ok(Self::IsHidden),
-            "is_editable" => Ok(Self::IsEditable),
-            "expect_visible" => Ok(Self::ExpectVisible),
-            "expect_hidden" => Ok(Self::ExpectHidden),
-            "expect_enabled" => Ok(Self::ExpectEnabled),
-            "expect_text" => Ok(Self::ExpectText),
-            "expect_value" => Ok(Self::ExpectValue),
-            "expect_checked" => Ok(Self::ExpectChecked),
-            "expect_url" => Ok(Self::ExpectUrl),
-            "expect_title" => Ok(Self::ExpectTitle),
-            "expect_count" => Ok(Self::ExpectCount),
-            "expect_attribute" => Ok(Self::ExpectAttribute),
-            "screenshot" | "capture" => Ok(Self::Screenshot),
-            "pdf" => Ok(Self::Pdf),
-            "snapshot" => Ok(Self::Snapshot),
-            "evaluate" | "eval" | "js" => Ok(Self::Evaluate),
-            "focus" => Ok(Self::Focus),
-            "blur" => Ok(Self::Blur),
-            "highlight" => Ok(Self::Highlight),
-            "wait" => Ok(Self::Wait),
-            "wait_for_load" | "wait_load" => Ok(Self::WaitForLoad),
-            "wait_for_url" => Ok(Self::WaitForUrl),
-            "wait_for_event" => Ok(Self::WaitForEvent),
-            "wait_for_request" => Ok(Self::WaitForRequest),
-            "wait_for_response" => Ok(Self::WaitForResponse),
-            "wait_for_function" => Ok(Self::WaitForFunction),
-            "viewport" => Ok(Self::Viewport),
-            "emulate" => Ok(Self::Emulate),
-            "geolocation" | "geo" => Ok(Self::Geolocation),
-            "permissions" => Ok(Self::Permissions),
-            "route" => Ok(Self::Route),
-            "unroute" => Ok(Self::Unroute),
-            "cookies" => Ok(Self::Cookies),
-            "clear_cookies" => Ok(Self::ClearCookies),
-            "storage" => Ok(Self::Storage),
-            "storage_state" => Ok(Self::StorageState),
-            "on" | "listen" => Ok(Self::On),
-            "off" | "unlisten" => Ok(Self::Off),
-            "dialog" => Ok(Self::Dialog),
-            "frame" => Ok(Self::Frame),
-            "main_frame" => Ok(Self::MainFrame),
-            "file_chooser" => Ok(Self::FileChooser),
-            "download" => Ok(Self::Download),
-            "new_page" => Ok(Self::NewPage),
-            "new_context" => Ok(Self::NewContext),
-            "new_tab" => Ok(Self::NewTab),
-            "close_tab" => Ok(Self::CloseTab),
-            "tabs" => Ok(Self::Tabs),
-            "connect" => Ok(Self::Connect),
-            "set_headless" => Ok(Self::SetHeadless),
-            "status" | "info" => Ok(Self::Status),
-            "trace_start" => Ok(Self::TraceStart),
-            "trace_stop" => Ok(Self::TraceStop),
-            "console" => Ok(Self::Console),
-            "errors" => Ok(Self::Errors),
-            "help" | "" => Ok(Self::Help),
-            _ => Err(anyhow!("Unknown action: {}", s)),
-        }
+        let name = if s == "select" { "select_option" } else { s };
+        serde_json::from_value(Value::String(name.to_string())).map_err(|_| anyhow!("Unknown action: {s}"))
     }
 }
 
 impl BrowserAction {
-    /// Canonical wire name the driver dispatches on (matches the Python action
-    /// strings one-to-one via serde snake_case).
+    /// The name the driver dispatches on.
     fn wire(&self) -> String {
         serde_json::to_value(self)
             .ok()
@@ -293,7 +490,7 @@ impl BrowserAction {
     }
 }
 
-/// Arguments for browser tool
+/// Arguments for the browser tool: the typed core, plus `args` for the rest.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct BrowserToolArgs {
     #[serde(default)]
@@ -303,12 +500,24 @@ pub struct BrowserToolArgs {
     pub html: Option<String>,
     // Selectors
     pub selector: Option<String>,
-    #[serde(rename = "ref")]
-    pub ref_: Option<String>,
     // Text/Input
     pub text: Option<String>,
     pub key: Option<String>,
     pub value: Option<Value>,
+    // snapshot / read / screenshot / help
+    #[serde(default)]
+    pub interactive: bool,
+    #[serde(default)]
+    pub compact: bool,
+    pub depth: Option<i32>,
+    #[serde(default)]
+    pub urls: bool,
+    #[serde(default)]
+    pub outline: bool,
+    pub filter: Option<String>,
+    #[serde(default)]
+    pub annotate: bool,
+    pub topic: Option<String>,
     // Coordinates
     pub x: Option<i32>,
     pub y: Option<i32>,
@@ -331,6 +540,10 @@ pub struct BrowserToolArgs {
     // Index
     pub index: Option<i32>,
     pub tab_index: Option<i32>,
+    // Which browser, which tab
+    pub tab_id: Option<Value>,
+    pub target_browser: Option<String>,
+    pub client_id: Option<String>,
     // Target
     pub target_selector: Option<String>,
     // Device/Viewport
@@ -343,8 +556,12 @@ pub struct BrowserToolArgs {
     pub accuracy: Option<f64>,
     // Files
     pub files: Option<Vec<String>>,
-    // Capture output path
+    // Capture output path and detail
     pub path: Option<String>,
+    pub max_width: Option<i32>,
+    pub quality: Option<i32>,
+    #[serde(default)]
+    pub full_res: bool,
     // JavaScript
     pub code: Option<String>,
     // Network
@@ -384,10 +601,123 @@ pub struct BrowserToolArgs {
     pub distance: Option<i32>,
     pub scale: Option<f64>,
     pub button: Option<String>,
+    /// Parameters of non-core actions, as `help` names them.
+    pub args: Option<Map<String, Value>>,
 }
 
 fn default_true() -> bool {
     true
+}
+
+impl BrowserToolArgs {
+    /// Fold `args` into the typed fields. A key the schema types, or one no
+    /// action reads, is refused rather than ignored.
+    fn merged(mut self) -> std::result::Result<Self, String> {
+        let Some(extra) = self.args.take() else { return Ok(self) };
+        let mut v = serde_json::to_value(&self).map_err(|e| e.to_string())?;
+        let obj = v.as_object_mut().expect("args serialize as an object");
+        let mut unknown: Vec<&String> =
+            extra.keys().filter(|k| TYPED.contains(&k.as_str()) || !obj.contains_key(*k)).collect();
+        if !unknown.is_empty() {
+            unknown.sort();
+            return Err(format!(
+                "Unknown args {unknown:?}. Typed parameters go outside args; action=\"help\" names each action's args."
+            ));
+        }
+        obj.extend(extra);
+        serde_json::from_value(v).map_err(|e| e.to_string())
+    }
+
+    /// The wire params for `action` (`annotate`: a labelled screenshot), peer of
+    /// python-sdk `_zap_params`.
+    fn wire(&self, action: &str, selector: Option<&str>, act: Option<&str>) -> Vec<(String, String)> {
+        let mut p: Vec<(String, String)> = Vec::new();
+        let mut put = |k: &str, v: String| p.push((k.to_string(), v));
+        if matches!(action, "screenshot" | "annotate") {
+            // Shrink where the pixels are: ask the browser for a 1280px JPEG
+            // and that payload is never built, let alone carried.
+            put("format", if self.full_res { "png" } else { "jpeg" }.into());
+            put("quality", self.quality.unwrap_or(70).to_string());
+            if !self.full_res {
+                put("maxWidth", self.max_width.unwrap_or(1280).to_string());
+            }
+        }
+        if let Some(u) = &self.url {
+            put("url", u.clone());
+        }
+        if let Some(s) = selector {
+            put("selector", s.to_string());
+        }
+        if let Some(v) = &self.value {
+            put("value", wire_value(v));
+        }
+        if let Some(t) = &self.text {
+            put("text", t.clone());
+        }
+        if let Some(c) = &self.code {
+            put("expression", c.clone());
+        }
+        if self.full_page == Some(true) {
+            put("fullPage", "true".into());
+        }
+        if let Some(t) = &self.tab_id {
+            put("tabId", tab(t));
+        }
+        if let Some(op) = act {
+            put("op", op.to_string());
+        }
+        // The action-specific fields the extension reads, under its names.
+        let flag = |b: bool| b.then(|| "true".to_string());
+        for (k, v) in [
+            ("key", self.key.clone()),
+            ("index", self.index.map(|i| i.to_string())),
+            ("tab_index", self.tab_index.map(|i| i.to_string())),
+            ("timeout", self.timeout.map(|i| i.to_string())),
+            ("state", self.state.clone()),
+            ("level", self.level.clone()),
+            ("attribute", self.attribute.clone()),
+            ("interactive", flag(self.interactive)),
+            ("compact", flag(self.compact)),
+            ("depth", self.depth.map(|i| i.to_string())),
+            ("urls", flag(self.urls)),
+            ("outline", flag(self.outline)),
+            ("filter", self.filter.clone()),
+            ("dx", self.delta_x.map(|i| i.to_string())),
+            ("dy", self.delta_y.map(|i| i.to_string())),
+        ] {
+            if let Some(v) = v {
+                put(k, v);
+            }
+        }
+        p
+    }
+}
+
+/// The extension's reply as the tool's: a refusal is an error, a tree or a page
+/// is plain text, an engine result is its fields.
+fn answer(action: &str, method: &str, provider: &str, text: String) -> Value {
+    if let Some(e) = text.strip_prefix("ERR:") {
+        return json!({ "error": e, "action": action });
+    }
+    if ENGINE.contains(&method) {
+        if let Ok(Value::Object(data)) = serde_json::from_str::<Value>(&text) {
+            let s = |k: &str| match data.get(k) {
+                Some(Value::String(s)) => s.clone(),
+                Some(v) => v.to_string(),
+                None => String::new(),
+            };
+            return match action {
+                "snapshot" => Value::String(format!("{} — {} ({} refs)\n{}", s("title"), s("url"), s("refs"), s("tree"))),
+                "read" => Value::String(format!("{} — {}\n\n{}", s("title"), s("url"), s("markdown"))),
+                _ => {
+                    let mut out = Map::from_iter([("success".to_string(), json!(true))]);
+                    out.extend(data);
+                    Value::Object(out)
+                }
+            };
+        }
+    }
+    json!({ "success": true, "source": "extension", "transport": "native-zap", "provider": provider, "result": text })
 }
 
 /// The persistent Node + Playwright driver process. One browser + page lives
@@ -487,10 +817,9 @@ impl Driver {
     }
 }
 
-/// Browser tool — drives Playwright through a persistent Node driver.
+/// Browser tool — the connected browser over ZAP, else the Playwright driver.
 pub struct BrowserTool {
     headless: bool,
-    cdp_port: u16,
     default_endpoint: Option<String>,
     driver: Arc<Mutex<Option<Driver>>>,
 }
@@ -502,7 +831,6 @@ impl BrowserTool {
             .filter(|s| !s.is_empty());
         Self {
             headless: true,
-            cdp_port: 9222,
             default_endpoint,
             driver: Arc::new(Mutex::new(None)),
         }
@@ -517,21 +845,124 @@ impl BrowserTool {
             .or_else(|| self.default_endpoint.clone())
     }
 
+    /// Run one action. snapshot, read and help answer text; everything else JSON.
     pub async fn execute(&self, args: BrowserToolArgs) -> Result<String> {
-        let action: BrowserAction = if args.action.is_empty() {
-            BrowserAction::Status
-        } else {
-            args.action.parse()?
+        let out = match args.merged() {
+            Ok(a) => self.run(a).await?,
+            Err(e) => json!({ "error": e }),
         };
+        Ok(match out {
+            Value::String(s) => s,
+            v => v.to_string(),
+        })
+    }
 
-        // Local, browser-less actions.
-        let result = match action {
-            BrowserAction::Help => self.help(),
-            BrowserAction::Status => self.status().await,
-            _ => self.dispatch(action, args).await?,
+    async fn run(&self, mut a: BrowserToolArgs) -> Result<Value> {
+        let name = if a.action.is_empty() { "status".to_string() } else { a.action.clone() };
+        let Some(spec) = op(&name) else {
+            return match name.parse::<BrowserAction>() {
+                Ok(action) => self.dispatch(action, a).await,
+                Err(_) => Ok(json!({
+                    "error": format!("Unknown action {name:?}. Core: {}. action=\"help\" lists the rest.", core().join(", "))
+                })),
+            };
         };
+        match name.as_str() {
+            "help" => return Ok(Value::String(help(a.topic.as_deref()))),
+            "browsers" => {
+                return Ok(match zap::browsers().await {
+                    Ok(b) => json!({
+                        "success": true, "transport": "native-zap", "count": b.len(),
+                        "browsers": b.iter().map(zap::describe).collect::<Vec<_>>(),
+                    }),
+                    Err(e) => json!({ "error": e.to_string(), "transport": "native-zap" }),
+                })
+            }
+            // A wait with nothing to wait for is a pause; no browser needs asking.
+            "wait" if a.selector.is_none() && a.text.is_none() && a.timeout.is_some() => {
+                let ms = a.timeout.unwrap_or(0).max(0);
+                tokio::time::sleep(Duration::from_millis(ms as u64)).await;
+                return Ok(json!({ "success": true, "waited_ms": ms }));
+            }
+            _ => {}
+        }
 
-        Ok(serde_json::to_string(&result)?)
+        let by_ref = a.selector.as_deref().is_some_and(is_ref);
+        let backend = backend();
+        let filter = a
+            .target_browser
+            .clone()
+            .or_else(|| matches!(backend.as_str(), "firefox" | "chrome").then(|| backend.clone()));
+        let annotate = name == "screenshot" && a.annotate;
+        if name == "scroll" && a.delta_x.is_none() && a.delta_y.is_none() {
+            a.delta_y = Some(300);
+        }
+
+        if let (true, Some(method)) = (backend != "playwright", spec.wire) {
+            match self.extension(&name, method, spec.act, &a, filter.as_deref(), annotate).await {
+                Ok(v) => return Ok(v),
+                // Refs and labels exist only in the extension, and an explicit
+                // backend means that browser: no Playwright stand-in for either.
+                Err(e) if by_ref || annotate || matches!(backend.as_str(), "firefox" | "chrome" | "extension") => {
+                    return Ok(json!({ "error": e, "action": name, "backend": backend }))
+                }
+                Err(_) => {}
+            }
+        }
+        if by_ref {
+            return Ok(json!({
+                "error": format!("{} is a snapshot ref, and refs come from the Hanzo extension; on headless Playwright pass a CSS selector.", a.selector.unwrap_or_default()),
+                "action": name,
+            }));
+        }
+        if annotate {
+            return Ok(json!({ "error": "annotate labels refs, which come from the Hanzo extension.", "action": name }));
+        }
+        match name.parse::<BrowserAction>() {
+            Ok(BrowserAction::Status) => Ok(self.status().await),
+            Ok(action) => self.dispatch(action, a).await,
+            Err(_) => Ok(json!({ "error": format!("{name} needs the Hanzo extension: {}", zap::UNPAIRED), "action": name })),
+        }
+    }
+
+    /// Route one action to the browser on this user's ZAP router. `Err` is a
+    /// transport failure (no browser, no answer), which may fall back; the
+    /// browser's own refusal comes back `Ok` as an error.
+    async fn extension(
+        &self,
+        name: &str,
+        method: &str,
+        act: Option<&str>,
+        a: &BrowserToolArgs,
+        filter: Option<&str>,
+        annotate: bool,
+    ) -> std::result::Result<Value, String> {
+        let provider = zap::resolve(filter, a.client_id.as_deref())
+            .await
+            .map_err(|e| e.to_string())?
+            .ok_or_else(|| zap::UNPAIRED.to_string())?;
+        let (wire, method) = if annotate { ("annotate", "hanzo.annotate") } else { (name, method) };
+        let selector = a.selector.as_deref().or((name == "get_html").then_some("html"));
+        let params = a.wire(wire, selector, act);
+        let text = zap::route(&provider, method, &params, Duration::from_secs(30))
+            .await
+            .map_err(|e| e.to_string())?;
+
+        // A capture goes to a file and comes back as pixels, never as base64 in
+        // the JSON text, which is charged to the agent's context by the character.
+        if name == "screenshot" && !text.starts_with("ERR:") {
+            if let Some(raw) = extract_b64(&text).and_then(|b| base64::engine::general_purpose::STANDARD.decode(b.trim()).ok()) {
+                let mut out = capture(&raw, a.path.as_deref());
+                out["transport"] = json!("native-zap");
+                out["provider"] = json!(provider);
+                if annotate {
+                    let legend = serde_json::from_str::<Value>(&text).ok().and_then(|v| v.get("legend").cloned());
+                    out["legend"] = legend.unwrap_or_else(|| json!([]));
+                }
+                return Ok(out);
+            }
+        }
+        Ok(answer(name, method, &provider, text))
     }
 
     /// Forward an action to the persistent driver, (re)spawning it if the
@@ -571,50 +1002,15 @@ impl BrowserTool {
         }
     }
 
+    /// The Playwright side's status, when no browser answers for it.
     async fn status(&self) -> Value {
-        let guard = self.driver.lock().await;
-        let running = guard.is_some();
+        let running = self.driver.lock().await.is_some();
         json!({
             "success": true,
+            "source": "playwright",
             "driver_running": running,
             "headless": self.headless,
-            "cdp_port": self.cdp_port,
             "cdp_endpoint": self.default_endpoint,
-            "actions_available": 90,
-            "categories": [
-                "navigation", "input", "mouse", "touch", "locators",
-                "assertions", "screen", "javascript", "wait",
-                "viewport", "network", "storage", "events", "browser"
-            ]
-        })
-    }
-
-    fn help(&self) -> Value {
-        json!({
-            "name": "browser",
-            "version": "0.13.0",
-            "description": "Browser automation tool (HIP-0300) with a persistent Playwright driver",
-            "action_count": 90,
-            "categories": {
-                "navigation": ["navigate", "reload", "go_back", "go_forward", "close", "set_content", "content", "url", "title"],
-                "input": ["click", "dblclick", "type", "fill", "clear", "press", "select_option", "check", "uncheck", "upload"],
-                "mouse": ["hover", "drag", "mouse_move", "mouse_down", "mouse_up", "mouse_wheel", "scroll"],
-                "touch": ["tap", "swipe", "pinch"],
-                "locators": ["locator", "frame_locator", "get_by_role", "get_by_text", "get_by_label", "get_by_placeholder", "get_by_test_id", "get_by_alt_text", "get_by_title"],
-                "composition": ["first", "last", "nth", "filter", "all", "count"],
-                "content": ["get_text", "get_inner_text", "get_attribute", "get_value", "get_html", "get_bounding_box"],
-                "state": ["is_visible", "is_enabled", "is_checked", "is_hidden", "is_editable"],
-                "assertions": ["expect_visible", "expect_hidden", "expect_enabled", "expect_text", "expect_value", "expect_checked", "expect_url", "expect_title", "expect_count", "expect_attribute"],
-                "screen": ["screenshot", "pdf", "snapshot"],
-                "javascript": ["evaluate", "focus", "blur", "highlight"],
-                "wait": ["wait", "wait_for_load", "wait_for_url", "wait_for_event", "wait_for_request", "wait_for_response", "wait_for_function"],
-                "viewport": ["viewport", "emulate", "geolocation", "permissions"],
-                "network": ["route", "unroute"],
-                "storage": ["cookies", "clear_cookies", "storage", "storage_state"],
-                "events": ["on", "off", "dialog", "file_chooser", "download", "console", "errors"],
-                "browser": ["new_page", "new_context", "new_tab", "close_tab", "tabs", "connect", "set_headless", "status", "trace_start", "trace_stop"]
-            },
-            "devices": ["mobile", "tablet", "laptop", "desktop", "iphone_14", "iphone_15_pro", "pixel_7", "ipad_pro", "galaxy_s23"]
         })
     }
 }
@@ -760,7 +1156,7 @@ function toMatcher(p) { return isRegex(p) ? new RegExp(p.replace(/\*/g, '.*')) :
 
 async function dispatch(c) {
   const action = c.action;
-  const sel = c.selector || c.ref || null;
+  const sel = c.selector || null;
   const timeout = c.timeout || 30000;
   const neg = c.not_ === true || c.not === true;
   const frame = c.frame || null;
@@ -1307,7 +1703,7 @@ rl.on('close', () => process.exit(0));
 process.stdout.write(JSON.stringify({ ready: true }) + '\n');
 "###;
 
-/// MCP Tool Definition
+/// MCP Tool Definition: the core parameters typed, the rest in `args`.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct BrowserToolDefinition {
     pub name: String,
@@ -1319,93 +1715,28 @@ impl BrowserToolDefinition {
     pub fn new() -> Self {
         Self {
             name: "browser".to_string(),
-            description: r#"Browser automation with Playwright (HIP-0300).
-
-A persistent browser + page is kept alive across calls, so multi-step flows
-(navigate -> fill -> click -> read) keep their state. Set cdp_endpoint/cdp_port
-to attach to an existing browser (or the Hanzo extension CDP bridge).
-
-90+ actions including:
-- Navigation: navigate, reload, go_back, go_forward, set_content, content, url, title
-- Input: click, dblclick, type, fill, clear, press, select_option, check, uncheck, upload
-- Mouse: hover, drag, mouse_move/down/up, mouse_wheel, scroll
-- Touch: tap, swipe, pinch
-- Locators: get_by_role, get_by_text, get_by_label, get_by_placeholder, get_by_test_id
-- Composition: first, last, nth, filter, all, count
-- Content: get_text, get_inner_text, get_attribute, get_value, get_html, get_bounding_box
-- State: is_visible/hidden/enabled/editable/checked
-- Assertions: expect_visible/hidden/enabled/text/value/checked/url/title/count/attribute
-- Wait: wait, wait_for_load/url/event/request/response/function
-- Screen: screenshot, pdf, snapshot; JS: evaluate, focus, blur, highlight
-- Device: viewport, emulate, geolocation, permissions
-- Network: route (mock/block), unroute
-- Storage: cookies, clear_cookies, storage, storage_state
-- Events: on, off, dialog, file_chooser, download, console, errors
-- Browser: new_page, new_context, new_tab, close_tab, tabs, connect, set_headless, status
-
-Devices: mobile, tablet, laptop, desktop, iphone_14, iphone_15_pro, pixel_7, ipad_pro, galaxy_s23"#.to_string(),
+            description: DESCRIPTION.to_string(),
             input_schema: json!({
                 "type": "object",
                 "required": ["action"],
                 "properties": {
-                    "action": {"type": "string", "description": "Browser action to perform"},
-                    "url": {"type": "string", "description": "URL for navigation"},
-                    "html": {"type": "string", "description": "HTML for set_content"},
-                    "selector": {"type": "string", "description": "CSS/XPath selector"},
-                    "ref": {"type": "string", "description": "Alias for selector"},
-                    "target_selector": {"type": "string", "description": "Target selector for drag"},
-                    "text": {"type": "string", "description": "Text for type/fill/get_by_*"},
-                    "key": {"type": "string", "description": "Key for press"},
-                    "value": {"description": "Value for select_option/assertions"},
-                    "code": {"type": "string", "description": "JavaScript code for evaluate/wait_for_function"},
-                    "attribute": {"type": "string", "description": "Attribute name"},
-                    "expected": {"type": "string", "description": "Expected value for assertions"},
-                    "role": {"type": "string", "description": "ARIA role for get_by_role"},
-                    "name": {"type": "string", "description": "Accessible name for get_by_role"},
-                    "exact": {"type": "boolean", "description": "Exact match for locators"},
-                    "not_": {"type": "boolean", "description": "Negate an assertion"},
-                    "has_text": {"type": "string", "description": "Filter: contains text"},
-                    "has_not_text": {"type": "string", "description": "Filter: excludes text"},
-                    "has": {"type": "string", "description": "Filter: contains nested selector"},
-                    "index": {"type": "integer", "description": "Index for nth / expected count"},
-                    "tab_index": {"type": "integer", "description": "Tab index for tabs/close_tab"},
-                    "x": {"type": "integer", "description": "X coordinate"},
-                    "y": {"type": "integer", "description": "Y coordinate"},
-                    "delta_x": {"type": "integer", "description": "Scroll delta X"},
-                    "delta_y": {"type": "integer", "description": "Scroll delta Y"},
-                    "button": {"type": "string", "description": "Mouse button (left/right/middle)"},
-                    "direction": {"type": "string", "description": "Swipe direction (up/down/left/right)"},
-                    "distance": {"type": "integer", "description": "Swipe distance"},
-                    "scale": {"type": "number", "description": "Pinch scale"},
-                    "timeout": {"type": "integer", "description": "Timeout in ms"},
-                    "full_page": {"type": "boolean", "description": "Full page screenshot"},
-                    "path": {"type": "string", "description": "Output path for screenshot/pdf"},
-                    "device": {"type": "string", "description": "Device to emulate"},
-                    "width": {"type": "integer", "description": "Viewport width"},
-                    "height": {"type": "integer", "description": "Viewport height"},
-                    "latitude": {"type": "number", "description": "Geolocation latitude"},
-                    "longitude": {"type": "number", "description": "Geolocation longitude"},
-                    "accuracy": {"type": "number", "description": "Geolocation accuracy"},
-                    "permission": {"type": "string", "description": "Permission to grant"},
-                    "files": {"type": "array", "items": {"type": "string"}, "description": "Files for upload"},
-                    "pattern": {"type": "string", "description": "URL/route pattern"},
-                    "response": {"description": "Mock response body for route"},
-                    "status_code": {"type": "integer", "description": "Mock response status"},
-                    "block": {"type": "boolean", "description": "Block matching requests in route"},
-                    "state": {"type": "string", "description": "Wait state / navigation wait_until"},
-                    "event": {"type": "string", "description": "Event name for wait_for_event/on"},
-                    "cookies": {"type": "array", "description": "Cookies to add"},
-                    "storage_type": {"type": "string", "description": "local or session"},
-                    "storage_data": {"type": "object", "description": "Key/value data to set"},
-                    "auth_file": {"type": "string", "description": "Path for storage_state save/load"},
-                    "accept": {"type": "boolean", "description": "Accept a dialog"},
-                    "prompt_text": {"type": "string", "description": "Text for a prompt dialog"},
-                    "level": {"type": "string", "description": "Console level filter"},
-                    "frame": {"type": "string", "description": "Frame selector for scoped actions"},
-                    "trace_path": {"type": "string", "description": "Output path for trace_stop"},
-                    "cdp_endpoint": {"type": "string", "description": "CDP endpoint to attach to"},
-                    "cdp_port": {"type": "integer", "description": "CDP port on localhost to attach to"},
-                    "headless": {"type": "boolean", "description": "Headless mode"}
+                    "action": {"type": "string", "description": format!("{}; help lists the rest", core().join(", "))},
+                    "selector": {"type": "string", "description": "Element: a snapshot ref (@e2) or a CSS selector"},
+                    "url": {"type": "string", "description": "navigate: the URL"},
+                    "text": {"type": "string", "description": "fill/type: the text; wait: text to appear"},
+                    "key": {"type": "string", "description": "press: Enter, Tab, Escape, ArrowDown, Control+a"},
+                    "code": {"type": "string", "description": "evaluate: JavaScript"},
+                    "interactive": {"type": "boolean", "description": "snapshot: interactive elements only, flat"},
+                    "compact": {"type": "boolean", "description": "snapshot: drop empty structure"},
+                    "depth": {"type": "integer", "description": "snapshot: tree depth limit"},
+                    "outline": {"type": "boolean", "description": "read: headings only"},
+                    "filter": {"type": "string", "description": "read: only sections that mention this"},
+                    "annotate": {"type": "boolean", "description": "screenshot: box every ref, label [N] = @eN"},
+                    "timeout": {"type": "integer", "description": "wait: milliseconds"},
+                    "tab_id": {"type": "string", "description": "Tab from tabs; default the active tab"},
+                    "target_browser": {"type": "string", "description": "chrome | firefox, when several are connected"},
+                    "topic": {"type": "string", "description": "help: one topic"},
+                    "args": {"type": "object", "description": "Parameters of non-core actions, as help names them"}
                 }
             }),
         }
@@ -1422,47 +1753,88 @@ impl Default for BrowserToolDefinition {
 mod tests {
     use super::*;
 
-    #[tokio::test]
-    async fn test_status() {
-        let tool = BrowserTool::new();
-        let args = BrowserToolArgs {
-            action: "status".to_string(),
-            ..Default::default()
-        };
-        let result = tool.execute(args).await;
-        assert!(result.is_ok());
-        assert!(result.unwrap().contains("headless"));
-    }
-
-    #[tokio::test]
-    async fn test_help() {
-        let tool = BrowserTool::new();
-        let args = BrowserToolArgs {
-            action: "help".to_string(),
-            ..Default::default()
-        };
-        let result = tool.execute(args).await;
-        assert!(result.is_ok());
-        let output = result.unwrap();
-        assert!(output.contains("browser"));
-        assert!(output.contains("navigation"));
+    #[test]
+    fn every_core_action_is_routed() {
+        for name in core() {
+            assert!(op(name).unwrap().wire.is_some() || name == "help", "{name}");
+        }
+        assert_eq!(op("click").unwrap().act, Some("click"));
+        assert_eq!(op("scroll_into_view").unwrap().act, Some("scrollIntoView"));
+        assert_eq!(op("tabs").unwrap().wire, Some("Target.getTargets"));
     }
 
     #[test]
-    fn test_action_wire_names() {
-        assert_eq!(BrowserAction::GoBack.wire(), "go_back");
+    fn help_lists_topics_and_marks_playwright() {
+        let all = help(None);
+        assert!(all.starts_with("The loop"));
+        assert!(all.contains("  pdf               [args.path]: print the page to PDF  (Playwright)"));
+        assert!(help(Some("core")).contains("navigate"));
+        assert!(help(Some("nope")).starts_with("No topic"));
+    }
+
+    #[test]
+    fn args_fold_in_and_unknown_are_refused() {
+        let a = BrowserToolArgs {
+            action: "select".into(),
+            args: Some(serde_json::from_value(json!({"value": "Weekly", "delta_y": 50})).unwrap()),
+            ..Default::default()
+        };
+        let m = a.merged().unwrap();
+        assert_eq!(m.value, Some(json!("Weekly")));
+        assert_eq!(m.delta_y, Some(50));
+
+        for bad in [json!({"bogus": 1}), json!({"selector": "#x"})] {
+            let a = BrowserToolArgs { args: Some(serde_json::from_value(bad).unwrap()), ..Default::default() };
+            assert!(a.merged().unwrap_err().starts_with("Unknown args"));
+        }
+    }
+
+    fn map(p: Vec<(String, String)>) -> Value {
+        Value::Object(p.into_iter().map(|(k, v)| (k, Value::String(v))).collect())
+    }
+
+    #[test]
+    fn wire_params_match_python() {
+        let a = BrowserToolArgs {
+            tab_id: Some(json!("tab-12")),
+            interactive: true,
+            delta_y: Some(300),
+            ..Default::default()
+        };
+        assert_eq!(
+            map(a.wire("scroll", Some("@e2"), Some("scroll"))),
+            json!({"selector": "@e2", "tabId": "12", "op": "scroll", "interactive": "true", "dy": "300"})
+        );
+        assert_eq!(
+            map(BrowserToolArgs::default().wire("screenshot", None, None)),
+            json!({"format": "jpeg", "quality": "70", "maxWidth": "1280"})
+        );
+    }
+
+    #[test]
+    fn refs_and_names() {
+        assert!(is_ref("@e2") && is_ref("e10") && !is_ref("#e2") && !is_ref("@e") && !is_ref("button"));
+        assert_eq!("select".parse::<BrowserAction>().unwrap(), BrowserAction::SelectOption);
         assert_eq!(BrowserAction::GetByTestId.wire(), "get_by_test_id");
-        assert_eq!(BrowserAction::ExpectVisible.wire(), "expect_visible");
-        assert_eq!(BrowserAction::MouseWheel.wire(), "mouse_wheel");
-        assert_eq!(BrowserAction::SelectOption.wire(), "select_option");
+        assert!("goto".parse::<BrowserAction>().is_err());
     }
 
     #[test]
-    fn test_action_aliases() {
-        assert_eq!("goto".parse::<BrowserAction>().unwrap(), BrowserAction::Navigate);
-        assert_eq!("double_click".parse::<BrowserAction>().unwrap(), BrowserAction::Dblclick);
-        assert_eq!("press_key".parse::<BrowserAction>().unwrap(), BrowserAction::Press);
-        assert_eq!("all".parse::<BrowserAction>().unwrap(), BrowserAction::All);
-        assert!("bogus_action".parse::<BrowserAction>().is_err());
+    fn engine_answers_unpack() {
+        let tree = json!({"title": "T", "url": "U", "refs": 2, "tree": "- button [ref=e2]"}).to_string();
+        assert_eq!(answer("snapshot", "hanzo.snapshot", "p", tree), Value::String("T — U (2 refs)\n- button [ref=e2]".into()));
+        assert_eq!(answer("click", "hanzo.act", "p", "ERR:covered by #banner".into())["error"], "covered by #banner");
+        assert_eq!(answer("click", "hanzo.act", "p", r#"{"clicked":true}"#.into())["clicked"], true);
+    }
+
+    #[test]
+    fn b64_is_found_wherever_it_rides() {
+        let b = "A".repeat(120);
+        assert_eq!(extract_b64(&json!({"data": b}).to_string()).as_deref(), Some(b.as_str()));
+        let nested = json!({"result": {"data": format!("data:image/png;base64,{b}")}}).to_string();
+        assert_eq!(extract_b64(&nested).as_deref(), Some(b.as_str()));
+        assert_eq!(extract_b64(&b).as_deref(), Some(b.as_str()));
+        assert_eq!(extract_b64("short"), None);
     }
 }
+

@@ -84,17 +84,20 @@ impl MCPServer {
                 
                 let tools = tools.read().await;
                 match tools.execute(tool_name, tool_params).await {
-                    Ok(result) => {
-                        let text = if result.success {
-                            serde_json::to_string(&result.content).unwrap_or_default()
-                        } else {
-                            result.error.unwrap_or_else(|| "Unknown tool error".to_string())
+                    Ok(mut result) => {
+                        // A capture rides as a native image block, never as base64 in the text.
+                        let image = result.content.as_object_mut().and_then(|o| o.remove("image"));
+                        let text = match (&result.content, result.success) {
+                            (Value::String(s), true) => s.clone(),
+                            (c, true) => serde_json::to_string(c).unwrap_or_default(),
+                            _ => result.error.unwrap_or_else(|| "Unknown tool error".to_string()),
                         };
+                        let mut content = vec![json!({ "type": "text", "text": text })];
+                        if let Some(img) = image.filter(|i| i.get("data").is_some()) {
+                            content.push(json!({ "type": "image", "data": img["data"], "mimeType": img["mimeType"] }));
+                        }
                         Ok(json!({
-                            "content": [{
-                                "type": "text",
-                                "text": text
-                            }],
+                            "content": content,
                             "isError": !result.success
                         }))
                     },
