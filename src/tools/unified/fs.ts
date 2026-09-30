@@ -1,247 +1,349 @@
 /**
- * fs — Unified filesystem tool (HIP-0300)
+ * fs — the filesystem on one axis (HIP-0300), with python-sdk
+ * `hanzo_tools.fs.FsTool`'s contract: the same actions, the same parameters
+ * (`uri`, `path` accepted for it), the same answers in the unified
+ * `{ok, data, error, meta}` envelope.
  *
- * One tool for the Bytes + Paths axis.
- * Actions: read, write, stat, list, mkdir, rm, mv, apply_patch, search_text
+ * Every file answer carries its content hash (`sha256:<hex>`), and
+ * `apply_patch` — the one way to edit an existing file — takes that hash as its
+ * precondition, so an edit made against a stale read is refused. `write` only
+ * creates.
  */
 
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import * as crypto from 'crypto';
-import { exec } from 'child_process';
-import { promisify } from 'util';
-import { glob } from 'glob';
-import { Tool } from '../../types/index.js';
+import { execFile } from 'child_process';
+import { minimatch } from 'minimatch';
+import { Tool, ToolResult } from '../../types/index.js';
 
-const execAsync = promisify(exec);
+const ACTIONS: Record<string, string> = {
+  read: 'Read file contents (returns hash)',
+  write: 'Create new files only',
+  stat: 'File metadata including hash',
+  list: 'Directory listing',
+  apply_patch: 'Edit with base_hash precondition',
+  patch: 'Apply Rust-style patch format (Rust parity)',
+  search_text: 'Text search',
+  mv: 'Move or rename file/directory',
+  mkdir: 'Create directory',
+  rm: 'Remove (requires confirm=true)',
+};
 
-function contentHash(content: string): string {
-  return 'sha256:' + crypto.createHash('sha256').update(content).digest('hex').slice(0, 16);
+const IMAGES: Record<string, string> = { '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.gif': 'image/gif', '.webp': 'image/webp' };
+
+export function contentHash(b: string | Buffer): string {
+  return 'sha256:' + crypto.createHash('sha256').update(b).digest('hex');
 }
 
-function envelope(data: any, action: string, paging?: any) {
+const fileUri = (p: string) => 'file://' + path.resolve(p);
+
+class Refused extends Error {
+  constructor(public code: string, message: string) { super(message); }
+}
+
+function envelope(action: string, data: unknown, image?: { data: string; mimeType: string }): ToolResult {
+  const text = JSON.stringify({ ok: true, data, error: null, meta: { tool: 'fs', action } }, null, 2);
+  return { content: [{ type: 'text', text }, ...(image ? [{ type: 'image' as const, ...image }] : [])] };
+}
+
+function fail(action: string, code: string, message: string): ToolResult {
   return {
-    content: [{ type: 'text' as const, text: JSON.stringify({ ok: true, data, error: null, meta: { tool: 'fs', action, paging: paging || { cursor: null, more: false } } }, null, 2) }]
+    content: [{ type: 'text', text: JSON.stringify({ ok: false, data: null, error: { code, message }, meta: { tool: 'fs', action } }, null, 2) }],
+    isError: true,
   };
 }
 
-function fail(code: string, message: string, details?: any) {
-  return {
-    content: [{ type: 'text' as const, text: JSON.stringify({ ok: false, data: null, error: { code, message, ...details }, meta: { tool: 'fs' } }, null, 2) }],
-    isError: true
-  };
+/** An absolute path from `uri`, `file://` stripped. */
+function need(uri: unknown): string {
+  if (typeof uri !== 'string' || !uri) throw new Refused('INVALID_PARAMS', 'Path is required');
+  const p = uri.startsWith('file://') ? uri.slice(7) : uri;
+  if (!path.isAbsolute(p)) throw new Refused('INVALID_PARAMS', 'Path must be absolute');
+  return p;
 }
+
+const exists = (p: string) => fs.lstat(p).then(() => true, () => false);
+
+async function read(a: any) {
+  const p = need(a.uri);
+  const st = await fs.stat(p).catch(() => { throw new Refused('NOT_FOUND', `File not found: ${p}`); });
+  if (!st.isFile()) throw new Refused('INVALID_PARAMS', `Not a file: ${p}`);
+  const raw = await fs.readFile(p);
+  const mime = IMAGES[path.extname(p).toLowerCase()];
+  // An image is pixels, not text: it goes back as an MCP image block.
+  if (mime) return envelope('read', { uri: fileUri(p), hash: contentHash(raw), mime, size: raw.length }, { data: raw.toString('base64'), mimeType: mime });
+  const lines = raw.toString('utf8').split(/(?<=\n)/).filter((l, i, all) => l !== '' || i < all.length - 1);
+  const offset = a.offset ?? 0, limit = a.limit ?? 2000;
+  const text = lines.slice(offset, offset + limit).map((l, i) => {
+    let s = l.replace(/\r?\n$/, '');
+    if (s.length > 2000) s = s.slice(0, 2000) + '...';
+    return `${String(offset + i + 1).padStart(6)}│${s}`;
+  }).join('\n');
+  return envelope('read', { uri: fileUri(p), text, hash: contentHash(raw), total_lines: lines.length, offset, limit });
+}
+
+async function write(a: any) {
+  const p = need(a.uri);
+  if (typeof a.content !== 'string') throw new Refused('INVALID_PARAMS', 'content required');
+  if (await exists(p)) throw new Refused('CONFLICT', `File already exists: ${p}. Use apply_patch to edit.`);
+  await fs.mkdir(path.dirname(p), { recursive: true });
+  await fs.writeFile(p, a.content, 'utf8');
+  return envelope('write', { uri: fileUri(p), hash: contentHash(a.content), size: Buffer.byteLength(a.content) });
+}
+
+async function stat(a: any) {
+  const p = need(a.uri);
+  const st = await fs.stat(p).catch(() => { throw new Refused('NOT_FOUND', `File not found: ${p}`); });
+  return envelope('stat', {
+    uri: fileUri(p), size: st.size, hash: st.isFile() ? contentHash(await fs.readFile(p)) : null,
+    mtime: st.mtime.toISOString(), is_file: st.isFile(), is_dir: st.isDirectory(),
+  });
+}
+
+async function list(a: any) {
+  const p = need(a.uri);
+  const st = await fs.stat(p).catch(() => { throw new Refused('NOT_FOUND', `Directory not found: ${p}`); });
+  if (!st.isDirectory()) throw new Refused('INVALID_PARAMS', `Not a directory: ${p}`);
+  const depth = Math.max(1, a.depth ?? 1), limit = a.limit ?? 100, start = Number(a.cursor ?? 0) || 0;
+  const entries: unknown[] = [];
+  let total = 0;
+  // Sorted within each directory, each entry before its children; an entry
+  // the pattern refuses is skipped with everything under it.
+  const walk = async (dir: string, level: number) => {
+    let names: string[];
+    try { names = (await fs.readdir(dir)).sort(); } catch { return; }
+    for (const name of names) {
+      if (a.pattern && !minimatch(name, a.pattern, { dot: true })) continue;
+      const full = path.join(dir, name);
+      const s = await fs.stat(full).catch(() => null);
+      total++;
+      if (total > start && entries.length < limit) {
+        entries.push({ name: path.relative(p, full), uri: fileUri(full), is_dir: !!s?.isDirectory(), size: s?.isFile() ? s.size : null });
+      }
+      if (s?.isDirectory() && level < depth) await walk(full, level + 1);
+    }
+  };
+  await walk(p, 1);
+  const more = total > start + entries.length;
+  return envelope('list', { uri: fileUri(p), entries, paging: { cursor: more ? String(start + entries.length) : null, more, total } });
+}
+
+async function applyPatch(a: any) {
+  const p = need(a.uri);
+  if (typeof a.old_text !== 'string' || typeof a.new_text !== 'string') throw new Refused('INVALID_PARAMS', 'old_text and new_text required');
+  if (!a.base_hash) throw new Refused('INVALID_PARAMS', 'base_hash required: read the file first');
+  const content = await fs.readFile(p, 'utf8').catch(() => { throw new Refused('NOT_FOUND', `File not found: ${p}`); });
+  const current = contentHash(content);
+  if (current !== a.base_hash) {
+    throw new Refused('CONFLICT', `File has changed since last read (base_hash mismatch): expected ${a.base_hash}, actual ${current}`);
+  }
+  const count = content.split(a.old_text).length - 1;
+  if (count === 0) throw new Refused('NOT_FOUND', 'old_text not found in file');
+  if (count > 1) throw new Refused('INVALID_PARAMS', `old_text found ${count} times. Make it more specific.`);
+  const next = content.replace(a.old_text, () => a.new_text);
+  await fs.writeFile(p, next, 'utf8');
+  return envelope('apply_patch', { uri: fileUri(p), hash: contentHash(next), previous_hash: current });
+}
+
+interface PatchFile { op: 'add' | 'update' | 'delete'; path: string; hunks: { old: string[]; new: string[] }[]; content: string }
+
+/** Parse `*** Begin Patch` / `*** Add|Update|Delete File:` / `@@` / `-old` `+new`. */
+export function parsePatch(text: string): PatchFile[] {
+  const files: PatchFile[] = [];
+  let file: PatchFile | null = null;
+  let hunk: PatchFile['hunks'][number] | null = null;
+  const close = () => { if (file) { if (hunk) file.hunks.push(hunk); files.push(file); } file = null; hunk = null; };
+  for (const line of text.trim().split('\n')) {
+    if (line.trim() === '*** Begin Patch' || line.trim() === '*** End Patch') continue;
+    const m = /^\*\*\* (Add|Update|Delete) File:(.*)$/.exec(line);
+    if (m) {
+      close();
+      file = { op: m[1].toLowerCase() as PatchFile['op'], path: m[2].trim(), hunks: [], content: '' };
+      continue;
+    }
+    const f = file as PatchFile | null;
+    if (!f) continue;
+    if (line.startsWith('@@')) {
+      if (hunk) f.hunks.push(hunk);
+      hunk = { old: [], new: [] };
+    } else if (f.op === 'add') {
+      f.content += (line.startsWith('+') ? line.slice(1) : line) + '\n';
+    } else if (hunk) {
+      if (line.startsWith('-')) hunk.old.push(line.slice(1));
+      else if (line.startsWith('+')) hunk.new.push(line.slice(1));
+      else if (line.startsWith(' ')) { hunk.old.push(line.slice(1)); hunk.new.push(line.slice(1)); }
+    }
+  }
+  close();
+  return files;
+}
+
+async function patch(a: any) {
+  if (typeof a.input !== 'string' || !a.input.trim()) throw new Refused('INVALID_PARAMS', 'Patch input is required');
+  const files = parsePatch(a.input);
+  if (!files.length) throw new Refused('INVALID_PARAMS', 'No file operations found in patch');
+  const results: Record<string, unknown>[] = [];
+  for (const f of files) {
+    const p = path.resolve(f.path);
+    try {
+      if (f.op === 'add') {
+        if (await exists(p)) throw new Error(`File already exists: ${p}`);
+        await fs.mkdir(path.dirname(p), { recursive: true });
+        await fs.writeFile(p, f.content, 'utf8');
+        results.push({ op: 'add', path: p, hash: contentHash(f.content), success: true });
+      } else if (f.op === 'update') {
+        let content = await fs.readFile(p, 'utf8').catch(() => { throw new Error(`File not found: ${p}`); });
+        for (const h of f.hunks) {
+          const [o, n] = [h.old.join('\n'), h.new.join('\n')];
+          if (o && content.includes(o)) content = content.replace(o, () => n);
+          else if (!o && n) content += '\n' + n;
+        }
+        await fs.writeFile(p, content, 'utf8');
+        results.push({ op: 'update', path: p, hash: contentHash(content), hunks_applied: f.hunks.length, success: true });
+      } else if (!(await exists(p))) {
+        results.push({ op: 'delete', path: p, success: true, message: 'File already deleted' });
+      } else {
+        await fs.unlink(p);
+        results.push({ op: 'delete', path: p, success: true });
+      }
+    } catch (e: any) {
+      results.push({ op: f.op, path: p, success: false, error: e.message });
+    }
+  }
+  return envelope('patch', { results, total: results.length, success: results.every((r) => r.success) });
+}
+
+/** ripgrep's matches, or null when rg is not installed. No shell: the pattern is an argument. */
+function rg(pattern: string, root: string, glob: string | undefined, limit: number): Promise<unknown[] | null> {
+  const args = ['--json', '-n', '--max-count', String(limit * 2), ...(glob ? ['--glob', glob] : []), '--', pattern, root];
+  return new Promise((resolve) => {
+    execFile('rg', args, { maxBuffer: 64 << 20 }, (err: any, stdout) => {
+      if (err?.code === 'ENOENT') return resolve(null);
+      const out: unknown[] = [];
+      for (const line of stdout.split('\n')) {
+        if (out.length >= limit) break;
+        try {
+          const v = JSON.parse(line);
+          if (v.type === 'match') out.push({ uri: fileUri(v.data.path.text), line: v.data.line_number, text: String(v.data.lines.text ?? '').trim() });
+        } catch { /* not a JSON line */ }
+      }
+      resolve(out);
+    });
+  });
+}
+
+/** The same search in-process: a regex over every file under `root`. */
+async function scan(pattern: string, root: string, glob: string | undefined, limit: number): Promise<unknown[]> {
+  let re: RegExp;
+  try { re = new RegExp(pattern); } catch (e: any) { throw new Refused('INVALID_PARAMS', `Invalid regex: ${e.message}`); }
+  const out: unknown[] = [];
+  const visit = async (p: string): Promise<void> => {
+    if (out.length >= limit) return;
+    const s = await fs.stat(p).catch(() => null);
+    if (s?.isDirectory()) {
+      for (const n of (await fs.readdir(p).catch(() => [] as string[])).sort()) await visit(path.join(p, n));
+      return;
+    }
+    if (!s?.isFile() || (glob && !minimatch(path.basename(p), glob, { dot: true }))) return;
+    const text = await fs.readFile(p, 'utf8').catch(() => '');
+    text.split('\n').forEach((l, i) => {
+      if (out.length < limit && re.test(l)) out.push({ uri: fileUri(p), line: i + 1, text: l.trim().slice(0, 200) });
+    });
+  };
+  await visit(root);
+  return out;
+}
+
+async function searchText(a: any) {
+  if (!a.pattern) throw new Refused('INVALID_PARAMS', 'pattern required');
+  const root = a.uri ? need(a.uri) : '.';
+  const limit = a.limit ?? 50, start = Number(a.cursor ?? 0) || 0;
+  const matches = (await rg(a.pattern, root, a.glob, limit)) ?? (await scan(a.pattern, root, a.glob, limit));
+  const more = matches.length >= limit;
+  return envelope('search_text', { pattern: a.pattern, matches, paging: { cursor: more ? String(start + matches.length) : null, more } });
+}
+
+async function mv(a: any) {
+  const src = need(a.uri), dst = need(a.destination);
+  if (!(await exists(src))) throw new Refused('NOT_FOUND', `Source not found: ${src}`);
+  await fs.mkdir(path.dirname(dst), { recursive: true });
+  await fs.rename(src, dst);
+  return envelope('mv', { source: fileUri(src), destination: fileUri(dst), moved: true });
+}
+
+async function mkdir(a: any) {
+  const p = need(a.uri);
+  const st = await fs.stat(p).catch(() => null);
+  if (st?.isDirectory()) return envelope('mkdir', { uri: fileUri(p), created: false });
+  if (st) throw new Refused('CONFLICT', `Path exists and is not a directory: ${p}`);
+  await fs.mkdir(p, { recursive: true });
+  return envelope('mkdir', { uri: fileUri(p), created: true });
+}
+
+async function rm(a: any) {
+  if (a.confirm !== true) throw new Refused('INVALID_PARAMS', 'rm requires confirm=true for safety');
+  const p = need(a.uri);
+  if (!(await exists(p))) throw new Refused('NOT_FOUND', `Path not found: ${p}`);
+  await fs.rm(p, { recursive: true, force: true });
+  return envelope('rm', { uri: fileUri(p), removed: true });
+}
+
+const HANDLERS: Record<string, (a: any) => Promise<ToolResult>> = {
+  read, write, stat, list, apply_patch: applyPatch, patch, search_text: searchText, mv, mkdir, rm,
+};
 
 export const fsTool: Tool = {
   name: 'fs',
-  description: 'Filesystem operations: read, write, stat, list, mkdir, rm, mv, apply_patch, search_text',
+  description: `Unified filesystem tool (HIP-0300).
+
+Actions:
+- read: Read file contents (returns hash)
+- write: Create new files only
+- stat: File metadata including hash
+- list: Directory listing
+- apply_patch: Edit with base_hash precondition
+- patch: Apply Rust-style patch format (Rust parity)
+- search_text: Text search
+- mkdir: Create directory
+- rm: Remove (requires confirm=true)
+
+IMPORTANT: apply_patch is the ONLY way to edit existing files.
+patch supports Rust grammar format: *** Begin Patch / *** Update File: / @@ / -old +new`,
   inputSchema: {
     type: 'object',
     properties: {
-      action: { type: 'string', enum: ['read', 'write', 'stat', 'list', 'mkdir', 'rm', 'mv', 'apply_patch', 'search_text'], description: 'Filesystem action' },
-      uri: { type: 'string', description: 'File or directory path' },
-      content: { type: 'string', description: 'Content for write' },
-      encoding: { type: 'string', default: 'utf8' },
-      depth: { type: 'number', description: 'List depth', default: 1 },
-      pattern: { type: 'string', description: 'Glob pattern for list or search' },
-      show_hidden: { type: 'boolean', default: false },
-      patch: { type: 'string', description: 'Patch content (old_text for simple replace)' },
-      new_text: { type: 'string', description: 'Replacement text for apply_patch' },
-      base_hash: { type: 'string', description: 'Content hash precondition for apply_patch' },
-      edits: { type: 'array', description: 'Array of {old_text, new_text} for multi-edit patch', items: { type: 'object' } },
-      confirm: { type: 'boolean', description: 'Required for rm', default: false },
-      destination: { type: 'string', description: 'Destination for mv' },
-      overwrite: { type: 'boolean', default: false },
-      query: { type: 'string', description: 'Search pattern for search_text' },
-      ignore_case: { type: 'boolean', default: false },
-      context_lines: { type: 'number', default: 0 },
-      max_results: { type: 'number', default: 50 },
-      offset: { type: 'number', description: 'Line offset for read' },
-      limit: { type: 'number', description: 'Line limit for read' },
-      recursive: { type: 'boolean', default: false },
+      action: { type: 'string', enum: [...Object.keys(ACTIONS), 'help'], default: 'help' },
+      uri: { type: 'string', description: 'Absolute path or file:// URI (path is accepted too)' },
+      content: { type: 'string', description: "write: the new file's content" },
+      offset: { type: 'number', description: 'read: first line, 0-based', default: 0 },
+      limit: { type: 'number', description: 'read: lines (2000); list: entries (100); search_text: matches (50)' },
+      cursor: { type: 'string', description: 'list/search_text: the page after this cursor' },
+      depth: { type: 'number', description: 'list: levels', default: 1 },
+      pattern: { type: 'string', description: 'list: name glob; search_text: regex' },
+      glob: { type: 'string', description: 'search_text: file glob' },
+      old_text: { type: 'string', description: 'apply_patch: the unique text to replace' },
+      new_text: { type: 'string', description: 'apply_patch: its replacement' },
+      base_hash: { type: 'string', description: 'apply_patch: the hash read returned' },
+      input: { type: 'string', description: 'patch: *** Begin Patch … *** End Patch' },
+      destination: { type: 'string', description: 'mv: where to' },
+      confirm: { type: 'boolean', description: 'rm: required', default: false },
     },
-    required: ['action']
+    required: ['action'],
   },
-  handler: async (args) => {
-    try {
-      const uri = args.uri || args.path || '.';
-
-      switch (args.action) {
-        case 'read': {
-          if (!uri || uri === '.') return fail('INVALID_PARAMS', 'uri required');
-          const raw = await fs.readFile(uri, (args.encoding || 'utf8') as BufferEncoding);
-          const text = raw.toString();
-          const hash = contentHash(text);
-          const lines = text.split('\n');
-          let content = text;
-          if (args.offset || args.limit) {
-            const start = args.offset || 0;
-            const end = args.limit ? start + args.limit : lines.length;
-            content = lines.slice(start, end).join('\n');
-          }
-          return envelope({ uri, content, hash, lines: lines.length, size: Buffer.byteLength(text) }, 'read');
-        }
-
-        case 'write': {
-          if (!uri || uri === '.') return fail('INVALID_PARAMS', 'uri required');
-          if (args.content === undefined) return fail('INVALID_PARAMS', 'content required');
-          if (!args.overwrite) {
-            try { await fs.access(uri); return fail('CONFLICT', 'File exists. Use overwrite: true or apply_patch to edit.'); } catch {}
-          }
-          await fs.mkdir(path.dirname(uri), { recursive: true });
-          await fs.writeFile(uri, args.content, (args.encoding || 'utf8') as BufferEncoding);
-          const hash = contentHash(args.content);
-          return envelope({ uri, hash, size: Buffer.byteLength(args.content) }, 'write');
-        }
-
-        case 'stat': {
-          if (!uri || uri === '.') return fail('INVALID_PARAMS', 'uri required');
-          const stats = await fs.stat(uri);
-          let hash: string | undefined;
-          if (stats.isFile()) { hash = contentHash(await fs.readFile(uri, 'utf8')); }
-          return envelope({
-            uri, size: stats.size, hash,
-            is_file: stats.isFile(), is_dir: stats.isDirectory(),
-            mtime: stats.mtime.toISOString(), mode: stats.mode.toString(8)
-          }, 'stat');
-        }
-
-        case 'list': {
-          const depth = args.depth || 1;
-          if (args.pattern) {
-            const globPattern = path.join(uri, args.pattern);
-            const files = await glob(globPattern, { ignore: ['**/node_modules/**', '**/.git/**'] });
-            return envelope({ uri, entries: files, count: files.length }, 'list');
-          }
-          if (depth === 1) {
-            const entries = await fs.readdir(uri, { withFileTypes: true });
-            const filtered = args.show_hidden ? entries : entries.filter(e => !e.name.startsWith('.'));
-            const items = filtered.map(e => ({ name: e.name, type: e.isDirectory() ? 'dir' : 'file' }));
-            return envelope({ uri, entries: items, count: items.length }, 'list');
-          }
-          // Tree view for depth > 1
-          const buildTree = async (dir: string, prefix = '', d = 0): Promise<string> => {
-            if (d >= depth) return '';
-            const entries = await fs.readdir(dir, { withFileTypes: true });
-            const filtered = args.show_hidden ? entries : entries.filter(e => !e.name.startsWith('.'));
-            let tree = '';
-            for (let i = 0; i < filtered.length; i++) {
-              const e = filtered[i];
-              const last = i === filtered.length - 1;
-              tree += prefix + (last ? '└── ' : '├── ') + e.name + '\n';
-              if (e.isDirectory()) tree += await buildTree(path.join(dir, e.name), prefix + (last ? '    ' : '│   '), d + 1);
-            }
-            return tree;
-          };
-          const tree = uri + '\n' + await buildTree(uri);
-          return envelope({ uri, tree, depth }, 'list');
-        }
-
-        case 'mkdir': {
-          if (!uri || uri === '.') return fail('INVALID_PARAMS', 'uri required');
-          await fs.mkdir(uri, { recursive: true });
-          return envelope({ uri }, 'mkdir');
-        }
-
-        case 'rm': {
-          if (!uri || uri === '.') return fail('INVALID_PARAMS', 'uri required');
-          if (!args.confirm) return fail('CONFIRM_REQUIRED', 'rm requires confirm: true');
-          const stats = await fs.stat(uri);
-          if (stats.isDirectory()) {
-            await fs.rm(uri, { recursive: args.recursive !== false, force: true });
-          } else {
-            await fs.unlink(uri);
-          }
-          return envelope({ uri, removed: true }, 'rm');
-        }
-
-        case 'mv': {
-          if (!uri || uri === '.') return fail('INVALID_PARAMS', 'uri required');
-          if (!args.destination) return fail('INVALID_PARAMS', 'destination required');
-          if (!args.overwrite) {
-            try { await fs.access(args.destination); return fail('CONFLICT', 'Destination exists. Use overwrite: true.'); } catch {}
-          }
-          await fs.mkdir(path.dirname(args.destination), { recursive: true });
-          await fs.rename(uri, args.destination);
-          return envelope({ from: uri, to: args.destination }, 'mv');
-        }
-
-        case 'apply_patch': {
-          if (!uri || uri === '.') return fail('INVALID_PARAMS', 'uri required');
-          let content = await fs.readFile(uri, 'utf8');
-          const currentHash = contentHash(content);
-
-          // base_hash precondition
-          if (args.base_hash && args.base_hash !== currentHash) {
-            return fail('CONFLICT', 'base_hash mismatch — file changed since read', { expected: args.base_hash, actual: currentHash });
-          }
-
-          // Multi-edit mode
-          if (args.edits && Array.isArray(args.edits)) {
-            const results: string[] = [];
-            for (const edit of args.edits) {
-              if (!content.includes(edit.old_text || edit.oldText)) {
-                results.push(`MISS: "${(edit.old_text || edit.oldText || '').substring(0, 40)}..."`);
-                continue;
-              }
-              content = content.replace(edit.old_text || edit.oldText, edit.new_text || edit.newText);
-              results.push(`OK: replaced ${(edit.old_text || edit.oldText || '').substring(0, 30)}...`);
-            }
-            await fs.writeFile(uri, content, 'utf8');
-            return envelope({ uri, hash: contentHash(content), edits: results }, 'apply_patch');
-          }
-
-          // Single edit mode
-          const oldText = args.patch || args.old_text || args.oldText;
-          const newText = args.new_text || args.newText;
-          if (!oldText || newText === undefined) return fail('INVALID_PARAMS', 'patch (old_text) and new_text required, or edits array');
-
-          if (!content.includes(oldText)) return fail('NOT_FOUND', 'patch text not found in file');
-          const count = content.split(oldText).length - 1;
-          if (count > 1) return fail('AMBIGUOUS', `patch text found ${count} times — include more context`);
-
-          content = content.replace(oldText, newText);
-          await fs.writeFile(uri, content, 'utf8');
-          return envelope({ uri, hash: contentHash(content) }, 'apply_patch');
-        }
-
-        case 'search_text': {
-          const query = args.query || args.pattern;
-          if (!query) return fail('INVALID_PARAMS', 'query required');
-          let hasRg = false;
-          try { await execAsync('which rg'); hasRg = true; } catch {}
-
-          let cmd: string;
-          if (hasRg) {
-            cmd = `rg -n --max-count ${args.max_results || 50}`;
-            if (args.ignore_case) cmd += ' -i';
-            if (args.context_lines) cmd += ` -C ${args.context_lines}`;
-            if (args.pattern && args.pattern !== query) cmd += ` -g "${args.pattern}"`;
-            cmd += ` "${query}" "${uri}"`;
-          } else {
-            cmd = `grep -rn`;
-            if (args.ignore_case) cmd += ' -i';
-            if (args.context_lines) cmd += ` -C ${args.context_lines}`;
-            cmd += ` "${query}" "${uri}" | head -${args.max_results || 50}`;
-          }
-
-          try {
-            const { stdout } = await execAsync(cmd);
-            const lines = stdout.trim().split('\n').filter(Boolean);
-            return envelope({ query, matches: lines, count: lines.length, backend: hasRg ? 'ripgrep' : 'grep' }, 'search_text');
-          } catch (e: any) {
-            if (e.code === 1) return envelope({ query, matches: [], count: 0, backend: hasRg ? 'ripgrep' : 'grep' }, 'search_text');
-            throw e;
-          }
-        }
-
-        default:
-          return fail('UNKNOWN_ACTION', `Unknown action: ${args.action}`, { available: ['read', 'write', 'stat', 'list', 'mkdir', 'rm', 'mv', 'apply_patch', 'search_text'] });
-      }
-    } catch (error: any) {
-      if (error.code === 'ENOENT') return fail('NOT_FOUND', `Not found: ${args.uri || args.path}`);
-      if (error.code === 'EACCES') return fail('PERMISSION_DENIED', error.message);
-      return fail('ERROR', error.message);
+  handler: async (args: any) => {
+    const action: string = args.action || 'help';
+    const a = { ...args, uri: args.uri ?? args.path };
+    if (action === 'help') {
+      return envelope('help', { tool: 'fs', actions: Object.entries(ACTIONS).map(([name, description]) => ({ name, description })) });
     }
-  }
+    const run = HANDLERS[action];
+    if (!run) return fail(action, 'INVALID_PARAMS', `Unknown action '${action}'. Available: ${Object.keys(ACTIONS).join(', ')}`);
+    try {
+      return await run(a);
+    } catch (e: any) {
+      if (e instanceof Refused) return fail(action, e.code, e.message);
+      if (e.code === 'ENOENT') return fail(action, 'NOT_FOUND', e.message);
+      return fail(action, 'INTERNAL_ERROR', e.message);
+    }
+  },
 };

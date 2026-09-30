@@ -50,20 +50,22 @@ describe('MCP Server Integration', () => {
     expect(readResult.isError).toBeFalsy();
     const readData = JSON.parse(readResult.content[0].text);
     expect(readData.ok).toBe(true);
-    expect(readData.data.content).toContain('Integration test content');
+    expect(readData.data.text).toContain('Integration test content');
 
-    // Edit (apply_patch)
-    await fsTool.handler({
+    // Edit (apply_patch), guarded by the hash the read returned
+    const edit = await fsTool.handler({
       action: 'apply_patch',
       uri: testPath,
-      patch: 'Integration',
+      old_text: 'Integration',
       new_text: 'Updated integration',
+      base_hash: readData.data.hash,
     });
+    expect(edit.isError).toBeFalsy();
 
     // Read after edit
     const readAfter = await fsTool.handler({ action: 'read', uri: testPath });
     const readAfterData = JSON.parse(readAfter.content[0].text);
-    expect(readAfterData.data.content).toContain('Updated integration');
+    expect(readAfterData.data.text).toContain('Updated integration');
 
     // Delete (rm)
     const deleteResult = await fsTool.handler({ action: 'rm', uri: testPath, confirm: true });
@@ -82,7 +84,7 @@ describe('MCP Server Integration', () => {
     const searchResult = await fsTool.handler({
       action: 'search_text',
       uri: path.join(TEST_TEMP_DIR, 'search-integration'),
-      query: 'test',
+      pattern: 'test',
     });
     expect(searchResult.isError).toBeFalsy();
     expect(searchResult.content[0].text).toContain('test');

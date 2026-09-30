@@ -97,7 +97,7 @@ export const workspaceTool: Tool = {
         case 'help': {
           return envelope({
             tools: {
-              fs: 'Filesystem: read, write, stat, list, mkdir, rm, mv, apply_patch, search_text',
+              fs: 'Filesystem: read, write, stat, list, apply_patch, patch, search_text, mv, mkdir, rm',
               exec: 'Processes: exec, ps, kill, logs',
               code: 'Semantics: search_symbol, outline, references, metrics, exports, types, hierarchy, rename, grep_replace',
               git: 'Version control: status, diff, log, commit, branch, tag, remote, merge, rebase, and more',

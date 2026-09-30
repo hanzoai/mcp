@@ -261,8 +261,8 @@ params, the extension's `decodeCmd` body) answered by one RESPONSE (JSON, or
 ## Parity with hanzo-mcp (Python)
 
 Python `hanzo-mcp` (`python-sdk/pkg/hanzo-tools-*`) is the reference. Counted
-from code, one row per registered Python tool: **72 tools**. TypeScript: 13 yes,
-23 partial, 36 missing. Rust: 25 yes, 19 partial, 28 missing. † not a
+from code, one row per registered Python tool: **72 tools**. TypeScript: 14 yes,
+22 partial, 36 missing. Rust: 25 yes, 19 partial, 28 missing. † not a
 `hanzo-mcp` dependency (extras); ‡ shipped but disabled when `hanzo` is on.
 
 | Python tool (pkg) | TS | Rust |
@@ -287,7 +287,7 @@ from code, one row per registered Python tool: **72 tools**. TypeScript: 13 yes,
 | sql_query, sql_search, sql_stats, graph_add/remove/query/search/stats (database) † | missing | missing |
 | devserver (devserver) | missing | missing |
 | neovim_edit, neovim_command, neovim_session (editor) † | missing | missing |
-| fs (fs) | partial `src/tools/unified/fs.ts` (no patch; apply_patch takes `patch`, hash cut to 16 hex) | yes `rust/src/tools/fs_tool.rs` |
+| fs (fs) | yes `src/tools/unified/fs.ts` | yes `rust/src/tools/fs_tool.rs` |
 | gimp (gimp) † | yes `src/tools/gimp.ts` | missing |
 | ide (ide) † | missing | missing |
 | jupyter (jupyter) † | missing | missing |
