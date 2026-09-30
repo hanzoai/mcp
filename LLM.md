@@ -214,11 +214,109 @@ catalog. Two things that list had were worse than stale — it named `paas` and
 the four mapped a caller off the surface the fleet serves. `resolve_service`
 normalises spelling and renames nothing; one thing has one name.
 
+## `browser` and `cdp` — the user's browser over ZAP
+
+The browser is reached the way Python `hanzo-mcp` reaches it: through this
+login's ZAP router (zapd, HIP-0069). An fcntl lock on
+`$XDG_RUNTIME_DIR/zap/zapd.lock` elects one process as router; it owns
+`zapd.sock` and the loopback door (9998, else 21000-21007) that admits the
+Hanzo extension's Blink origin without pairing. The extension registers as
+`browser/<host>/<engine>-<id>`; a command is one ROUTE (method + string
+params, the extension's `decodeCmd` body) answered by one RESPONSE (JSON, or
+`ERR:<why>`).
+
+- **Rust** (`rust/src/zap.rs`) links `zapd` v1.1.5 by git tag (crates.io has
+  only 1.1.2, which predates the unpaired door). `main` calls `zap::seat()`:
+  it stands for router and joins as `mcp/hanzo-<pid>`, as Python does.
+  `hanzo-mcp pair [--reset]` prints the door's code for a browser that must
+  pair.
+- **TypeScript** (`src/zap.ts`) is a consumer only: zapd has no JS or wasm
+  build, so it joins whichever process holds the lock and never stands for
+  router. With no router it says so (`NO_ROUTER`). Node cannot read a unix
+  socket's peer credentials, so unlike zapd's own node it does not check the
+  peer is the lock holder; it trusts the 0700 runtime dir, which it refuses
+  otherwise.
+- `browser` (`rust/src/tools/browser_tool.rs`, `src/tools/browser.ts`) carries
+  Python's `ACTIONS` table verbatim: names, topics, usage, extension method,
+  `hanzo.act` op. Core parameters are typed; the rest ride in `args`, and an
+  unknown `args` key is refused. An action with a method goes to the browser;
+  with none registered it falls back to headless Playwright, except a ref
+  (`@e2`), `annotate`, or an explicit `BROWSER_BACKEND`, which error instead.
+  Rust's fallback is the full driver; TypeScript's covers core, navigation and
+  tabs. A capture is saved under `~/.hanzo/screenshots` and returned as an MCP
+  image block.
+- `cdp` sends a raw CDP method verbatim to the same browser; no fallback.
+- Tests never touch the owner's router: `rust/tests/test_browser_tools.rs`
+  embeds the router on a private `XDG_RUNTIME_DIR`/`XDG_STATE_HOME`/`HOME` with
+  a pairing pinned to a random port; `test/tools/browser.test.ts` runs PyPI
+  `zapd` as the router in another process. Both use a fake extension.
+
+## Parity with hanzo-mcp (Python)
+
+Python `hanzo-mcp` (`python-sdk/pkg/hanzo-tools-*`) is the reference. Counted
+from code, one row per registered Python tool: **72 tools**. TypeScript: 13 yes,
+23 partial, 36 missing. Rust: 24 yes, 20 partial, 28 missing. † not a
+`hanzo-mcp` dependency (extras); ‡ shipped but disabled when `hanzo` is on.
+
+| Python tool (pkg) | TS | Rust |
+|---|---|---|
+| agent (agent) | partial `src/tools/think.ts` (action=agent only) | yes `rust/src/tools/agent_tool.rs` |
+| zen (agent) | missing | yes `agent_tool.rs` (agent action=zen) |
+| review (agent) | missing | yes `agent_tool.rs` |
+| hanzo (api) | yes `src/tools/unified/hanzo.ts` | yes `rust/src/tools/hanzo_tool.rs` |
+| api (api) ‡ | missing | missing |
+| auth (auth) ‡ | missing | partial `hanzo_tool.rs` (no login) |
+| billing, commerce, iam, ingress, kms, team, s3 (†) | partial `hanzo.ts` (resource=…, catalog ops) | partial `hanzo_tool.rs` (resource=…) |
+| paas (paas) † | partial `hanzo.ts` (resource=platform) | partial `hanzo_tool.rs` (resource=platform) |
+| mpc (mpc) ‡ | missing | missing |
+| browser (browser) | partial `src/tools/browser.ts` (all 88 names; Playwright fallback core/navigation/tabs) | yes `rust/src/tools/browser_tool.rs` (no Firefox BiDi fast path) |
+| cdp (browser) | yes `src/tools/browser.ts` | yes `rust/src/tools/cdp_tool.rs` |
+| playwright (browser) | partial (`browser` with `BROWSER_BACKEND=playwright`) | partial (same) |
+| code (code) | partial `src/tools/unified/code.ts` (search/context/ask/index are `code_*`) | partial `rust/src/tools/code_tool.rs` |
+| computer (computer) | partial `src/autogui/` (opt-in; no touch/record/regions) | partial `rust/src/tools/computer_tool/` (no touch, record, locate, pixel, regions) |
+| config (config) | missing | yes `rust/src/tools/config_tool.rs` |
+| mode (config) | partial `src/tools/mode-preset.ts` (no activate, show) | yes `rust/src/tools/mode_tool.rs` |
+| workspace (config) | yes `src/tools/unified/workspace.ts` | yes `rust/src/tools/workspace_tool.rs` |
+| sql_query, sql_search, sql_stats, graph_add/remove/query/search/stats (database) † | missing | missing |
+| devserver (devserver) | missing | missing |
+| neovim_edit, neovim_command, neovim_session (editor) † | missing | missing |
+| fs (fs) | partial `src/tools/unified/fs.ts` (no patch) | partial `rust/src/tools/fs_tool.rs` (`path` not `uri`; no list, search_text) |
+| gimp (gimp) † | yes `src/tools/gimp.ts` | missing |
+| ide (ide) † | missing | missing |
+| jupyter (jupyter) † | missing | missing |
+| llm (llm) | missing | partial `rust/src/tools/llm_tool.rs` (no enable, disable, test) |
+| consensus (llm) | yes `think.ts` (action=consensus) | yes `llm_tool.rs` (action=consensus) |
+| lsp (lsp) | missing | yes `rust/src/tools/lsp_tool.rs` |
+| mcp, mcp_add, mcp_remove, mcp_stats, proxy (mcp) † | missing | missing |
+| memory (memory) | partial `src/tools/memory.ts` (no create, kb) | yes `rust/src/tools/memory_tool.rs` |
+| fetch (net) | partial `src/tools/unified/fetch.ts` (no web_read, research) | partial `rust/src/tools/fetch_tool.rs` (web_read/research are tools) |
+| vision (net) | missing | partial `rust/src/tools/vision_tool.rs` (ask only) |
+| plan (plan) † | partial `src/tools/plan.ts` (no get, clear, intent, route, compose, chains) | partial `rust/src/tools/plan_tool.rs` (no intent, route, compose, chains) |
+| think (reasoning) | partial `think.ts` (no review) | yes `rust/src/tools/think_tool.rs` |
+| critic (reasoning) | yes `think.ts` (action=critic) | yes `think_tool.rs` (action=critic) |
+| refactor (refactor) | partial `src/tools/refactor.ts` (no rename_batch) | partial `rust/src/tools/refactor_tool.rs` (no rename_batch, find_references) |
+| repl (repl) † | missing | missing |
+| zsh, exec, ps (shell) | yes `src/tools/unified/exec.ts` | yes `rust/src/tools/exec_tool.rs` |
+| open, curl, wget (shell) | yes `fetch.ts` (open, request, download) | yes `fetch_tool.rs` (same) |
+| npx, uvx, jq (shell) | missing | missing |
+| test (test) † | missing | missing |
+| tasks (todo) | partial `src/tools/tasks.ts` (no clear, remove) | yes `rust/src/tools/tasks_tool.rs` |
+| ui (ui) | partial `src/tools/unified-ui.ts` (no ask, semantic_search, index) | partial `rust/src/tools/ui_tool.rs` (7 of 18 actions) |
+| git (vcs) | yes `src/tools/git.ts` | yes `rust/src/tools/git_tool.rs` |
+| vector (vector) † | partial `src/tools/vector-search.ts` (legacy; no embed) | missing |
+| version, stats (system) | missing | yes `rust/src/tools/system_tool.rs` |
+| tool (system) | missing | partial `system_tool.rs` (no install, upgrade, reload, self_update) |
+
+A grouped row counts once per Python tool it names. Not in Python: TS
+`code_*`, `tracker_*`, `kai_*`; Rust `code_*`, `web_search`, `web_read`,
+`research`, `system`. Recount after closing a gap and update both numbers.
+
 ## Canonical role
 Part of the AI/agents SDK line. This TS package (`@hanzo/mcp`) is canonical; the
 Python `hanzo-mcp` (PyPI) and Rust `hanzo-mcp::brain` mirror the same tool surface
 1-to-1 — tool names and action schemas identical across runtimes — except
-`tracker_*` and `kai_*`, which are TypeScript only. DRY: one impl
+`tracker_*` and `kai_*`, which are TypeScript only. Where they do not yet, the
+parity table above says so. DRY: one impl
 per tool in its canonical home; do not duplicate tool logic across runtimes beyond
 the shared schema. Full model: `~/work/hanzo/SDK-ARCHITECTURE.md`.
 
