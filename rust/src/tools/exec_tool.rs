@@ -238,7 +238,19 @@ impl ExecTool {
         let mut child = cmd.spawn()?;
         let pid = child.id();
 
-        // Register process
+        // Every byte also goes to a log, so a process that outlives the
+        // timeout keeps its output and `logs` can read it.
+        let dir = std::env::temp_dir().join("hanzo-mcp");
+        std::fs::create_dir_all(&dir)?;
+        let (file, log) = tempfile::Builder::new()
+            .prefix(&format!("{proc_id}-"))
+            .suffix(".log")
+            .tempfile_in(&dir)?
+            .keep()?;
+        let sink = Arc::new(std::sync::Mutex::new(file));
+        let out = drain(child.stdout.take(), sink.clone());
+        let err = drain(child.stderr.take(), sink);
+
         self.manager.register(ProcessInfo {
             proc_id: proc_id.clone(),
             pid,
@@ -246,44 +258,41 @@ impl ExecTool {
             running: true,
             exit_code: None,
             started: started.clone(),
-            log_file: None,
+            log_file: Some(log.clone()),
         }).await;
 
-        // Wait with timeout
-        let timeout_duration = Duration::from_secs(timeout);
-        let result = tokio::time::timeout(timeout_duration, child.wait_with_output()).await;
+        // The exit is recorded whether or not anyone is still waiting for it.
+        let (done, exited) = tokio::sync::oneshot::channel();
+        let manager = self.manager.clone();
+        let id = proc_id.clone();
+        tokio::spawn(async move {
+            let code = child.wait().await.ok().and_then(|s| s.code()).unwrap_or(-1);
+            let (stdout, stderr) = (out.await.unwrap_or_default(), err.await.unwrap_or_default());
+            manager.update(&id, code).await;
+            let _ = done.send((code, stdout, stderr));
+        });
 
-        match result {
-            Ok(Ok(output)) => {
-                let exit_code = output.status.code().unwrap_or(-1);
-                let duration_ms = start.elapsed().as_millis() as u64;
-
-                self.manager.update(&proc_id, exit_code).await;
-
-                let stdout = String::from_utf8_lossy(&output.stdout).to_string();
-                let stderr = String::from_utf8_lossy(&output.stderr).to_string();
-
-                Ok(json!({
-                    "proc_id": proc_id,
-                    "exit_code": exit_code,
-                    "stdout": stdout,
-                    "stderr": stderr,
-                    "duration_ms": duration_ms,
-                    "status": if exit_code == 0 { "success" } else { "failed" }
-                }))
-            }
-            Ok(Err(e)) => Err(anyhow!("Process failed: {}", e)),
-            Err(_) => {
-                // Timeout - process is backgrounded
-                Ok(json!({
-                    "proc_id": proc_id,
-                    "exit_code": null,
-                    "stdout_ref": format!("proc:{}:stdout", proc_id),
-                    "stderr_ref": format!("proc:{}:stderr", proc_id),
-                    "status": "running",
-                    "message": format!("Command backgrounded after {}s. Use proc(action='logs', proc_id='{}') to view output.", timeout, proc_id)
-                }))
-            }
+        let answer = tokio::time::timeout(Duration::from_secs(timeout), exited).await;
+        if matches!(answer, Ok(Ok(_))) {
+            // The caller has the output inline; only a backgrounded run keeps a log.
+            let _ = std::fs::remove_file(&log);
+        }
+        match answer {
+            Ok(Ok((exit_code, stdout, stderr))) => Ok(json!({
+                "proc_id": proc_id,
+                "exit_code": exit_code,
+                "stdout": String::from_utf8_lossy(&stdout),
+                "stderr": String::from_utf8_lossy(&stderr),
+                "duration_ms": start.elapsed().as_millis() as u64,
+                "status": if exit_code == 0 { "success" } else { "failed" }
+            })),
+            Ok(Err(_)) => Err(anyhow!("Process failed: {proc_id}")),
+            Err(_) => Ok(json!({
+                "proc_id": proc_id,
+                "exit_code": null,
+                "status": "running",
+                "message": format!("Command backgrounded after {timeout}s. exec(action='logs', proc_id='{proc_id}') reads its output; wait and kill take the same proc_id.")
+            })),
         }
     }
 
@@ -483,6 +492,34 @@ impl ExecTool {
     }
 }
 
+/// Output a caller still waiting gets back inline; the log keeps all of it.
+const KEEP: usize = 4 << 20;
+
+/// Copy a pipe into the log as it comes, and return what fits inline.
+fn drain<R>(pipe: Option<R>, log: Arc<std::sync::Mutex<std::fs::File>>) -> tokio::task::JoinHandle<Vec<u8>>
+where
+    R: tokio::io::AsyncRead + Unpin + Send + 'static,
+{
+    use std::io::Write as _;
+    use tokio::io::AsyncReadExt as _;
+    tokio::spawn(async move {
+        let mut kept = Vec::new();
+        let Some(mut pipe) = pipe else { return kept };
+        let mut buf = [0u8; 8192];
+        while let Ok(n) = pipe.read(&mut buf).await {
+            if n == 0 {
+                break;
+            }
+            if let Ok(mut f) = log.lock() {
+                let _ = f.write_all(&buf[..n]);
+            }
+            let room = KEEP.saturating_sub(kept.len()).min(n);
+            kept.extend_from_slice(&buf[..room]);
+        }
+        kept
+    })
+}
+
 /// MCP Tool Definition
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ExecToolDefinition {
@@ -578,6 +615,27 @@ mod tests {
 
         let result = tool.execute(args).await;
         assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn a_backgrounded_process_keeps_its_output_and_its_exit() {
+        let tool = ExecTool::new();
+        let run = |action: &str, extra: Value| {
+            let mut a = json!({"action": action});
+            a.as_object_mut().unwrap().extend(extra.as_object().cloned().unwrap());
+            serde_json::from_value::<ExecToolArgs>(a).unwrap()
+        };
+        let started: Value = serde_json::from_str(
+            &tool.execute(run("exec", json!({"command": "echo early; sleep 2; echo late", "timeout": 1}))).await.unwrap(),
+        )
+        .unwrap();
+        assert_eq!(started["status"], "running");
+        let id = started["proc_id"].as_str().unwrap().to_string();
+
+        let waited: Value = serde_json::from_str(&tool.execute(run("wait", json!({"proc_id": id}))).await.unwrap()).unwrap();
+        assert_eq!((waited["status"].clone(), waited["exit_code"].clone()), (json!("completed"), json!(0)));
+        let logs: Value = serde_json::from_str(&tool.execute(run("logs", json!({"proc_id": id}))).await.unwrap()).unwrap();
+        assert_eq!(logs["output"], "early\nlate\n");
     }
 
     #[tokio::test]
