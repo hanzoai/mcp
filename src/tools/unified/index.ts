@@ -28,6 +28,8 @@ import { codeIntelTools } from '../code-intel.js';
 import { trackerTools } from '../tracker.js';
 // Decisions — Kai on Hanzo /v1/decisions (choice, score, noul)
 import { kaiTools } from '../kai.js';
+// The user's browser through the Hanzo extension, over the ZAP router
+import { browserTool, cdpTool } from '../browser.js';
 
 // UI — already unified
 import { unifiedUITool } from '../unified-ui.js';
@@ -59,6 +61,8 @@ export const optionalTools: Tool[] = [
   tasksTool,   // Task tracking
   modeTool,    // Developer modes
   gimpTool,    // GIMP automation (clean-room BSD-3 PDB bridge)
+  browserTool, // The user's browser via the extension (Playwright fallback)
+  cdpTool,     // Raw CDP methods to the same browser
 ];
 
 export const allUnifiedTools: Tool[] = [
@@ -79,3 +83,4 @@ export { hanzoTool } from './hanzo.js';
 export { codeIntelTools, codeSearchTool, codeContextTool, codeAskTool, codeIndexTool } from '../code-intel.js';
 export { trackerTools, trackerBoardsTool, trackerIssuesTool, trackerCreateTool, trackerUpdateTool } from '../tracker.js';
 export { kaiTools, kaiDecideTool, kaiChoiceTool, kaiScoreTool, kaiNoulTool } from '../kai.js';
+export { browserTools, browserTool, cdpTool } from '../browser.js';

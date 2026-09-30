@@ -33,7 +33,6 @@ const child = spawn(process.execPath, [cli, "serve"], {
   cwd: tmp,
   env: {
     ...process.env,
-    HANZO_MCP_NO_ZAP: "1",         // don't bind WS in CI
     HANZO_MCP_DEBUG: "1",          // surface platform/path on failure
   },
 });
@@ -151,7 +150,7 @@ try {
   const run = (args, { env = {}, input } = {}) =>
     spawnSync(process.execPath, [cli, ...args], {
       cwd: tmp, input, encoding: "utf8", timeout: 20_000,
-      env: { ...process.env, HANZO_MCP_NO_ZAP: "1", ...env },
+      env: { ...process.env, ...env },
     });
   const listed = (out) => out.split("\n").filter((l) => l.startsWith("  - ")).map((l) => l.slice(4).split(":")[0]);
   const lt = run(["list-tools"]);
