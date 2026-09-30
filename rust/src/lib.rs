@@ -140,13 +140,13 @@ impl ToolRegistry {
 
     pub fn list(&self) -> Vec<String> {
         let mut names: Vec<String> = self.tools.keys().cloned().collect();
-        // Add built-in tools (all 13 HIP-0300 canonical + search alias + browser extension)
+        // Add built-in tools (all 13 HIP-0300 canonical + browser)
         names.extend(vec![
             "exec".into(), "fs".into(), "code".into(), "git".into(),
             "fetch".into(), "workspace".into(), "computer".into(),
             "think".into(), "memory".into(), "hanzo".into(),
             "plan".into(), "tasks".into(), "mode".into(),
-            "search".into(), "browser".into(),
+            "browser".into(),
         ]);
         names.sort();
         names.dedup();
@@ -163,14 +163,6 @@ impl ToolRegistry {
             }
             "fs" => {
                 let args: tools::FsToolArgs = serde_json::from_value(params)?;
-                let result = self.fs.read().await.execute(args).await?;
-                Ok(ToolResult::ok(serde_json::from_str(&result)?))
-            }
-            "search" => {
-                let mut args: tools::FsToolArgs = serde_json::from_value(params)?;
-                if args.action.is_empty() {
-                    args.action = "search".to_string();
-                }
                 let result = self.fs.read().await.execute(args).await?;
                 Ok(ToolResult::ok(serde_json::from_str(&result)?))
             }
@@ -257,11 +249,6 @@ impl ToolRegistry {
             json!({
                 "name": "fs",
                 "description": tools::FsToolDefinition::new().description,
-                "inputSchema": tools::FsToolDefinition::new().input_schema
-            }),
-            json!({
-                "name": "search",
-                "description": "Search file contents (alias of fs with action=search)",
                 "inputSchema": tools::FsToolDefinition::new().input_schema
             }),
             json!({
@@ -382,7 +369,7 @@ mod tests {
         let tools = registry.list();
         assert!(tools.contains(&"exec".to_string()));
         assert!(tools.contains(&"fs".to_string()));
-        assert!(tools.contains(&"search".to_string()));
+        assert!(!tools.contains(&"search".to_string()), "fs action=search_text is the one search");
         assert!(tools.contains(&"plan".to_string()));
         assert!(tools.contains(&"think".to_string()));
         assert!(tools.contains(&"memory".to_string()));

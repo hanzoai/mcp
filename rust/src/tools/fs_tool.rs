@@ -1,139 +1,125 @@
-/// Unified filesystem tool (HIP-0300)
-///
-/// Handles all file operations:
-/// - read: Read file contents
-/// - write: Write file contents
-/// - edit: Edit file with old/new replacement
-/// - patch: Apply Rust-style patch format
-/// - tree: Display directory tree
-/// - find: Find files by pattern
-/// - search: Search file contents
+//! `fs` — the filesystem on one axis (HIP-0300), with python-sdk
+//! `hanzo_tools.fs.FsTool`'s contract: the same actions, the same parameters
+//! (`uri`, `path` accepted for it), the same answers in the unified
+//! `{ok, data, error, meta}` envelope.
+//!
+//! Every file answer carries its content hash (`sha256:<hex>`), and
+//! `apply_patch` — the one way to edit an existing file — takes that hash as
+//! its precondition, so an edit made against a stale read is refused rather
+//! than applied. `write` only creates.
 
-use anyhow::{anyhow, Result};
+use anyhow::Result;
+use base64::Engine as _;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use std::collections::HashMap;
+use sha2::{Digest, Sha256};
 use std::path::{Path, PathBuf};
 use walkdir::WalkDir;
 
-/// Actions for the fs tool
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-#[serde(rename_all = "snake_case")]
-pub enum FsAction {
-    Read,
-    Write,
-    Edit,
-    Patch,
-    Tree,
-    Find,
-    Search,
-    Info,
-    Mv,
-    Mkdir,
-    Rm,
-    Help,
-}
+use super::{envelope_err, envelope_ok};
 
-impl Default for FsAction {
-    fn default() -> Self {
-        Self::Help
-    }
-}
+const ACTIONS: &[(&str, &str)] = &[
+    ("read", "Read file contents (returns hash)"),
+    ("write", "Create new files only"),
+    ("stat", "File metadata including hash"),
+    ("list", "Directory listing"),
+    ("apply_patch", "Edit with base_hash precondition"),
+    ("patch", "Apply Rust-style patch format (Rust parity)"),
+    ("search_text", "Text search"),
+    ("mv", "Move or rename file/directory"),
+    ("mkdir", "Create directory"),
+    ("rm", "Remove (requires confirm=true)"),
+];
 
-impl std::str::FromStr for FsAction {
-    type Err = anyhow::Error;
+const DESCRIPTION: &str = r#"Unified filesystem tool (HIP-0300).
 
-    fn from_str(s: &str) -> Result<Self> {
-        match s.to_lowercase().as_str() {
-            "read" => Ok(Self::Read),
-            "write" => Ok(Self::Write),
-            "edit" => Ok(Self::Edit),
-            "patch" | "apply_patch" => Ok(Self::Patch),
-            "tree" | "ls" => Ok(Self::Tree),
-            "find" | "glob" => Ok(Self::Find),
-            "search" | "grep" => Ok(Self::Search),
-            "info" | "stat" => Ok(Self::Info),
-            "mv" | "move" | "rename" => Ok(Self::Mv),
-            "mkdir" => Ok(Self::Mkdir),
-            "rm" | "remove" | "delete" => Ok(Self::Rm),
-            "help" | "" => Ok(Self::Help),
-            _ => Err(anyhow!("Unknown action: {}", s)),
-        }
-    }
-}
+Actions:
+- read: Read file contents (returns hash)
+- write: Create new files only
+- stat: File metadata including hash
+- list: Directory listing
+- apply_patch: Edit with base_hash precondition
+- patch: Apply Rust-style patch format (Rust parity)
+- search_text: Text search
+- mkdir: Create directory
+- rm: Remove (requires confirm=true)
 
-/// Arguments for fs tool
+IMPORTANT: apply_patch is the ONLY way to edit existing files.
+patch supports Rust grammar format: *** Begin Patch / *** Update File: / @@ / -old +new
+"#;
+
+/// Arguments for the fs tool.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct FsToolArgs {
     #[serde(default)]
     pub action: String,
-    /// File path
-    pub path: Option<String>,
-    /// Alias for path
-    pub file_path: Option<String>,
-    /// Content for write
+    /// Absolute path or `file://` URI.
+    #[serde(alias = "path")]
+    pub uri: Option<String>,
     pub content: Option<String>,
-    /// Old text for edit
-    pub old_string: Option<String>,
-    /// Alias for old_string
-    pub old_text: Option<String>,
-    /// New text for edit
-    pub new_string: Option<String>,
-    /// Alias for new_string
-    pub new_text: Option<String>,
-    /// Replace all occurrences
-    #[serde(default)]
-    pub replace_all: bool,
-    /// Patch text
-    pub patch: Option<String>,
-    /// Pattern for find/search
-    pub pattern: Option<String>,
-    /// Max depth for tree
-    pub depth: Option<usize>,
-    /// Limit results
-    pub limit: Option<usize>,
-    /// Offset for pagination
+    pub encoding: Option<String>,
+    /// read: first line, 0-based. list/search_text page through `cursor`.
     pub offset: Option<usize>,
-    /// Include hidden files
-    #[serde(default)]
-    pub include_hidden: bool,
-    /// Context lines for search
-    pub context: Option<usize>,
-    /// Case insensitive
-    #[serde(default)]
-    pub ignore_case: bool,
-    /// Destination path for mv
+    pub limit: Option<usize>,
+    pub cursor: Option<String>,
+    pub depth: Option<usize>,
+    /// list: a name glob; search_text: the regex.
+    pub pattern: Option<String>,
+    /// search_text: a file glob.
+    pub glob: Option<String>,
+    pub old_text: Option<String>,
+    pub new_text: Option<String>,
+    pub base_hash: Option<String>,
+    /// patch: the patch text.
+    pub input: Option<String>,
     pub destination: Option<String>,
-    /// Confirmation for rm (required)
     #[serde(default)]
     pub confirm: bool,
 }
 
-/// Patch operation type
-#[derive(Debug, Clone, PartialEq)]
-pub enum PatchOp {
-    Add,
-    Update,
-    Delete,
+/// A refusal with its unified error code.
+struct Refused(&'static str, String);
+
+type Answer = std::result::Result<Value, Refused>;
+
+fn invalid(msg: impl Into<String>) -> Refused {
+    Refused("INVALID_PARAMS", msg.into())
 }
 
-/// Parsed patch file
-#[derive(Debug, Clone)]
-pub struct PatchFile {
-    pub op: PatchOp,
-    pub path: String,
-    pub hunks: Vec<PatchHunk>,
+fn io(e: std::io::Error) -> Refused {
+    Refused("INTERNAL_ERROR", e.to_string())
 }
 
-/// Patch hunk
-#[derive(Debug, Clone)]
-pub struct PatchHunk {
-    pub context: Option<String>,
-    pub old_lines: Vec<String>,
-    pub new_lines: Vec<String>,
+/// `sha256:<hex>` of the bytes.
+pub fn content_hash(b: &[u8]) -> String {
+    format!("sha256:{:x}", Sha256::digest(b))
 }
 
-/// File system tool
+fn file_uri(p: &Path) -> String {
+    format!("file://{}", p.canonicalize().unwrap_or_else(|_| p.to_path_buf()).display())
+}
+
+/// An absolute path from `uri`, `file://` stripped.
+fn path(uri: Option<&str>) -> std::result::Result<PathBuf, Refused> {
+    let raw = uri.filter(|u| !u.is_empty()).ok_or_else(|| invalid("Path is required"))?;
+    let p = PathBuf::from(raw.strip_prefix("file://").unwrap_or(raw));
+    if !p.is_absolute() {
+        return Err(invalid("Path must be absolute"));
+    }
+    Ok(p)
+}
+
+fn mime(p: &Path) -> Option<&'static str> {
+    match p.extension()?.to_str()?.to_ascii_lowercase().as_str() {
+        "png" => Some("image/png"),
+        "jpg" | "jpeg" => Some("image/jpeg"),
+        "gif" => Some("image/gif"),
+        "webp" => Some("image/webp"),
+        _ => None,
+    }
+}
+
+/// File system tool.
 pub struct FsTool;
 
 impl FsTool {
@@ -142,592 +128,403 @@ impl FsTool {
     }
 
     pub async fn execute(&self, args: FsToolArgs) -> Result<String> {
-        let action: FsAction = if args.action.is_empty() {
-            FsAction::Help
-        } else {
-            args.action.parse()?
+        let action = if args.action.is_empty() { "help".to_string() } else { args.action.clone() };
+        let answer = match action.as_str() {
+            "read" => read(&args),
+            "write" => write(&args),
+            "stat" => stat(&args),
+            "list" => list(&args),
+            "apply_patch" => apply_patch(&args),
+            "patch" => patch(&args),
+            "search_text" => search_text(&args),
+            "mv" => mv(&args),
+            "mkdir" => mkdir(&args),
+            "rm" => rm(&args),
+            "help" => Ok(json!({
+                "tool": "fs",
+                "actions": ACTIONS.iter().map(|(a, d)| json!({"name": a, "description": d})).collect::<Vec<_>>(),
+            })),
+            other => Err(invalid(format!(
+                "Unknown action '{other}'. Available: {}",
+                ACTIONS.iter().map(|(a, _)| *a).collect::<Vec<_>>().join(", ")
+            ))),
         };
-
-        let result = match action {
-            FsAction::Read => self.read(args).await?,
-            FsAction::Write => self.write(args).await?,
-            FsAction::Edit => self.edit(args).await?,
-            FsAction::Patch => self.patch(args).await?,
-            FsAction::Tree => self.tree(args).await?,
-            FsAction::Find => self.find(args).await?,
-            FsAction::Search => self.search(args).await?,
-            FsAction::Info => self.info(args).await?,
-            FsAction::Mv => self.mv(args).await?,
-            FsAction::Mkdir => self.mkdir(args).await?,
-            FsAction::Rm => self.rm(args).await?,
-            FsAction::Help => self.help()?,
-        };
-
-        Ok(serde_json::to_string(&result)?)
+        Ok(match answer {
+            Ok(data) => envelope_ok("fs", &action, data),
+            Err(Refused(code, msg)) => envelope_err("fs", &action, code, msg),
+        }
+        .to_string())
     }
+}
 
-    async fn read(&self, args: FsToolArgs) -> Result<Value> {
-        let path = args.file_path.or(args.path)
-            .ok_or_else(|| anyhow!("path required"))?;
-        let path = shellexpand::tilde(&path).to_string();
+impl Default for FsTool {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
-        let content = tokio::fs::read_to_string(&path).await?;
-        let lines: Vec<&str> = content.lines().collect();
-        let total_lines = lines.len();
+fn read(a: &FsToolArgs) -> Answer {
+    let p = path(a.uri.as_deref())?;
+    if !p.exists() {
+        return Err(Refused("NOT_FOUND", format!("File not found: {}", p.display())));
+    }
+    if !p.is_file() {
+        return Err(invalid(format!("Not a file: {}", p.display())));
+    }
+    let raw = std::fs::read(&p).map_err(io)?;
+    // An image is pixels, not text: the server sends it as an MCP image block.
+    if let Some(m) = mime(&p) {
+        return Ok(json!({
+            "uri": file_uri(&p), "hash": content_hash(&raw), "mime": m, "size": raw.len(),
+            "image": { "data": base64::engine::general_purpose::STANDARD.encode(&raw), "mimeType": m },
+        }));
+    }
+    let text = String::from_utf8_lossy(&raw);
+    let lines: Vec<&str> = text.split_inclusive('\n').collect();
+    let (offset, limit) = (a.offset.unwrap_or(0), a.limit.unwrap_or(2000));
+    let shown: Vec<String> = lines
+        .iter()
+        .enumerate()
+        .skip(offset)
+        .take(limit)
+        .map(|(i, l)| {
+            let l = l.trim_end_matches(['\n', '\r']);
+            let l = if l.chars().count() > 2000 { format!("{}...", l.chars().take(2000).collect::<String>()) } else { l.to_string() };
+            format!("{:6}│{l}", i + 1)
+        })
+        .collect();
+    Ok(json!({
+        "uri": file_uri(&p), "text": shown.join("\n"), "hash": content_hash(&raw),
+        "total_lines": lines.len(), "offset": offset, "limit": limit,
+    }))
+}
 
-        // Apply offset and limit
-        let offset = args.offset.unwrap_or(0);
-        let limit = args.limit.unwrap_or(2000);
+fn write(a: &FsToolArgs) -> Answer {
+    let p = path(a.uri.as_deref())?;
+    let content = a.content.as_deref().ok_or_else(|| invalid("content required"))?;
+    if p.exists() {
+        return Err(Refused("CONFLICT", format!("File already exists: {}. Use apply_patch to edit.", p.display())));
+    }
+    if let Some(dir) = p.parent() {
+        std::fs::create_dir_all(dir).map_err(io)?;
+    }
+    std::fs::write(&p, content).map_err(io)?;
+    Ok(json!({ "uri": file_uri(&p), "hash": content_hash(content.as_bytes()), "size": content.len() }))
+}
 
-        let lines: Vec<String> = lines
+fn stat(a: &FsToolArgs) -> Answer {
+    let p = path(a.uri.as_deref())?;
+    let m = std::fs::metadata(&p).map_err(|_| Refused("NOT_FOUND", format!("File not found: {}", p.display())))?;
+    let hash = if m.is_file() { Some(content_hash(&std::fs::read(&p).map_err(io)?)) } else { None };
+    let mtime = m.modified().ok().map(|t| chrono::DateTime::<chrono::Local>::from(t).naive_local().to_string());
+    Ok(json!({
+        "uri": file_uri(&p), "size": m.len(), "hash": hash, "mtime": mtime,
+        "is_file": m.is_file(), "is_dir": m.is_dir(),
+    }))
+}
+
+fn list(a: &FsToolArgs) -> Answer {
+    let p = path(a.uri.as_deref())?;
+    if !p.exists() {
+        return Err(Refused("NOT_FOUND", format!("Directory not found: {}", p.display())));
+    }
+    if !p.is_dir() {
+        return Err(invalid(format!("Not a directory: {}", p.display())));
+    }
+    let pattern = match a.pattern.as_deref() {
+        Some(g) => Some(glob::Pattern::new(g).map_err(|e| invalid(format!("Invalid pattern: {e}")))?),
+        None => None,
+    };
+    let (depth, limit) = (a.depth.unwrap_or(1).max(1), a.limit.unwrap_or(100));
+    let start: usize = a.cursor.as_deref().and_then(|c| c.parse().ok()).unwrap_or(0);
+    let mut entries = Vec::new();
+    let mut total = 0;
+    // Sorted within each directory, each entry before its children; an entry
+    // the pattern refuses is skipped with everything under it.
+    let walk = WalkDir::new(&p).min_depth(1).max_depth(depth).sort_by_file_name().into_iter().filter_entry(|e| {
+        e.depth() == 0 || pattern.as_ref().is_none_or(|g| g.matches(&e.file_name().to_string_lossy()))
+    });
+    for e in walk.filter_map(|e| e.ok()) {
+        total += 1;
+        if total <= start || entries.len() >= limit {
+            continue;
+        }
+        let is_file = e.file_type().is_file();
+        entries.push(json!({
+            "name": e.path().strip_prefix(&p).unwrap_or(e.path()).display().to_string(),
+            "uri": file_uri(e.path()),
+            "is_dir": e.file_type().is_dir(),
+            "size": if is_file { e.metadata().ok().map(|m| m.len()) } else { None },
+        }));
+    }
+    let more = total > start + entries.len();
+    Ok(json!({
+        "uri": file_uri(&p), "entries": entries,
+        "paging": { "cursor": more.then(|| (start + entries.len()).to_string()), "more": more, "total": total },
+    }))
+}
+
+fn apply_patch(a: &FsToolArgs) -> Answer {
+    let p = path(a.uri.as_deref())?;
+    let old = a.old_text.as_deref().ok_or_else(|| invalid("old_text required"))?;
+    let new = a.new_text.as_deref().ok_or_else(|| invalid("new_text required"))?;
+    let base = a.base_hash.as_deref().ok_or_else(|| invalid("base_hash required: read the file first"))?;
+    if !p.is_file() {
+        return Err(Refused("NOT_FOUND", format!("File not found: {}", p.display())));
+    }
+    let content = std::fs::read_to_string(&p).map_err(io)?;
+    let current = content_hash(content.as_bytes());
+    if current != base {
+        return Err(Refused(
+            "CONFLICT",
+            format!("File has changed since last read (base_hash mismatch): expected {base}, actual {current}"),
+        ));
+    }
+    match content.matches(old).count() {
+        0 => return Err(Refused("NOT_FOUND", "old_text not found in file".into())),
+        1 => {}
+        n => return Err(invalid(format!("old_text found {n} times. Make it more specific."))),
+    }
+    let next = content.replacen(old, new, 1);
+    std::fs::write(&p, &next).map_err(io)?;
+    Ok(json!({ "uri": file_uri(&p), "hash": content_hash(next.as_bytes()), "previous_hash": current }))
+}
+
+/// One file operation of a Rust-grammar patch.
+#[derive(Debug, Clone, PartialEq)]
+pub enum PatchOp {
+    Add,
+    Update,
+    Delete,
+}
+
+/// One file of a patch: its hunks, or for Add its whole content.
+#[derive(Debug, Clone)]
+pub struct PatchFile {
+    pub op: PatchOp,
+    pub path: String,
+    pub hunks: Vec<PatchHunk>,
+    pub content: String,
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct PatchHunk {
+    pub context: String,
+    pub old_lines: Vec<String>,
+    pub new_lines: Vec<String>,
+}
+
+/// Parse `*** Begin Patch` / `*** Add|Update|Delete File:` / `@@` / `-old` `+new`.
+pub fn parse_patch(text: &str) -> Vec<PatchFile> {
+    let mut files = Vec::new();
+    let mut file: Option<PatchFile> = None;
+    let mut hunk: Option<PatchHunk> = None;
+    let close = |file: &mut Option<PatchFile>, hunk: &mut Option<PatchHunk>, files: &mut Vec<PatchFile>| {
+        if let Some(mut f) = file.take() {
+            f.hunks.extend(hunk.take());
+            files.push(f);
+        }
+        *hunk = None;
+    };
+    for line in text.trim().lines() {
+        if matches!(line.trim(), "*** Begin Patch" | "*** End Patch") {
+            continue;
+        }
+        let op = [("*** Add File:", PatchOp::Add), ("*** Update File:", PatchOp::Update), ("*** Delete File:", PatchOp::Delete)]
             .into_iter()
-            .skip(offset)
-            .take(limit)
-            .enumerate()
-            .map(|(i, line)| format!("{:>6}\u{2192}{}", offset + i + 1, line))
-            .collect();
-
-        Ok(json!({
-            "path": path,
-            "content": lines.join("\n"),
-            "lines": lines.len(),
-            "total_lines": total_lines,
-            "offset": offset,
-            "truncated": total_lines > offset + limit
-        }))
-    }
-
-    async fn write(&self, args: FsToolArgs) -> Result<Value> {
-        let path = args.file_path.or(args.path)
-            .ok_or_else(|| anyhow!("path required"))?;
-        let path = shellexpand::tilde(&path).to_string();
-        let content = args.content.ok_or_else(|| anyhow!("content required"))?;
-
-        // Ensure parent directory exists
-        if let Some(parent) = Path::new(&path).parent() {
-            tokio::fs::create_dir_all(parent).await?;
+            .find_map(|(tag, op)| line.strip_prefix(tag).map(|p| (op, p.trim().to_string())));
+        if let Some((op, path)) = op {
+            close(&mut file, &mut hunk, &mut files);
+            file = Some(PatchFile { op, path, hunks: Vec::new(), content: String::new() });
+            continue;
         }
-
-        tokio::fs::write(&path, &content).await?;
-
-        Ok(json!({
-            "path": path,
-            "bytes": content.len(),
-            "lines": content.lines().count(),
-            "success": true
-        }))
-    }
-
-    async fn edit(&self, args: FsToolArgs) -> Result<Value> {
-        let path = args.file_path.or(args.path)
-            .ok_or_else(|| anyhow!("path required"))?;
-        let path = shellexpand::tilde(&path).to_string();
-
-        let old_string = args.old_string.or(args.old_text)
-            .ok_or_else(|| anyhow!("old_string required"))?;
-        let new_string = args.new_string.or(args.new_text)
-            .ok_or_else(|| anyhow!("new_string required"))?;
-
-        // Handle creating new file
-        if old_string.is_empty() {
-            // Create new file
-            if let Some(parent) = Path::new(&path).parent() {
-                tokio::fs::create_dir_all(parent).await?;
+        let Some(f) = file.as_mut() else { continue };
+        if line.starts_with("@@") {
+            f.hunks.extend(hunk.take());
+            hunk = Some(PatchHunk { context: line.trim().to_string(), ..Default::default() });
+        } else if f.op == PatchOp::Add {
+            f.content.push_str(line.strip_prefix('+').unwrap_or(line));
+            f.content.push('\n');
+        } else if let Some(h) = hunk.as_mut() {
+            if let Some(l) = line.strip_prefix('-') {
+                h.old_lines.push(l.to_string());
+            } else if let Some(l) = line.strip_prefix('+') {
+                h.new_lines.push(l.to_string());
+            } else if let Some(l) = line.strip_prefix(' ') {
+                h.old_lines.push(l.to_string());
+                h.new_lines.push(l.to_string());
             }
-            tokio::fs::write(&path, &new_string).await?;
-            return Ok(json!({
-                "path": path,
-                "created": true,
-                "bytes": new_string.len()
-            }));
         }
-
-        // Read existing file
-        let content = tokio::fs::read_to_string(&path).await?;
-
-        // Count occurrences
-        let count = content.matches(&old_string).count();
-
-        if count == 0 {
-            return Err(anyhow!("old_string not found in file"));
-        }
-
-        if count > 1 && !args.replace_all {
-            return Err(anyhow!(
-                "old_string matches {} locations. Use replace_all=true or provide more context.",
-                count
-            ));
-        }
-
-        // Replace
-        let new_content = if args.replace_all {
-            content.replace(&old_string, &new_string)
-        } else {
-            content.replacen(&old_string, &new_string, 1)
-        };
-
-        tokio::fs::write(&path, &new_content).await?;
-
-        Ok(json!({
-            "path": path,
-            "replacements": if args.replace_all { count } else { 1 },
-            "bytes": new_content.len(),
-            "success": true
-        }))
     }
+    close(&mut file, &mut hunk, &mut files);
+    files
+}
 
-    async fn patch(&self, args: FsToolArgs) -> Result<Value> {
-        let patch_text = args.patch.or(args.content)
-            .ok_or_else(|| anyhow!("patch required"))?;
-
-        let patches = self.parse_patch(&patch_text)?;
-        let mut results = Vec::new();
-
-        for patch_file in patches {
-            let path = shellexpand::tilde(&patch_file.path).to_string();
-
-            match patch_file.op {
-                PatchOp::Add => {
-                    // Create new file
-                    if let Some(parent) = Path::new(&path).parent() {
-                        tokio::fs::create_dir_all(parent).await?;
-                    }
-                    let content: String = patch_file.hunks
-                        .iter()
-                        .flat_map(|h| &h.new_lines)
-                        .cloned()
-                        .collect::<Vec<_>>()
-                        .join("\n");
-                    tokio::fs::write(&path, &content).await?;
-                    results.push(json!({
-                        "path": path,
-                        "op": "add",
-                        "success": true
-                    }));
-                }
-                PatchOp::Delete => {
-                    tokio::fs::remove_file(&path).await?;
-                    results.push(json!({
-                        "path": path,
-                        "op": "delete",
-                        "success": true
-                    }));
-                }
-                PatchOp::Update => {
-                    let mut content = tokio::fs::read_to_string(&path).await?;
-
-                    for hunk in &patch_file.hunks {
-                        let old_text = hunk.old_lines.join("\n");
-                        let new_text = hunk.new_lines.join("\n");
-
-                        if !content.contains(&old_text) {
-                            return Err(anyhow!("Hunk not found in {}", path));
+fn patch(a: &FsToolArgs) -> Answer {
+    let input = a.input.as_deref().filter(|s| !s.trim().is_empty()).ok_or_else(|| invalid("Patch input is required"))?;
+    let files = parse_patch(input);
+    if files.is_empty() {
+        return Err(invalid("No file operations found in patch"));
+    }
+    let cwd = std::env::current_dir().map_err(io)?;
+    let results: Vec<Value> = files
+        .iter()
+        .map(|f| {
+            let p = cwd.join(&f.path);
+            let op = format!("{:?}", f.op).to_lowercase();
+            let done = (|| -> std::result::Result<Value, String> {
+                match f.op {
+                    PatchOp::Add => {
+                        if p.exists() {
+                            return Err(format!("File already exists: {}", p.display()));
                         }
-
-                        content = content.replacen(&old_text, &new_text, 1);
+                        if let Some(dir) = p.parent() {
+                            std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
+                        }
+                        std::fs::write(&p, &f.content).map_err(|e| e.to_string())?;
+                        Ok(json!({ "hash": content_hash(f.content.as_bytes()) }))
                     }
-
-                    tokio::fs::write(&path, &content).await?;
-                    results.push(json!({
-                        "path": path,
-                        "op": "update",
-                        "hunks": patch_file.hunks.len(),
-                        "success": true
-                    }));
-                }
-            }
-        }
-
-        Ok(json!({
-            "applied": results.len(),
-            "results": results
-        }))
-    }
-
-    fn parse_patch(&self, text: &str) -> Result<Vec<PatchFile>> {
-        let mut patches = Vec::new();
-        let mut current: Option<PatchFile> = None;
-        let mut current_hunk: Option<PatchHunk> = None;
-
-        for line in text.lines() {
-            if line.starts_with("*** Begin Patch") {
-                continue;
-            }
-            if line.starts_with("*** End Patch") {
-                if let Some(mut hunk) = current_hunk.take() {
-                    if let Some(ref mut patch) = current {
-                        patch.hunks.push(hunk);
-                    }
-                }
-                if let Some(patch) = current.take() {
-                    patches.push(patch);
-                }
-                continue;
-            }
-            if line.starts_with("*** Add File:") {
-                if let Some(mut hunk) = current_hunk.take() {
-                    if let Some(ref mut patch) = current {
-                        patch.hunks.push(hunk);
-                    }
-                }
-                if let Some(patch) = current.take() {
-                    patches.push(patch);
-                }
-                let path = line.trim_start_matches("*** Add File:").trim().to_string();
-                current = Some(PatchFile {
-                    op: PatchOp::Add,
-                    path,
-                    hunks: Vec::new(),
-                });
-                current_hunk = Some(PatchHunk {
-                    context: None,
-                    old_lines: Vec::new(),
-                    new_lines: Vec::new(),
-                });
-                continue;
-            }
-            if line.starts_with("*** Update File:") {
-                if let Some(mut hunk) = current_hunk.take() {
-                    if let Some(ref mut patch) = current {
-                        patch.hunks.push(hunk);
-                    }
-                }
-                if let Some(patch) = current.take() {
-                    patches.push(patch);
-                }
-                let path = line.trim_start_matches("*** Update File:").trim().to_string();
-                current = Some(PatchFile {
-                    op: PatchOp::Update,
-                    path,
-                    hunks: Vec::new(),
-                });
-                continue;
-            }
-            if line.starts_with("*** Delete File:") {
-                if let Some(mut hunk) = current_hunk.take() {
-                    if let Some(ref mut patch) = current {
-                        patch.hunks.push(hunk);
-                    }
-                }
-                if let Some(patch) = current.take() {
-                    patches.push(patch);
-                }
-                let path = line.trim_start_matches("*** Delete File:").trim().to_string();
-                current = Some(PatchFile {
-                    op: PatchOp::Delete,
-                    path,
-                    hunks: Vec::new(),
-                });
-                continue;
-            }
-            if line.starts_with("@@") {
-                if let Some(hunk) = current_hunk.take() {
-                    if let Some(ref mut patch) = current {
-                        patch.hunks.push(hunk);
-                    }
-                }
-                current_hunk = Some(PatchHunk {
-                    context: Some(line.to_string()),
-                    old_lines: Vec::new(),
-                    new_lines: Vec::new(),
-                });
-                continue;
-            }
-
-            if let Some(ref mut hunk) = current_hunk {
-                if line.starts_with('+') {
-                    hunk.new_lines.push(line[1..].to_string());
-                } else if line.starts_with('-') {
-                    hunk.old_lines.push(line[1..].to_string());
-                } else if line.starts_with(' ') {
-                    // Context line - add to both
-                    hunk.old_lines.push(line[1..].to_string());
-                    hunk.new_lines.push(line[1..].to_string());
-                }
-            }
-        }
-
-        // Flush remaining
-        if let Some(mut hunk) = current_hunk.take() {
-            if let Some(ref mut patch) = current {
-                patch.hunks.push(hunk);
-            }
-        }
-        if let Some(patch) = current.take() {
-            patches.push(patch);
-        }
-
-        Ok(patches)
-    }
-
-    async fn tree(&self, args: FsToolArgs) -> Result<Value> {
-        let path = args.path.unwrap_or_else(|| ".".to_string());
-        let path = shellexpand::tilde(&path).to_string();
-        let depth = args.depth.unwrap_or(3);
-        let include_hidden = args.include_hidden;
-
-        let mut entries = Vec::new();
-        let mut dirs = 0;
-        let mut files = 0;
-
-        for entry in WalkDir::new(&path)
-            .max_depth(depth)
-            .into_iter()
-            .filter_entry(|e| {
-                include_hidden || !e.file_name().to_string_lossy().starts_with('.')
-            })
-        {
-            if let Ok(entry) = entry {
-                let relative = entry.path().strip_prefix(&path).unwrap_or(entry.path());
-                let depth = relative.components().count();
-                let prefix = "  ".repeat(depth);
-                let name = entry.file_name().to_string_lossy();
-
-                if entry.file_type().is_dir() {
-                    dirs += 1;
-                    entries.push(format!("{}\u{251c}\u{2500} {}/", prefix, name));
-                } else {
-                    files += 1;
-                    entries.push(format!("{}\u{251c}\u{2500} {}", prefix, name));
-                }
-            }
-        }
-
-        Ok(json!({
-            "path": path,
-            "tree": entries.join("\n"),
-            "directories": dirs,
-            "files": files
-        }))
-    }
-
-    async fn find(&self, args: FsToolArgs) -> Result<Value> {
-        let path = args.path.unwrap_or_else(|| ".".to_string());
-        let path = shellexpand::tilde(&path).to_string();
-        let pattern = args.pattern.ok_or_else(|| anyhow!("pattern required"))?;
-        let limit = args.limit.unwrap_or(100);
-        let include_hidden = args.include_hidden;
-
-        let glob = glob::Pattern::new(&pattern)?;
-        let mut matches = Vec::new();
-
-        for entry in WalkDir::new(&path)
-            .into_iter()
-            .filter_entry(|e| {
-                include_hidden || !e.file_name().to_string_lossy().starts_with('.')
-            })
-        {
-            if matches.len() >= limit {
-                break;
-            }
-
-            if let Ok(entry) = entry {
-                let name = entry.file_name().to_string_lossy();
-                if glob.matches(&name) {
-                    matches.push(entry.path().to_string_lossy().to_string());
-                }
-            }
-        }
-
-        Ok(json!({
-            "path": path,
-            "pattern": pattern,
-            "matches": matches,
-            "count": matches.len(),
-            "truncated": matches.len() >= limit
-        }))
-    }
-
-    async fn search(&self, args: FsToolArgs) -> Result<Value> {
-        let path = args.path.unwrap_or_else(|| ".".to_string());
-        let path = shellexpand::tilde(&path).to_string();
-        let pattern = args.pattern.ok_or_else(|| anyhow!("pattern required"))?;
-        let limit = args.limit.unwrap_or(50);
-        let context = args.context.unwrap_or(2);
-        let ignore_case = args.ignore_case;
-        let include_hidden = args.include_hidden;
-
-        let regex = if ignore_case {
-            regex::RegexBuilder::new(&pattern)
-                .case_insensitive(true)
-                .build()?
-        } else {
-            regex::Regex::new(&pattern)?
-        };
-
-        let mut results = Vec::new();
-
-        for entry in WalkDir::new(&path)
-            .into_iter()
-            .filter_entry(|e| include_hidden || !e.file_name().to_string_lossy().starts_with('.'))
-        {
-            if results.len() >= limit {
-                break;
-            }
-
-            if let Ok(entry) = entry {
-                if !entry.file_type().is_file() {
-                    continue;
-                }
-
-                // Skip binary files
-                let path_str = entry.path().to_string_lossy();
-                if path_str.ends_with(".exe") || path_str.ends_with(".bin") ||
-                   path_str.ends_with(".so") || path_str.ends_with(".dylib") {
-                    continue;
-                }
-
-                if let Ok(content) = tokio::fs::read_to_string(entry.path()).await {
-                    let lines: Vec<&str> = content.lines().collect();
-                    for (i, line) in lines.iter().enumerate() {
-                        if regex.is_match(line) {
-                            let start = i.saturating_sub(context);
-                            let end = (i + context + 1).min(lines.len());
-                            let context_lines: Vec<String> = lines[start..end]
-                                .iter()
-                                .enumerate()
-                                .map(|(j, l)| format!("{:>4}:{}", start + j + 1, l))
-                                .collect();
-
-                            results.push(json!({
-                                "file": path_str,
-                                "line": i + 1,
-                                "match": line,
-                                "context": context_lines.join("\n")
-                            }));
-
-                            if results.len() >= limit {
-                                break;
+                    PatchOp::Update => {
+                        let mut content = std::fs::read_to_string(&p).map_err(|_| format!("File not found: {}", p.display()))?;
+                        for h in &f.hunks {
+                            let (old, new) = (h.old_lines.join("\n"), h.new_lines.join("\n"));
+                            if !old.is_empty() && content.contains(&old) {
+                                content = content.replacen(&old, &new, 1);
+                            } else if old.is_empty() && !new.is_empty() {
+                                content.push('\n');
+                                content.push_str(&new);
                             }
                         }
+                        std::fs::write(&p, &content).map_err(|e| e.to_string())?;
+                        Ok(json!({ "hash": content_hash(content.as_bytes()), "hunks_applied": f.hunks.len() }))
                     }
+                    PatchOp::Delete if !p.exists() => Ok(json!({ "message": "File already deleted" })),
+                    PatchOp::Delete => std::fs::remove_file(&p).map(|_| json!({})).map_err(|e| e.to_string()),
+                }
+            })();
+            let mut r = json!({ "op": op, "path": p.display().to_string() });
+            match done {
+                Ok(extra) => {
+                    r["success"] = json!(true);
+                    r.as_object_mut().unwrap().extend(extra.as_object().cloned().unwrap_or_default());
+                }
+                Err(e) => {
+                    r["success"] = json!(false);
+                    r["error"] = json!(e);
+                }
+            }
+            r
+        })
+        .collect();
+    let success = results.iter().all(|r| r["success"] == true);
+    Ok(json!({ "results": results, "total": results.len(), "success": success }))
+}
+
+fn search_text(a: &FsToolArgs) -> Answer {
+    let pattern = a.pattern.as_deref().filter(|p| !p.is_empty()).ok_or_else(|| invalid("pattern required"))?;
+    let root = match a.uri.as_deref() {
+        Some(u) => path(Some(u))?,
+        None => PathBuf::from("."),
+    };
+    let limit = a.limit.unwrap_or(50);
+    let start: usize = a.cursor.as_deref().and_then(|c| c.parse().ok()).unwrap_or(0);
+    let matches = rg(pattern, &root, a.glob.as_deref(), limit).map_or_else(|| scan(pattern, &root, a.glob.as_deref(), limit), Ok)?;
+    let more = matches.len() >= limit;
+    Ok(json!({
+        "pattern": pattern, "matches": matches,
+        "paging": { "cursor": more.then(|| (start + matches.len()).to_string()), "more": more },
+    }))
+}
+
+/// ripgrep's matches, or `None` when rg is not installed.
+fn rg(pattern: &str, root: &Path, glob: Option<&str>, limit: usize) -> Option<Vec<Value>> {
+    let mut cmd = std::process::Command::new("rg");
+    cmd.args(["--json", "-n", "--max-count", &(limit * 2).to_string()]);
+    if let Some(g) = glob {
+        cmd.args(["--glob", g]);
+    }
+    let out = cmd.arg("--").arg(pattern).arg(root).output().ok()?;
+    Some(
+        String::from_utf8_lossy(&out.stdout)
+            .lines()
+            .filter_map(|l| serde_json::from_str::<Value>(l).ok())
+            .filter(|v| v["type"] == "match")
+            .take(limit)
+            .map(|v| {
+                let d = &v["data"];
+                json!({
+                    "uri": file_uri(Path::new(d["path"]["text"].as_str().unwrap_or(""))),
+                    "line": d["line_number"],
+                    "text": d["lines"]["text"].as_str().unwrap_or("").trim(),
+                })
+            })
+            .collect(),
+    )
+}
+
+/// The same search in-process: a regex over every file under `root`.
+fn scan(pattern: &str, root: &Path, glob: Option<&str>, limit: usize) -> std::result::Result<Vec<Value>, Refused> {
+    let re = regex::Regex::new(pattern).map_err(|e| invalid(format!("Invalid regex: {e}")))?;
+    let glob = match glob {
+        Some(g) => Some(glob::Pattern::new(g).map_err(|e| invalid(format!("Invalid glob: {e}")))?),
+        None => None,
+    };
+    let mut out = Vec::new();
+    for e in WalkDir::new(root).into_iter().filter_map(|e| e.ok()).filter(|e| e.file_type().is_file()) {
+        if glob.as_ref().is_some_and(|g| !g.matches(&e.file_name().to_string_lossy())) {
+            continue;
+        }
+        let Ok(text) = std::fs::read_to_string(e.path()) else { continue };
+        for (i, line) in text.lines().enumerate() {
+            if re.is_match(line) {
+                out.push(json!({ "uri": file_uri(e.path()), "line": i + 1, "text": line.trim().chars().take(200).collect::<String>() }));
+                if out.len() >= limit {
+                    return Ok(out);
                 }
             }
         }
-
-        Ok(json!({
-            "pattern": pattern,
-            "path": path,
-            "results": results,
-            "count": results.len(),
-            "truncated": results.len() >= limit
-        }))
     }
+    Ok(out)
+}
 
-    async fn info(&self, args: FsToolArgs) -> Result<Value> {
-        let path = args.file_path.or(args.path)
-            .ok_or_else(|| anyhow!("path required"))?;
-        let path = shellexpand::tilde(&path).to_string();
-
-        let metadata = tokio::fs::metadata(&path).await?;
-        let file_type = if metadata.is_dir() {
-            "directory"
-        } else if metadata.is_file() {
-            "file"
-        } else if metadata.is_symlink() {
-            "symlink"
-        } else {
-            "unknown"
-        };
-
-        Ok(json!({
-            "path": path,
-            "type": file_type,
-            "size": metadata.len(),
-            "readonly": metadata.permissions().readonly(),
-            "modified": metadata.modified().ok().map(|t| {
-                chrono::DateTime::<chrono::Utc>::from(t).to_rfc3339()
-            })
-        }))
+fn mv(a: &FsToolArgs) -> Answer {
+    let src = path(a.uri.as_deref())?;
+    let dst = path(a.destination.as_deref()).map_err(|Refused(c, m)| Refused(c, format!("destination: {m}")))?;
+    if !src.exists() {
+        return Err(Refused("NOT_FOUND", format!("Source not found: {}", src.display())));
     }
-
-    async fn mv(&self, args: FsToolArgs) -> Result<Value> {
-        let source = args.file_path.or(args.path)
-            .ok_or_else(|| anyhow!("path required"))?;
-        let source = shellexpand::tilde(&source).to_string();
-        let destination = args.destination
-            .ok_or_else(|| anyhow!("destination required"))?;
-        let destination = shellexpand::tilde(&destination).to_string();
-
-        if !Path::new(&source).exists() {
-            return Err(anyhow!("Source not found: {}", source));
-        }
-
-        // Ensure destination parent directory exists
-        if let Some(parent) = Path::new(&destination).parent() {
-            tokio::fs::create_dir_all(parent).await?;
-        }
-
-        tokio::fs::rename(&source, &destination).await?;
-
-        Ok(json!({
-            "source": source,
-            "destination": destination,
-            "moved": true
-        }))
+    if let Some(dir) = dst.parent() {
+        std::fs::create_dir_all(dir).map_err(io)?;
     }
+    std::fs::rename(&src, &dst).map_err(io)?;
+    Ok(json!({ "source": format!("file://{}", src.display()), "destination": file_uri(&dst), "moved": true }))
+}
 
-    async fn mkdir(&self, args: FsToolArgs) -> Result<Value> {
-        let path = args.file_path.or(args.path)
-            .ok_or_else(|| anyhow!("path required"))?;
-        let path = shellexpand::tilde(&path).to_string();
-
-        let p = Path::new(&path);
-        if p.exists() {
-            if p.is_dir() {
-                return Ok(json!({ "path": path, "created": false }));
-            }
-            return Err(anyhow!("Path exists and is not a directory: {}", path));
+fn mkdir(a: &FsToolArgs) -> Answer {
+    let p = path(a.uri.as_deref())?;
+    if p.exists() {
+        if p.is_dir() {
+            return Ok(json!({ "uri": file_uri(&p), "created": false }));
         }
-
-        tokio::fs::create_dir_all(&path).await?;
-
-        Ok(json!({ "path": path, "created": true }))
+        return Err(Refused("CONFLICT", format!("Path exists and is not a directory: {}", p.display())));
     }
+    std::fs::create_dir_all(&p).map_err(io)?;
+    Ok(json!({ "uri": file_uri(&p), "created": true }))
+}
 
-    async fn rm(&self, args: FsToolArgs) -> Result<Value> {
-        if !args.confirm {
-            return Err(anyhow!("rm requires confirm=true for safety"));
-        }
-
-        let path = args.file_path.or(args.path)
-            .ok_or_else(|| anyhow!("path required"))?;
-        let path = shellexpand::tilde(&path).to_string();
-
-        let p = Path::new(&path);
-        if !p.exists() {
-            return Err(anyhow!("Path not found: {}", path));
-        }
-
-        if p.is_file() {
-            tokio::fs::remove_file(&path).await?;
-        } else {
-            tokio::fs::remove_dir_all(&path).await?;
-        }
-
-        Ok(json!({ "path": path, "removed": true }))
+fn rm(a: &FsToolArgs) -> Answer {
+    if !a.confirm {
+        return Err(invalid("rm requires confirm=true for safety"));
     }
-
-    fn help(&self) -> Result<Value> {
-        Ok(json!({
-            "name": "fs",
-            "version": "0.12.0",
-            "description": "Unified filesystem tool (HIP-0300)",
-            "actions": {
-                "read": "Read file contents",
-                "write": "Write file contents",
-                "edit": "Edit file with old/new replacement",
-                "patch": "Apply Rust-style patch format",
-                "tree": "Display directory tree",
-                "find": "Find files by pattern",
-                "search": "Search file contents",
-                "info": "Get file info",
-                "mv": "Move or rename file/directory",
-                "mkdir": "Create directory",
-                "rm": "Remove file or directory (requires confirm=true)"
-            }
-        }))
+    let p = path(a.uri.as_deref())?;
+    let m = std::fs::symlink_metadata(&p).map_err(|_| Refused("NOT_FOUND", format!("Path not found: {}", p.display())))?;
+    let uri = file_uri(&p);
+    if m.is_dir() {
+        std::fs::remove_dir_all(&p).map_err(io)?;
+    } else {
+        std::fs::remove_file(&p).map_err(io)?;
     }
+    Ok(json!({ "uri": uri, "removed": true }))
 }
 
 /// MCP Tool Definition
@@ -742,215 +539,61 @@ impl FsToolDefinition {
     pub fn new() -> Self {
         Self {
             name: "fs".to_string(),
-            description: r#"Unified filesystem tool (HIP-0300).
-
-Actions:
-- read: Read file contents
-- write: Write file contents
-- edit: Edit file with old/new replacement
-- patch: Apply Rust-style patch format
-- tree: Display directory tree
-- find: Find files by pattern
-- search: Search file contents
-- info: Get file info
-- mv: Move or rename file/directory
-- mkdir: Create directory
-- rm: Remove file or directory (requires confirm=true)"#.to_string(),
+            description: DESCRIPTION.to_string(),
             input_schema: json!({
                 "type": "object",
                 "properties": {
                     "action": {
                         "type": "string",
-                        "enum": ["read", "write", "edit", "patch", "tree", "find", "search", "info", "mv", "mkdir", "rm", "help"],
+                        "enum": ["read", "write", "stat", "list", "apply_patch", "patch", "search_text", "mv", "mkdir", "rm", "help"],
                         "default": "help"
                     },
-                    "path": {"type": "string", "description": "File or directory path"},
-                    "file_path": {"type": "string", "description": "Alias for path"},
-                    "content": {"type": "string", "description": "Content for write"},
-                    "old_string": {"type": "string", "description": "Text to replace"},
-                    "new_string": {"type": "string", "description": "Replacement text"},
-                    "replace_all": {"type": "boolean", "description": "Replace all occurrences", "default": false},
-                    "patch": {"type": "string", "description": "Patch text"},
-                    "pattern": {"type": "string", "description": "Pattern for find/search"},
-                    "depth": {"type": "integer", "description": "Max depth for tree"},
-                    "limit": {"type": "integer", "description": "Limit results"},
-                    "offset": {"type": "integer", "description": "Offset for pagination"},
-                    "include_hidden": {"type": "boolean", "description": "Include hidden files", "default": false},
-                    "context": {"type": "integer", "description": "Context lines for search"},
-                    "ignore_case": {"type": "boolean", "description": "Case insensitive search", "default": false},
-                    "destination": {"type": "string", "description": "Destination path for mv"},
-                    "confirm": {"type": "boolean", "description": "Confirmation required for rm", "default": false}
-                }
+                    "uri": {"type": "string", "description": "Absolute path or file:// URI (path is accepted too)"},
+                    "content": {"type": "string", "description": "write: the new file's content"},
+                    "encoding": {"type": "string", "default": "utf-8"},
+                    "offset": {"type": "integer", "description": "read: first line, 0-based", "default": 0},
+                    "limit": {"type": "integer", "description": "read: lines (2000); list: entries (100); search_text: matches (50)"},
+                    "cursor": {"type": "string", "description": "list/search_text: the page after this cursor"},
+                    "depth": {"type": "integer", "description": "list: levels", "default": 1},
+                    "pattern": {"type": "string", "description": "list: name glob; search_text: regex"},
+                    "glob": {"type": "string", "description": "search_text: file glob"},
+                    "old_text": {"type": "string", "description": "apply_patch: the unique text to replace"},
+                    "new_text": {"type": "string", "description": "apply_patch: its replacement"},
+                    "base_hash": {"type": "string", "description": "apply_patch: the hash read returned"},
+                    "input": {"type": "string", "description": "patch: *** Begin Patch … *** End Patch"},
+                    "destination": {"type": "string", "description": "mv: where to"},
+                    "confirm": {"type": "boolean", "description": "rm: required", "default": false}
+                },
+                "required": ["action"]
             }),
         }
+    }
+}
+
+impl Default for FsToolDefinition {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tempfile::TempDir;
 
-    #[tokio::test]
-    async fn test_read_file() {
-        let dir = TempDir::new().unwrap();
-        let file_path = dir.path().join("test.txt");
-        std::fs::write(&file_path, "hello\nworld").unwrap();
-
-        let tool = FsTool::new();
-        let args = FsToolArgs {
-            action: "read".to_string(),
-            path: Some(file_path.to_string_lossy().to_string()),
-            ..Default::default()
-        };
-
-        let result = tool.execute(args).await;
-        assert!(result.is_ok());
-        let output = result.unwrap();
-        assert!(output.contains("hello"));
-        assert!(output.contains("world"));
+    #[test]
+    fn patch_grammar_parses_like_python() {
+        let files = parse_patch(
+            "*** Begin Patch\n*** Add File: a.txt\n+one\n+two\n*** Update File: b.txt\n@@ fn x\n-old\n+new\n keep\n*** Delete File: c.txt\n*** End Patch\n",
+        );
+        assert_eq!(files.len(), 3);
+        assert_eq!((files[0].op.clone(), files[0].content.as_str()), (PatchOp::Add, "one\ntwo\n"));
+        assert_eq!(files[1].hunks[0].old_lines, vec!["old", "keep"]);
+        assert_eq!(files[1].hunks[0].new_lines, vec!["new", "keep"]);
+        assert_eq!((files[2].op.clone(), files[2].path.as_str()), (PatchOp::Delete, "c.txt"));
     }
 
-    #[tokio::test]
-    async fn test_write_file() {
-        let dir = TempDir::new().unwrap();
-        let file_path = dir.path().join("new.txt");
-
-        let tool = FsTool::new();
-        let args = FsToolArgs {
-            action: "write".to_string(),
-            path: Some(file_path.to_string_lossy().to_string()),
-            content: Some("test content".to_string()),
-            ..Default::default()
-        };
-
-        let result = tool.execute(args).await;
-        assert!(result.is_ok());
-
-        let content = std::fs::read_to_string(&file_path).unwrap();
-        assert_eq!(content, "test content");
-    }
-
-    #[tokio::test]
-    async fn test_edit_file() {
-        let dir = TempDir::new().unwrap();
-        let file_path = dir.path().join("edit.txt");
-        std::fs::write(&file_path, "hello world").unwrap();
-
-        let tool = FsTool::new();
-        let args = FsToolArgs {
-            action: "edit".to_string(),
-            path: Some(file_path.to_string_lossy().to_string()),
-            old_string: Some("world".to_string()),
-            new_string: Some("rust".to_string()),
-            ..Default::default()
-        };
-
-        let result = tool.execute(args).await;
-        assert!(result.is_ok());
-
-        let content = std::fs::read_to_string(&file_path).unwrap();
-        assert_eq!(content, "hello rust");
-    }
-
-    #[tokio::test]
-    async fn test_tree() {
-        let dir = TempDir::new().unwrap();
-        std::fs::create_dir(dir.path().join("subdir")).unwrap();
-        std::fs::write(dir.path().join("file.txt"), "").unwrap();
-
-        let tool = FsTool::new();
-        let args = FsToolArgs {
-            action: "tree".to_string(),
-            path: Some(dir.path().to_string_lossy().to_string()),
-            include_hidden: true, // Temp dirs start with '.' so we need to include hidden
-            ..Default::default()
-        };
-
-        let result = tool.execute(args).await;
-        assert!(result.is_ok());
-        let output = result.unwrap();
-        assert!(output.contains("subdir"), "Missing subdir in: {}", output);
-        assert!(output.contains("file.txt"), "Missing file.txt in: {}", output);
-    }
-
-    #[tokio::test]
-    async fn test_mv_file() {
-        let dir = TempDir::new().unwrap();
-        let src = dir.path().join("src.txt");
-        let dst = dir.path().join("nested/dst.txt");
-        std::fs::write(&src, "payload").unwrap();
-
-        let tool = FsTool::new();
-        let args = FsToolArgs {
-            action: "mv".to_string(),
-            path: Some(src.to_string_lossy().to_string()),
-            destination: Some(dst.to_string_lossy().to_string()),
-            ..Default::default()
-        };
-
-        let result = tool.execute(args).await;
-        assert!(result.is_ok(), "{:?}", result);
-        assert!(!src.exists());
-        assert_eq!(std::fs::read_to_string(&dst).unwrap(), "payload");
-    }
-
-    #[tokio::test]
-    async fn test_mkdir() {
-        let dir = TempDir::new().unwrap();
-        let target = dir.path().join("a/b/c");
-
-        let tool = FsTool::new();
-        let args = FsToolArgs {
-            action: "mkdir".to_string(),
-            path: Some(target.to_string_lossy().to_string()),
-            ..Default::default()
-        };
-
-        let result = tool.execute(args).await;
-        assert!(result.is_ok());
-        assert!(target.is_dir());
-        assert!(result.unwrap().contains("\"created\":true"));
-    }
-
-    #[tokio::test]
-    async fn test_rm_requires_confirm() {
-        let dir = TempDir::new().unwrap();
-        let file = dir.path().join("gone.txt");
-        std::fs::write(&file, "x").unwrap();
-
-        let tool = FsTool::new();
-        let no_confirm = FsToolArgs {
-            action: "rm".to_string(),
-            path: Some(file.to_string_lossy().to_string()),
-            ..Default::default()
-        };
-        assert!(tool.execute(no_confirm).await.is_err());
-        assert!(file.exists());
-
-        let confirmed = FsToolArgs {
-            action: "rm".to_string(),
-            path: Some(file.to_string_lossy().to_string()),
-            confirm: true,
-            ..Default::default()
-        };
-        assert!(tool.execute(confirmed).await.is_ok());
-        assert!(!file.exists());
-    }
-
-    #[tokio::test]
-    async fn test_help() {
-        let tool = FsTool::new();
-        let args = FsToolArgs {
-            action: "help".to_string(),
-            ..Default::default()
-        };
-
-        let result = tool.execute(args).await;
-        assert!(result.is_ok());
-        let output = result.unwrap();
-        assert!(output.contains("fs"));
-        assert!(output.contains("read"));
-        assert!(output.contains("write"));
+    #[test]
+    fn hash_is_sha256_hex() {
+        assert_eq!(content_hash(b"hello"), "sha256:2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824");
     }
 }
