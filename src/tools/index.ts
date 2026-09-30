@@ -96,6 +96,7 @@ export { codeIntelTools, codeSearchTool, codeContextTool, codeAskTool, codeIndex
 export { trackerTools, trackerBoardsTool, trackerIssuesTool, trackerCreateTool, trackerUpdateTool } from './tracker.js';
 export { kaiTools, kaiDecideTool, kaiChoiceTool, kaiScoreTool, kaiNoulTool } from './kai.js';
 export { browserTools, browserTool, cdpTool } from './browser.js';
+export { packageTools, npxTool, uvxTool, jqTool } from './packages.js';
 export { refactorTools } from './refactor.js';
 export { memoryTools } from './memory.js';
 export { planTools } from './plan.js';

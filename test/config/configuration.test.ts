@@ -5,7 +5,7 @@ import { createMCPServer } from '../../src/index.js';
 // HIP-0300 unified tool surface
 const UNIFIED_TOOLSET = [
   'fs', 'exec', 'code', 'git', 'fetch', 'workspace', 'ui',              // core
-  'think', 'memory', 'hanzo', 'plan', 'tasks', 'mode', 'gimp', 'browser', 'cdp', // optional
+  'think', 'memory', 'hanzo', 'plan', 'tasks', 'mode', 'gimp', 'browser', 'cdp', 'npx', 'uvx', 'jq', // optional
   'code_search', 'code_context', 'code_ask', 'code_index',             // code intelligence
   'tracker_boards', 'tracker_issues', 'tracker_create', 'tracker_update', // work items
   'kai_decide', 'kai_choice', 'kai_score', 'kai_noul',                  // decisions

@@ -11,8 +11,40 @@ import { Tool } from '../../types/index.js';
 
 const execAsync = promisify(exec);
 
-const processes = new Map<string, { process: any; stdout: string[]; stderr: string[]; exitCode?: number; started: string; command: string }>();
+type Entry = { process: any; stdout: string[]; stderr: string[]; exitCode?: number; started: string; command: string };
+const processes = new Map<string, Entry>();
 let procCounter = 0;
+
+/** Spawn `argv` with no shell into the process table. */
+function start(argv: string[], command: string, cwd?: string, env?: Record<string, string>, id = `proc_${++procCounter}`) {
+  const [cmd, ...rest] = argv;
+  const proc = spawn(cmd, rest, { cwd, detached: true, stdio: 'pipe', env: { ...process.env, ...env } });
+  const entry: Entry = { process: proc, stdout: [], stderr: [], exitCode: undefined, started: new Date().toISOString(), command };
+  processes.set(id, entry);
+  proc.stdout?.on('data', (d: Buffer) => entry.stdout.push(d.toString()));
+  proc.stderr?.on('data', (d: Buffer) => entry.stderr.push(d.toString()));
+  proc.on('error', (e: Error) => { entry.stderr.push(e.message); entry.exitCode = -1; });
+  proc.on('close', (code: number | null) => { entry.exitCode ??= code ?? -1; });
+  return { id, entry };
+}
+
+/** Run `argv` with no shell and wait up to `ms`: finished, its output; still
+ *  going, it keeps running under the proc_id returned (exec ps, logs, wait,
+ *  kill), as a package server started through npx or uvx does. */
+export async function run(tool: string, argv: string[], cwd: string | undefined, ms: number) {
+  const { id, entry } = start(argv, argv.join(' '), cwd);
+  const done = await new Promise<boolean>((resolve) => {
+    if (entry.exitCode !== undefined) return resolve(true);
+    const timer = setTimeout(() => resolve(false), ms);
+    entry.process.once('close', () => { clearTimeout(timer); resolve(true); });
+    entry.process.once('error', () => { clearTimeout(timer); resolve(true); });
+  });
+  const data = done
+    ? { proc_id: id, exit_code: entry.exitCode, stdout: entry.stdout.join(''), stderr: entry.stderr.join('') }
+    : { proc_id: id, status: 'running', message: `Backgrounded after ${ms / 1000}s. exec(action='logs', proc_id='${id}') reads its output; wait and kill take the same proc_id.` };
+  const failed = done && entry.exitCode !== 0;
+  return { content: [{ type: 'text' as const, text: JSON.stringify({ ok: !failed, data, error: failed ? { code: 'EXIT', message: `exit ${entry.exitCode}` } : null, meta: { tool } }, null, 2) }], ...(failed ? { isError: true } : {}) };
+}
 
 function envelope(data: any, action: string) {
   return {
@@ -52,21 +84,9 @@ export const execTool: Tool = {
           if (!args.command) return fail('INVALID_PARAMS', 'command required');
 
           if (args.background) {
-            procCounter++;
-            const id = args.proc_id || `proc_${procCounter}`;
-            if (processes.has(id)) return fail('CONFLICT', `Process ${id} already exists`);
-
-            const [cmd, ...cmdArgs] = args.command.split(' ');
-            const proc = spawn(cmd, cmdArgs, { cwd: args.cwd, detached: true, stdio: 'pipe', env: { ...process.env, ...args.env } });
-
-            const entry = { process: proc, stdout: [] as string[], stderr: [] as string[], exitCode: undefined as number | undefined, started: new Date().toISOString(), command: args.command };
-            processes.set(id, entry);
-
-            proc.stdout?.on('data', (d: Buffer) => entry.stdout.push(d.toString()));
-            proc.stderr?.on('data', (d: Buffer) => entry.stderr.push(d.toString()));
-            proc.on('exit', (code: number | null) => { entry.exitCode = code ?? -1; });
-
-            return envelope({ proc_id: id, pid: proc.pid, background: true }, 'exec');
+            if (args.proc_id && processes.has(args.proc_id)) return fail('CONFLICT', `Process ${args.proc_id} already exists`);
+            const { id, entry } = start(args.command.split(' '), args.command, args.cwd, args.env, args.proc_id);
+            return envelope({ proc_id: id, pid: entry.process.pid, background: true }, 'exec');
           }
 
           const { stdout, stderr } = await execAsync(args.command, {
@@ -150,7 +170,7 @@ export const execTool: Tool = {
               resolve(fail('TIMEOUT', `Process ${args.proc_id} did not finish within ${waitTimeout}ms`));
             }, waitTimeout);
 
-            waitEntry.process.on('exit', () => {
+            waitEntry.process.on('close', () => {
               clearTimeout(timer);
               resolve(envelope({
                 proc_id: args.proc_id,

@@ -261,8 +261,8 @@ params, the extension's `decodeCmd` body) answered by one RESPONSE (JSON, or
 ## Parity with hanzo-mcp (Python)
 
 Python `hanzo-mcp` (`python-sdk/pkg/hanzo-tools-*`) is the reference. Counted
-from code, one row per registered Python tool: **72 tools**. TypeScript: 14 yes,
-22 partial, 36 missing. Rust: 25 yes, 19 partial, 28 missing. † not a
+from code, one row per registered Python tool: **72 tools**. TypeScript: 17 yes,
+22 partial, 33 missing. Rust: 28 yes, 19 partial, 25 missing. † not a
 `hanzo-mcp` dependency (extras); ‡ shipped but disabled when `hanzo` is on.
 
 | Python tool (pkg) | TS | Rust |
@@ -305,7 +305,7 @@ from code, one row per registered Python tool: **72 tools**. TypeScript: 14 yes,
 | repl (repl) † | missing | missing |
 | zsh, exec, ps (shell) | yes `src/tools/unified/exec.ts` | yes `rust/src/tools/exec_tool.rs` |
 | open, curl, wget (shell) | yes `fetch.ts` (open, request, download) | yes `fetch_tool.rs` (same) |
-| npx, uvx, jq (shell) | missing | missing |
+| npx, uvx, jq (shell) | yes `src/tools/packages.ts` | yes `rust/src/tools/runner.rs`, `rust/src/tools/jq_tool.rs` |
 | test (test) † | missing | missing |
 | tasks (todo) | partial `src/tools/tasks.ts` (no clear, remove) | yes `rust/src/tools/tasks_tool.rs` |
 | ui (ui) | partial `src/tools/unified-ui.ts` (no ask, semantic_search, index) | partial `rust/src/tools/ui_tool.rs` (7 of 18 actions) |
@@ -314,7 +314,11 @@ from code, one row per registered Python tool: **72 tools**. TypeScript: 14 yes,
 | version, stats (system) | missing | yes `rust/src/tools/system_tool.rs` |
 | tool (system) | missing | partial `system_tool.rs` (no install, upgrade, reload, self_update) |
 
-A grouped row counts once per Python tool it names. Not in Python: TS
+A grouped row counts once per Python tool it names. `npx` and `uvx` are
+`exec` of the argv they build, with no shell and a two-minute auto-background,
+so a package server lands in `exec ps` / `exec logs`; in Rust a backgrounded
+exec now keeps draining its output to a log and records its exit, where
+before its pipes were dropped with the wait. Not in Python: TS
 `code_*`, `tracker_*`, `kai_*`; Rust `code_*`, `web_search`, `web_read`,
 `research`, `system`. Rust's `search` alias of fs is gone: `fs action=search_text`
 is the one search. Recount after closing a gap and update both numbers.

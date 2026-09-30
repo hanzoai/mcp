@@ -30,6 +30,8 @@ import { trackerTools } from '../tracker.js';
 import { kaiTools } from '../kai.js';
 // The user's browser through the Hanzo extension, over the ZAP router
 import { browserTool, cdpTool } from '../browser.js';
+// Package runners and JSON, as python-sdk's shell tools
+import { npxTool, uvxTool, jqTool } from '../packages.js';
 
 // UI — already unified
 import { unifiedUITool } from '../unified-ui.js';
@@ -63,6 +65,9 @@ export const optionalTools: Tool[] = [
   gimpTool,    // GIMP automation (clean-room BSD-3 PDB bridge)
   browserTool, // The user's browser via the extension (Playwright fallback)
   cdpTool,     // Raw CDP methods to the same browser
+  npxTool,     // Node packages, auto-backgrounded after 2 minutes
+  uvxTool,     // Python packages, the same
+  jqTool,      // JSON through jq, no shell
 ];
 
 export const allUnifiedTools: Tool[] = [
@@ -84,3 +89,4 @@ export { codeIntelTools, codeSearchTool, codeContextTool, codeAskTool, codeIndex
 export { trackerTools, trackerBoardsTool, trackerIssuesTool, trackerCreateTool, trackerUpdateTool } from '../tracker.js';
 export { kaiTools, kaiDecideTool, kaiChoiceTool, kaiScoreTool, kaiNoulTool } from '../kai.js';
 export { browserTools, browserTool, cdpTool } from '../browser.js';
+export { packageTools, npxTool, uvxTool, jqTool } from '../packages.js';
