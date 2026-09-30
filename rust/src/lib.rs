@@ -146,7 +146,7 @@ impl ToolRegistry {
             "fetch".into(), "workspace".into(), "computer".into(),
             "think".into(), "memory".into(), "hanzo".into(),
             "plan".into(), "tasks".into(), "mode".into(),
-            "browser".into(),
+            "browser".into(), "npx".into(), "uvx".into(),
         ]);
         names.sort();
         names.dedup();
@@ -164,6 +164,18 @@ impl ToolRegistry {
             "fs" => {
                 let args: tools::FsToolArgs = serde_json::from_value(params)?;
                 let result = self.fs.read().await.execute(args).await?;
+                Ok(ToolResult::ok(serde_json::from_str(&result)?))
+            }
+            // A package run is an exec of its argv, in exec's process table.
+            "npx" | "uvx" => {
+                let args = tools::ExecToolArgs {
+                    action: "exec".into(),
+                    command: Some(json!(tools::runner::argv(name, &params)?)),
+                    cwd: params.get("cwd").and_then(Value::as_str).map(String::from),
+                    timeout: Some(tools::runner::BACKGROUND),
+                    ..Default::default()
+                };
+                let result = self.exec.read().await.execute(args).await?;
                 Ok(ToolResult::ok(serde_json::from_str(&result)?))
             }
             "plan" => {
@@ -287,6 +299,8 @@ impl ToolRegistry {
             tools::WorkspaceToolDefinition::schema(),
             tools::TasksToolDefinition::schema(),
             tools::HanzoToolDefinition::schema(),
+            tools::runner::definition("npx"),
+            tools::runner::definition("uvx"),
         ];
 
         // Add custom registered tools
@@ -327,6 +341,7 @@ impl ToolRegistry {
         registry.register(Box::new(tools::RefactorTool::new()));
         registry.register(Box::new(tools::SystemTool::new()));
         registry.register(Box::new(tools::CdpTool::new()));
+        registry.register(Box::new(tools::JqTool::new()));
 
         #[cfg(feature = "computer-control")]
         {

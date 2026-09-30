@@ -17,6 +17,8 @@ pub mod think_tool;
 pub mod memory_tool;
 pub mod browser_tool;
 pub mod cdp_tool;
+pub mod jq_tool;
+pub mod runner;
 pub mod code_tool;
 pub mod git_tool;
 pub mod fetch_tool;
@@ -50,6 +52,7 @@ pub use tasks_tool::{TasksTool, TasksToolArgs, TasksToolDefinition};
 pub use mode_tool::{ModeTool, ModeToolArgs, ModeToolDefinition};
 pub use browser_tool::{BrowserTool, BrowserToolArgs, BrowserToolDefinition};
 pub use cdp_tool::CdpTool;
+pub use jq_tool::JqTool;
 pub use personality::{ToolPersonality, PersonalityRegistry};
 // Cloud-backed tools (api.hanzo.ai) — registered via the generic MCPTool seam.
 pub use cloud_code::{CodeSearchTool, CodeContextTool, CodeAskTool, CodeIndexTool};
