@@ -21,6 +21,7 @@ pub mod server;
 pub mod protocol;
 pub mod tools;
 pub mod search;
+pub mod native;
 pub mod zap;
 
 pub use config::Config;

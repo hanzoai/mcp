@@ -230,6 +230,13 @@ params, the extension's `decodeCmd` body) answered by one RESPONSE (JSON, or
   it stands for router and joins as `mcp/hanzo-<pid>`, as Python does.
   `hanzo-mcp pair [--reset]` prints the door's code for a browser that must
   pair.
+- **Native host** (`rust/src/native.rs`): the same binary run as
+  `hanzo-zap-host` is Chrome/Firefox native messaging host `ai.hanzo.zap`,
+  relaying `{"z": base64 envelope}` messages to the socket, as Python's
+  `native_host.py` does. Each start registers it (a symlink at
+  `~/.hanzo/zap/hanzo-zap-host`) with every installed browser, but never over
+  a manifest whose program exists: Python's host serves the same extension,
+  and two runtimes rewriting one file would trade it forever.
 - **TypeScript** (`src/zap.ts`) is a consumer only: zapd has no JS or wasm
   build, so it joins whichever process holds the lock and never stands for
   router. With no router it says so (`NO_ROUTER`). Node cannot read a unix

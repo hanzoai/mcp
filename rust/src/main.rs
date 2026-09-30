@@ -59,6 +59,10 @@ enum Cmd {
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    // Started by a browser as its native messaging host: relay, nothing else.
+    if hanzo_mcp::native::invoked() {
+        return hanzo_mcp::native::relay(std::io::stdin(), std::io::stdout());
+    }
     let args = Args::parse();
     if let Some(Cmd::Pair { reset }) = args.command {
         let p = if reset { zapd::pair::reset()? } else { zapd::pair::load()? };
@@ -88,6 +92,10 @@ async fn main() -> Result<()> {
     // Stand for this user's ZAP router and take our seat on it, as every
     // hanzo-mcp does: the browser tools reach the extension through it.
     hanzo_mcp::zap::seat();
+    match hanzo_mcp::native::install() {
+        Ok(written) => written.iter().for_each(|m| info!("[ZAP] native host registered: {}", m.display())),
+        Err(e) => log::warn!("[ZAP] native host not registered: {e}"),
+    }
 
     let mut server = MCPServer::new(config, args.port)?;
     for root in args.project_dir {

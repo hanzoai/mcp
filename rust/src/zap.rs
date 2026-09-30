@@ -22,7 +22,7 @@ pub const BROWSER: &str = "browser/";
 
 /// What a caller is told when no browser is on the router.
 pub const UNPAIRED: &str = "no browser on the ZAP router: open Chrome with the Hanzo extension (1.9.59+); \
-it joins on its own. A sandboxed browser (snap, Flatpak) pairs instead: `zapd pair`, then paste the code \
+it joins on its own. A sandboxed browser (snap, Flatpak) pairs instead: `hanzo-mcp pair`, then paste the code \
 into the extension's popup";
 
 /// Stand for router and take this process's seat, once.

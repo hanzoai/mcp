@@ -17,34 +17,17 @@ use tokio::io::AsyncWriteExt;
 use tokio::net::UnixStream;
 use zapd::frame::{self, Frame};
 
-/// The private home every test shares, set before anything reads it, with the
-/// fake browser joined.
-fn home() -> &'static std::path::Path {
-    static HOME: OnceLock<std::path::PathBuf> = OnceLock::new();
-    HOME.get_or_init(|| {
-        let dir = tempfile::Builder::new().prefix("zap-browser-").tempdir().unwrap().keep();
-        for (var, sub) in [("XDG_RUNTIME_DIR", "run"), ("XDG_STATE_HOME", "state"), ("HOME", "home")] {
-            let p = dir.join(sub);
-            std::fs::create_dir_all(&p).unwrap();
-            std::env::set_var(var, &p);
-        }
-        std::env::set_var("BROWSER_BACKEND", "auto");
-        // The door binds the port the pairing names: pin it to one nothing
-        // else wants, never a well-known port a real extension sweeps.
-        let port = std::net::TcpListener::bind("127.0.0.1:0").unwrap().local_addr().unwrap().port();
-        let pair = zapd::pair::Pairing { port, key: [7; 32] };
-        let state = dir.join("state/zap");
-        std::os::unix::fs::DirBuilderExt::mode(&mut std::fs::DirBuilder::new(), 0o700).create(&state).unwrap();
-        let file = state.join("pair");
-        std::fs::write(&file, format!("{}\n", pair.code())).unwrap();
-        std::fs::set_permissions(&file, std::os::unix::fs::PermissionsExt::from_mode(0o600)).unwrap();
+mod common;
 
-        zap::seat();
+/// The private home, with the fake browser joined.
+fn home() {
+    static BROWSER: OnceLock<()> = OnceLock::new();
+    BROWSER.get_or_init(|| {
+        common::home();
         std::thread::spawn(|| {
             tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap().block_on(fake_browser())
         });
-        dir
-    })
+    });
 }
 
 /// A browser node: HELLO as `browser/chrome-test`, then answer every ROUTE.
