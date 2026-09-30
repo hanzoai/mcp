@@ -41,7 +41,9 @@ async fn a_browser_on_the_native_host_answers_a_route() {
 
     let desc = frame::Descriptor { role: frame::ROLE_PROVIDER, brand: "hanzo".into(), caps: vec![], attrs: vec![] };
     send(&mut browser, &Frame::new(frame::HELLO, "browser/native-1", "", frame::encode_hello(&desc)));
-    let welcome = recv(&mut browser);
+    // Presence can arrive before WELCOME: another node registering between
+    // ours entering the registry and our WELCOME being queued.
+    let welcome = std::iter::repeat_with(|| recv(&mut browser)).find(|f| f.typ != frame::PEER_CONNECTED).unwrap();
     assert_eq!(welcome.typ, frame::WELCOME);
     let id = welcome.to.clone();
     assert!(id.starts_with("browser/") && id.ends_with("/native-1"), "{id}");
