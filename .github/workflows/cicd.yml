@@ -10,4 +10,8 @@ on:
 jobs:
   cicd:
     uses: hanzoai/ci/.github/workflows/build.yml@v1
+    permissions:
+      contents: write
+      packages: write
+      id-token: write
     secrets: inherit
