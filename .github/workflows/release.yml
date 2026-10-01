@@ -29,20 +29,11 @@ jobs:
   open:
     runs-on: linux-amd64
     steps:
-      - uses: actions/checkout@v4
-      - name: Open the release if it is not already there
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          set -eu
-          if gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            echo "$GITHUB_REF_NAME already exists — attaching to it"
-          else
-            gh release create "$GITHUB_REF_NAME" \
-              --repo "$GITHUB_REPOSITORY" \
-              --title "hanzo-mcp ${GITHUB_REF_NAME#rust-v}" \
-              --generate-notes
-          fi
+      # The runner image carries no gh CLI; the release action speaks the API.
+      - uses: softprops/action-gh-release@v2
+        with:
+          name: hanzo-mcp ${{ github.ref_name }}
+          generate_release_notes: true
 
   build:
     needs: open
@@ -63,6 +54,9 @@ jobs:
     runs-on: linux-amd64
     steps:
       - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.triple }}
 
       - name: Build
         working-directory: rust
@@ -93,10 +87,8 @@ jobs:
           ls -l "$asset" "$asset.sha256"
 
       - name: Attach
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          gh release upload "${GITHUB_REF_NAME}" \
-            "hanzo-mcp-${{ matrix.target }}.tar.gz" \
-            "hanzo-mcp-${{ matrix.target }}.tar.gz.sha256" \
-            --clobber --repo "${GITHUB_REPOSITORY}"
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            hanzo-mcp-${{ matrix.target }}.tar.gz
+            hanzo-mcp-${{ matrix.target }}.tar.gz.sha256
