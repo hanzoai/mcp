@@ -1184,7 +1184,7 @@ checksum = "e04d7f318608d35d4b61ddd75cbdaee86b023ebe2bd5a66ee0915f0bf93095a9"
 dependencies = [
  "hermit-abi",
  "libc",
- "windows-sys 0.59.0",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -1732,7 +1732,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys 0.4.15",
- "windows-sys 0.59.0",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -3009,7 +3009,8 @@ dependencies = [
 [[package]]
 name = "zapd"
 version = "1.1.5"
-source = "git+https://github.com/zap-proto/zapd?tag=v1.1.5#70c1c1699930fa7c7d16af64c6a21de2c3c0f850"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "38a02b60684f8f183918faccf1ba9c01dc69b4a5c9f6da2772e830b9d6ca936a"
 dependencies = [
  "directories",
  "futures-util",

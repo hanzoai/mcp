@@ -53,7 +53,7 @@ shell-escape = "0.1"
 # The ZAP router every Hanzo process embeds (one per login, elected by lock),
 # and this process's seat on it. crates.io has 1.1.2, which predates the
 # unpaired door on 9998, so the tag is the pin.
-zapd = { git = "https://github.com/zap-proto/zapd", tag = "v1.1.5" }
+zapd = "1.1.5"
 
 # Search and AST
 tree-sitter = "0.20"
