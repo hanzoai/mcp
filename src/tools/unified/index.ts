@@ -38,6 +38,7 @@ import { unifiedUITool } from '../unified-ui.js';
 
 // Optional tools
 import { thinkTool } from '../think.js';
+import { llmTool } from '../llm.js';
 import { memoryTool } from '../memory.js';
 import { planTool } from '../plan.js';
 import { tasksTool } from '../tasks.js';
@@ -57,6 +58,7 @@ export const coreTools: Tool[] = [
 
 export const optionalTools: Tool[] = [
   thinkTool,   // Structured reasoning
+  llmTool,     // Models through Hanzo: completions routed by Enso, the catalog, feedback
   memoryTool,  // Persistent storage
   hanzoTool,   // Hanzo Cloud: every fleet subsystem, by resource and action
   planTool,    // Task planning
@@ -88,5 +90,6 @@ export { hanzoTool } from './hanzo.js';
 export { codeIntelTools, codeSearchTool, codeContextTool, codeAskTool, codeIndexTool } from '../code-intel.js';
 export { trackerTools, trackerBoardsTool, trackerIssuesTool, trackerCreateTool, trackerUpdateTool } from '../tracker.js';
 export { kaiTools, kaiDecideTool, kaiChoiceTool, kaiScoreTool, kaiNoulTool } from '../kai.js';
+export { llmTools, llmTool } from '../llm.js';
 export { browserTools, browserTool, cdpTool } from '../browser.js';
 export { packageTools, npxTool, uvxTool, jqTool } from '../packages.js';

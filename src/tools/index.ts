@@ -95,6 +95,7 @@ export { gimpTools, gimpTool } from './gimp.js';
 export { codeIntelTools, codeSearchTool, codeContextTool, codeAskTool, codeIndexTool } from './code-intel.js';
 export { trackerTools, trackerBoardsTool, trackerIssuesTool, trackerCreateTool, trackerUpdateTool } from './tracker.js';
 export { kaiTools, kaiDecideTool, kaiChoiceTool, kaiScoreTool, kaiNoulTool } from './kai.js';
+export { llmTools, llmTool } from './llm.js';
 export { browserTools, browserTool, cdpTool } from './browser.js';
 export { packageTools, npxTool, uvxTool, jqTool } from './packages.js';
 export { refactorTools } from './refactor.js';
