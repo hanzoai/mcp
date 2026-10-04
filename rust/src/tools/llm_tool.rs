@@ -5,10 +5,13 @@
 //! id, so a single bearer key reaches every provider SKU it fronts.
 //!
 //! Actions:
-//! - `query`     → one model, returns the assistant text (default action)
+//! - `query`     → one model, returns the assistant text (default action);
+//!                 Enso routes it when the model is `auto` or an `enso-*` id, and
+//!                 `max_cost` / `max_latency_ms` ride as its routing headers
 //! - `consensus` → many models in parallel, a judge model synthesizes them
 //! - `list`      → the built-in default model set (no network)
-//! - `models`    → GET /v1/models (the live catalog)
+//! - `models`    → GET /v1/models: each model's family, class and price
+//! - `feedback`  → POST /v1/ai/feedback: how a routed answer went
 //!
 //! The chat / embed / consensus helpers are `pub` so the `think` tool composes
 //! its consensus/agent/embed actions over the same seam — one way to reach the
@@ -23,8 +26,11 @@ use super::{envelope_err, envelope_ok};
 use crate::hanzo_api::HanzoApi;
 use crate::{MCPTool, ToolResult};
 
-/// Default single-query model.
-pub const DEFAULT_MODEL: &str = "gpt-4o-mini";
+/// Default single-query model: Enso's managed default, the id Hanzo Dev sends
+/// when no model is named.
+pub const DEFAULT_MODEL: &str = "enso-auto";
+/// The signals `/v1/ai/feedback` takes.
+pub const SIGNALS: &[&str] = &["up", "accept", "regenerate", "down", "switch", "abandon", "revert", "rating", "dismiss"];
 /// Default aggregator/judge for consensus synthesis.
 pub const DEFAULT_JUDGE_MODEL: &str = "gpt-4o";
 /// Default embedding model.
@@ -164,6 +170,30 @@ pub async fn run_consensus(
     Ok(data)
 }
 
+/// The catalog as one row per model: its family, class, outputs, context window
+/// and price per million tokens, as `/v1/models` states them and never restated
+/// here. `family` narrows to one family (enso, kai, ...).
+pub fn catalog(body: &Value, family: Option<&str>) -> Value {
+    let rows = body["data"].as_array().or_else(|| body["models"].as_array()).cloned().unwrap_or_default();
+    let family = family.map(str::to_lowercase).filter(|f| !f.is_empty());
+    let models: Vec<Value> = rows
+        .iter()
+        .filter(|m| family.as_deref().is_none_or(|f| m["family"].as_str().map(str::to_lowercase).as_deref() == Some(f)))
+        .map(|m| {
+            json!({
+                "id": m["id"],
+                "family": m["family"],
+                "class": m["class"],
+                "outputs": m["outputs"],
+                "context_window": m["context_window"],
+                "input_per_million": m["pricing"]["input_per_million"],
+                "output_per_million": m["pricing"]["output_per_million"],
+            })
+        })
+        .collect();
+    json!({ "count": models.len(), "models": models })
+}
+
 // ---------------------------------------------------------------------------
 // llm tool — action-routed dyn-trait tool
 // ---------------------------------------------------------------------------
@@ -186,6 +216,29 @@ struct LlmArgs {
     judge: Option<String>,
     #[serde(alias = "include_raw")]
     include_raw: Option<bool>,
+    /// The whole conversation, instead of `prompt`.
+    messages: Option<Value>,
+    /// USD per 1,000 tokens — `X-Max-Cost`.
+    max_cost: Option<f64>,
+    /// Milliseconds — `X-Max-Latency-Ms`.
+    max_latency_ms: Option<f64>,
+    family: Option<String>,
+    request_id: Option<String>,
+    signal: Option<String>,
+    rating: Option<f64>,
+}
+
+/// Enso's two routing bounds as the headers it reads; an unset one is not sent.
+fn bounds(args: &LlmArgs) -> std::result::Result<Vec<(&'static str, String)>, String> {
+    let mut out = Vec::new();
+    for (name, header, v) in [("max_cost", "X-Max-Cost", args.max_cost), ("max_latency_ms", "X-Max-Latency-Ms", args.max_latency_ms)] {
+        let Some(n) = v else { continue };
+        if !n.is_finite() || n <= 0.0 {
+            return Err(format!("{name} must be a positive number, not {n}"));
+        }
+        out.push((header, if header == "X-Max-Latency-Ms" { format!("{}", n.round() as u64) } else { n.to_string() }));
+    }
+    Ok(out)
 }
 
 pub struct LlmTool {
@@ -200,18 +253,25 @@ impl LlmTool {
     pub fn schema() -> Value {
         json!({
             "name": "llm",
-            "description": "Query LLMs via api.hanzo.ai (/v1/chat/completions). Actions: query (default), consensus, list, models.",
+            "description": "Models through api.hanzo.ai. query (default): one completion; model defaults to enso-auto, and \"auto\" lets Enso, the router, pick across the models your org can serve; max_cost (USD per 1,000 tokens) and max_latency_ms bound the pick; returns {id, model, content, finish_reason, usage}, where model is the one that served and id is what feedback takes. consensus: several models and a judge. list: the defaults, offline. models: the catalog with each model's family, class and price per million input and output tokens (family filters, e.g. enso or kai). feedback: tell Enso how a routed answer went: request_id is the completion id, signal one of up, accept, regenerate, down, switch, abandon, revert, rating, dismiss, and rating 1 to 3 with signal rating.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
                     "action": {
                         "type": "string",
-                        "enum": ["query", "consensus", "list", "models"],
+                        "enum": ["query", "consensus", "list", "models", "feedback"],
                         "default": "query",
                         "description": "What to do"
                     },
                     "prompt": { "type": "string", "description": "Prompt for query/consensus" },
-                    "model": { "type": "string", "description": "Model id (default gpt-4o-mini)" },
+                    "model": { "type": "string", "description": "A model id, \"auto\", or an enso id (enso-auto, enso-flash, enso-pro, enso-ultra, enso-free); default enso-auto" },
+                    "messages": { "type": "array", "items": { "type": "object" }, "description": "query: the whole conversation as [{role, content}], instead of prompt" },
+                    "max_cost": { "type": "number", "description": "query: the most you will pay, in USD per 1,000 tokens (X-Max-Cost)" },
+                    "max_latency_ms": { "type": "number", "description": "query: the slowest model you will accept, in milliseconds (X-Max-Latency-Ms)" },
+                    "family": { "type": "string", "description": "models: only this family, e.g. enso or kai" },
+                    "request_id": { "type": "string", "description": "feedback: the completion id query returned (chatcmpl-...)" },
+                    "signal": { "type": "string", "enum": SIGNALS, "description": "feedback: how the answer went" },
+                    "rating": { "type": "number", "enum": [1, 2, 3], "description": "feedback: 1 to 3, with signal rating" },
                     "models": { "type": "array", "items": { "type": "string" }, "description": "Models for consensus" },
                     "system": { "type": "string", "description": "System prompt" },
                     "temperature": { "type": "number", "default": DEFAULT_TEMPERATURE },
@@ -226,12 +286,18 @@ impl LlmTool {
     }
 
     async fn query(&self, args: &LlmArgs) -> Result<ToolResult> {
-        let prompt = match args.prompt.as_deref().filter(|p| !p.trim().is_empty()) {
-            Some(p) => p,
-            None => return Ok(ToolResult::ok(envelope_err("llm", "query", "INVALID_ARGS", "prompt required"))),
+        let invalid = |m: &str| Ok(ToolResult::ok(envelope_err("llm", "query", "INVALID_ARGS", m)));
+        let messages = match (&args.messages, args.prompt.as_deref().filter(|p| !p.trim().is_empty())) {
+            (Some(Value::Array(m)), _) if !m.is_empty() => Value::Array(m.clone()),
+            (Some(_), _) => return invalid("messages must be a non-empty array of {role, content}"),
+            (None, Some(p)) => build_messages(args.system.as_deref(), p),
+            (None, None) => return invalid("prompt or messages required"),
+        };
+        let headers = match bounds(args) {
+            Ok(h) => h,
+            Err(e) => return invalid(&e),
         };
         let model = args.model.clone().filter(|m| !m.is_empty()).unwrap_or_else(|| DEFAULT_MODEL.to_string());
-        let messages = build_messages(args.system.as_deref(), prompt);
 
         let mut body = json!({
             "model": model,
@@ -245,10 +311,19 @@ impl LlmTool {
             body["response_format"] = json!({ "type": "json_object" });
         }
 
-        Ok(match self.api.post("/v1/chat/completions", body).await {
-            Ok(resp) => {
+        Ok(match self.api.call(reqwest::Method::POST, "/v1/chat/completions", Some(body), &headers).await {
+            Ok(crate::hanzo_api::Answer { body: resp, headers }) => {
+                // The model that served: Enso names it in X-Routed-Model when it
+                // rewrote the request, and the body's model always says the same.
+                let routed = headers
+                    .get("x-routed-model")
+                    .and_then(|v| v.to_str().ok())
+                    .map(|v| json!(v))
+                    .or_else(|| resp.get("model").cloned())
+                    .unwrap_or(json!(model));
                 let data = json!({
-                    "model": resp.get("model").cloned().unwrap_or(json!(model)),
+                    "id": resp.get("id").cloned().unwrap_or(Value::Null),
+                    "model": routed,
                     "content": extract_content(&resp),
                     "finish_reason": resp["choices"][0]["finish_reason"].clone(),
                     "usage": resp.get("usage").cloned().unwrap_or(Value::Null),
@@ -306,10 +381,33 @@ impl LlmTool {
         ))
     }
 
-    async fn models(&self) -> Result<ToolResult> {
-        Ok(match self.api.get("/v1/models", &[]).await {
-            Ok(body) => ToolResult::ok(envelope_ok("llm", "models", body)),
-            Err(e) => ToolResult::ok(envelope_err("llm", "models", "UPSTREAM", e.to_string())),
+    async fn models(&self, args: &LlmArgs) -> Result<ToolResult> {
+        let body = match self.api.call(reqwest::Method::GET, "/v1/models", None, &[]).await {
+            Ok(a) => a.body,
+            Err(e) => return Ok(ToolResult::ok(envelope_err("llm", "models", "UPSTREAM", e.to_string()))),
+        };
+        Ok(ToolResult::ok(envelope_ok("llm", "models", catalog(&body, args.family.as_deref()))))
+    }
+
+    async fn feedback(&self, args: &LlmArgs) -> Result<ToolResult> {
+        let invalid = |m: String| Ok(ToolResult::ok(envelope_err("llm", "feedback", "INVALID_ARGS", m)));
+        let Some(id) = args.request_id.as_deref().filter(|s| !s.is_empty()) else {
+            return invalid("request_id required: the id of the completion (chatcmpl-...)".into());
+        };
+        let signal = args.signal.as_deref().unwrap_or("");
+        if !SIGNALS.contains(&signal) {
+            return invalid(format!("signal must be one of {}", SIGNALS.join(", ")));
+        }
+        let mut body = json!({ "request_id": id, "signal": signal });
+        if signal == "rating" {
+            match args.rating {
+                Some(r) if [1.0, 2.0, 3.0].contains(&r) => body["rating"] = json!(r as u8),
+                _ => return invalid("rating must be 1, 2 or 3 when signal is rating".into()),
+            }
+        }
+        Ok(match self.api.call(reqwest::Method::POST, "/v1/ai/feedback", Some(body), &[]).await {
+            Ok(a) => ToolResult::ok(envelope_ok("llm", "feedback", a.body.get("data").cloned().unwrap_or(a.body))),
+            Err(e) => ToolResult::ok(envelope_err("llm", "feedback", "UPSTREAM", e.to_string())),
         })
     }
 }
@@ -326,7 +424,7 @@ impl MCPTool for LlmTool {
         "llm"
     }
     fn description(&self) -> &str {
-        "Query LLMs via api.hanzo.ai (query, consensus, list, models)"
+        "Models through api.hanzo.ai: query (Enso routes), consensus, list, models (with prices), feedback"
     }
     fn parameters(&self) -> Value {
         Self::schema()["inputSchema"].clone()
@@ -351,12 +449,13 @@ impl MCPTool for LlmTool {
         match action.as_str() {
             "query" => self.query(&args).await,
             "consensus" => self.consensus(&args).await,
-            "models" => self.models().await,
+            "models" => self.models(&args).await,
+            "feedback" => self.feedback(&args).await,
             other => Ok(ToolResult::ok(envelope_err(
                 "llm",
                 other,
                 "UNKNOWN_ACTION",
-                "unknown action; valid: query, consensus, list, models",
+                "unknown action; valid: query, consensus, list, models, feedback",
             ))),
         }
     }
@@ -371,7 +470,7 @@ mod tests {
         let s = LlmTool::schema();
         assert_eq!(s["name"], "llm");
         let actions = s["inputSchema"]["properties"]["action"]["enum"].as_array().unwrap();
-        for a in ["query", "consensus", "list", "models"] {
+        for a in ["query", "consensus", "list", "models", "feedback"] {
             assert!(actions.iter().any(|v| v == a), "missing action {}", a);
         }
     }

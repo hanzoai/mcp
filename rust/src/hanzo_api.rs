@@ -101,6 +101,39 @@ impl HanzoApi {
         Ok(frames(&text))
     }
 
+    /// Send one JSON request and hold the answer to its status. A non-2xx, or a
+    /// 2xx whose `/v1` envelope says `status: "error"`, is an `Err` carrying the
+    /// status and the server's own sentence, so a refusal (a 402, a 429 plan cap)
+    /// can never read as an empty success. `headers` ride beside the bearer —
+    /// Enso's routing bounds, for one — and the answer keeps the response headers
+    /// a caller reads back, such as `X-Routed-Model`.
+    pub async fn call(
+        &self,
+        method: reqwest::Method,
+        path: &str,
+        body: Option<Value>,
+        headers: &[(&str, String)],
+    ) -> Result<Answer> {
+        let mut req = self.client.request(method, join_url(&self.base_url, path));
+        for (k, v) in headers {
+            req = req.header(*k, v);
+        }
+        if let Some(b) = body {
+            req = req.json(&b);
+        }
+        let resp = self.auth(req).send().await?;
+        let status = resp.status().as_u16();
+        let headers = resp.headers().clone();
+        let text = resp.text().await?;
+        let parsed = serde_json::from_str::<Value>(&text).ok();
+        let refused = parsed.as_ref().is_some_and(|b| b["status"] == "error");
+        if !(200..300).contains(&status) || refused {
+            return Err(anyhow!("{}: {}", status, reason(parsed.as_ref(), &text)));
+        }
+        let body = parsed.ok_or_else(|| anyhow!("{}: not JSON: {}", status, text.chars().take(200).collect::<String>()))?;
+        Ok(Answer { body, headers })
+    }
+
     async fn send(&self, req: reqwest::RequestBuilder) -> Result<Value> {
         // A transport error (DNS/refused/timeout) becomes Err so callers may
         // fall back to a local path; an HTTP error body is still JSON we pass on.
@@ -118,6 +151,23 @@ impl HanzoApi {
             None => req,
         }
     }
+}
+
+/// A 2xx answer: the parsed body and the response headers.
+pub struct Answer {
+    pub body: Value,
+    pub headers: reqwest::header::HeaderMap,
+}
+
+/// The sentence in a refusal: the gateway's `error.message` or `msg`, else the
+/// body itself.
+fn reason(body: Option<&Value>, text: &str) -> String {
+    let said = body.and_then(|b| {
+        [&b["error"]["message"], &b["msg"], &b["message"], &b["error"]]
+            .into_iter()
+            .find_map(|v| v.as_str().filter(|s| !s.is_empty()).map(str::to_string))
+    });
+    said.unwrap_or_else(|| text.trim().chars().take(200).collect())
 }
 
 impl Default for HanzoApi {
