@@ -80,9 +80,11 @@ jobs:
           asset="hanzo-mcp-${{ matrix.target }}.tar.gz"
           tar -C "rust/target/${{ matrix.triple }}/release" -czf "$asset" hanzo-mcp
           if command -v sha256sum >/dev/null 2>&1; then
-            sha256sum "$asset" | cut -d' ' -f1 > "$asset.sha256"
+            # "<hash>  <name>", the line `sha256sum -c` reads: install.sh verifies
+            # the download with exactly that, and a bare hash fails it.
+            sha256sum "$asset" > "$asset.sha256"
           else
-            shasum -a 256 "$asset" | cut -d' ' -f1 > "$asset.sha256"
+            shasum -a 256 "$asset" > "$asset.sha256"
           fi
           ls -l "$asset" "$asset.sha256"
 
