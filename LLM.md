@@ -54,8 +54,9 @@ least 1 level, none null; a noul's sides are `true` and `false` only.
 `/v1/decisions` caps no label or level count (a wide choice is narrowed by
 retrieval), so neither do the tools; only `/v1/systemone` caps them, at Jev's 255
 and 10. Whether a request fits the token budget is the server's to say (422
-`state_too_long`). A non-2xx returns `<status>: <the server's sentence>`
-(decision's `error.message`, the gateway's `msg`).
+`state_too_long`). A plan refusal is the error result `llm` returns (below); any
+other non-2xx returns `<status>: <the server's sentence>` (decision's
+`error.message`, the gateway's `msg`).
 
 The descriptions call `instructions` recommended and steer a noul to a statement
 with both sides described, or to a choice whose labels name the outcomes (not
@@ -64,8 +65,51 @@ mean level index, and `confidence` describes the likeliest level. A noul's
 `confidence` is |2p − 1|.
 
 Tools that run a whole decision program arrive with Kai's joint decoder.
-TypeScript only, like `tracker_*`: neither the Rust runtime nor Python `hanzo-mcp`
-carries the tracker or kai tools.
+The Rust runtime carries `kai_decide` (`rust/src/tools/kai_tool.rs`); the other
+three, like `tracker_*`, are TypeScript only, and Python `hanzo-mcp` carries none.
+
+## `llm` — models, limits, who paid
+
+`llm` (`src/tools/llm.ts`) is the AI plane by action over `api.hanzo.ai`, with
+the same bearer as `kai_*`:
+
+| action | route | answers |
+|---|---|---|
+| `query` | POST `/v1/chat/completions` | the completion; `model` (X-Routed-Model, else the body's), `served` (X-Hanzo-Served), `paid_by` (X-Hanzo-Paid-By), `usage_state`, `usage_class`, `fallback`, `fallback_reason`; a header not sent is null |
+| `models` | GET `/v1/models` | id, family, class, outputs, context_window, supports, per-million prices, `variable`; `search`, `class`, `family`, `capability` narrow |
+| `limits` | GET `/v1/ai/limits` | plan, state, period, per-class percent/state/paying/resets_at, session and day windows, limited, paused, actions, upgrade, credits_after_allowance |
+| `feedback` | POST `/v1/ai/feedback` | what Enso recorded |
+
+`model` picks; default `enso-auto`, `auto` is Enso's pick. `fallback: true` sends
+`X-Hanzo-Fallback: allow`, so a refused model's fallback answers instead and the
+result names it. `capability` is `tools`, `vision`, `reasoning` (the catalog's
+`supports_*`) or a modality the model takes or makes (`image`, `embeddings`,
+`decision`, ...). `variable` marks a router SKU billed at the answering model's
+cost, whose listed price is not what a call costs.
+
+Why `llm` and not `hanzo`: `hanzo` is generated from the catalog and holds no
+hand-written route. Limits are per model class and say which models are paused
+and what answers for them, so they sit beside `models` and `query`: pick a model,
+see where the plan stands, ask, see who paid. Repositories add nothing to the
+fleet's own operation, so they stay on `hanzo`: `resource=sync action=get_sync`
+lists the links, `action=post_sync_by_id_run args={id}` syncs one now.
+Decisions stay with `kai_decide`. A `decide` action on `llm` would be a second
+way in to `/v1/decisions`.
+
+**No figures.** `limits` copies named fields only (percent, state, paying,
+resets_at, actions), so an amount, count or cap in an answer never reaches a
+result. `PUT /v1/ai/limits` is not offered here.
+
+**Refusals** (`src/tools/refusal.ts`, shared by `llm` and `kai_*`): a 402 or 429
+whose code is `plan_allowance_used`, `paid_plan_required`, `free_plan_cap`,
+`model_cap`, `usage_cap_exceeded` or `insufficient_balance` is the error result
+`{"error": {status, code, message, class?, model?, fallback?, window?,
+resets_at?, actions}}`. Clients switch on the code (hanzoai/ai
+`object.LimitHit`). The message is the server's own sentence, which names no
+figure. Actions keep kind, label, url, plan and model. `limit`, the name of the
+spent window, is passed on as `window`. The gate's `{error: {...}}` and a
+controller's `{status: "error", msg, code}` read the same. Any other non-2xx
+stays `<status>: <sentence>`.
 
 ## `research` — one door, one mode
 
@@ -262,7 +306,7 @@ params, the extension's `decodeCmd` body) answered by one RESPONSE (JSON, or
 
 Python `hanzo-mcp` (`python-sdk/pkg/hanzo-tools-*`) is the reference. Counted
 from code, one row per registered Python tool: **72 tools**. TypeScript: 17 yes,
-22 partial, 33 missing. Rust: 28 yes, 19 partial, 25 missing. † not a
+23 partial, 32 missing. Rust: 28 yes, 19 partial, 25 missing. † not a
 `hanzo-mcp` dependency (extras); ‡ shipped but disabled when `hanzo` is on.
 
 | Python tool (pkg) | TS | Rust |
@@ -291,7 +335,7 @@ from code, one row per registered Python tool: **72 tools**. TypeScript: 17 yes,
 | gimp (gimp) † | yes `src/tools/gimp.ts` | missing |
 | ide (ide) † | missing | missing |
 | jupyter (jupyter) † | missing | missing |
-| llm (llm) | missing | partial `rust/src/tools/llm_tool.rs` (no enable, disable, test) |
+| llm (llm) | partial `src/tools/llm.ts` (query, models, limits, feedback; consensus is `think`'s) | partial `rust/src/tools/llm_tool.rs` (no enable, disable, test) |
 | consensus (llm) | yes `think.ts` (action=consensus) | yes `llm_tool.rs` (action=consensus) |
 | lsp (lsp) | missing | yes `rust/src/tools/lsp_tool.rs` |
 | mcp, mcp_add, mcp_remove, mcp_stats, proxy (mcp) † | missing | missing |
@@ -327,7 +371,7 @@ is the one search. Recount after closing a gap and update both numbers.
 Part of the AI/agents SDK line. This TS package (`@hanzo/mcp`) is canonical; the
 Python `hanzo-mcp` (PyPI) and Rust `hanzo-mcp::brain` mirror the same tool surface
 1-to-1 — tool names and action schemas identical across runtimes — except
-`tracker_*` and `kai_*`, which are TypeScript only. Where they do not yet, the
+`tracker_*` and `kai_choice`/`kai_score`/`kai_noul`, which are TypeScript only. Where they do not yet, the
 parity table above says so. DRY: one impl
 per tool in its canonical home; do not duplicate tool logic across runtimes beyond
 the shared schema. Full model: `~/work/hanzo/SDK-ARCHITECTURE.md`.

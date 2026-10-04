@@ -7,10 +7,12 @@
  *   kai_noul    POST /v1/decisions  one noul: the probability a statement holds
  *
  * Each call carries the caller's Hanzo bearer from the environment to `API_URL`
- * or https://api.hanzo.ai.
+ * or https://api.hanzo.ai. A plan refusal (402/429 with a code) comes back as an
+ * error result naming the code and the actions (./refusal.ts).
  */
 
 import { Tool } from '../types/index.js';
+import { Refusal, refusal } from './refusal.js';
 
 function apiBase(): string { return process.env.API_URL || 'https://api.hanzo.ai'; }
 function token(): string { return process.env.HANZO_API_KEY || process.env.API_KEY || process.env.API_TOKEN || process.env.HANZO_TOKEN || ''; }
@@ -23,7 +25,8 @@ function reason(body: string): string {
   return typeof m === 'string' && m ? m : body.substring(0, 200);
 }
 
-// decide is the one request path: Bearer auth, JSON in and out; a non-2xx throws `${status}: ${sentence}`.
+// decide is the one request path: Bearer auth, JSON in and out; a plan refusal throws
+// a Refusal, any other non-2xx `${status}: ${sentence}`.
 async function decide(body: Record<string, unknown>): Promise<any> {
   const t = token();
   if (!t) throw new Error('HANZO_API_KEY required');
@@ -32,7 +35,12 @@ async function decide(body: Record<string, unknown>): Promise<any> {
     headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'Authorization': `Bearer ${t}` },
     body: JSON.stringify(body),
   });
-  if (!r.ok) { const b = await r.text().catch(() => ''); throw new Error(`${r.status}: ${reason(b) || r.statusText || 'empty response'}`); }
+  if (!r.ok) {
+    const b = await r.text().catch(() => '');
+    const refused = refusal(r.status, b);
+    if (refused) throw refused;
+    throw new Error(`${r.status}: ${reason(b) || r.statusText || 'empty response'}`);
+  }
   const txt = await r.text();
   let d: any;
   try { d = JSON.parse(txt); } catch { d = null; }
@@ -108,7 +116,7 @@ async function one(type: string, args: any) {
     if (typeof answer !== 'object' || answer === null) return fail(`decision ${d.id} has no answer for '${type}'`);
     return ok({ answer, id: d.id, model: d.model, usage: d.usage });
   } catch (e: any) {
-    return fail(e.message);
+    return e instanceof Refusal ? e.result : fail(e.message);
   }
 }
 
@@ -148,7 +156,7 @@ export const kaiDecideTool: Tool = {
     try {
       return ok(await decide(request(args.state, args.questions, args.model)));
     } catch (e: any) {
-      return fail(e.message);
+      return e instanceof Refusal ? e.result : fail(e.message);
     }
   },
 };

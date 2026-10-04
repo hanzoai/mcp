@@ -295,6 +295,43 @@ describe('refusals reach the agent as the server said them', () => {
   });
 });
 
+describe('a plan refusal names its code and actions', () => {
+  // POST /v1/decisions model kai, org hanzo on the free plan, as it answered live.
+  const FREE_PLAN_CAP = {
+    error: {
+      message: "Free plan: today's Kai requests are used. Upgrade for more: https://hanzo.ai/pay",
+      type: 'rate_limit_error',
+      code: 'free_plan_cap',
+      class: 'ours',
+      resets_at: '2026-10-05T00:00:00Z',
+      upgrade_url: 'https://hanzo.ai/pay/cart?plan=dev',
+      actions: [
+        { kind: 'upgrade', label: 'Upgrade your plan', url: 'https://hanzo.ai/pay/cart?plan=dev', plan: 'dev' },
+        { kind: 'topup', label: 'Add prepaid credit', url: 'https://hanzo.ai/pay' },
+      ],
+    },
+  };
+
+  test.each([
+    ['kai_decide', () => kaiDecideTool.handler({ state: 'I want my money back', questions: { intent: { type: 'choice', criteria: ['refund', 'other'] } } })],
+    ['kai_choice', () => kaiChoiceTool.handler({ state: 'I want my money back', criteria: ['refund', 'other'] })],
+  ])('%s', async (_name, call) => {
+    reply = () => ({ status: 429, text: JSON.stringify(FREE_PLAN_CAP) });
+    const result = await call();
+    expect(result.isError).toBe(true);
+    expect(json(result)).toEqual({
+      error: {
+        status: 429,
+        code: 'free_plan_cap',
+        message: FREE_PLAN_CAP.error.message,
+        class: 'ours',
+        resets_at: '2026-10-05T00:00:00Z',
+        actions: FREE_PLAN_CAP.error.actions,
+      },
+    });
+  });
+});
+
 describe('what comes back is checked', () => {
   test('a 200 that is not a decision is an error, not an answer', async () => {
     reply = () => ({ status: 200, text: '<html>maintenance</html>' });
