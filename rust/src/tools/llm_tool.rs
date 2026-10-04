@@ -10,8 +10,13 @@
 //!                 `max_cost` / `max_latency_ms` ride as its routing headers
 //! - `consensus` → many models in parallel, a judge model synthesizes them
 //! - `list`      → the built-in default model set (no network)
-//! - `models`    → GET /v1/models: each model's family, class and price
+//! - `models`    → GET /v1/models: each model's family, class, supports and price,
+//!                 searched by text, class, family and capability
+//! - `limits`    → GET /v1/ai/limits: where the plan stands, never a figure
 //! - `feedback`  → POST /v1/ai/feedback: how a routed answer went
+//!
+//! A plan refusal (402/429 with a code) is an MCP error result naming the code
+//! and the actions (`hanzo_api::refusal`).
 //!
 //! The chat / embed / consensus helpers are `pub` so the `think` tool composes
 //! its consensus/agent/embed actions over the same seam — one way to reach the
@@ -22,13 +27,17 @@ use async_trait::async_trait;
 use serde::Deserialize;
 use serde_json::{json, Value};
 
-use super::{envelope_err, envelope_ok};
+use super::{envelope_err, envelope_ok, refused};
 use crate::hanzo_api::HanzoApi;
 use crate::{MCPTool, ToolResult};
 
 /// Default single-query model: Enso's managed default, the id Hanzo Dev sends
 /// when no model is named.
 pub const DEFAULT_MODEL: &str = "enso-auto";
+/// The classes the catalog sorts models into.
+pub const CLASSES: &[&str] = &["premium", "ours", "free"];
+/// What a catalog row's `supports_*` flags name.
+pub const SUPPORTS: &[&str] = &["tools", "vision", "reasoning"];
 /// The signals `/v1/ai/feedback` takes.
 pub const SIGNALS: &[&str] = &["up", "accept", "regenerate", "down", "switch", "abandon", "revert", "rating", "dismiss"];
 /// Default aggregator/judge for consensus synthesis.
@@ -170,15 +179,51 @@ pub async fn run_consensus(
     Ok(data)
 }
 
-/// The catalog as one row per model: its family, class, outputs, context window
-/// and price per million tokens, as `/v1/models` states them and never restated
-/// here. `family` narrows to one family (enso, kai, ...).
-pub fn catalog(body: &Value, family: Option<&str>) -> Value {
+/// How `models` narrows the catalog: words that must all appear in the id,
+/// name, owner or description, a class, a family, and a capability.
+#[derive(Debug, Default)]
+pub struct Filter {
+    pub search: Option<String>,
+    pub class: Option<String>,
+    pub family: Option<String>,
+    pub capability: Option<String>,
+}
+
+fn lower(v: &Value) -> String {
+    v.as_str().map(|s| s.trim().to_lowercase()).unwrap_or_default()
+}
+
+fn norm(v: &Option<String>) -> Option<String> {
+    v.as_deref().map(|s| s.trim().to_lowercase()).filter(|s| !s.is_empty())
+}
+
+/// Whether a row has a capability: tools, vision or reasoning (its `supports_*`
+/// flag), or a modality it takes or makes (image, audio, embeddings, decision, ...).
+fn capable(m: &Value, c: &str) -> bool {
+    if SUPPORTS.contains(&c) {
+        return m[format!("supports_{c}")] == true;
+    }
+    let has = |v: &Value| v.as_array().is_some_and(|a| a.iter().any(|x| lower(x) == c));
+    has(&m["inputs"]) || has(&m["outputs"])
+}
+
+/// The catalog as one row per model: its family, class, outputs, context window,
+/// what it supports, price per million tokens as `/v1/models` states it and never
+/// restated here, and `variable` for a router SKU billed at the answering model's
+/// cost. `filter` narrows it.
+pub fn catalog(body: &Value, filter: &Filter) -> Value {
     let rows = body["data"].as_array().or_else(|| body["models"].as_array()).cloned().unwrap_or_default();
-    let family = family.map(str::to_lowercase).filter(|f| !f.is_empty());
+    let (class, family, capability) = (norm(&filter.class), norm(&filter.family), norm(&filter.capability));
+    let words: Vec<String> = norm(&filter.search).map(|s| s.split_whitespace().map(str::to_string).collect()).unwrap_or_default();
     let models: Vec<Value> = rows
         .iter()
-        .filter(|m| family.as_deref().is_none_or(|f| m["family"].as_str().map(str::to_lowercase).as_deref() == Some(f)))
+        .filter(|m| class.as_deref().is_none_or(|c| lower(&m["class"]) == c))
+        .filter(|m| family.as_deref().is_none_or(|f| lower(&m["family"]) == f))
+        .filter(|m| capability.as_deref().is_none_or(|c| capable(m, c)))
+        .filter(|m| {
+            let hay = ["id", "name", "canonical_slug", "owned_by", "description"].iter().map(|k| lower(&m[*k])).collect::<Vec<_>>().join(" ");
+            words.iter().all(|w| hay.contains(w.as_str()))
+        })
         .map(|m| {
             json!({
                 "id": m["id"],
@@ -186,12 +231,67 @@ pub fn catalog(body: &Value, family: Option<&str>) -> Value {
                 "class": m["class"],
                 "outputs": m["outputs"],
                 "context_window": m["context_window"],
+                "supports": SUPPORTS.iter().filter(|s| m[format!("supports_{s}")] == true).collect::<Vec<_>>(),
                 "input_per_million": m["pricing"]["input_per_million"],
                 "output_per_million": m["pricing"]["output_per_million"],
+                "variable": m["pricing"]["variable"] == true,
             })
         })
         .collect();
     json!({ "count": models.len(), "models": models })
+}
+
+/// Where the caller's plan stands, field by field from `/v1/ai/limits`: shares
+/// (percent), states, who pays, resets and actions. Only named fields are
+/// copied, so a figure the answer might carry can never reach the result.
+pub fn standing(d: &Value) -> Value {
+    fn share(w: &Value) -> Value {
+        if !w.is_object() {
+            return Value::Null;
+        }
+        json!({ "percent": w["percent"], "state": w["state"], "resets_at": w["resets_at"] })
+    }
+    let mut classes = serde_json::Map::new();
+    for (name, c) in d["classes"].as_object().cloned().unwrap_or_default() {
+        let mut row = share(&c);
+        row["paying"] = c["paying"].clone();
+        if c["window"].is_object() {
+            row["window"] = share(&c["window"]);
+        }
+        classes.insert(name, row);
+    }
+    let actions: Vec<Value> = d["actions"]
+        .as_array()
+        .map(|a| a.iter().map(|x| json!({ "kind": x["kind"], "label": x["label"], "url": x["url"], "plan": x["plan"], "model": x["model"] })).collect())
+        .unwrap_or_default();
+    let mut out = json!({
+        "plan": d["plan"],
+        "state": d["state"],
+        "period_start": d["period_start"],
+        "period_end": d["period_end"],
+        "classes": classes,
+        "session": share(&d["session"]),
+        "day": share(&d["day"]),
+        "actions": actions,
+        "upgrade": d["upgrade"],
+        "credits_after_allowance": d["credits_after_allowance"],
+    });
+    if d["limited"].is_object() {
+        out["limited"] = json!({ "reason": d["limited"]["reason"], "classes": d["limited"]["classes"], "message": d["limited"]["message"] });
+    }
+    if let Some(p) = d["paused"].as_array() {
+        out["paused"] = p.iter().map(|x| json!({ "model": x["model"], "fallback": x["fallback"], "resets_at": x["resets_at"] })).collect();
+    }
+    strip_nulls(out)
+}
+
+/// Drop null members, so an absent field reads absent rather than null.
+fn strip_nulls(v: Value) -> Value {
+    match v {
+        Value::Object(o) => Value::Object(o.into_iter().filter(|(_, v)| !v.is_null()).map(|(k, v)| (k, strip_nulls(v))).collect()),
+        Value::Array(a) => Value::Array(a.into_iter().map(strip_nulls).collect()),
+        other => other,
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -223,6 +323,12 @@ struct LlmArgs {
     /// Milliseconds — `X-Max-Latency-Ms`.
     max_latency_ms: Option<f64>,
     family: Option<String>,
+    /// models: words in the id, name, owner or description.
+    search: Option<String>,
+    class: Option<String>,
+    capability: Option<String>,
+    /// query: let a refused model's fallback answer (`X-Hanzo-Fallback: allow`).
+    fallback: Option<bool>,
     request_id: Option<String>,
     signal: Option<String>,
     rating: Option<f64>,
@@ -253,13 +359,13 @@ impl LlmTool {
     pub fn schema() -> Value {
         json!({
             "name": "llm",
-            "description": "Models through api.hanzo.ai. query (default): one completion; model defaults to enso-auto, and \"auto\" lets Enso, the router, pick across the models your org can serve; max_cost (USD per 1,000 tokens) and max_latency_ms bound the pick; returns {id, model, content, finish_reason, usage}, where model is the one that served and id is what feedback takes. consensus: several models and a judge. list: the defaults, offline. models: the catalog with each model's family, class and price per million input and output tokens (family filters, e.g. enso or kai). feedback: tell Enso how a routed answer went: request_id is the completion id, signal one of up, accept, regenerate, down, switch, abandon, revert, rating, dismiss, and rating 1 to 3 with signal rating.",
+            "description": "Models through api.hanzo.ai. query (default): one completion; model defaults to enso-auto, and \"auto\" lets Enso, the router, pick across the models your org can serve; max_cost (USD per 1,000 tokens) and max_latency_ms bound the pick; fallback true lets another model answer when the plan refuses the one named; returns {id, model, content, finish_reason, usage, served, paid_by, usage_state, usage_class, fallback, fallback_reason}: model is the one Enso routed to, served the SKU that answered, paid_by plan, credits or free, id is what feedback takes. consensus: several models and a judge. list: the defaults, offline. models: the catalog with each model's family, class (premium, ours, free), what it supports and price per million input and output tokens; variable true means a router billed at the answering model's cost; search (words in id, name, owner or description), class, family and capability (tools, vision, reasoning, or a modality such as image, audio, embeddings) narrow it. limits: where your plan stands: its state (ok, near, limited), each class's percent used, who pays, when it resets, paused models and their fallbacks, and the actions (upgrade, credits, topup) with their links. A refusal (402 or 429) is an error naming its code (plan_allowance_used, paid_plan_required, free_plan_cap, model_cap, usage_cap_exceeded, insufficient_balance) and its actions. feedback: tell Enso how a routed answer went: request_id is the completion id, signal one of up, accept, regenerate, down, switch, abandon, revert, rating, dismiss, and rating 1 to 3 with signal rating.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
                     "action": {
                         "type": "string",
-                        "enum": ["query", "consensus", "list", "models", "feedback"],
+                        "enum": ["query", "consensus", "list", "models", "limits", "feedback"],
                         "default": "query",
                         "description": "What to do"
                     },
@@ -268,7 +374,11 @@ impl LlmTool {
                     "messages": { "type": "array", "items": { "type": "object" }, "description": "query: the whole conversation as [{role, content}], instead of prompt" },
                     "max_cost": { "type": "number", "description": "query: the most you will pay, in USD per 1,000 tokens (X-Max-Cost)" },
                     "max_latency_ms": { "type": "number", "description": "query: the slowest model you will accept, in milliseconds (X-Max-Latency-Ms)" },
-                    "family": { "type": "string", "description": "models: only this family, e.g. enso or kai" },
+                    "fallback": { "type": "boolean", "description": "query: when the plan refuses the model, let its fallback answer instead (X-Hanzo-Fallback: allow)" },
+                    "search": { "type": "string", "description": "models: words that must all appear in the id, name, owner or description" },
+                    "class": { "type": "string", "enum": CLASSES, "description": "models: only this class" },
+                    "family": { "type": "string", "description": "models: only this family, e.g. enso, zen or kai" },
+                    "capability": { "type": "string", "description": "models: tools, vision, reasoning, or a modality taken or made (image, audio, embeddings, rerank, transcript, decision)" },
                     "request_id": { "type": "string", "description": "feedback: the completion id query returned (chatcmpl-...)" },
                     "signal": { "type": "string", "enum": SIGNALS, "description": "feedback: how the answer went" },
                     "rating": { "type": "number", "enum": [1, 2, 3], "description": "feedback: 1 to 3, with signal rating" },
@@ -293,10 +403,13 @@ impl LlmTool {
             (None, Some(p)) => build_messages(args.system.as_deref(), p),
             (None, None) => return invalid("prompt or messages required"),
         };
-        let headers = match bounds(args) {
+        let mut headers = match bounds(args) {
             Ok(h) => h,
             Err(e) => return invalid(&e),
         };
+        if args.fallback == Some(true) {
+            headers.push(("X-Hanzo-Fallback", "allow".to_string()));
+        }
         let model = args.model.clone().filter(|m| !m.is_empty()).unwrap_or_else(|| DEFAULT_MODEL.to_string());
 
         let mut body = json!({
@@ -321,17 +434,26 @@ impl LlmTool {
                     .map(|v| json!(v))
                     .or_else(|| resp.get("model").cloned())
                     .unwrap_or(json!(model));
+                // Who answered and who paid, as the gateway says on the response; a
+                // header it did not send is null (a free model sends only X-Hanzo-Served).
+                let said = |h: &str| headers.get(h).and_then(|v| v.to_str().ok()).map(|v| json!(v)).unwrap_or(Value::Null);
                 let data = json!({
                     "id": resp.get("id").cloned().unwrap_or(Value::Null),
                     "model": routed,
                     "content": extract_content(&resp),
                     "finish_reason": resp["choices"][0]["finish_reason"].clone(),
                     "usage": resp.get("usage").cloned().unwrap_or(Value::Null),
+                    "served": said("x-hanzo-served"),
+                    "paid_by": said("x-hanzo-paid-by"),
+                    "usage_state": said("x-hanzo-usage"),
+                    "usage_class": said("x-hanzo-usage-class"),
+                    "fallback": said("x-hanzo-fallback"),
+                    "fallback_reason": said("x-hanzo-usage-reason"),
                     "response": resp,
                 });
                 ToolResult::ok(envelope_ok("llm", "query", data))
             }
-            Err(e) => ToolResult::ok(envelope_err("llm", "query", "UPSTREAM", e.to_string())),
+            Err(e) => refused("llm", "query", &e).unwrap_or_else(|| ToolResult::ok(envelope_err("llm", "query", "UPSTREAM", e.to_string()))),
         })
     }
 
@@ -382,11 +504,22 @@ impl LlmTool {
     }
 
     async fn models(&self, args: &LlmArgs) -> Result<ToolResult> {
+        if let Some(c) = norm(&args.class).filter(|c| !CLASSES.contains(&c.as_str())) {
+            return Ok(ToolResult::ok(envelope_err("llm", "models", "INVALID_ARGS", format!("class must be one of {}, not {c}", CLASSES.join(", ")))));
+        }
         let body = match self.api.call(reqwest::Method::GET, "/v1/models", None, &[]).await {
             Ok(a) => a.body,
-            Err(e) => return Ok(ToolResult::ok(envelope_err("llm", "models", "UPSTREAM", e.to_string()))),
+            Err(e) => return Ok(refused("llm", "models", &e).unwrap_or_else(|| ToolResult::ok(envelope_err("llm", "models", "UPSTREAM", e.to_string())))),
         };
-        Ok(ToolResult::ok(envelope_ok("llm", "models", catalog(&body, args.family.as_deref()))))
+        let filter = Filter { search: args.search.clone(), class: args.class.clone(), family: args.family.clone(), capability: args.capability.clone() };
+        Ok(ToolResult::ok(envelope_ok("llm", "models", catalog(&body, &filter))))
+    }
+
+    async fn limits(&self) -> Result<ToolResult> {
+        Ok(match self.api.call(reqwest::Method::GET, "/v1/ai/limits", None, &[]).await {
+            Ok(a) => ToolResult::ok(envelope_ok("llm", "limits", standing(&a.body))),
+            Err(e) => refused("llm", "limits", &e).unwrap_or_else(|| ToolResult::ok(envelope_err("llm", "limits", "UPSTREAM", e.to_string()))),
+        })
     }
 
     async fn feedback(&self, args: &LlmArgs) -> Result<ToolResult> {
@@ -407,7 +540,7 @@ impl LlmTool {
         }
         Ok(match self.api.call(reqwest::Method::POST, "/v1/ai/feedback", Some(body), &[]).await {
             Ok(a) => ToolResult::ok(envelope_ok("llm", "feedback", a.body.get("data").cloned().unwrap_or(a.body))),
-            Err(e) => ToolResult::ok(envelope_err("llm", "feedback", "UPSTREAM", e.to_string())),
+            Err(e) => refused("llm", "feedback", &e).unwrap_or_else(|| ToolResult::ok(envelope_err("llm", "feedback", "UPSTREAM", e.to_string()))),
         })
     }
 }
@@ -424,7 +557,7 @@ impl MCPTool for LlmTool {
         "llm"
     }
     fn description(&self) -> &str {
-        "Models through api.hanzo.ai: query (Enso routes), consensus, list, models (with prices), feedback"
+        "Models through api.hanzo.ai: query (Enso routes; who served and who paid), consensus, list, models (search, prices), limits, feedback"
     }
     fn parameters(&self) -> Value {
         Self::schema()["inputSchema"].clone()
@@ -450,12 +583,13 @@ impl MCPTool for LlmTool {
             "query" => self.query(&args).await,
             "consensus" => self.consensus(&args).await,
             "models" => self.models(&args).await,
+            "limits" => self.limits().await,
             "feedback" => self.feedback(&args).await,
             other => Ok(ToolResult::ok(envelope_err(
                 "llm",
                 other,
                 "UNKNOWN_ACTION",
-                "unknown action; valid: query, consensus, list, models, feedback",
+                "unknown action; valid: query, consensus, list, models, limits, feedback",
             ))),
         }
     }
@@ -470,7 +604,7 @@ mod tests {
         let s = LlmTool::schema();
         assert_eq!(s["name"], "llm");
         let actions = s["inputSchema"]["properties"]["action"]["enum"].as_array().unwrap();
-        for a in ["query", "consensus", "list", "models", "feedback"] {
+        for a in ["query", "consensus", "list", "models", "limits", "feedback"] {
             assert!(actions.iter().any(|v| v == a), "missing action {}", a);
         }
     }

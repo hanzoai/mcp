@@ -10,7 +10,7 @@ use anyhow::Result;
 use async_trait::async_trait;
 use serde_json::{json, Value};
 
-use super::{envelope_err, envelope_ok};
+use super::{envelope_err, envelope_ok, refused};
 use crate::hanzo_api::HanzoApi;
 use crate::{MCPTool, ToolResult};
 
@@ -166,7 +166,7 @@ impl MCPTool for KaiDecideTool {
         Ok(match self.api.call(reqwest::Method::POST, "/v1/decisions", Some(body), &[]).await {
             Ok(a) if a.body["answers"].is_object() => ToolResult::ok(envelope_ok("kai_decide", "decide", a.body)),
             Ok(a) => ToolResult::ok(envelope_err("kai_decide", "decide", "UPSTREAM", format!("not a decision: {}", a.body))),
-            Err(e) => ToolResult::ok(envelope_err("kai_decide", "decide", "UPSTREAM", e.to_string())),
+            Err(e) => refused("kai_decide", "decide", &e).unwrap_or_else(|| ToolResult::ok(envelope_err("kai_decide", "decide", "UPSTREAM", e.to_string()))),
         })
     }
 }

@@ -126,6 +126,9 @@ impl HanzoApi {
         let headers = resp.headers().clone();
         let text = resp.text().await?;
         let parsed = serde_json::from_str::<Value>(&text).ok();
+        if let Some(r) = refusal(status, parsed.as_ref()) {
+            return Err(r.into());
+        }
         let refused = parsed.as_ref().is_some_and(|b| b["status"] == "error");
         if !(200..300).contains(&status) || refused {
             return Err(anyhow!("{}: {}", status, reason(parsed.as_ref(), &text)));
@@ -151,6 +154,86 @@ impl HanzoApi {
             None => req,
         }
     }
+}
+
+/// The codes a plan refusal carries. Clients switch on these, never on the
+/// message (hanzoai/ai `object.LimitHit`, `object.CodeInsufficientBalance`).
+pub const REFUSAL_CODES: &[&str] = &[
+    "plan_allowance_used",
+    "paid_plan_required",
+    "free_plan_cap",
+    "model_cap",
+    "usage_cap_exceeded",
+    "insufficient_balance",
+];
+
+/// A plan refusal: a 402 or 429 whose code says the plan, a cap or the balance
+/// declined the request. `error` is what a tool result carries — the status,
+/// the code, the server's own sentence (which names no figure), the class, the
+/// capped model and its fallback, the spent window, when it resets, and the
+/// actions with their links — and nothing else from the body, so no amount,
+/// count or cap reaches a result.
+#[derive(Debug)]
+pub struct Refusal {
+    pub error: Value,
+}
+
+impl std::fmt::Display for Refusal {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{} {}", self.error["status"], self.error["code"].as_str().unwrap_or_default())
+    }
+}
+
+impl std::error::Error for Refusal {}
+
+/// Read a non-2xx answer as a plan refusal, or `None` when it is any other error.
+/// The gate answers `{error: {message, code, ...}}`; a controller answers the
+/// `/v1` envelope `{status: "error", msg, code}`. Both read the same.
+pub fn refusal(status: u16, body: Option<&Value>) -> Option<Refusal> {
+    if status != 402 && status != 429 {
+        return None;
+    }
+    let body = body?;
+    let e = if body["error"].is_object() {
+        body["error"].clone()
+    } else if body["status"] == "error" {
+        json!({ "code": body["code"], "message": body["msg"] })
+    } else {
+        return None;
+    };
+    let code = e["code"].as_str().filter(|c| REFUSAL_CODES.contains(c))?.to_string();
+    let text = |v: &Value| v.as_str().filter(|s| !s.is_empty()).map(str::to_string);
+    let mut actions: Vec<Value> = e["actions"]
+        .as_array()
+        .map(|a| {
+            a.iter()
+                .filter(|x| text(&x["kind"]).is_some())
+                .map(|x| {
+                    let kept: serde_json::Map<String, Value> = ["kind", "label", "url", "plan", "model"]
+                        .iter()
+                        .filter_map(|k| text(&x[*k]).map(|v| (k.to_string(), json!(v))))
+                        .collect();
+                    Value::Object(kept)
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+    if let Some(up) = text(&e["upgrade_url"]) {
+        if !actions.iter().any(|a| a["url"] == up.as_str()) {
+            actions.insert(0, json!({ "kind": "upgrade", "url": up }));
+        }
+    }
+    let mut error = serde_json::Map::new();
+    error.insert("status".into(), json!(status));
+    error.insert("code".into(), json!(code));
+    // `limit` names the window that is spent (session or day), never its size.
+    for (from, to) in [("message", "message"), ("class", "class"), ("model", "model"), ("fallback", "fallback"), ("limit", "window"), ("resets_at", "resets_at")] {
+        if let Some(v) = text(&e[from]) {
+            error.insert(to.into(), json!(v));
+        }
+    }
+    error.insert("actions".into(), Value::Array(actions));
+    Some(Refusal { error: Value::Object(error) })
 }
 
 /// A 2xx answer: the parsed body and the response headers.
@@ -273,6 +356,47 @@ mod tests {
     #[test]
     fn default_base_url_is_wired() {
         assert_eq!(DEFAULT_BASE_URL, "https://api.hanzo.ai");
+    }
+
+    #[test]
+    fn a_plan_refusal_keeps_the_code_the_sentence_and_the_actions_only() {
+        let body = json!({ "error": {
+            "message": "Free plan: today's Kai requests are used. Upgrade for more: https://hanzo.ai/pay",
+            "type": "rate_limit_error", "code": "free_plan_cap", "class": "ours", "resets_at": "2026-10-05T00:00:00Z",
+            "upgrade_url": "https://hanzo.ai/pay/cart?plan=dev",
+            "actions": [
+                { "kind": "upgrade", "label": "Upgrade your plan", "url": "https://hanzo.ai/pay/cart?plan=dev", "plan": "dev", "price_cents": 2000 },
+                { "kind": "topup", "label": "Add prepaid credit", "url": "https://hanzo.ai/pay" }
+            ],
+            "used": 50, "cap": 50
+        } });
+        let r = refusal(429, Some(&body)).expect("a refusal");
+        assert_eq!(r.error, json!({
+            "status": 429, "code": "free_plan_cap",
+            "message": "Free plan: today's Kai requests are used. Upgrade for more: https://hanzo.ai/pay",
+            "class": "ours", "resets_at": "2026-10-05T00:00:00Z",
+            "actions": [
+                { "kind": "upgrade", "label": "Upgrade your plan", "url": "https://hanzo.ai/pay/cart?plan=dev", "plan": "dev" },
+                { "kind": "topup", "label": "Add prepaid credit", "url": "https://hanzo.ai/pay" }
+            ]
+        }));
+    }
+
+    #[test]
+    fn a_window_and_an_envelope_refusal_read_the_same_way() {
+        let w = refusal(429, Some(&json!({ "error": { "message": "m", "code": "usage_cap_exceeded", "limit": "day" } }))).unwrap();
+        assert_eq!(w.error["window"], "day");
+        let e = refusal(402, Some(&json!({ "status": "error", "msg": "Insufficient balance.", "code": "insufficient_balance" }))).unwrap();
+        assert_eq!(e.error, json!({ "status": 402, "code": "insufficient_balance", "message": "Insufficient balance.", "actions": [] }));
+    }
+
+    #[test]
+    fn other_answers_are_not_refusals() {
+        let pool = json!({ "error": { "message": "busy", "code": "pool_busy" } });
+        assert!(refusal(429, Some(&pool)).is_none());
+        let cap = json!({ "error": { "code": "free_plan_cap" } });
+        assert!(refusal(400, Some(&cap)).is_none());
+        assert!(refusal(402, None).is_none());
     }
 
     #[test]

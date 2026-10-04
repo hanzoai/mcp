@@ -78,6 +78,18 @@ pub(crate) fn envelope_err(tool: &str, action: &str, code: &str, message: impl I
     json!({ "ok": false, "data": null, "error": { "code": code, "message": message.into() }, "meta": { "tool": tool, "action": action } })
 }
 
+/// A plan refusal as an MCP error result, or `None` when `e` is another error.
+/// The text is `{"error": {...}}`, the same the TypeScript runtime answers; the
+/// content is the envelope, for callers of the registry.
+pub(crate) fn refused(tool: &str, action: &str, e: &anyhow::Error) -> Option<crate::ToolResult> {
+    let r = e.downcast_ref::<crate::hanzo_api::Refusal>()?;
+    Some(crate::ToolResult {
+        success: false,
+        content: json!({ "ok": false, "data": null, "error": r.error, "meta": { "tool": tool, "action": action } }),
+        error: Some(serde_json::to_string_pretty(&json!({ "error": r.error })).unwrap_or_default()),
+    })
+}
+
 /// Tool category for organization
 #[derive(Debug, Clone, PartialEq)]
 pub enum ToolCategory {

@@ -70,8 +70,10 @@ three, like `tracker_*`, are TypeScript only, and Python `hanzo-mcp` carries non
 
 ## `llm` — models, limits, who paid
 
-`llm` (`src/tools/llm.ts`) is the AI plane by action over `api.hanzo.ai`, with
-the same bearer as `kai_*`:
+`llm` (`src/tools/llm.ts`, Rust `rust/src/tools/llm_tool.rs`) is the AI plane
+by action over `api.hanzo.ai`, with the same bearer as `kai_*`. Both runtimes
+answer the four actions below the same way; Rust also keeps `consensus` and
+`list`, which TypeScript serves from `think`:
 
 | action | route | answers |
 |---|---|---|
@@ -100,7 +102,8 @@ way in to `/v1/decisions`.
 resets_at, actions), so an amount, count or cap in an answer never reaches a
 result. `PUT /v1/ai/limits` is not offered here.
 
-**Refusals** (`src/tools/refusal.ts`, shared by `llm` and `kai_*`): a 402 or 429
+**Refusals** (`src/tools/refusal.ts`, Rust `hanzo_api::refusal`; shared by `llm`
+and `kai_*`): a 402 or 429
 whose code is `plan_allowance_used`, `paid_plan_required`, `free_plan_cap`,
 `model_cap`, `usage_cap_exceeded` or `insufficient_balance` is the error result
 `{"error": {status, code, message, class?, model?, fallback?, window?,
@@ -109,7 +112,7 @@ resets_at?, actions}}`. Clients switch on the code (hanzoai/ai
 figure. Actions keep kind, label, url, plan and model. `limit`, the name of the
 spent window, is passed on as `window`. The gate's `{error: {...}}` and a
 controller's `{status: "error", msg, code}` read the same. Any other non-2xx
-stays `<status>: <sentence>`.
+stays `<status>: <sentence>` (in Rust, the `UPSTREAM` envelope).
 
 ## `research` — one door, one mode
 
