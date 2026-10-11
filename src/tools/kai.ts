@@ -209,4 +209,52 @@ export const kaiNoulTool: Tool = {
   handler: async (args) => one('noul', args),
 };
 
+export const kaiAgentStepTool: Tool = {
+  name: 'kai_agent_step',
+  description: "Evaluate next bounded agent decision along a task trajectory: NEXT, RECOVER, STOP, CLARIFY. Selects tools, binds verified argument byte spans, and checks completion in a single fast forward pass (<5ms).",
+  inputSchema: {
+    type: 'object',
+    properties: {
+      goal: { type: 'string', description: 'The overall goal or task objective' },
+      trajectory: {
+        type: 'array',
+        description: 'Past steps taken: [{step_index, action, tool_name, arguments, observation, is_error}]',
+        items: { type: 'object' }
+      },
+      available_tools: {
+        type: 'array',
+        description: 'Candidate tool specifications: [{name, description, parameters}]',
+        items: { type: 'object' }
+      }
+    },
+    required: ['goal', 'available_tools']
+  },
+  handler: async (args) => {
+    try {
+      const t = token();
+      const r = await fetch(`${apiBase()}/v1/agent/step`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          ...(t ? { 'Authorization': `Bearer ${t}` } : {})
+        },
+        body: JSON.stringify({
+          goal: args.goal,
+          trajectory: args.trajectory || [],
+          available_tools: args.available_tools || []
+        })
+      });
+      if (!r.ok) {
+        const txt = await r.text().catch(() => '');
+        throw new Error(`${r.status}: ${reason(txt) || r.statusText}`);
+      }
+      return ok(await r.json());
+    } catch (e: any) {
+      return fail(e.message);
+    }
+  }
+};
+
 export const kaiTools: Tool[] = [kaiDecideTool, kaiChoiceTool, kaiScoreTool, kaiNoulTool];
+export const kaiAgentTools: Tool[] = [kaiAgentStepTool];
