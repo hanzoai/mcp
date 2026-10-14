@@ -24,8 +24,9 @@
 //! [`Mark::Reference`]. That is textual: it finds the lines that spell the name, and it can
 //! call a comment a reference.
 //!
-//! Hits are ranked by file, best first, then path, then line, so the same query always
-//! gives the same list and a page of it is an offset into that list. A text file's score is
+//! Hits are ranked by file, best first, then path, then (within a file) definitions before
+//! uses, then line, so the same query always gives the same list and a page of it is an
+//! offset into that list. A text file's score is
 //! its count of matching lines; a symbol file's is its definitions times 2^32 plus its
 //! references, so every file that defines the name precedes every file that only uses it.
 //!
@@ -264,7 +265,9 @@ fn scan(plan: &Plan, scope: &Path, documents: bool) -> Vec<Hit> {
         .collect()
 }
 
-/// Orders hits by file score, then path, then place, then line, after scoring each file.
+/// Orders hits by file score, then path, then definitions before uses, then place, then line,
+/// after scoring each file. A file that defines a name leads with its definitions, so a limit
+/// cannot cut them off behind the file's comments.
 fn rank(hits: &mut [Hit]) {
     let mut scores: BTreeMap<(PathBuf, Option<String>), u64> = BTreeMap::new();
     for hit in hits.iter() {
@@ -287,6 +290,7 @@ fn rank(hits: &mut [Hit]) {
             .cmp(&a.score)
             .then_with(|| a.path.cmp(&b.path))
             .then_with(|| a.entry.cmp(&b.entry))
+            .then_with(|| (a.mark != Mark::Definition).cmp(&(b.mark != Mark::Definition)))
             .then_with(|| a.place.cmp(&b.place))
             .then_with(|| a.line.cmp(&b.line))
     });

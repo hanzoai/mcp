@@ -124,6 +124,19 @@ fn a_symbol_ranks_its_definitions_before_its_uses() {
 }
 
 #[test]
+fn inside_a_file_definitions_lead_so_a_limit_cannot_cut_them() {
+    let comments = "// Parser notes\n".repeat(30);
+    let dir = tree(&[("lib.rs", &format!("{comments}pub fn Parser() {{}}\nParser();\n"))]);
+    let mut query = Query::symbol(dir.path(), "Parser");
+    query.limit = Some(3);
+    let hits = search(&query).unwrap();
+    assert_eq!(hits.len(), 3);
+    assert_eq!((hits[0].mark, hits[0].line), (Mark::Definition, 31));
+    assert!(hits[1..].iter().all(|h| h.mark == Mark::Reference));
+    assert_eq!((hits[1].line, hits[2].line), (1, 2), "uses follow in line order");
+}
+
+#[test]
 fn declarations_are_recognised_across_languages() {
     let dir = tree(&[(
         "defs.txt",

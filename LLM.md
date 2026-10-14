@@ -79,7 +79,7 @@ hop), Claude Code and Codex call the same code over MCP.
 `.gitignore`, hidden files and binary extensions are skipped as `rg` skips them; a file past 16 MiB is not read.
 
 - Hits are ranked by file (matching lines; for a symbol, definitions x 2^32 + references, so a defining file precedes
-  every using file), then path, then line. A page is an offset into that one list, so `cursor` really pages. (Before,
+  every using file), then path, then (inside a file) definitions before uses, then line. A page is an offset into that one list, so `cursor` really pages. (Before,
   `rg` stopped at `limit` and a cursor repeated page one.)
 - A symbol is an identifier on word boundaries; a hit is `definition` when the line reads like a declaration of it
   (`fn x`, `def x`, `class x`, `const x`, `func (r) x`, `x = function`, `#define x`), else `reference`. This is textual:
