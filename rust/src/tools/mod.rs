@@ -11,6 +11,7 @@ pub mod personality;
 pub mod mode_tool;
 pub mod computer_tool;
 pub mod exec_tool;
+pub mod verdict;
 pub mod fs_tool;
 pub mod plan_tool;
 pub mod think_tool;
@@ -40,6 +41,7 @@ pub mod system_tool;
 // Re-export tools — HIP-0300 canonical names
 pub use fs_tool::{FsTool, FsToolArgs, FsToolDefinition};
 pub use exec_tool::{ExecTool, ExecToolArgs, ExecToolDefinition};
+pub use verdict::{Classify, Risk, Verdict};
 pub use code_tool::{CodeTool, CodeToolArgs, CodeToolDefinition};
 pub use git_tool::{GitTool, GitToolArgs, GitToolDefinition};
 pub use fetch_tool::{FetchTool, FetchToolArgs, FetchToolDefinition};

@@ -134,6 +134,14 @@ impl ToolRegistry {
         }
     }
 
+    /// The registry with `classifier` asked about every `exec` command before it runs. This is
+    /// where the shell classifier plugs in for the MCP server; Dev builds its own `ExecTool`
+    /// with the same classifier.
+    pub fn with_classifier(mut self, classifier: Arc<dyn tools::Classify>) -> Self {
+        self.exec = Arc::new(RwLock::new(ExecTool::with_classifier(classifier)));
+        self
+    }
+
     pub fn register(&mut self, tool: Box<dyn MCPTool>) {
         self.tools.insert(tool.name().to_string(), tool);
     }

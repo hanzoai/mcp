@@ -19,6 +19,8 @@ use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::Command;
 use tokio::sync::RwLock;
 
+use super::verdict::{refusal, Classify, Verdict};
+
 /// Auto-background timeout in seconds
 const AUTO_BACKGROUND_TIMEOUT: u64 = 45;
 
@@ -143,6 +145,7 @@ pub struct ExecToolArgs {
 pub struct ExecTool {
     manager: Arc<ProcessManager>,
     shell: String,
+    classifier: Option<Arc<dyn Classify>>,
 }
 
 impl ExecTool {
@@ -150,7 +153,20 @@ impl ExecTool {
         Self {
             manager: Arc::new(ProcessManager::new()),
             shell: Self::resolve_shell(),
+            classifier: None,
         }
+    }
+
+    /// An `exec` that asks `classifier` about every command before it runs: a `deny` is
+    /// refused, and every answer carries the verdict.
+    pub fn with_classifier(classifier: Arc<dyn Classify>) -> Self {
+        Self { classifier: Some(classifier), ..Self::new() }
+    }
+
+    /// The installed classifier's verdict on `command` as it would run in `cwd`, or `None`
+    /// when no classifier is installed. This is the call Dev makes; `exec` makes the same one.
+    pub fn verdict(&self, command: &str, cwd: Option<&std::path::Path>) -> Option<Verdict> {
+        self.classifier.as_ref().map(|c| c.classify(command, cwd))
     }
 
     fn resolve_shell() -> String {
@@ -215,6 +231,13 @@ impl ExecTool {
         let timeout = args.timeout.unwrap_or(AUTO_BACKGROUND_TIMEOUT);
         let shell = args.shell.unwrap_or_else(|| self.shell.clone());
 
+        // Before anything is spawned or registered: a refused command leaves no process.
+        let verdict = self.verdict(&cmd_str, cwd.as_deref().map(std::path::Path::new));
+        if let Some(why) = verdict.as_ref().and_then(refusal) {
+            return Err(anyhow!(why));
+        }
+        let verdict = verdict.map(|v| v.json());
+
         let proc_id = self.manager.next_id().await;
         let started = chrono::Utc::now().to_rfc3339();
 
@@ -277,23 +300,27 @@ impl ExecTool {
             // The caller has the output inline; only a backgrounded run keeps a log.
             let _ = std::fs::remove_file(&log);
         }
-        match answer {
-            Ok(Ok((exit_code, stdout, stderr))) => Ok(json!({
+        let mut result = match answer {
+            Ok(Ok((exit_code, stdout, stderr))) => json!({
                 "proc_id": proc_id,
                 "exit_code": exit_code,
                 "stdout": String::from_utf8_lossy(&stdout),
                 "stderr": String::from_utf8_lossy(&stderr),
                 "duration_ms": start.elapsed().as_millis() as u64,
                 "status": if exit_code == 0 { "success" } else { "failed" }
-            })),
-            Ok(Err(_)) => Err(anyhow!("Process failed: {proc_id}")),
-            Err(_) => Ok(json!({
+            }),
+            Ok(Err(_)) => return Err(anyhow!("Process failed: {proc_id}")),
+            Err(_) => json!({
                 "proc_id": proc_id,
                 "exit_code": null,
                 "status": "running",
                 "message": format!("Command backgrounded after {timeout}s. exec(action='logs', proc_id='{proc_id}') reads its output; wait and kill take the same proc_id.")
-            })),
+            }),
+        };
+        if let Some(verdict) = verdict {
+            result["verdict"] = verdict;
         }
+        Ok(result)
     }
 
     async fn wait(&self, args: ExecToolArgs) -> Result<Value> {
