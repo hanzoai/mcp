@@ -68,6 +68,58 @@ Tools that run a whole decision program arrive with Kai's joint decoder.
 The Rust runtime carries `kai_decide` (`rust/src/tools/kai_tool.rs`); the other
 three, like `tracker_*`, are TypeScript only, and Python `hanzo-mcp` carries none.
 
+## Native search, the exec verdict, and a lean surface (Rust)
+
+Dev, Claude Code and Codex reach one implementation of each, in `rust/`: Dev links it as a library (a call, no MCP
+hop), Claude Code and Codex call the same code over MCP.
+
+**Search** is `rust/trigram` (crate `hanzo-trigram`, re-exported as `hanzo_mcp::trigram`), the engine behind
+`fs search_text` and `code search_symbol`. It is `tgrep-core` (the hanzoai fork of Microsoft's tgrep, MIT,
+`~/work/hanzoai/tgrep`) linked in process and pinned by exact commit, with its `docs` feature. No `rg` is spawned.
+`.gitignore`, hidden files and binary extensions are skipped as `rg` skips them; a file past 16 MiB is not read.
+
+- Hits are ranked by file (matching lines; for a symbol, definitions x 2^32 + references, so a defining file precedes
+  every using file), then path, then line. A page is an offset into that one list, so `cursor` really pages. (Before,
+  `rg` stopped at `limit` and a cursor repeated page one.)
+- A symbol is an identifier on word boundaries; a hit is `definition` when the line reads like a declaration of it
+  (`fn x`, `def x`, `class x`, `const x`, `func (r) x`, `x = function`, `#define x`), else `reference`. This is textual:
+  it can call a comment a reference. `code search_symbol` reads code files unless `pattern` names others.
+- A glob that names a document type (`*.pdf`, `*.docx`, `*.xlsx`, `*.zip`, `*.tar.gz`) makes `search_text` read
+  documents under the tree; a document named as `uri` is always read. A hit inside one adds `entry` (archive members,
+  joined by `!`) and `place` (`page 2`, `slide 3`, `para 5`, `sheet Data!B4`), and its `line` counts from the start of
+  that part. Plain hits carry neither key.
+- Names, schemas and answer shapes of `fs` and `code` are unchanged.
+- Dev: `hanzo_trigram::search(&Query::symbol(root, "Parser"))`. A dependency on it brings `libsqlite3-sys` (tgrep's
+  managed-index code), so a crate that links another SQLite patches `rusqlite` as `hanzoai/dev` does
+  (`[patch."https://github.com/rusqlite/rusqlite.git"] rusqlite = "=0.39.0"`). In this crate it forces `cc` past what
+  the tree-sitter grammars allow, so Cargo holds `tree-sitter-{c,cpp,javascript,python,rust,typescript}` at their
+  previous patch releases. Gating `managed/` behind a feature in the fork removes both.
+
+**`exec` and the classifier.** `exec` asks a `Classify` (`rust/src/tools/verdict.rs`: command and cwd in, a `Verdict`
+of `allow | ask | deny` with reasons out) before it runs a command. The classifier is the shell parser and classifier
+module; this crate holds only the contract and the wiring (`ExecTool::with_classifier`,
+`ToolRegistry::with_classifier`). A `deny` is refused before a process exists; an `ask` runs, because an MCP server
+cannot ask the person and the client's own permission prompt already stood between the model and the call; every answer
+carries `verdict`. `refusal()` is the one place that policy lives. Dev asks the same classifier without running anything
+through `ExecTool::verdict`. With none installed `exec` is unchanged. `verdict` is an output field: the input schema is
+the same as the TypeScript runtime's.
+
+**The surface a client is charged for.** Every schema in `tools/list` is paid for each turn. The whole Rust list is 34
+tools and 38 KB (about 9.5K tokens); `--tools fs,code,exec` lists and serves only those, 4.6 KB (about 1.1K tokens).
+A name the server does not carry fails at startup; a call outside the list answers `Unknown tool`. The list is in one
+order on every start (built-ins in fixed order, registered tools by name; it was `HashMap` order, different in every
+process, which no prompt cache survives). `rust/tests/test_tool_surface.rs` holds the order and keeps fs, code, exec and
+kai_decide under 16 KB.
+
+**Turning it on.**
+
+    cargo build --release --locked --manifest-path rust/Cargo.toml --bin hanzo-mcp   # or the release artifact
+    claude mcp add hanzo -- hanzo __mcp -- hanzo-mcp --tools fs,code,exec
+    codex mcp add hanzo -- hanzo __mcp -- hanzo-mcp --tools fs,code,exec
+
+`hanzo __mcp -- <server> [args]` is the launcher that answers the handshake at once; `hanzo-mcp --tools ...` alone works
+the same without it. Dev links the crate instead: `hanzo-trigram` for search, `hanzo-mcp` for `ExecTool`.
+
 ## `llm` — models, limits, who paid
 
 `llm` (`src/tools/llm.ts`, Rust `rust/src/tools/llm_tool.rs`) is the AI plane
@@ -334,7 +386,7 @@ from code, one row per registered Python tool: **72 tools**. TypeScript: 17 yes,
 | sql_query, sql_search, sql_stats, graph_add/remove/query/search/stats (database) † | missing | missing |
 | devserver (devserver) | missing | missing |
 | neovim_edit, neovim_command, neovim_session (editor) † | missing | missing |
-| fs (fs) | yes `src/tools/unified/fs.ts` | yes `rust/src/tools/fs_tool.rs` |
+| fs (fs) | yes `src/tools/unified/fs.ts` | yes `rust/src/tools/fs_tool.rs` (search_text on `rust/trigram`: ranked, paged, documents) |
 | gimp (gimp) † | yes `src/tools/gimp.ts` | missing |
 | ide (ide) † | missing | missing |
 | jupyter (jupyter) † | missing | missing |
