@@ -1,0 +1,31 @@
+[package]
+name = "hanzo-shell"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.88"
+license = "MIT"
+repository = "https://github.com/hanzoai/mcp"
+description = "Reads a shell command as a shell does and says allow, ask or deny: the classifier behind hanzo-mcp's exec, in pure Rust, with a wasm build."
+
+[lib]
+crate-type = ["rlib", "cdylib"]
+
+[dependencies]
+# bash grammar (MIT). A pure-Rust PEG parser and word expander; the parse is the AST this
+# crate walks, so no regex or word list decides what a command is.
+brush-parser = "=0.4.0"
+# Python 3 grammar (MIT), pure Rust, no build step. Fails closed on syntax newer than its
+# grammar (PEP 701 f-strings, 3.14), which is read as "cannot be read".
+rustpython-parser = "=0.4.0"
+rustpython-ast = { version = "=0.4.0", features = ["visitor"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+wasm-bindgen = { version = "=0.2.127", optional = true }
+
+[features]
+default = []
+# The wasm-bindgen surface: `classify(command, options_json) -> verdict_json`.
+wasm = ["dep:wasm-bindgen"]
+
+[dev-dependencies]
+tempfile = "3"

@@ -126,11 +126,21 @@ impl GitToolDefinition {
 
 pub struct GitTool {
     cwd: String,
+    classifier: Option<std::sync::Arc<dyn super::verdict::Classify>>,
 }
 
 impl GitTool {
+    /// A git tool whose every git command is read by `classifier` first. A `deny` is refused,
+    /// and so is an `ask` that makes git run a program (`core.fsmonitor`, a hook path, an alias):
+    /// the tool has no way to ask the person, and a push is its own action.
+    pub fn classified(mut self, classifier: std::sync::Arc<dyn super::verdict::Classify>) -> Self {
+        self.classifier = Some(classifier);
+        self
+    }
+
     pub fn new() -> Self {
         Self {
+            classifier: None,
             cwd: std::env::current_dir()
                 .map(|p| p.to_string_lossy().to_string())
                 .unwrap_or_else(|_| ".".to_string()),
@@ -176,7 +186,17 @@ impl GitTool {
     }
 
     async fn git(&self, cwd: &str, args: &[&str]) -> Result<String> {
+        if let Some(c) = &self.classifier {
+            let line = std::iter::once("git".to_string()).chain(args.iter().map(|a| shell_escape::escape((*a).into()).to_string())).collect::<Vec<_>>().join(" ");
+            let v = c.classify(&line, Some(std::path::Path::new(cwd)));
+            let runs_code = v.reasons.iter().any(|r| r.starts_with("code:") || r.starts_with("unparsed:"));
+            if v.risk == super::verdict::Risk::Deny || (v.risk == super::verdict::Risk::Ask && runs_code) {
+                return Err(anyhow!("refused: {}", v.reasons.join("; ")));
+            }
+        }
+        // A monitor named in the repository's configuration is a program git would run: off.
         let output = Command::new("git")
+            .args(["-c", "core.fsmonitor=false"])
             .args(args)
             .current_dir(cwd)
             .output()

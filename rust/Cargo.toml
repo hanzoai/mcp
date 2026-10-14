@@ -1,5 +1,5 @@
 [workspace]
-members = ["trigram"]
+members = ["trigram", "shell"]
 
 [package]
 name = "hanzo-mcp"
@@ -60,6 +60,8 @@ zapd = "1.1.5"
 # The in-process text, symbol and document search over tgrep-core; light enough for
 # Dev to link on its own, re-exported here as `hanzo_mcp::trigram`.
 hanzo-trigram = { path = "trigram", version = "0.1.0" }
+# The shell command classifier behind exec's allow / ask / deny: pure Rust, also built for wasm.
+hanzo-shell = { path = "shell", version = "0.1.0" }
 tree-sitter = "0.20"
 tree-sitter-rust = "0.20"
 tree-sitter-javascript = "0.20"

@@ -369,8 +369,14 @@ impl ToolRegistry {
         definitions
     }
 
-    /// Initialize with all default tools
+    /// Initialize with all default tools, and the shell classifier behind `exec`.
     pub fn with_defaults() -> Self {
+        Self::with_shell(Arc::new(tools::Shell::new()))
+    }
+
+    /// The default tools with `shell` as the classifier behind `exec` and `git`; the server keeps
+    /// a handle to add the roots it was given.
+    pub fn with_shell(shell: Arc<tools::Shell>) -> Self {
         let mut registry = Self::new();
 
         // Cloud-backed tools (api.hanzo.ai) via the generic MCPTool seam.
@@ -410,7 +416,8 @@ impl ToolRegistry {
             // Vector store integration
         }
 
-        registry
+        registry.git = Arc::new(RwLock::new(GitTool::new().classified(shell.clone())));
+        registry.with_classifier(shell)
     }
 }
 

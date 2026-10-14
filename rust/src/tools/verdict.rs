@@ -52,22 +52,44 @@ impl Verdict {
 /// Classifies a shell command. `cwd` is where it would run.
 pub trait Classify: Send + Sync {
     fn classify(&self, command: &str, cwd: Option<&Path>) -> Verdict;
+
+    /// What the environment handed to a command changes about what it runs. The environment is
+    /// part of the command: `BASH_ENV` runs a script under any verdict on the command's text.
+    /// A classifier that does not read it allows it.
+    fn classify_env(&self, _env: &std::collections::HashMap<String, String>) -> Verdict {
+        Verdict::allow()
+    }
+}
+
+impl Verdict {
+    /// The stricter of two verdicts, with both sets of reasons.
+    pub fn merge(mut self, other: Verdict) -> Verdict {
+        self.risk = self.risk.max(other.risk);
+        self.reasons.extend(other.reasons);
+        self
+    }
 }
 
 /// What `exec` does with a verdict. One place decides it, so changing the policy changes it
 /// for every caller.
 ///
-/// An MCP server has no way to ask the person: the client's own permission prompt already
-/// stood between the model and this call. So `Ask` runs and is reported in the answer, for the
-/// client and the model to see; `Deny` is the only verdict the server enforces.
-pub fn refusal(verdict: &Verdict) -> Option<String> {
-    (verdict.risk == Risk::Deny).then(|| {
-        if verdict.reasons.is_empty() {
-            "refused: the command is classified deny".to_string()
-        } else {
-            format!("refused: {}", verdict.reasons.join("; "))
-        }
-    })
+/// An MCP server cannot ask the person; the client can. So `Deny` is always refused, and an
+/// `Ask` is refused until the call carries `approve: true`, which the client's own permission
+/// prompt shows beside the command when it asks the person. That flag is a request the model
+/// makes, not a credential: it moves the decision to the client's prompt and nowhere else, and
+/// it never lifts a `Deny`.
+pub fn refusal(verdict: &Verdict, approved: bool) -> Option<String> {
+    let why = || verdict.reasons.join("; ");
+    match verdict.risk {
+        Risk::Allow => None,
+        Risk::Deny if verdict.reasons.is_empty() => Some("refused: the command is classified deny".to_string()),
+        Risk::Deny => Some(format!("refused: {}", why())),
+        Risk::Ask if approved => None,
+        Risk::Ask => Some(format!(
+            "approval required: {}. This server cannot ask the person; if they approve, run the call again with approve: true",
+            if verdict.reasons.is_empty() { "the command is classified ask".to_string() } else { why() }
+        )),
+    }
 }
 
 #[cfg(test)]
@@ -81,18 +103,25 @@ mod tests {
     }
 
     #[test]
-    fn only_deny_refuses_and_it_says_why() {
-        assert_eq!(refusal(&Verdict::allow()), None);
-        assert_eq!(refusal(&Verdict::new(Risk::Ask, ["pushes to a remote"])), None);
-        assert_eq!(
-            refusal(&Verdict::new(Risk::Deny, ["rm -rf /", "targets the root"])).as_deref(),
-            Some("refused: rm -rf /; targets the root")
-        );
-        assert_eq!(refusal(&Verdict::new(Risk::Deny, Vec::<String>::new())).as_deref(), Some("refused: the command is classified deny"));
+    fn a_deny_is_refused_whatever_is_approved_and_an_ask_until_it_is() {
+        assert_eq!(refusal(&Verdict::allow(), false), None);
+        assert_eq!(refusal(&Verdict::new(Risk::Ask, ["pushes to a remote"]), true), None);
+        let ask = refusal(&Verdict::new(Risk::Ask, ["pushes to a remote"]), false).unwrap();
+        assert!(ask.starts_with("approval required: pushes to a remote") && ask.contains("approve: true"), "{ask}");
+        for approved in [false, true] {
+            assert_eq!(refusal(&Verdict::new(Risk::Deny, ["rm -rf /", "targets the root"]), approved).as_deref(), Some("refused: rm -rf /; targets the root"));
+            assert_eq!(refusal(&Verdict::new(Risk::Deny, Vec::<String>::new()), approved).as_deref(), Some("refused: the command is classified deny"));
+        }
     }
 
     #[test]
     fn a_verdict_serializes_as_it_is_reported() {
         assert_eq!(Verdict::new(Risk::Ask, ["x"]).json(), json!({"risk": "ask", "reasons": ["x"]}));
+    }
+
+    #[test]
+    fn merging_keeps_the_stricter_and_every_reason() {
+        let m = Verdict::new(Risk::Ask, ["a"]).merge(Verdict::new(Risk::Deny, ["b"]));
+        assert_eq!((m.risk, m.reasons), (Risk::Deny, vec!["a".to_string(), "b".to_string()]));
     }
 }

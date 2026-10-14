@@ -139,6 +139,9 @@ pub struct ExecToolArgs {
     pub tail: Option<usize>,
     /// Filter for ps
     pub filter: Option<String>,
+    /// The person approved a command the classifier asks about. The client's own permission
+    /// prompt shows this flag beside the command; it never lifts a `deny`.
+    pub approve: Option<bool>,
 }
 
 /// Shell execution tool
@@ -229,14 +232,37 @@ impl ExecTool {
 
         let cwd = args.workdir.or(args.cwd);
         let timeout = args.timeout.unwrap_or(AUTO_BACKGROUND_TIMEOUT);
+        let shell_override = args.shell.clone();
         let shell = args.shell.unwrap_or_else(|| self.shell.clone());
 
-        // Before anything is spawned or registered: a refused command leaves no process.
-        let verdict = self.verdict(&cmd_str, cwd.as_deref().map(std::path::Path::new));
-        if let Some(why) = verdict.as_ref().and_then(refusal) {
+        // Before anything is spawned or registered: a refused command leaves no process. The
+        // interpreter and the environment are part of the command: the classifier reads shell, so
+        // only a shell may run it, and what the environment loads is read beside the text.
+        let approved = args.approve.unwrap_or(false);
+        let mut verdict = self.verdict(&cmd_str, cwd.as_deref().map(std::path::Path::new));
+        if let (Some(v), Some(c)) = (verdict.take(), self.classifier.as_ref()) {
+            let mut v = v;
+            if let Some(over) = shell_override.as_deref() {
+                let base = std::path::Path::new(over).file_name().and_then(|n| n.to_str()).unwrap_or(over);
+                if !matches!(base, "sh" | "bash" | "dash" | "zsh" | "ksh" | "ash") {
+                    v = v.merge(Verdict::new(super::verdict::Risk::Deny, [format!("shell {base:?} is not one this server reads: only sh, bash, dash, zsh, ksh and ash run a classified command")]));
+                }
+            }
+            if let Some(env) = args.env.as_ref() {
+                v = v.merge(c.classify_env(env));
+            }
+            verdict = Some(v);
+        }
+        if let Some(why) = verdict.as_ref().and_then(|v| refusal(v, approved)) {
             return Err(anyhow!(why));
         }
-        let verdict = verdict.map(|v| v.json());
+        let verdict = verdict.map(|v| {
+            let mut j = v.json();
+            if v.risk == super::verdict::Risk::Ask {
+                j["approved"] = json!(true);
+            }
+            j
+        });
 
         let proc_id = self.manager.next_id().await;
         let started = chrono::Utc::now().to_rfc3339();
@@ -602,7 +628,8 @@ Auto-backgrounds commands after {}s."#,
                     "timeout_ms": {"type": "integer", "description": "Wait timeout in milliseconds"},
                     "signal": {"type": "string", "description": "Kill signal"},
                     "tail": {"type": "integer", "description": "Number of log lines"},
-                    "filter": {"type": "string", "description": "Filter for ps"}
+                    "filter": {"type": "string", "description": "Filter for ps"},
+                    "approve": {"type": "boolean", "description": "Run a command the server classified `ask` (it reaches past the workspace, or cannot be read). Set it only after the person has approved this exact command; it never lifts a refusal."}
                 }
             }),
         }
