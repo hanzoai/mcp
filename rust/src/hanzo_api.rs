@@ -53,6 +53,11 @@ impl HanzoApi {
         }
     }
 
+    /// The resolved key, if any.
+    pub fn key(&self) -> Option<&str> {
+        self.api_key.as_deref().filter(|k| !k.is_empty())
+    }
+
     /// Whether an API key was resolved. Tools surface a clear error when false.
     pub fn has_key(&self) -> bool {
         self.api_key.as_deref().map_or(false, |k| !k.is_empty())

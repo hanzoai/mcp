@@ -395,6 +395,7 @@ impl ToolRegistry {
         // Kai, the decision model: typed questions at /v1/decisions, the same
         // kai_decide the TypeScript runtime offers.
         registry.register(Box::new(tools::KaiDecideTool::new()));
+        registry.register(Box::new(tools::ActionsTool::new()));
         registry.register(Box::new(tools::UiTool::new()));
         registry.register(Box::new(tools::AgentTool::new()));
         registry.register(Box::new(tools::LspTool::new()));

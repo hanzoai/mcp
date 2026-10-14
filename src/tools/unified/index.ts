@@ -28,6 +28,7 @@ import { codeIntelTools } from '../code-intel.js';
 import { trackerTools } from '../tracker.js';
 // Decisions — Kai on Hanzo /v1/decisions (choice, score, noul)
 import { kaiTools, kaiAgentTools } from '../kai.js';
+import { kaiActionTools } from '../kai-action.js';
 // The user's browser through the Hanzo extension, over the ZAP router
 import { browserTool, cdpTool } from '../browser.js';
 // Package runners and JSON, as python-sdk's shell tools
@@ -80,6 +81,7 @@ export const allUnifiedTools: Tool[] = [
   ...codeIntelTools,   // code_search, code_context, code_ask, code_index
   ...trackerTools,     // tracker_boards, tracker_issues, tracker_create, tracker_update
   ...kaiTools,         // kai_decide, kai_choice, kai_score, kai_noul
+  ...kaiActionTools,   // kai: Kai Actions (run, plan, list, triggers); the executor is the Rust runtime's
   ...kaiAgentTools,    // kai_agent_step
 ];
 

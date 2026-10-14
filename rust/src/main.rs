@@ -69,6 +69,13 @@ enum Cmd {
         #[clap(long)]
         reset: bool,
     },
+    /// Run a request as a Kai action (`kai run --cwd DIR --request TEXT`), or list the catalog
+    /// (`kai list`), or show which actions a request fires (`kai triggers --request TEXT`).
+    /// The report is JSON on stdout; the exit status is 0 done, 2 declined, 3 failed.
+    Kai {
+        #[clap(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
 }
 
 #[tokio::main]
@@ -82,6 +89,10 @@ async fn main() -> Result<()> {
         let built = hanzo_mcp::trigram::index::build(dir)?;
         println!("indexed {} files under {}", built.files, built.root.display());
         return Ok(());
+    }
+    if let Some(Cmd::Kai { args }) = args.command {
+        let code = tokio::task::spawn_blocking(move || hanzo_mcp::actions::cli::main(&args)).await?;
+        std::process::exit(code);
     }
     if let Some(Cmd::Pair { reset }) = args.command {
         let p = if reset { zapd::pair::reset()? } else { zapd::pair::load()? };
