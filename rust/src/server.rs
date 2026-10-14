@@ -193,6 +193,11 @@ impl MCPServer {
         Ok(())
     }
     
+    /// Serve only `names` (see [`ToolRegistry::restrict`]).
+    pub async fn only(&self, names: &[String]) -> Result<()> {
+        self.tools.write().await.restrict(names)
+    }
+
     pub async fn add_tool(&self, tool: Box<dyn crate::MCPTool>) {
         let mut tools = self.tools.write().await;
         tools.register(tool);

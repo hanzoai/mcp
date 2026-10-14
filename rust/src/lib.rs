@@ -40,7 +40,7 @@ pub use tools::{
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap};
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
@@ -97,6 +97,8 @@ pub struct ToolWrapper<T> {
 /// Tool registry for managing all available tools
 pub struct ToolRegistry {
     tools: HashMap<String, Box<dyn MCPTool>>,
+    /// When set, the only tools listed and callable (`--tools`).
+    allow: Option<BTreeSet<String>>,
     exec: Arc<RwLock<ExecTool>>,
     fs: Arc<RwLock<FsTool>>,
     code: Arc<RwLock<CodeTool>>,
@@ -117,6 +119,7 @@ impl ToolRegistry {
     pub fn new() -> Self {
         Self {
             tools: HashMap::new(),
+            allow: None,
             exec: Arc::new(RwLock::new(ExecTool::new())),
             fs: Arc::new(RwLock::new(FsTool::new())),
             code: Arc::new(RwLock::new(CodeTool::new())),
@@ -162,11 +165,46 @@ impl ToolRegistry {
         ]);
         names.sort();
         names.dedup();
+        names.retain(|n| self.allowed(n));
         names
+    }
+
+    fn allowed(&self, name: &str) -> bool {
+        self.allow.as_ref().map_or(true, |allow| allow.contains(name))
+    }
+
+    /// Serves only `names`: `tools/list` shows them and nothing else answers. A client pays
+    /// for every schema it is shown on every turn, so a caller that wants three tools should
+    /// be shown three. A name this registry does not carry is an error, not an empty list.
+    pub fn restrict<I, S>(&mut self, names: I) -> Result<()>
+    where
+        I: IntoIterator<Item = S>,
+        S: AsRef<str>,
+    {
+        let known = self.list();
+        let mut allow = BTreeSet::new();
+        for name in names {
+            let name = name.as_ref().trim();
+            if name.is_empty() {
+                continue;
+            }
+            if !known.iter().any(|k| k == name) {
+                return Err(anyhow::anyhow!("unknown tool {name:?}; this server carries: {}", known.join(", ")));
+            }
+            allow.insert(name.to_string());
+        }
+        if allow.is_empty() {
+            return Err(anyhow::anyhow!("--tools names no tool"));
+        }
+        self.allow = Some(allow);
+        Ok(())
     }
 
     /// Execute a tool by name
     pub async fn execute(&self, name: &str, params: Value) -> Result<ToolResult> {
+        if !self.allowed(name) {
+            return Ok(ToolResult::err(&format!("Unknown tool: {}", name)));
+        }
         match name {
             "exec" => {
                 let args: tools::ExecToolArgs = serde_json::from_value(params)?;
@@ -315,8 +353,11 @@ impl ToolRegistry {
             tools::runner::definition("uvx"),
         ];
 
-        // Add custom registered tools
-        for tool in self.tools.values() {
+        // The registered tools come after the built-ins, by name: a hash map's order changes
+        // with every process, and a client's prompt cache holds only while the list does not.
+        let mut custom: Vec<&Box<dyn MCPTool>> = self.tools.values().collect();
+        custom.sort_by(|a, b| a.name().cmp(b.name()));
+        for tool in custom {
             definitions.push(json!({
                 "name": tool.name(),
                 "description": tool.description(),
@@ -324,6 +365,7 @@ impl ToolRegistry {
             }));
         }
 
+        definitions.retain(|d| d["name"].as_str().is_some_and(|n| self.allowed(n)));
         definitions
     }
 

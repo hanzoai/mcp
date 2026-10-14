@@ -37,6 +37,11 @@ struct Args {
     #[clap(long)]
     project_dir: Vec<PathBuf>,
 
+    /// Serve only these tools, comma-separated (for example `fs,code,exec`). The client is
+    /// shown, and charged for, every schema listed; the default is all of them.
+    #[clap(long, value_delimiter = ',')]
+    tools: Vec<String>,
+
     /// Port to listen on (http/sse transports)
     #[clap(short, long, default_value = "3333")]
     port: u16,
@@ -100,6 +105,9 @@ async fn main() -> Result<()> {
     let mut server = MCPServer::new(config, args.port)?;
     for root in args.project_dir {
         server.allow_root(root);
+    }
+    if !args.tools.is_empty() {
+        server.only(&args.tools).await?;
     }
 
     match args.transport {
