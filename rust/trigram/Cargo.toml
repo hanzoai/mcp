@@ -1,0 +1,20 @@
+[package]
+name = "hanzo-trigram"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+repository = "https://github.com/hanzoai/mcp"
+description = "Text, symbol and document search over tgrep-core, in process: the engine behind hanzo-mcp's fs search_text and code search_symbol, light enough for Dev to link."
+
+[dependencies]
+# tgrep (MIT), the hanzoai fork, pinned by exact commit. `docs` adds the PDF, office and
+# archive adapters. Its walker applies .gitignore, hidden-file and binary rules as rg does.
+tgrep-core = { git = "https://github.com/hanzoai/tgrep", rev = "68555338dfd28a28aaf0fae21dc812780fa94ab7", features = ["docs"] }
+globset = "0.4.18"
+memchr = "2"
+rayon = "1"
+regex = "1"
+serde = { version = "1", features = ["derive"] }
+
+[dev-dependencies]
+tempfile = "3"

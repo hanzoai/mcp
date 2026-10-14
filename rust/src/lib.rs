@@ -24,6 +24,10 @@ pub mod search;
 pub mod native;
 pub mod zap;
 
+/// The in-process search engine behind `fs search_text` and `code search_symbol`, which Dev
+/// links directly: a call, not an MCP hop. It is its own light crate so a caller need not
+/// take this crate's browser, desktop and parser dependencies to search.
+pub use hanzo_trigram as trigram;
 pub use config::Config;
 pub use server::MCPServer;
 pub use tools::{

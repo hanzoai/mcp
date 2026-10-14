@@ -420,71 +420,62 @@ fn patch(a: &FsToolArgs) -> Answer {
     Ok(json!({ "results": results, "total": results.len(), "success": success }))
 }
 
+/// `search_text`: a regex over the files under `uri` (a directory or one file), best files
+/// first, a page of the ranked list at a time. The engine is `hanzo_trigram`, in process: no
+/// `rg` is spawned, `.gitignore` and hidden files are honoured as `rg` honours them, and a
+/// glob that names a document type (`*.pdf`, `*.docx`, `*.zip`) reads documents too.
 fn search_text(a: &FsToolArgs) -> Answer {
     let pattern = a.pattern.as_deref().filter(|p| !p.is_empty()).ok_or_else(|| invalid("pattern required"))?;
-    let root = match a.uri.as_deref() {
+    let target = match a.uri.as_deref() {
         Some(u) => path(Some(u))?,
         None => PathBuf::from("."),
     };
     let limit = a.limit.unwrap_or(50);
     let start: usize = a.cursor.as_deref().and_then(|c| c.parse().ok()).unwrap_or(0);
-    let matches = rg(pattern, &root, a.glob.as_deref(), limit).map_or_else(|| scan(pattern, &root, a.glob.as_deref(), limit), Ok)?;
-    let more = matches.len() >= limit;
+
+    let (root, paths) = match target.is_file() {
+        true => (target.parent().map(Path::to_path_buf).unwrap_or_default(), vec![target.clone()]),
+        false => (target.clone(), Vec::new()),
+    };
+    let mut query = crate::trigram::Query::text(&root, pattern);
+    query.paths = paths;
+    query.glob = a.glob.iter().cloned().collect();
+    query.documents = a.glob.as_deref().is_some_and(crate::trigram::names_document);
+    // One more than the page, to learn whether another page follows.
+    query.limit = Some(start.saturating_add(limit).saturating_add(1));
+    let hits = crate::trigram::search(&query).map_err(|e| match e {
+        crate::trigram::Error::Pattern(m) => invalid(format!("Invalid regex or glob: {m}")),
+        crate::trigram::Error::Io(p, e) if e.kind() == std::io::ErrorKind::NotFound => {
+            Refused("NOT_FOUND", format!("Path not found: {}", p.display()))
+        }
+        crate::trigram::Error::Io(p, e) => Refused("INTERNAL_ERROR", format!("{}: {e}", p.display())),
+    })?;
+    let more = hits.len() > start.saturating_add(limit);
+    let matches: Vec<Value> = hits
+        .iter()
+        .skip(start)
+        .take(limit)
+        .map(|hit| {
+            let mut m = json!({
+                "uri": file_uri(&root.join(&hit.path)),
+                "line": hit.line,
+                "text": hit.excerpt.trim(),
+            });
+            // A hit inside a document says where: the archive members, then the page, slide,
+            // paragraph or cell. Plain files carry neither key.
+            if let Some(entry) = &hit.entry {
+                m["entry"] = json!(entry);
+            }
+            if let Some(place) = &hit.place {
+                m["place"] = json!(place);
+            }
+            m
+        })
+        .collect();
     Ok(json!({
         "pattern": pattern, "matches": matches,
         "paging": { "cursor": more.then(|| (start + matches.len()).to_string()), "more": more },
     }))
-}
-
-/// ripgrep's matches, or `None` when rg is not installed.
-fn rg(pattern: &str, root: &Path, glob: Option<&str>, limit: usize) -> Option<Vec<Value>> {
-    let mut cmd = std::process::Command::new("rg");
-    cmd.args(["--json", "-n", "--max-count", &(limit * 2).to_string()]);
-    if let Some(g) = glob {
-        cmd.args(["--glob", g]);
-    }
-    let out = cmd.arg("--").arg(pattern).arg(root).output().ok()?;
-    Some(
-        String::from_utf8_lossy(&out.stdout)
-            .lines()
-            .filter_map(|l| serde_json::from_str::<Value>(l).ok())
-            .filter(|v| v["type"] == "match")
-            .take(limit)
-            .map(|v| {
-                let d = &v["data"];
-                json!({
-                    "uri": file_uri(Path::new(d["path"]["text"].as_str().unwrap_or(""))),
-                    "line": d["line_number"],
-                    "text": d["lines"]["text"].as_str().unwrap_or("").trim(),
-                })
-            })
-            .collect(),
-    )
-}
-
-/// The same search in-process: a regex over every file under `root`.
-fn scan(pattern: &str, root: &Path, glob: Option<&str>, limit: usize) -> std::result::Result<Vec<Value>, Refused> {
-    let re = regex::Regex::new(pattern).map_err(|e| invalid(format!("Invalid regex: {e}")))?;
-    let glob = match glob {
-        Some(g) => Some(glob::Pattern::new(g).map_err(|e| invalid(format!("Invalid glob: {e}")))?),
-        None => None,
-    };
-    let mut out = Vec::new();
-    for e in WalkDir::new(root).into_iter().filter_map(|e| e.ok()).filter(|e| e.file_type().is_file()) {
-        if glob.as_ref().is_some_and(|g| !g.matches(&e.file_name().to_string_lossy())) {
-            continue;
-        }
-        let Ok(text) = std::fs::read_to_string(e.path()) else { continue };
-        for (i, line) in text.lines().enumerate() {
-            if re.is_match(line) {
-                out.push(json!({ "uri": file_uri(e.path()), "line": i + 1, "text": line.trim().chars().take(200).collect::<String>() }));
-                if out.len() >= limit {
-                    return Ok(out);
-                }
-            }
-        }
-    }
-    Ok(out)
 }
 
 fn mv(a: &FsToolArgs) -> Answer {

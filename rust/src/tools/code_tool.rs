@@ -25,6 +25,9 @@ use std::collections::HashMap;
 use std::path::Path;
 use tree_sitter::{Language, Node, Parser};
 
+/// The extensions of the files the code tool reads.
+const CODE: &[&str] = &["rs", "py", "js", "ts", "tsx", "jsx", "go", "java", "c", "cpp", "h", "hpp", "rb", "swift", "kt", "cs", "lua", "sh"];
+
 const SKIP_DIRS: &[&str] = &[".git", "node_modules", "target", "dist", "__pycache__", ".venv", "venv"];
 
 /// Actions for the code tool
@@ -149,10 +152,7 @@ impl CodeTool {
     }
 
     fn is_code_file(path: &Path) -> bool {
-        matches!(
-            path.extension().and_then(|e| e.to_str()),
-            Some("rs" | "py" | "js" | "ts" | "tsx" | "jsx" | "go" | "java" | "c" | "cpp" | "h" | "hpp" | "rb" | "swift" | "kt" | "cs" | "lua" | "sh")
-        )
+        path.extension().and_then(|e| e.to_str()).is_some_and(|e| CODE.contains(&e))
     }
 
     fn should_skip(entry: &std::fs::DirEntry) -> bool {
@@ -472,32 +472,31 @@ impl CodeTool {
         }))
     }
 
+    /// `search_symbol`: the lines that spell a name, its definitions first. The engine is
+    /// `hanzo_trigram` (in process, `.gitignore` honoured); `pattern` narrows the files and
+    /// by default only code files are read.
     async fn search_symbol(&self, args: &CodeToolArgs) -> Result<Value> {
         let query = args.query.as_deref().ok_or_else(|| anyhow!("query required"))?;
         let dir = self.resolve_uri(args).unwrap_or(".");
         let max = args.max_results.unwrap_or(20);
-        let files = Self::walk_files(Path::new(dir));
-        let mut results = Vec::new();
-
-        for file in files {
-            if results.len() >= max { break; }
-            if let Ok(content) = std::fs::read_to_string(&file) {
-                for (i, line) in content.lines().enumerate() {
-                    if results.len() >= max { break; }
-                    if line.contains(query) {
-                        if Self::detect_symbol(line).is_some() || line.contains(query) {
-                            let is_def = Self::detect_symbol(line).is_some();
-                            results.push(json!({
-                                "uri": file.display().to_string(),
-                                "line": i + 1,
-                                "text": line.trim(),
-                                "type": if is_def { "definition" } else { "reference" }
-                            }));
-                        }
-                    }
-                }
-            }
-        }
+        let mut search = crate::trigram::Query::symbol(dir, query);
+        search.glob = match args.pattern.as_deref() {
+            Some(pattern) => vec![pattern.to_string()],
+            None => CODE.iter().map(|ext| format!("*.{ext}")).collect(),
+        };
+        search.limit = Some(max);
+        let hits = crate::trigram::search(&search).map_err(|e| anyhow!("{e}"))?;
+        let results: Vec<Value> = hits
+            .iter()
+            .map(|hit| {
+                json!({
+                    "uri": Path::new(dir).join(&hit.path).display().to_string(),
+                    "line": hit.line,
+                    "text": hit.excerpt.trim(),
+                    "type": hit.mark.label(),
+                })
+            })
+            .collect();
 
         Ok(json!({
             "ok": true,
