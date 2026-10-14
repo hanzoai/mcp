@@ -205,7 +205,7 @@ export const kaiCompactTool: Tool = {
           });
 
           if (r.ok) {
-            const dec = await r.json();
+            const dec: any = await r.json();
             for (let idx = 0; idx < unpinnedPairs.length; idx++) {
               const pair = unpinnedPairs[idx];
               const ans = dec.answers?.[`keep_${idx}`];

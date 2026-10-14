@@ -27,7 +27,7 @@ import { codeIntelTools } from '../code-intel.js';
 // Work items — Hanzo /v1/tracker (the ONE work-item primitive; boards, issues)
 import { trackerTools } from '../tracker.js';
 // Decisions — Kai on Hanzo /v1/decisions (choice, score, noul)
-import { kaiTools } from '../kai.js';
+import { kaiTools, kaiAgentTools } from '../kai.js';
 // The user's browser through the Hanzo extension, over the ZAP router
 import { browserTool, cdpTool } from '../browser.js';
 // Package runners and JSON, as python-sdk's shell tools
