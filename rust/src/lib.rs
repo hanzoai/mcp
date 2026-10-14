@@ -28,6 +28,9 @@ pub mod zap;
 /// links directly: a call, not an MCP hop. It is its own light crate so a caller need not
 /// take this crate's browser, desktop and parser dependencies to search.
 pub use hanzo_trigram as trigram;
+/// Kai Actions: typed, verified operations run without a model call (the `kai` tool's executor).
+/// Its own light crate, for the same reason as `trigram`.
+pub use hanzo_actions as actions;
 pub use config::Config;
 pub use server::MCPServer;
 pub use tools::{
