@@ -26,8 +26,20 @@ import { gimpTool } from '../gimp.js';
 import { codeIntelTools } from '../code-intel.js';
 // Work items — Hanzo /v1/tracker (the ONE work-item primitive; boards, issues)
 import { trackerTools } from '../tracker.js';
-// Decisions — Kai on Hanzo /v1/decisions (choice, score, noul)
-import { kaiTools } from '../kai.js';
+// Decisions — Kai on Hanzo /v1/decisions (choice, score, noul, and 8 purpose-built tools)
+import {
+  kaiTools,
+  kaiAgentTools,
+  kaiPurposeBuiltTools,
+  kai8Tools,
+  kaiToolSelectTool,
+  kaiNextActionTool,
+  kaiCommandGuardTool,
+  kaiInjectionScreenTool,
+  kaiExtractTool,
+  kaiLogTriageTool,
+  kaiRecoverTool,
+} from '../kai.js';
 // The user's browser through the Hanzo extension, over the ZAP router
 import { browserTool, cdpTool } from '../browser.js';
 // Package runners and JSON, as python-sdk's shell tools
@@ -77,10 +89,11 @@ export const optionalTools: Tool[] = [
 export const allUnifiedTools: Tool[] = [
   ...coreTools,
   ...optionalTools,
-  ...codeIntelTools,   // code_search, code_context, code_ask, code_index
-  ...trackerTools,     // tracker_boards, tracker_issues, tracker_create, tracker_update
-  ...kaiTools,         // kai_decide, kai_choice, kai_score, kai_noul
-  ...kaiAgentTools,    // kai_agent_step
+  ...codeIntelTools,       // code_search, code_context, code_ask, code_index
+  ...trackerTools,         // tracker_boards, tracker_issues, tracker_create, tracker_update
+  ...kaiTools,             // kai_decide, kai_choice, kai_score, kai_noul
+  ...kaiPurposeBuiltTools, // kai_tool_select, kai_next_action, kai_command_guard, kai_injection_screen, kai_extract, kai_log_triage, kai_recover
+  ...kaiAgentTools,        // kai_agent_step
 ];
 
 // Re-exports
@@ -92,7 +105,24 @@ export { workspaceTool } from './workspace.js';
 export { hanzoTool } from './hanzo.js';
 export { codeIntelTools, codeSearchTool, codeContextTool, codeAskTool, codeIndexTool } from '../code-intel.js';
 export { trackerTools, trackerBoardsTool, trackerIssuesTool, trackerCreateTool, trackerUpdateTool } from '../tracker.js';
-export { kaiTools, kaiDecideTool, kaiChoiceTool, kaiScoreTool, kaiNoulTool, kaiAgentStepTool, kaiAgentTools } from '../kai.js';
+export {
+  kaiTools,
+  kaiDecideTool,
+  kaiChoiceTool,
+  kaiScoreTool,
+  kaiNoulTool,
+  kaiAgentStepTool,
+  kaiAgentTools,
+  kaiPurposeBuiltTools,
+  kai8Tools,
+  kaiToolSelectTool,
+  kaiNextActionTool,
+  kaiCommandGuardTool,
+  kaiInjectionScreenTool,
+  kaiExtractTool,
+  kaiLogTriageTool,
+  kaiRecoverTool,
+} from '../kai.js';
 export { kaiCompactTool } from '../compact.js';
 export { llmTools, llmTool } from '../llm.js';
 export { browserTools, browserTool, cdpTool } from '../browser.js';

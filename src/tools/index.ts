@@ -94,7 +94,24 @@ export { gitTools as vcsTools } from './git.js';
 export { gimpTools, gimpTool } from './gimp.js';
 export { codeIntelTools, codeSearchTool, codeContextTool, codeAskTool, codeIndexTool } from './code-intel.js';
 export { trackerTools, trackerBoardsTool, trackerIssuesTool, trackerCreateTool, trackerUpdateTool } from './tracker.js';
-export { kaiTools, kaiDecideTool, kaiChoiceTool, kaiScoreTool, kaiNoulTool, kaiAgentStepTool, kaiAgentTools } from './kai.js';
+export {
+  kaiTools,
+  kaiDecideTool,
+  kaiChoiceTool,
+  kaiScoreTool,
+  kaiNoulTool,
+  kaiAgentStepTool,
+  kaiAgentTools,
+  kaiPurposeBuiltTools,
+  kai8Tools,
+  kaiToolSelectTool,
+  kaiNextActionTool,
+  kaiCommandGuardTool,
+  kaiInjectionScreenTool,
+  kaiExtractTool,
+  kaiLogTriageTool,
+  kaiRecoverTool,
+} from './kai.js';
 export { kaiCompactTool } from './compact.js';
 export { llmTools, llmTool } from './llm.js';
 export { browserTools, browserTool, cdpTool } from './browser.js';

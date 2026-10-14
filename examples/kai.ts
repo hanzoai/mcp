@@ -3,7 +3,7 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 
 const [command, ...args] = (process.env.MCP_SERVER ?? "npx -y @hanzo/mcp serve").split(" ");
-const transport = new StdioClientTransport({ command, args, env: { HANZO_API_KEY: process.env.HANZO_API_KEY ?? "" } });
+const transport = new StdioClientTransport({ command, args, env: { ...process.env, HANZO_API_KEY: process.env.HANZO_API_KEY ?? "" } as Record<string, string> });
 const client = new Client({ name: "kai-docs", version: "1.0.0" });
 await client.connect(transport);
 

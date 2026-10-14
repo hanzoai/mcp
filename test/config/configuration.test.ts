@@ -5,10 +5,12 @@ import { createMCPServer } from '../../src/index.js';
 // HIP-0300 unified tool surface
 const UNIFIED_TOOLSET = [
   'fs', 'exec', 'code', 'git', 'fetch', 'workspace', 'ui',              // core
-  'think', 'llm', 'memory', 'hanzo', 'plan', 'tasks', 'mode', 'gimp', 'browser', 'cdp', 'npx', 'uvx', 'jq', // optional
+  'think', 'llm', 'memory', 'hanzo', 'plan', 'tasks', 'mode', 'gimp', 'browser', 'cdp', 'npx', 'uvx', 'jq', 'kai_compact', // optional
   'code_search', 'code_context', 'code_ask', 'code_index',             // code intelligence
   'tracker_boards', 'tracker_issues', 'tracker_create', 'tracker_update', // work items
   'kai_decide', 'kai_choice', 'kai_score', 'kai_noul',                  // decisions
+  'kai_tool_select', 'kai_next_action', 'kai_command_guard', 'kai_injection_screen', 'kai_extract', 'kai_log_triage', 'kai_recover', // 7 purpose-built
+  'kai_agent_step',                                                    // agent step
 ];
 
 describe('Configuration System', () => {

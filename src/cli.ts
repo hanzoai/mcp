@@ -45,14 +45,17 @@ const program = new Command();
 program
   .name('hanzo-mcp')
   .description('Hanzo MCP Server - Model Context Protocol tools for AI development')
-  .version(packageJson.version);
+  .version(packageJson.version)
+  .allowUnknownOption();
 
 program
   .command('serve', { isDefault: true })
   .description('Start the MCP server')
+  .allowUnknownOption()
   .option('-t, --transport <type>', 'Transport type (stdio, http)', 'stdio')
   .option('-p, --port <port>', 'Port for HTTP transport', '3000')
   .option('--project <path>', 'Project path for context', process.cwd())
+  .option('--allow-path <path...>', 'Allowed paths for client operations')
   .option('--full-surface', 'Enable full legacy tool surface (multi-word aliases and optional categories)')
   .option('--enable-ui', 'Enable UI tools')
   .option('--enable-autogui', 'Enable AutoGUI tools')
