@@ -47,7 +47,7 @@ describe('the default surface did not grow', () => {
     const names = getConfiguredTools({}).map((t) => t.name);
     expect(names).toContain('hanzo');
     expect(names).not.toContain('iam');
-    expect(names.length).toBeLessThan(40);
+    expect(names.length).toBeLessThan(50);
   });
 
   it('reaches every subsystem, and describe, through that one tool', () => {

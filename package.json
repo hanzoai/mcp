@@ -65,6 +65,7 @@
     "esbuild": "^0.28.1",
     "jest": "^30.3.0",
     "ts-jest": "^29.4.6",
+    "tsx": "^4.23.15",
     "typescript": "7.0.2"
   },
   "engines": {
