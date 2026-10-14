@@ -39,6 +39,7 @@
 //! `Query` and `Hit` carry the names and fields of Dev's `hanzo-search`, so a caller moves
 //! between the two by changing an import.
 
+pub mod index;
 mod plan;
 mod read;
 
@@ -62,6 +63,19 @@ pub const PER_FILE: usize = 1000;
 
 /// The longest excerpt, in characters.
 pub const EXCERPT: usize = 500;
+
+/// Which engine may answer.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum Index {
+    /// The on-disk index at or above the searched directory when there is a usable one, else a
+    /// scan. The hits are the same either way.
+    #[default]
+    Auto,
+    /// Scan the files; never read an index.
+    Skip,
+    /// The on-disk index; a directory with no usable one is an error, not a scan.
+    Only,
+}
 
 /// What a query looks for.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize)]
@@ -97,6 +111,7 @@ pub struct Query {
     /// Read PDFs, office files and archives found under a directory. A document named in
     /// `paths` is read as one whatever this says.
     pub documents: bool,
+    pub index: Index,
 }
 
 impl Query {
@@ -172,6 +187,10 @@ pub enum Error {
     Pattern(String),
     /// A path cannot be read.
     Io(PathBuf, std::io::Error),
+    /// [`Index::Only`] and no usable index covers this path.
+    Unindexed(PathBuf),
+    /// An index cannot be built.
+    Build(PathBuf, String),
 }
 
 impl std::fmt::Display for Error {
@@ -179,6 +198,8 @@ impl std::fmt::Display for Error {
         match self {
             Error::Pattern(message) => write!(f, "{message}"),
             Error::Io(path, error) => write!(f, "{}: {error}", path.display()),
+            Error::Unindexed(path) => write!(f, "{}: no index answers here", path.display()),
+            Error::Build(path, message) => write!(f, "{}: {message}", path.display()),
         }
     }
 }
@@ -201,19 +222,21 @@ pub fn search(query: &Query) -> Result<Vec<Hit>, Error> {
             .map(|path| absolute(&root.join(path)))
             .collect()
     };
-    let mut hits = Vec::new();
+    // Every file to read, once, and whether it is read as a document.
+    let mut files: BTreeMap<PathBuf, bool> = BTreeMap::new();
     for scope in scopes {
         let scope = scope
             .canonicalize()
             .map_err(|error| Error::Io(scope.clone(), error))?;
-        hits.extend(scan(&plan, &scope, query.documents));
+        for (file, documents) in files_of(&plan, &scope, query.documents, query.index)? {
+            files.entry(file).or_insert(documents);
+        }
     }
-    let mut seen = BTreeSet::new();
-    hits.retain(|hit| seen.insert((hit.path.clone(), hit.entry.clone(), hit.place.clone(), hit.line)));
-    rank(&mut hits);
-    if let Some(limit) = query.limit {
-        hits.truncate(limit);
-    }
+    let files: Vec<(PathBuf, bool)> = files.into_iter().collect();
+    let mut hits = match query.limit {
+        Some(limit) => best(&plan, &files, limit),
+        None => everything(&plan, &files),
+    };
     let shown = root.canonicalize().unwrap_or(root);
     for hit in &mut hits {
         if let Ok(rel) = hit.path.strip_prefix(&shown) {
@@ -240,29 +263,91 @@ pub fn names_document(glob: &str) -> bool {
         .any(|kind| tgrep_core::docs::handles(Path::new(&format!("x.{kind}"))))
 }
 
-/// Walks `scope` and reads what the plan admits, in path order so a result never depends on
-/// which thread finished first.
-fn scan(plan: &Plan, scope: &Path, documents: bool) -> Vec<Hit> {
+/// The files one directory or file contributes, in path order, each with whether it is read
+/// as a document: from the index when allowed and usable, else by walking `scope`.
+fn files_of(plan: &Plan, scope: &Path, documents: bool, index: Index) -> Result<Vec<(PathBuf, bool)>, Error> {
     if scope.is_file() {
-        return read::hits(plan, scope, true);
+        return Ok(vec![(scope.to_path_buf(), true)]);
     }
-    let options = walker::WalkOptions {
-        max_file_size: Some(MAX_FILE),
-        ..walker::WalkOptions::default()
+    let files = if index != Index::Skip {
+        match index::files(plan, scope, documents) {
+            Some(files) => Some(files?),
+            None if index == Index::Only => return Err(Error::Unindexed(scope.to_path_buf())),
+            None => None,
+        }
+    } else {
+        None
     };
-    let mut files: Vec<PathBuf> = walker::walk_dir(scope, &options)
-        .files
-        .into_iter()
-        .filter(|path| plan.admits(&relative(scope, path)))
-        .collect();
-    files.sort();
-    files
+    let files = files.unwrap_or_else(|| {
+        let options = walker::WalkOptions {
+            max_file_size: Some(MAX_FILE),
+            ..walker::WalkOptions::default()
+        };
+        let mut files: Vec<PathBuf> = walker::walk_dir(scope, &options)
+            .files
+            .into_iter()
+            .filter(|path| plan.admits(&relative(scope, path)))
+            .collect();
+        files.sort();
+        files
+    });
+    Ok(files.into_iter().map(|file| (file, documents)).collect())
+}
+
+/// Every hit of `files`, ranked. Holds them all: for a query with no limit.
+fn everything(plan: &Plan, files: &[(PathBuf, bool)]) -> Vec<Hit> {
+    let mut hits: Vec<Hit> = files
         .par_iter()
-        .map(|path| read::hits(plan, path, documents))
+        .map(|(path, documents)| read::hits(plan, path, *documents))
         .collect::<Vec<_>>()
         .into_iter()
         .flatten()
-        .collect()
+        .collect();
+    let mut seen = BTreeSet::new();
+    hits.retain(|hit| seen.insert((hit.path.clone(), hit.entry.clone(), hit.place.clone(), hit.line)));
+    rank(&mut hits);
+    hits
+}
+
+/// The first `limit` hits of what [`everything`] ranks, in two passes: every file is weighed
+/// without holding a hit, then hits are read from the heaviest files until `limit` is met. A
+/// pattern that matches a million lines costs the counting, not a million hits, and the answer
+/// is the same list.
+fn best(plan: &Plan, files: &[(PathBuf, bool)], limit: usize) -> Vec<Hit> {
+    if limit == 0 {
+        return Vec::new();
+    }
+    let mut weighed: Vec<(u64, &PathBuf, Option<String>, bool)> = files
+        .par_iter()
+        .flat_map_iter(|(path, documents)| {
+            read::scores(plan, path, *documents)
+                .into_iter()
+                .map(move |(entry, score)| (score, path, entry, *documents))
+        })
+        .collect();
+    weighed.sort_by(|a, b| b.0.cmp(&a.0).then_with(|| a.1.cmp(b.1)).then_with(|| a.2.cmp(&b.2)));
+    let mut out: Vec<Hit> = Vec::new();
+    for (score, path, entry, documents) in weighed {
+        let mut group: Vec<Hit> = read::hits(plan, path, documents)
+            .into_iter()
+            .filter(|hit| hit.entry == entry)
+            .collect();
+        for hit in &mut group {
+            hit.score = score;
+        }
+        group.sort_by(|a, b| {
+            (a.mark != Mark::Definition)
+                .cmp(&(b.mark != Mark::Definition))
+                .then_with(|| a.place.cmp(&b.place))
+                .then_with(|| a.line.cmp(&b.line))
+        });
+        out.extend(group);
+        if out.len() >= limit {
+            break;
+        }
+    }
+    out.truncate(limit);
+    out
 }
 
 /// Orders hits by file score, then path, then definitions before uses, then place, then line,

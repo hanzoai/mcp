@@ -88,6 +88,20 @@ hop), Claude Code and Codex call the same code over MCP.
   documents under the tree; a document named as `uri` is always read. A hit inside one adds `entry` (archive members,
   joined by `!`) and `place` (`page 2`, `slide 3`, `para 5`, `sheet Data!B4`), and its `line` counts from the start of
   that part. Plain hits carry neither key.
+- A `limit` bounds the work, not just the list: every file is weighed first (matching lines counted, no hit held),
+  then hits are read from the heaviest files until the limit is met, and the answer is the head of the unlimited list.
+  A pattern that matches 1.28 million lines of a 112 MB tree answers `limit=50` in 0.14 s; unlimited it takes 15 s
+  and holds them all, which is why the tools always pass a limit.
+- **The index** (`hanzo-mcp index [DIR]`, or `tgrep index`, or `hanzo_trigram::index::build`) writes tgrep's trigram
+  index to `DIR/.tgrep` (about two thirds the size of the source; add it to your ignore file). With one at or above the
+  searched directory, a search asks it which files can match and reads only those. The answer is the scan's: candidates
+  are matched against their current bytes, and every file whose content or name changed at or after the build is read
+  from disk whether the index lists it or not, found by a walk of names and metadata (no watcher, so no staleness and no
+  free lunch: that walk is what the index costs). `Index::Only` refuses to scan, which is how the tests prove the index
+  answered; they hold index, scan and default equal over 18 queries, before and after edits, creates, deletes and
+  renames. Measured (112 MB, 9,026 files, cores 0-4, medians): `rg` 43-55 ms including its spawn, scan 75-93 ms, indexed
+  28-50 ms. On a small tree (60 to 80 files) the library call is 2.5-5.4 ms against `rg`'s 5.3-6.1, the difference being
+  the spawn. A tgrep server with a watcher would drop the walk; attaching to one is not built.
 - Names, schemas and answer shapes of `fs` and `code` are unchanged.
 - Dev: `hanzo_trigram::search(&Query::symbol(root, "Parser"))`. A dependency on it brings `libsqlite3-sys` (tgrep's
   managed-index code), so a crate that links another SQLite patches `rusqlite` as `hanzoai/dev` does

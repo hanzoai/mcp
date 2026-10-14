@@ -19,6 +19,9 @@ const DECLARE: &str = "fn|def|class|struct|enum|union|trait|interface|type|mod|m
                        const|static|let|var|val|function|typedef|macro_rules!";
 
 pub(crate) struct Plan {
+    /// The regex as tgrep's planner receives it.
+    pattern: String,
+    ignore_case: bool,
     line: Regex,
     /// Present for a symbol query: the lines that declare the name.
     declare: Option<Regex>,
@@ -82,6 +85,8 @@ impl Plan {
             .filter_map(|glob| glob.strip_prefix('!'))
             .collect())?;
         Ok(Plan {
+            pattern,
+            ignore_case: query.ignore_case,
             line,
             declare,
             keep,
@@ -90,15 +95,23 @@ impl Plan {
         })
     }
 
+    pub fn pattern(&self) -> &str {
+        &self.pattern
+    }
+
+    pub fn ignore_case(&self) -> bool {
+        self.ignore_case
+    }
+
     /// Whether the file at `rel` (relative to the searched directory) is read.
     pub fn admits(&self, rel: &str) -> bool {
         self.keep.as_ref().is_none_or(|set| set.is_match(rel))
             && !self.drop.as_ref().is_some_and(|set| set.is_match(rel))
     }
 
-    /// The hits in one text, at most [`PER_FILE`]. A line is a hit when the regex matches
-    /// within it: a pattern that could cross a line break does not.
-    pub fn lines(&self, text: &str) -> Vec<Hit> {
+    /// The byte spans of the matching lines of a text, at most [`PER_FILE`]. A line is a hit
+    /// when the regex matches within it: a pattern that could cross a line break does not.
+    fn spans(&self, text: &str) -> Vec<(usize, usize)> {
         let mut found: Vec<(usize, usize)> = Vec::new();
         let mut at = 0;
         while at <= text.len() && found.len() < PER_FILE {
@@ -122,6 +135,24 @@ impl Plan {
             }
             at = end + 1;
         }
+        found
+    }
+
+    /// What a text weighs in the ranking: its matching lines, a definition counting 2^32.
+    /// Cheap: no hit is built.
+    pub fn score(&self, text: &str) -> u64 {
+        self.spans(text)
+            .into_iter()
+            .map(|(start, end)| match &self.declare {
+                Some(declare) if declare.is_match(strip(&text[start..end])) => 1 << 32,
+                _ => 1,
+            })
+            .sum()
+    }
+
+    /// The hits in one text, at most [`PER_FILE`].
+    pub fn lines(&self, text: &str) -> Vec<Hit> {
+        let found = self.spans(text);
         if found.is_empty() {
             return Vec::new();
         }

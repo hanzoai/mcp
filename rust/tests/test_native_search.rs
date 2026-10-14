@@ -156,3 +156,20 @@ fn dev_links_the_engine_as_a_library() {
     let hits = hanzo_mcp::trigram::search(&hanzo_mcp::trigram::Query::symbol(d.path(), "main")).unwrap();
     assert_eq!((hits.len(), hits[0].mark), (1, hanzo_mcp::trigram::Mark::Definition));
 }
+
+#[tokio::test]
+async fn an_index_under_the_tree_changes_nothing_a_caller_sees() {
+    let d = tree(&[("a.rs", "let needle = 1;\n"), ("sub/b.rs", "needle again\nneedle twice\n"), ("c.txt", "none\n")]);
+    let root = d.path().display().to_string();
+    let before = fs(json!({"action": "search_text", "pattern": "needle", "uri": root})).await;
+    let built = hanzo_mcp::trigram::index::build(d.path()).unwrap();
+    assert!(built.usable);
+    let after = fs(json!({"action": "search_text", "pattern": "needle", "uri": root})).await;
+    assert_eq!(before["data"], after["data"]);
+
+    // The index is older than this edit; the answer reflects the edit.
+    std::thread::sleep(std::time::Duration::from_millis(1100));
+    std::fs::write(d.path().join("c.txt"), "now a needle\n").unwrap();
+    let edited = fs(json!({"action": "search_text", "pattern": "needle", "uri": root})).await;
+    assert_eq!(edited["data"]["matches"].as_array().unwrap().len(), 4, "{edited}");
+}

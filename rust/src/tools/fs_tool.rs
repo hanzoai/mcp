@@ -448,7 +448,7 @@ fn search_text(a: &FsToolArgs) -> Answer {
         crate::trigram::Error::Io(p, e) if e.kind() == std::io::ErrorKind::NotFound => {
             Refused("NOT_FOUND", format!("Path not found: {}", p.display()))
         }
-        crate::trigram::Error::Io(p, e) => Refused("INTERNAL_ERROR", format!("{}: {e}", p.display())),
+        e => Refused("INTERNAL_ERROR", e.to_string()),
     })?;
     let more = hits.len() > start.saturating_add(limit);
     let matches: Vec<Value> = hits

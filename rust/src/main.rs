@@ -52,6 +52,15 @@ struct Args {
 
 #[derive(Subcommand, Debug)]
 enum Cmd {
+    /// Build tgrep's trigram index for a directory, in DIR/.tgrep, and say what it holds.
+    /// Searches under DIR then read it instead of every file; what changed after the build is
+    /// still read from disk, so results do not go stale. Optional, about two thirds the size of
+    /// the source, and worth it from tens of thousands of files: add `.tgrep` to your ignore file.
+    Index {
+        #[clap(default_value = ".")]
+        dir: PathBuf,
+    },
+
     /// Print this user's browser pairing code, for a browser that cannot start
     /// the native host and is not admitted by origin (snap or Flatpak Firefox,
     /// Safari): paste it into the extension's popup.
@@ -69,6 +78,11 @@ async fn main() -> Result<()> {
         return hanzo_mcp::native::relay(std::io::stdin(), std::io::stdout());
     }
     let args = Args::parse();
+    if let Some(Cmd::Index { dir }) = &args.command {
+        let built = hanzo_mcp::trigram::index::build(dir)?;
+        println!("indexed {} files under {}", built.files, built.root.display());
+        return Ok(());
+    }
     if let Some(Cmd::Pair { reset }) = args.command {
         let p = if reset { zapd::pair::reset()? } else { zapd::pair::load()? };
         println!("{}", p.code());

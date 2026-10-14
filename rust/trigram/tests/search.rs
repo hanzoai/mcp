@@ -254,6 +254,66 @@ fn a_per_file_cap_keeps_one_file_from_filling_the_list() {
     assert_eq!(hits.len(), hanzo_trigram::PER_FILE + 1);
 }
 
+#[test]
+fn a_limit_is_the_head_of_the_unlimited_list() {
+    // Files of every weight, ties between them, a definition among comments, context and globs.
+    let mut files: Vec<(String, String)> = Vec::new();
+    for i in 0..60 {
+        let hits = (i * 7) % 11; // 0..10 matching lines, many equal
+        let mut body = String::new();
+        for j in 0..hits {
+            body.push_str(&format!("let value{j} = needle_{i}; // Parser\n"));
+            body.push_str("unrelated\n");
+        }
+        if i % 9 == 0 {
+            body.push_str("pub fn Parser() {}\n");
+        }
+        files.push((format!("d{}/f{i:02}.rs", i % 4), body));
+    }
+    let refs: Vec<(&str, &str)> = files.iter().map(|(a, b)| (a.as_str(), b.as_str())).collect();
+    let dir = tree(&refs);
+    for (kind, pattern, context) in [(Kind::Text, "needle_\\d+", 0), (Kind::Text, "Parser", 1), (Kind::Symbol, "Parser", 0), (Kind::Text, "unrelated", 2)] {
+        let mut query = Query { kind, pattern: pattern.into(), root: dir.path().into(), context, ..Query::default() };
+        let all = search(&query).unwrap();
+        assert!(all.len() > 100, "{pattern}: {}", all.len());
+        for limit in [0, 1, 2, 3, 5, 8, 13, 50, 10_000] {
+            query.limit = Some(limit);
+            let head = search(&query).unwrap();
+            assert_eq!(head, all[..limit.min(all.len())], "{pattern} limit {limit}");
+        }
+    }
+}
+
+#[test]
+fn a_limit_bounds_the_work_of_a_pattern_that_matches_everything() {
+    // 400 files of 300 lines that all match: 120,000 hits that a limit of 20 must not hold.
+    let body = "every line matches\n".repeat(300);
+    let files: Vec<(String, &str)> = (0..400).map(|i| (format!("g{}/f{i}.txt", i % 8), body.as_str())).collect();
+    let refs: Vec<(&str, &str)> = files.iter().map(|(a, b)| (a.as_str(), *b)).collect();
+    let dir = tree(&refs);
+    let mut query = Query::text(dir.path(), "e");
+    query.limit = Some(20);
+    let hits = search(&query).unwrap();
+    assert_eq!(hits.len(), 20);
+    assert!(hits.iter().all(|h| h.path.starts_with("g0") && h.score == 300), "equal files rank by path");
+    assert_eq!(hits[0].path, PathBuf::from("g0/f0.txt"));
+}
+
+#[test]
+fn a_limit_ranks_documents_as_the_unlimited_list_does() {
+    let dir = tree(&[("a.txt", "needle\n")]);
+    write(dir.path(), "r.pdf", &fixture::pdf(&[&["needle one"], &["needle two", "needle three"]]));
+    write(dir.path(), "b.zip", &fixture::zip(&[("x.txt", b"needle\nneedle\n".as_slice()), ("y.txt", b"needle\n".as_slice())]));
+    let mut query = Query::text(dir.path(), "needle");
+    query.documents = true;
+    let all = search(&query).unwrap();
+    assert_eq!(all.len(), 7, "{all:?}");
+    for limit in 1..=all.len() {
+        query.limit = Some(limit);
+        assert_eq!(search(&query).unwrap(), all[..limit], "limit {limit}");
+    }
+}
+
 mod documents {
     use super::*;
     use crate::fixture;
