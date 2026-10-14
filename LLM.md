@@ -119,7 +119,7 @@ through `ExecTool::verdict`. With none installed `exec` is unchanged. `verdict` 
 the same as the TypeScript runtime's.
 
 **The surface a client is charged for.** Every schema in `tools/list` is paid for each turn. The whole Rust list is 34
-tools and 38 KB (about 9.5K tokens); `--tools fs,code,exec` lists and serves only those, 4.6 KB (about 1.1K tokens).
+tools and 38 KB (about 9.5K tokens); `--tools fs,code,exec` lists and serves only those, 4.6 KB (about 1.1K tokens); with `kai` 6.5 KB (about 1.6K).
 A name the server does not carry fails at startup; a call outside the list answers `Unknown tool`. The list is in one
 order on every start (built-ins in fixed order, registered tools by name; it was `HashMap` order, different in every
 process, which no prompt cache survives). `rust/tests/test_tool_surface.rs` holds the order and keeps fs, code, exec and
@@ -128,11 +128,44 @@ kai_decide under 16 KB.
 **Turning it on.**
 
     cargo build --release --locked --manifest-path rust/Cargo.toml --bin hanzo-mcp   # or the release artifact
-    claude mcp add hanzo -- hanzo __mcp -- hanzo-mcp --tools fs,code,exec
-    codex mcp add hanzo -- hanzo __mcp -- hanzo-mcp --tools fs,code,exec
+    claude mcp add hanzo -- hanzo __mcp -- hanzo-mcp --tools fs,code,exec,kai
+    codex mcp add hanzo -- hanzo __mcp -- hanzo-mcp --tools fs,code,exec,kai
 
 `hanzo __mcp -- <server> [args]` is the launcher that answers the handshake at once; `hanzo-mcp --tools ...` alone works
-the same without it. Dev links the crate instead: `hanzo-trigram` for search, `hanzo-mcp` for `ExecTool`.
+the same without it. Dev links crates instead: `hanzo-trigram` for search, `hanzo-actions` for Kai Actions, `hanzo-mcp` for `ExecTool`.
+
+## `kai` — actions, and why the executor is Rust
+
+`kai` (schema `schema/kai.json`, the same text in `rust/schema/kai.json` and `src/tools/kai-action.ts`;
+`test/tools/kai-action.test.ts` and the Rust test fail if the three differ) runs a request as a saved, typed, verified
+*action*. The executor is the Rust crate `hanzo-actions` (`rust/actions`, re-exported as `hanzo_mcp::actions`; tool
+`rust/src/tools/actions_tool.rs`, CLI `hanzo-mcp kai run|plan|list|triggers`). It is its own light crate so Dev can link
+it without this crate's browser, desktop and parser dependencies; Claude Code reaches it over MCP, and the
+TypeScript tool only carries the schema and runs the native binary named by `HANZO_MCP_NATIVE`. One implementation,
+three doors. A *workflow* is a plan of several actions; the *cache* holds proofs and reusable results.
+
+- **Kai never writes a command.** `perform` matches a request to the actions and workflows whose triggers fit
+  (`bind::triggered`), binds their inputs from the request and from values read out of the repository
+  (`bind::plan`), and asks Kai (`ask::Kai`, the Decisions API; any `ask::Chooser`) only when several actions or
+  values remain. Kai's choice includes an `abstain` option; a pick is taken when Kai's abstain mass is at most
+  `max_abstain` and its lead over the next real option at least `min_margin`, and it must be grounded in the request.
+  Exactly one action with every input named or single-valued runs with no Kai request (`source: rule`).
+- **Declined means the caller's own agent.** No match, a part of the request no action serves, a missing or ambiguous
+  input, a failed precondition, an action without a proof here, a workspace that moved, an option-like value (starts with a
+  dash), a request that asks for something to be written (`bind::authoring`), approval missing, Kai needed and not reachable.
+- **Authorization is not a match.** `Effect` is read, write, outside, remote or destroy. The last three need `approve: true`
+  on the call (`run::Grant`; the default `run::Refuse` declines with the reason), so the client's own approval flow
+  decides, and each record says whether one was needed and given.
+- **Cache.** A *proof* (action, version, tools) must be recorded in `cache` before an action runs on its own (`prove: true`
+  in a proving workspace); a *memo* of a pure action is keyed by what it declares it reads, uncommitted edits included,
+  and recomputed just before running. Records carry a stable id, both revisions, the preconditions as checked, the
+  authorization, the asks to Kai, the steps with milliseconds and the verifier's verdict; credentials are redacted
+  (`actions::redact`) and a child process gets no variable named KEY, TOKEN, SECRET, PASSWORD, CREDENTIAL or AUTH.
+- **Shipped.** find, slice, touched, ahead, changed, worktree, publish, sync, suite, rebuild, wait, listen, stop, pairs,
+  note, stage; workflows isolate (worktree, then suite there) and ship (suite, then publish only if none failed).
+  `hanzoai/kai` `bench/chores` measures it against native Claude Code on the same tasks.
+- The module began as a Dev crate (`hanzoai/dev` branch `actions`, commits c8707d8087a to 73683458037) and moved here;
+  `reqwest` gained its `blocking` feature, so the tool runs the executor under `spawn_blocking`.
 
 ## `llm` — models, limits, who paid
 
@@ -426,6 +459,7 @@ from code, one row per registered Python tool: **72 tools**. TypeScript: 17 yes,
 | vector (vector) † | partial `src/tools/vector-search.ts` (legacy; no embed) | missing |
 | version, stats (system) | missing | yes `rust/src/tools/system_tool.rs` |
 | tool (system) | missing | partial `system_tool.rs` (no install, upgrade, reload, self_update) |
+| kai (Kai Actions) — not in Python | schema and delegation `src/tools/kai-action.ts` | yes `rust/src/tools/actions_tool.rs`, executor `rust/actions` |
 
 A grouped row counts once per Python tool it names. `npx` and `uvx` are
 `exec` of the argv they build, with no shell and a two-minute auto-background,

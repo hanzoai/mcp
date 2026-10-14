@@ -65,4 +65,10 @@ fn the_native_tools_fit_in_four_thousand_tokens() {
     registry.restrict(["fs", "code", "exec", "kai_decide"]).unwrap();
     let bytes: usize = registry.get_definitions().iter().map(|d| serde_json::to_string::<Value>(d).unwrap().len()).sum();
     assert!(bytes < 16_000, "{bytes} bytes");
+
+    // With Kai Actions beside them.
+    let mut registry = ToolRegistry::with_defaults();
+    registry.restrict(["fs", "code", "exec", "kai"]).unwrap();
+    let bytes: usize = registry.get_definitions().iter().map(|d| serde_json::to_string::<Value>(d).unwrap().len()).sum();
+    assert!(bytes < 16_000, "{bytes} bytes with kai");
 }
