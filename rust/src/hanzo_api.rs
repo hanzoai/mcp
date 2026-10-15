@@ -4,12 +4,17 @@
 //! cloud-backed tool composes over the same seam (HIP-0300).
 //!
 //! Auth: a `pk-`/`sk-` bearer key from `HANZO_API_KEY`, else
-//! `~/.hanzo/config.json` field `apiKey`. Base URL: `HANZO_API_BASE`, else
-//! `https://api.hanzo.ai`.
+//! `~/.hanzo/config.json` field `apiKey`, else the person's `hanzo login`: the
+//! short-lived token `hanzo auth token` prints, asked again before it lapses.
+//! So a desktop app that starts `hanzo-mcp` with no environment of its own still
+//! reaches Kai and Enso as the signed-in person. Base URL: `HANZO_API_BASE`,
+//! else `https://api.hanzo.ai`.
 
 use anyhow::{anyhow, Result};
 use serde_json::{json, Value};
-use std::time::Duration;
+use std::path::PathBuf;
+use std::sync::Mutex;
+use std::time::{Duration, Instant};
 
 /// Default base URL for the Hanzo cloud API.
 pub const DEFAULT_BASE_URL: &str = "https://api.hanzo.ai";
@@ -22,11 +27,17 @@ pub const DEFAULT_BASE_URL: &str = "https://api.hanzo.ai";
 /// `auth_identity.go` is the authority; anything else resolves to no principal.
 pub const NO_KEY: &str = "no API key: run `hanzo login` or set HANZO_API_KEY (pk-/sk-)";
 
+/// How long a token from `hanzo auth token` is used before it is asked for
+/// again: well inside its lifetime, and the CLI refreshes it when asked.
+const LOGIN_TTL: Duration = Duration::from_secs(300);
+
 /// Client for the Hanzo cloud API (code knowledge, web, vision).
 #[derive(Clone)]
 pub struct HanzoApi {
     base_url: String,
     api_key: Option<String>,
+    /// The `hanzo` CLI whose login answers when no key is set.
+    login: Option<PathBuf>,
     client: reqwest::Client,
 }
 
@@ -46,21 +57,22 @@ impl HanzoApi {
             .build()
             .unwrap_or_else(|_| reqwest::Client::new());
 
-        Self {
-            base_url,
-            api_key: resolve_api_key(),
-            client,
-        }
+        let api_key = resolve_api_key();
+        let login = if api_key.is_some() { None } else { hanzo_cli() };
+        Self { base_url, api_key, login, client }
     }
 
-    /// The resolved key, if any.
-    pub fn key(&self) -> Option<&str> {
-        self.api_key.as_deref().filter(|k| !k.is_empty())
+    /// The credential a request carries: the key, else the login's current token.
+    pub fn key(&self) -> Option<String> {
+        match self.api_key.as_deref().filter(|k| !k.is_empty()) {
+            Some(k) => Some(k.to_string()),
+            None => self.login.as_deref().and_then(login_token),
+        }
     }
 
     /// Whether an API key was resolved. Tools surface a clear error when false.
     pub fn has_key(&self) -> bool {
-        self.api_key.as_deref().map_or(false, |k| !k.is_empty())
+        self.key().is_some()
     }
 
     /// The resolved base URL (no trailing slash).
@@ -154,7 +166,7 @@ impl HanzoApi {
 
     /// Attach the bearer key. The one place credentials meet a request.
     fn auth(&self, req: reqwest::RequestBuilder) -> reqwest::RequestBuilder {
-        match &self.api_key {
+        match self.key() {
             Some(key) => req.bearer_auth(key),
             None => req,
         }
@@ -314,6 +326,40 @@ fn resolve_api_key() -> Option<String> {
     api_key_from_config_json(&content)
 }
 
+/// The `hanzo` CLI: the one beside this binary (hanzo.sh and `hanzo upgrade`
+/// install them together), else at hanzo.sh's install path. Never a `hanzo`
+/// found on PATH: the Hanzo IDE package installs `/usr/bin/hanzo`, which opens
+/// its window on any arguments, `auth token` included.
+fn hanzo_cli() -> Option<PathBuf> {
+    let name = if cfg!(windows) { "hanzo.exe" } else { "hanzo" };
+    let beside = std::env::current_exe()
+        .ok()
+        .and_then(|e| e.canonicalize().ok().or(Some(e)))
+        .and_then(|e| e.parent().map(|d| d.join(name)));
+    let installed = dirs::home_dir().map(|h| h.join(".local").join("bin").join(name));
+    beside.into_iter().chain(installed).find(|p| p.is_file())
+}
+
+/// The login's access token, as `hanzo auth token` prints it, kept for
+/// `LOGIN_TTL`. `None` when the person is not signed in.
+fn login_token(cli: &std::path::Path) -> Option<String> {
+    static CACHE: Mutex<Option<(Instant, String)>> = Mutex::new(None);
+    let mut cache = CACHE.lock().unwrap_or_else(|e| e.into_inner());
+    if let Some((at, token)) = cache.as_ref() {
+        if at.elapsed() < LOGIN_TTL {
+            return Some(token.clone());
+        }
+    }
+    let out = std::process::Command::new(cli).args(["auth", "token"]).stdin(std::process::Stdio::null()).stderr(std::process::Stdio::null()).output().ok()?;
+    let token = String::from_utf8_lossy(&out.stdout).lines().last()?.trim().to_string();
+    if !out.status.success() || token.is_empty() || token.contains(char::is_whitespace) {
+        *cache = None;
+        return None;
+    }
+    *cache = Some((Instant::now(), token.clone()));
+    Some(token)
+}
+
 /// Extract the `apiKey` field from a `~/.hanzo/config.json` document.
 pub fn api_key_from_config_json(content: &str) -> Option<String> {
     let v: Value = serde_json::from_str(content).ok()?;
@@ -336,6 +382,27 @@ fn join_url(base: &str, path: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// With no key, the login answers: whatever `hanzo auth token` prints, kept
+    /// for a while rather than asked for on every request.
+    #[cfg(unix)]
+    #[test]
+    fn with_no_key_the_login_token_is_the_credential() {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = tempfile::tempdir().unwrap();
+        let cli = dir.path().join("hanzo");
+        let count = dir.path().join("asked");
+        std::fs::write(&cli, format!("#!/bin/sh\necho x >> {}\n[ \"$1 $2\" = \"auth token\" ] && echo tok-from-login\n", count.display())).unwrap();
+        std::fs::set_permissions(&cli, std::fs::Permissions::from_mode(0o755)).unwrap();
+        let api = HanzoApi { base_url: DEFAULT_BASE_URL.into(), api_key: None, login: Some(cli), client: reqwest::Client::new() };
+        assert!(api.has_key());
+        assert_eq!(api.key().as_deref(), Some("tok-from-login"));
+        assert_eq!(api.key().as_deref(), Some("tok-from-login"));
+        assert_eq!(std::fs::read_to_string(&count).unwrap().lines().count(), 1, "asked once, then kept");
+        // A key, when one is set, is the credential and the login is not asked.
+        let keyed = HanzoApi { base_url: DEFAULT_BASE_URL.into(), api_key: Some("sk-set".into()), login: None, client: reqwest::Client::new() };
+        assert_eq!(keyed.key().as_deref(), Some("sk-set"));
+    }
 
     #[test]
     fn extracts_api_key() {

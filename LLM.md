@@ -67,6 +67,12 @@ mean level index, and `confidence` describes the likeliest level. A noul's
 Tools that run a whole decision program arrive with Kai's joint decoder.
 The Rust runtime carries `kai_decide` (`rust/src/tools/kai_tool.rs`); the other
 three, like `tracker_*`, are TypeScript only, and Python `hanzo-mcp` carries none.
+The Rust runtime's key (`rust/src/hanzo_api.rs`): `HANZO_API_KEY`, else
+`~/.hanzo/config.json` `apiKey`, else the person's `hanzo login`, read as
+`hanzo auth token` from the `hanzo` beside the binary or at `~/.local/bin/hanzo`
+and kept five minutes. Never a `hanzo` off PATH: Debian's `hanzo-ide` package
+installs a GUI at `/usr/bin/hanzo`. A desktop app's MCP entry therefore needs no
+env block once the person has signed in.
 
 ## Native search, the exec verdict, and a lean surface (Rust)
 

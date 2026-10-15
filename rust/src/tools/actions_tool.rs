@@ -83,7 +83,7 @@ fn call(api: &HanzoApi, action: &str, p: &Value) -> Result<Value, String> {
             let cwd = text(p, "cwd").map(PathBuf::from).or_else(|| std::env::current_dir().ok()).ok_or("cwd required")?;
             // The key goes to the configured API alone: a call never names where it is sent.
             let url = format!("{}/v1", api.base_url().trim_end_matches('/'));
-            let kai = (p.get("ask").and_then(Value::as_bool) != Some(false)).then(|| Kai::new(&url, text(p, "model").unwrap_or("kai"), api.key().map(str::to_string)));
+            let kai = (p.get("ask").and_then(Value::as_bool) != Some(false)).then(|| Kai::new(&url, text(p, "model").unwrap_or("kai"), api.key()));
             let store = text(p, "cache").map(PathBuf::from).map(|d| Store::open(&d)).transpose()?;
             let mut cfg = Config::default();
             if let Some(v) = number(p, "min_margin") {
