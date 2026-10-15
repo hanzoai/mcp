@@ -56,6 +56,7 @@ program
   .option('-p, --port <port>', 'Port for HTTP transport', '3000')
   .option('--project <path>', 'Project path for context', process.cwd())
   .option('--allow-path <path...>', 'Allowed paths for client operations')
+  .option('--project-dir <path...>', 'Filesystem root the server may operate under; the native hanzo-mcp spelling, which `hanzo dev` passes')
   .option('--beta-safe', 'Offer only the safe validated beta tools (core + tool resolution, next action, command guard, loop breaker)')
   .option('--full-surface', 'Enable full legacy tool surface (multi-word aliases and optional categories)')
   .option('--enable-ui', 'Enable UI tools')
@@ -72,6 +73,10 @@ program
   .option('--disable-tools <tools>', 'Comma-separated list of tools to disable')
   .option('--enable-categories <categories>', 'Comma-separated list of categories to enable (files,search,shell,edit)')
   .action(async (options) => {
+    if (options.projectDir?.length) {
+      options.allowPath = [...(options.allowPath ?? []), ...options.projectDir];
+      options.project = options.projectDir[0];
+    }
     const toolConfig = surface(options);
     const tools = getConfiguredTools(toolConfig);
 

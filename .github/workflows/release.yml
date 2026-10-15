@@ -4,8 +4,8 @@
 # There was no such lane. hanzo.yml declares a TypeScript gate and publish.yml
 # ships the npm package; neither produces a binary, so the tarballs on the
 # rust-v1.1.23 release arrived some other way and only ever covered Linux.
-# hanzo.sh offers `mcp` as a native download, so on macOS it asked for a file
-# nobody had built.
+# hanzo.sh offers `mcp` as a native download on every platform the CLI ships
+# for, so every one of them is built here.
 #
 # Tagged rust-v*, because the binary is the Rust crate in rust/ — its
 # Cargo.toml is the one that calls itself hanzo-mcp.
@@ -22,9 +22,16 @@ on:
 permissions:
   contents: write
 
+env:
+  ZIG_VERSION: '0.13.0'
+  ZIG_SHA256: 'd45312e61ebcc48032b77bc4cf7fd6915c11fa16e4aad116b66c9468211230ea'
+  ZIGBUILD_VERSION: '0.23.0'
+  MACOS_SDK_URL: 'https://github.com/phracker/MacOSX-SDKs/releases/download/11.3/MacOSX11.3.sdk.tar.xz'
+  MACOS_SDK_SHA256: 'cd4f08a75577145b8f05245a2975f7c81401d75e9535dcffbb879ee1deefcbf4'
+
 jobs:
-  # The release has to exist before anything can be attached to it, and four
-  # matrix jobs racing to create it is three failures and a coin toss. One job,
+  # The release has to exist before anything can be attached to it, and five
+  # matrix jobs racing to create it is four failures and a coin toss. One job,
   # first, and the builds wait on it.
   open:
     runs-on: linux-amd64
@@ -42,35 +49,52 @@ jobs:
       # empty. A missing target is a missing file somebody can chase; a missing
       # release is an install that breaks for everyone.
       fail-fast: false
+      # One at a time: five cross-builds on one runner host's disk at once is
+      # what the CLI's matrix measured taking the host down.
+      max-parallel: 1
       matrix:
         include:
-          - target: linux-amd64
-            triple: x86_64-unknown-linux-gnu
-          # The org's runners are linux-amd64 only, so arm64 is cross-built here:
-          # zig is the C toolchain ring needs. darwin waits for a macOS runner.
-          - target: linux-arm64
-            triple: aarch64-unknown-linux-gnu
-            zig: true
+          - { target: linux-amd64,   triple: x86_64-unknown-linux-gnu,  bin: hanzo-mcp }
+          - { target: linux-arm64,   triple: aarch64-unknown-linux-gnu, bin: hanzo-mcp }
+          - { target: windows-amd64, triple: x86_64-pc-windows-gnu,     bin: hanzo-mcp.exe }
+          - { target: darwin-amd64,  triple: x86_64-apple-darwin,       bin: hanzo-mcp, apple: true }
+          - { target: darwin-arm64,  triple: aarch64-apple-darwin,      bin: hanzo-mcp, apple: true }
     runs-on: linux-amd64
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
         with:
+          toolchain: stable
           targets: ${{ matrix.triple }}
+
+      # Every target is cross-linked by Zig from this one Linux pool, as the CLI's
+      # release is: no macOS or Windows runner exists, and none is needed.
+      - name: Zig (the cross-linker)
+        run: |
+          set -eu
+          curl -fsSL "https://ziglang.org/download/${ZIG_VERSION}/zig-linux-x86_64-${ZIG_VERSION}.tar.xz" -o zig.tar.xz
+          echo "${ZIG_SHA256}  zig.tar.xz" | sha256sum -c -
+          mkdir -p "$HOME/zig"
+          tar -xf zig.tar.xz -C "$HOME/zig" --strip-components=1
+          echo "$HOME/zig" >> "$GITHUB_PATH"
+
+      - name: cargo-zigbuild
+        run: cargo install cargo-zigbuild --version "${ZIGBUILD_VERSION}" --locked
+
+      # Zig ships no macOS frameworks (cocoa and objc link AppKit), so a pinned
+      # SDK is vendored and SDKROOT names it.
+      - name: Vendor macOS SDK
+        if: matrix.apple
+        run: |
+          set -eu
+          curl -fsSL "${MACOS_SDK_URL}" -o macsdk.tar.xz
+          echo "${MACOS_SDK_SHA256}  macsdk.tar.xz" | sha256sum -c -
+          tar -xf macsdk.tar.xz -C "$HOME"
+          echo "SDKROOT=$HOME/MacOSX11.3.sdk" >> "$GITHUB_ENV"
 
       - name: Build
         working-directory: rust
-        run: |
-          set -eu
-          rustup target add "${{ matrix.triple }}" 2>/dev/null || true
-          if [ "${{ matrix.zig || false }}" = true ]; then
-            python3 -m venv "$RUNNER_TEMP/zig"
-            "$RUNNER_TEMP/zig/bin/pip" install --quiet ziglang cargo-zigbuild
-            export PATH="$RUNNER_TEMP/zig/bin:$PATH"
-            cargo zigbuild --release --locked --bin hanzo-mcp --target "${{ matrix.triple }}"
-          else
-            cargo build --release --locked --bin hanzo-mcp --target "${{ matrix.triple }}"
-          fi
+        run: cargo zigbuild --release --locked --bin hanzo-mcp --target "${{ matrix.triple }}"
 
       # The name the installer asks for, and the checksum it refuses to install
       # without. Both are part of the contract in hanzo.sh, not decoration.
@@ -78,14 +102,10 @@ jobs:
         run: |
           set -eu
           asset="hanzo-mcp-${{ matrix.target }}.tar.gz"
-          tar -C "rust/target/${{ matrix.triple }}/release" -czf "$asset" hanzo-mcp
-          if command -v sha256sum >/dev/null 2>&1; then
-            # "<hash>  <name>", the line `sha256sum -c` reads: install.sh verifies
-            # the download with exactly that, and a bare hash fails it.
-            sha256sum "$asset" > "$asset.sha256"
-          else
-            shasum -a 256 "$asset" > "$asset.sha256"
-          fi
+          tar -C "rust/target/${{ matrix.triple }}/release" -czf "$asset" "${{ matrix.bin }}"
+          # "<hash>  <name>", the line `sha256sum -c` reads: install.sh verifies
+          # the download with exactly that, and a bare hash fails it.
+          sha256sum "$asset" > "$asset.sha256"
           ls -l "$asset" "$asset.sha256"
 
       - name: Attach
