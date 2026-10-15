@@ -32,7 +32,7 @@ import {
   getConfiguredTools, ToolConfig, coreTools, optionalTools, codeIntelTools, trackerTools, kaiTools, uiTools,
   autoguiTools, orchestrationTools, uiRegistryTools, githubUITools, desktopTools, cryptuonCommunityTools,
 } from './tools/index.js';
-import { Tool } from './types/index.js';
+import { Tool, listed } from './types/index.js';
 import { getSystemPrompt } from './prompts/system.js';
 
 // Version from package.json
@@ -684,11 +684,7 @@ function registerHandlers(
 ) {
   server.setRequestHandler(ListToolsRequestSchema, async () => {
     return {
-      tools: configuredTools.map(tool => ({
-        name: tool.name,
-        description: tool.description,
-        inputSchema: tool.inputSchema,
-      })),
+      tools: configuredTools.map(listed),
     };
   });
 

@@ -30,7 +30,7 @@ export * from './ui/index.js';
 export { getSystemPrompt } from './prompts/system.js';
 
 // Import Tool type and tool configuration for use in function signatures
-import { Tool } from './types/index.js';
+import { Tool, listed } from './types/index.js';
 import { ToolConfig } from './tools/index.js';
 
 // Main server factory
@@ -73,11 +73,7 @@ export async function createMCPServer(config?: {
   // ── MCP method handlers (shared between MCP + ZAP for full parity) ────
 
   const listToolsHandler = async () => ({
-    tools: configuredTools.map(tool => ({
-      name: tool.name,
-      description: tool.description,
-      inputSchema: tool.inputSchema,
-    })),
+    tools: configuredTools.map(listed),
   });
 
   const callToolHandler = async (params: { name: string; arguments?: Record<string, unknown> }) => {
