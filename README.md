@@ -61,7 +61,7 @@ The kai tools ask Kai, Hanzo's decision model, typed questions about a case
 picks a label, `kai_score` an ordinal level, `kai_noul` the probability that a
 statement holds, and `kai_decide` asks up to 100 of them in one call.
 
-Beside the decision primitives: `kai_injection_screen` (rules, then Kai's jailbreak question),
+Beside the decision primitives: `kai_injection_screen` (rules and Kai's `planted` capability, kai-1.3),
 `kai_command_guard` (allow, ask or deny before a command runs), `kai_tool_select` (named tool, then
 BM25), `kai_log_triage` (failure signatures), `kai_recover` (loop breaker and a step for each failure
 class), `kai_next_action` (precondition filter, then BM25) and `kai_extract` (typed fields, abstaining

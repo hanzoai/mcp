@@ -8,7 +8,7 @@ are research runs with their items stored beside them; [hanzo.ai/benchmarks](htt
 
 | Tool | What decides | Reads |
 |---|---|---|
-| `kai_injection_screen` | Rules (override, role, addressed, conceal, exfiltrate, tool_call, act, extract), then Kai's jailbreak question | [`mcp.injection`](https://api.hanzo.ai/v1/research/runs?org=hanzo&benchmark=mcp.injection) |
+| `kai_injection_screen` | Rules (override, role, addressed, conceal, exfiltrate, tool_call, act, extract), and Kai's `planted` capability (kai-1.3) | [`mcp.injection`](https://api.hanzo.ai/v1/research/runs?org=hanzo&benchmark=mcp.injection) |
 | `kai_command_guard` | Deny and ask classes; allow only for known workspace work; anything else asks | [`mcp.command`](https://api.hanzo.ai/v1/research/runs?org=hanzo&benchmark=mcp.command) |
 | `kai_tool_select` | A tool the task names, then BM25 over name, description and parameters | [`mcp.select`](https://api.hanzo.ai/v1/research/runs?org=hanzo&benchmark=mcp.select) |
 | `kai_log_triage` | Failure signatures, root cause first; `none`, `unknown` | [`mcp.triage`](https://api.hanzo.ai/v1/research/runs?org=hanzo&benchmark=mcp.triage) |
