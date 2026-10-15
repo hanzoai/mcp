@@ -4,8 +4,9 @@
 # There was no such lane. hanzo.yml declares a TypeScript gate and publish.yml
 # ships the npm package; neither produces a binary, so the tarballs on the
 # rust-v1.1.23 release arrived some other way and only ever covered Linux.
-# hanzo.sh offers `mcp` as a native download on every platform the CLI ships
-# for, so every one of them is built here.
+# hanzo.sh offers `mcp` as a native download, so Linux and macOS on both
+# architectures are built here. Windows is not: the browser bridge (zapd) and
+# its native host speak a Unix socket, and the build stops there.
 #
 # Tagged rust-v*, because the binary is the Rust crate in rust/ — its
 # Cargo.toml is the one that calls itself hanzo-mcp.
@@ -57,7 +58,6 @@ jobs:
         include:
           - { target: linux-amd64,   triple: x86_64-unknown-linux-gnu,  bin: hanzo-mcp }
           - { target: linux-arm64,   triple: aarch64-unknown-linux-gnu, bin: hanzo-mcp }
-          - { target: windows-amd64, triple: x86_64-pc-windows-gnu,     bin: hanzo-mcp.exe }
           - { target: darwin-amd64,  triple: x86_64-apple-darwin,       bin: hanzo-mcp, apple: true }
           - { target: darwin-arm64,  triple: aarch64-apple-darwin,      bin: hanzo-mcp, apple: true }
     runs-on: linux-amd64
