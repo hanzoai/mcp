@@ -118,6 +118,15 @@ pub struct ToolRegistry {
     hanzo: Arc<RwLock<HanzoTool>>,
 }
 
+
+/// The tools that read or hand work to Hanzo's models and indexes and change nothing on this
+/// machine, listed with `readOnlyHint`. A client that asks before a tool that may write calls these
+/// without asking: Codex, Hanzo Dev and Open Interpreter refuse every unannotated call in a run
+/// that never asks. `llm`'s one write is the rating `feedback` gives an answer it returned. `kai`
+/// runs actions and `code_index` writes the index, so neither is here.
+pub const READ_ONLY: &[&str] =
+    &["kai_decide", "llm", "research", "web_search", "web_read", "code_search", "code_context", "code_ask", "vision", "think"];
+
 impl ToolRegistry {
     pub fn new() -> Self {
         Self {
@@ -305,7 +314,7 @@ impl ToolRegistry {
         }
     }
 
-    /// Get tool definitions for MCP protocol
+    /// Get tool definitions for MCP protocol, each read-only tool annotated as one.
     pub fn get_definitions(&self) -> Vec<Value> {
         let mut definitions = vec![
             json!({
@@ -371,6 +380,11 @@ impl ToolRegistry {
         }
 
         definitions.retain(|d| d["name"].as_str().is_some_and(|n| self.allowed(n)));
+        for d in &mut definitions {
+            if d["name"].as_str().is_some_and(|n| READ_ONLY.contains(&n)) {
+                d["annotations"] = json!({ "readOnlyHint": true, "openWorldHint": true });
+            }
+        }
         definitions
     }
 
@@ -484,6 +498,19 @@ mod tests {
                 defs.iter().any(|d| d["name"] == t && d["inputSchema"].is_object()),
                 "{t} missing a definition"
             );
+        }
+    }
+
+    #[test]
+    fn read_only_tools_say_so_and_the_rest_do_not() {
+        let defs = ToolRegistry::with_defaults().get_definitions();
+        for t in READ_ONLY {
+            let d = defs.iter().find(|d| d["name"] == *t).unwrap_or_else(|| panic!("{t} is not listed"));
+            assert_eq!(d["annotations"]["readOnlyHint"], true, "{t}");
+        }
+        for t in ["exec", "fs", "git", "kai", "code_index", "memory"] {
+            let d = defs.iter().find(|d| d["name"] == t).unwrap_or_else(|| panic!("{t} is not listed"));
+            assert!(d.get("annotations").is_none(), "{t} must not claim to be read-only");
         }
     }
 
