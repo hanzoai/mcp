@@ -66,7 +66,8 @@ def injection(items, commit, ended):
             if ms:
                 m.append({"category": "all", "metric": "p50_ms", "value": p50(ms)})
             out.append(run("mcp.injection", split, arm, what, c, arm == OLD, len(r), m,
-                           "test: InjecAgent user tools and attack wordings unseen while the rules were written" if split == "test" else "dev: the cases the rules were written on", ended))
+                           ("test: InjecAgent user tools and attack wordings unseen while the rules were written" if split == "test" else "dev: the cases the rules were written on")
+                           + "; p50_ms is the handler's wall time against kai-1.2 on dgx's CPU while other training reads ran, not a serving latency", ended))
     return out
 
 
