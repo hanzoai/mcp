@@ -38,8 +38,41 @@ pub fn classify(command: &str, ctx: &Context) -> Report {
     read(command, ctx).0
 }
 
+/// The most bytes of a command the walker reads; a longer one is refused unread, as unparsed.
+const LONGEST: usize = 64 * 1024;
+/// A command at most this long is read on the caller's stack: its depth cannot outgrow it.
+const INLINE: usize = 64;
+/// The stack a longer command is read on. The walk recurses with the command's nesting, and a
+/// flat chain (`! ! ! …`, `a || b || …`) nests as deep as it is long, so a command up to LONGEST
+/// is read where that depth fits, whatever stack the caller has. Reserved, not committed.
+const STACK: usize = 256 * 1024 * 1024;
+
 /// The report, and whether it depends on the disk (a script was read from it).
 fn read(command: &str, ctx: &Context) -> (Report, bool) {
+    if command.len() > LONGEST {
+        let mut w = walk::Walker::new(ctx);
+        w.ask(Kind::Unparsed, "the command is longer than the classifier reads");
+        return (Report::of(w.found), false);
+    }
+    #[cfg(not(target_arch = "wasm32"))]
+    if command.len() > INLINE {
+        return std::thread::scope(|s| {
+            std::thread::Builder::new()
+                .stack_size(STACK)
+                .spawn_scoped(s, || walk_all(command, ctx))
+                .ok()
+                .and_then(|h| h.join().ok())
+        })
+        .unwrap_or_else(|| {
+            let mut w = walk::Walker::new(ctx);
+            w.ask(Kind::Unparsed, "the classifier could not read the command");
+            (Report::of(w.found), false)
+        });
+    }
+    walk_all(command, ctx)
+}
+
+fn walk_all(command: &str, ctx: &Context) -> (Report, bool) {
     let command = val::plain(command);
     let mut w = walk::Walker::new(ctx);
     if command.contains('\0') {

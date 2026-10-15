@@ -226,6 +226,8 @@ impl ToolRegistry {
                     command: Some(json!(tools::runner::argv(name, &params)?)),
                     cwd: params.get("cwd").and_then(Value::as_str).map(String::from),
                     timeout: Some(tools::runner::BACKGROUND),
+                    // exec's classifier asks before a package is fetched; the same approval exec takes.
+                    approve: params.get("approve").and_then(Value::as_bool),
                     ..Default::default()
                 };
                 let result = self.exec.read().await.execute(args).await?;

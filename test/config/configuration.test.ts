@@ -9,6 +9,7 @@ const UNIFIED_TOOLSET = [
   'code_search', 'code_context', 'code_ask', 'code_index',             // code intelligence
   'tracker_boards', 'tracker_issues', 'tracker_create', 'tracker_update', // work items
   'kai_decide', 'kai_choice', 'kai_score', 'kai_noul',                  // decisions
+  'kai',                                                               // Kai Actions
   'kai_tool_select', 'kai_next_action', 'kai_command_guard', 'kai_injection_screen', 'kai_extract', 'kai_log_triage', 'kai_recover', // 7 purpose-built
   'kai_agent_step',                                                    // agent step
 ];

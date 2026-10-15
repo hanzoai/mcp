@@ -46,7 +46,8 @@ pub fn definition(tool: &str) -> Value {
     let mut props = json!({
         "package": {"type": "string", "description": "The package (and its command)"},
         "args": {"type": "string", "default": "", "description": "Arguments, split on whitespace"},
-        "cwd": {"type": "string", "description": "Working directory"}
+        "cwd": {"type": "string", "description": "Working directory"},
+        "approve": {"type": "boolean", "default": false, "description": "Run it although the classifier asks first (a package fetched from the network): only once the person has approved"}
     });
     props.as_object_mut().unwrap().extend(extra.as_object().cloned().unwrap_or_default());
     json!({

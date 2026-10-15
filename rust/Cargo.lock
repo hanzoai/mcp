@@ -1252,6 +1252,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "hanzo-actions"
+version = "0.1.0"
+dependencies = [
+ "regex",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
+ "tempfile",
+]
+
+[[package]]
 name = "hanzo-mcp"
 version = "1.1.29"
 dependencies = [
@@ -1265,6 +1277,7 @@ dependencies = [
  "dirs 5.0.1",
  "env_logger",
  "glob",
+ "hanzo-actions",
  "hanzo-shell",
  "hanzo-trigram",
  "jsonrpc-core",

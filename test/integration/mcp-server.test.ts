@@ -13,6 +13,7 @@ const UNIFIED_TOOLS = [
   'code_search', 'code_context', 'code_ask', 'code_index',
   'tracker_boards', 'tracker_issues', 'tracker_create', 'tracker_update',
   'kai_decide', 'kai_choice', 'kai_score', 'kai_noul',
+  'kai',
   'kai_tool_select', 'kai_next_action', 'kai_command_guard', 'kai_injection_screen', 'kai_extract', 'kai_log_triage', 'kai_recover',
   'kai_agent_step'
 ];

@@ -10,7 +10,10 @@ async fn call(name: &str, args: Value) -> hanzo_mcp::ToolResult {
 
 #[tokio::test]
 async fn npx_runs_its_argv_through_exec() {
-    let r = call("npx", json!({"package": "--version", "yes": false})).await;
+    // A package run fetches from the network, so exec's classifier asks before it runs.
+    let asked = ToolRegistry::with_defaults().execute("npx", json!({"package": "--version", "yes": false})).await;
+    assert!(asked.as_ref().is_err_and(|e| e.to_string().contains("approval required")), "{asked:?}");
+    let r = call("npx", json!({"package": "--version", "yes": false, "approve": true})).await;
     assert_eq!(r.content["status"], "success", "{:?}", r.content);
     assert!(r.content["stdout"].as_str().unwrap().trim().chars().next().unwrap().is_ascii_digit());
     let defs = ToolRegistry::with_defaults().get_definitions();

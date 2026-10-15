@@ -438,7 +438,9 @@ fn hostile_text_is_read_in_time_and_never_allowed() {
     for text in &hostile {
         let _ = classify(text, &ctx());
     }
-    assert!(began.elapsed().as_millis() < 3_000, "{:?}", began.elapsed());
+    // The bound catches a quadratic read, which takes minutes; an unoptimized build on a loaded host takes seconds.
+    let bound = if cfg!(debug_assertions) { 15_000 } else { 3_000 };
+    assert!(began.elapsed().as_millis() < bound, "{:?}", began.elapsed());
     // The fork bomb, however it is spelled.
     is(":(){ :|:& };:", Risk::Deny);
     is("bomb() { bomb | bomb & }; bomb", Risk::Deny);
