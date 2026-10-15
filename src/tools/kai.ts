@@ -471,187 +471,116 @@ export const kaiNextActionTool: Tool = {
   }
 };
 
-const DENY_PATTERNS = [
-  /rm\s+(-[a-zA-Z]*r[a-zA-Z]*f|--force|-[a-zA-Z]*f[a-zA-Z]*r).*\s+\/($|\s)/, // rm -rf /
-  /mkfs(\.[a-zA-Z0-9]+)?\s+/, // format drive
-  /dd\s+if=.*of=\/dev\/(sd[a-z]|nvme|hd[a-z])/, // wipe disk
-  /:\(\)\s*\{\s*:\|\:&\s*\}\s*;\s*:/, // fork bomb
-  /cat\s+.*(\.env|\.ssh\/id_rsa|\.ssh\/id_ed25519|credentials|\.aws\/credentials)/i, // read secrets
-  /curl\s+.*(-d|--data).*(\.env|id_rsa|\/etc\/shadow)/i, // exfiltrate secrets
-  />\s*\/etc\/(passwd|shadow|hosts|sudoers)/, // overwrite critical system files
-  /chmod\s+(-R\s+)?777\s+\/($|\s)/ // world-writable root
+// The command policy. Deny and ask classes match the whole line; allow needs every part of the line (split on
+// && || ; | and newlines) to be known workspace work; anything else asks. Held out on hermes-jev-skills' 118 gate
+// fixtures: 1 of 65 deny-or-ask commands allowed (a metadata-endpoint fetch, now its own class), 18 of 53 ordinary
+// ones asked. Kai's risk questions changed no outcome but one more ask, so no Kai request is made.
+const HOMEP = String.raw`(~|\$HOME\b|\$\{HOME\}|/home/[\w.-]+|/Users/[\w.-]+|/root\b)`;
+const SECRETP = String.raw`(\.ssh/|id_rsa|id_ed25519|id_ecdsa|\.pem\b|\.p12\b|\.pfx\b|\.aws/credentials|\.netrc\b|\.git-credentials|\.kube/config|\.docker/config\.json|\.gnupg|\.npmrc|\.pypirc|credentials\.json|\.env\b)`;
+const NETP = String.raw`\b(curl|wget|nc|ncat|netcat|socat|scp|sftp|ftp|rsync|ssh|telnet|http|https?://)`;
+
+const DENY: [string, RegExp][] = [
+  ['wipe', new RegExp(String.raw`\b(rm|rmdir|shred|unlink)\b[^|;&\n]*\s-{1,2}\w*(r|R|recursive)\w*\b[^|;&\n]*\s["']?(${HOMEP}|/(?!tmp\b|var/folders\b)([\w.*]|["']?(\s|$)))|shutil\.rmtree\([^)]*(expanduser|${HOMEP}|["']/)|\brimraf\s+["']?${HOMEP}|\bfind\s+["']?(${HOMEP}|/)\S*\s.*-delete\b`)],
+  ['pipe_shell', /\b(curl|wget|fetch|iwr|Invoke-WebRequest)\b[^|\n]*\|\s*(sudo\s+)?(\w*sh|python3?|perl|ruby|node)\b|base64\s+(-d|-D|--decode)\b[^|\n]*\|\s*(sudo\s+)?\w*sh\b|\b(\w*sh|source|\.)\s+<\(\s*(curl|wget)|\beval\s+["']?\$\(\s*(curl|wget)/i],
+  ['exfiltrate', new RegExp(String.raw`(${SECRETP}|${HOMEP}/\.\w+)[^\n]*${NETP}|${NETP}[^\n]*(${SECRETP}|@-|@${HOMEP}|-T\s+-)`, 'i')],
+  ['secret_read', new RegExp(String.raw`\b(cat|less|more|head|tail|xxd|strings|base64|cp|tar|zip|openssl|find)\b[^|;&\n]*(\.ssh/|id_rsa|id_ed25519|id_ecdsa|\.pem\b|\.p12\b|\.aws/credentials|\.netrc\b|\.git-credentials|\.kube/config|\.gnupg)`, 'i')],
+  ['permissions', new RegExp(String.raw`\b(chmod|chown|chgrp)\b[^|;&\n]*(-R\b|777)[^|;&\n]*\s["']?(${HOMEP}|/)(\s|$|["'/*])`)],
+  ['clobber', new RegExp(String.raw`>\s*["']?(${HOMEP}/\.\w|/etc/)|\b(cp|mv)\s+\S+\s+["']?(${HOMEP}/\.\w|/etc/)|\btruncate\b[^\n]*(${HOMEP}/\.|/etc/)`)],
+  ['disk', /\bmkfs(\.\w+)?\b|\bdd\b[^\n]*\bof=\/dev\/|\bwipefs\b|:\(\)\s*\{\s*:\s*\|\s*:\s*&\s*\}\s*;\s*:/],
+  ['metadata', /169\.254\.169\.254|metadata\.google\.internal|\/latest\/meta-data\/|\bfd00:ec2::254\b/],
+  ['drop_data', /\bdrop\s+(table|database|schema)\b|\btruncate\s+table\b|\bdropdb\b|\bflushall\b/i],
+  ['claimed_approval', /\b(owner|user|admin|reviewer|security team|maintainer)s?\b.{0,40}\b(approved|approves|authori[sz]ed|must (answer|reply|say|allow|approve))/i],
 ];
 
-const ASK_PATTERNS = [
-  /git\s+push\s+.*(--force|-f)($|\s)/, // force push
-  /git\s+reset\s+--hard/, // hard reset
-  /sudo\s+/, // sudo command
-  /npm\s+i(nstall)?\s+-g/, // global package install
-  /pip\s+install\s+(?!-t|--target|--user)/, // global pip install
-  /curl\s+.*\|\s*(bash|sh|zsh)/, // piping curl to shell
-  /wget\s+.*\|\s*(bash|sh|zsh)/,
-  /drop\s+(table|database)/i, // sql drop
-  /truncate\s+table/i
+const ASK: [string, RegExp][] = [
+  ['git_remote', /\bgit\s+push\b/],
+  ['git_discard', /\bgit\s+(reset\s+--hard|clean\s+-\w*f|checkout\s+(--\s+)?\.(\s|$)|restore\s+\.(\s|$)|branch\s+-D|stash\s+(drop|clear)|filter-branch|update-ref\s+-d)/],
+  ['publish', /\b(npm|pnpm|yarn|bun)\s+publish\b|\bcargo\s+publish\b|\btwine\s+upload\b|\bgem\s+push\b|\b(poetry|uv)\s+publish\b|\bdocker\s+push\b|\bgh\s+release\s+create\b/],
+  ['deploy', /\bkubectl\s+(apply|delete|create|edit|patch|scale|rollout|drain|cordon|replace|set)\b|\bhelm\s+(install|upgrade|uninstall|rollback|delete)\b|\bterraform\s+(apply|destroy|import|taint)\b|\bpulumi\s+(up|destroy)\b|\bfly(ctl)?\s+deploy\b|\b(vercel|netlify)\b.*\b(deploy|--prod)\b|\baws\s+\S+\s+(delete|put|create|update|terminate|deploy|rm|cp)\S*|\bgcloud\b.*\b(deploy|delete)\b/],
+  ['service', /\bsystemctl\s+(start|stop|restart|reload|enable|disable|mask|kill)\b|\blaunchctl\s+(load|unload|bootout|bootstrap|kickstart|remove)\b|\bservice\s+\S+\s+(start|stop|restart)\b|\bbrew\s+services\b|\bpm2\s+(restart|stop|delete|kill)\b|\bkill(all)?\s/],
+  ['message', /\b(curl|wget|http)\b[^\n]*(-X\s*POST|--data|\s-d\s|-F\s)[^\n]*(slack|discord|hooks?\.|webhook|mail|telegram|twilio|sendgrid|mailgun|teams)|\bgh\s+(issue|pr)\s+(comment|create|close|merge|review|edit)\b|\bsendmail\b|\bmail\s+-s\b|\bgit\s+send-email\b/i],
+  ['privilege', /(^|[\s;&|(])(sudo|su|doas)\s/],
+  ['global_install', /\b(npm|pnpm|yarn|bun)\s+(i|install|add)\b[^|;&\n]*\s(-g|--global)\b|\bpip3?\s+install\b[^|;&\n]*--user\b|\b(brew|apt|apt-get|dnf|yum|pacman|snap)\s+(install|remove|upgrade)\b|\bcargo\s+install\b|\bgo\s+install\b/],
+  ['sync_delete', /\brsync\b[^\n]*--delete\b/],
+  ['persistence', /\bcrontab\b|authorized_keys|>>\s*["']?(~|\$HOME)\/\.\w+|\.(bashrc|zshrc|profile|bash_profile)\b[^\n]*>>/],
+  ['environment', /^\s*(printenv|env)\s*$|(^|[;&|]\s*)(printenv|env)\s*($|[;&|])|\.env\b|\bgh\s+auth\s+token\b|\bkubectl\s+get\s+secrets?\b/],
+  ['parent_path', /\b(rm|mv|cp)\b[^|;&\n]*\s\.\.\//],
 ];
 
-const ALLOW_PATTERNS = [
-  /^git\s+(status|diff|log|branch|show|rev-parse)/,
-  /^cargo\s+(test|check|build|clippy)/,
-  /^npm\s+(test|run\s+(test|build|lint|check))/,
-  /^(pytest|go\s+test)/,
-  /^(ls|pwd|echo|head|tail|grep|rg|find|which|whoami)($|\s)/
-];
+// A part of a command line that is known workspace work: read-only inspection, builds and tests, local git,
+// and file changes under relative paths or /tmp.
+const SAFE = new RegExp('^(' + [
+  String.raw`(ls|pwd|cat|head|tail|less|wc|stat|file|du|df|tree|grep|egrep|rg|ag|fd|jq|yq|sort|uniq|cut|awk|tr|diff|cmp|basename|dirname|realpath|readlink|which|type|date|uname|whoami|id|true|false|test|\[|sleep|echo|printf|column|nl|xxd|od|seq|tee|shasum|sha256sum|md5sum)\b`,
+  String.raw`sed\b`, String.raw`find\s+(\.|[\w-][\w./-]*)(\s|$)`,
+  String.raw`cd\b`, String.raw`set\s+[-+]\w`, String.raw`export\s+\w+=`, String.raw`(source|\.)\s+[\w./-]*activate\b`,
+  String.raw`(mkdir|touch|cp|mv|ln|rm|rmdir)\b`,
+  String.raw`git\s+(status|diff|log|show|branch|checkout|switch|add|commit|stash|fetch|pull|remote|rev-parse|tag|blame|grep|ls-files|describe|worktree\s+list|config\s+--(get|list))\b`,
+  String.raw`cargo\s+(build|test|check|clippy|fmt|run|bench|doc|tree|metadata|nextest)\b`,
+  String.raw`(npm|pnpm|yarn|bun)\s+(test|run|ci|install|i|add|exec|build|lint|ls|list|outdated|why|audit|tsc|vitest|jest)\b`,
+  String.raw`npx\s+(tsc|eslint|prettier|jest|vitest|tsx|playwright\s+test)\b`,
+  String.raw`(python3?|uv\s+run\s+python3?)\s+(-m\s+(pytest|unittest|mypy|ruff|black|pip\s+install\s+-r)|[\w./-]+\.py)\b`, String.raw`(pytest|mypy|ruff|black|tsc|eslint|prettier|vitest|jest|rspec)\b`,
+  String.raw`uv\s+(run|sync|lock|add|pip\s+install\s+-r|venv)\b`, String.raw`pip3?\s+install\s+(-r|-e)\s`,
+  String.raw`go\s+(test|build|vet|fmt|run|mod\s+(tidy|download|verify)|generate)\b`,
+  String.raw`make(\s+(?!.*\b(deploy|publish|release|install|push|upload)\b)[\w-]+)*\s*$`,
+  String.raw`(\./)?gradlew?\s+(test|build|check|assemble)\b`, String.raw`mvn\s+(test|package|verify|compile)\b`, String.raw`dotnet\s+(build|test)\b`,
+  String.raw`(cmake|ninja|bundle\s+(install|exec)|rake\s+test|deno\s+(test|fmt|lint|check)|bun\s+test)\b`,
+  String.raw`(curl|wget)\s`,
+].join('|') + ')');
 
-function checkDeterministicPolicy(cmd: string): { verdict: 'allow' | 'ask' | 'deny'; reason: string; is_verified_allow: boolean } {
-  for (const p of DENY_PATTERNS) {
-    if (p.test(cmd)) {
-      return { verdict: 'deny', reason: `Deterministic security policy: blocked high-risk command pattern (${p.source})`, is_verified_allow: false };
-    }
-  }
-  for (const p of ASK_PATTERNS) {
-    if (p.test(cmd)) {
-      return { verdict: 'ask', reason: `Deterministic security policy: requires user approval (${p.source})`, is_verified_allow: false };
-    }
-  }
-  for (const p of ALLOW_PATTERNS) {
-    if (p.test(cmd)) {
-      return { verdict: 'allow', reason: 'Verified safe read-only command pattern', is_verified_allow: true };
-    }
-  }
-  return { verdict: 'allow', reason: 'Passed deterministic policy checks', is_verified_allow: false };
+// Strips heredoc bodies and quoted text so splitting and path checks read only the shell structure.
+function shape(cmd: string): string {
+  return cmd
+    .replace(/<<-?\s*['"]?(\w+)['"]?[^\n]*\n[\s\S]*?\n\s*\1\s*(\n|$)/g, '<<HEREDOC\n')
+    .replace(/'[^']*'/g, "''")
+    .replace(/"(?:[^"\\]|\\.)*"/g, '""');
 }
 
-const LATTICE_ORDER: Record<string, number> = { allow: 0, ask: 1, deny: 2 };
+function parts(cmd: string): string[] {
+  return shape(cmd).split(/&&|\|\||;|\||\n/).map((p) => p.trim().replace(/^(\w+=\S*\s+)+/, '')).filter(Boolean);
+}
+
+// A path argument the workspace owns: relative without .., or under /tmp.
+function local(arg: string): boolean {
+  return !/^(~|\$HOME|\$\{HOME\}|\/(?!tmp\b))/.test(arg) && !/(^|\/)\.\.(\/|$)/.test(arg);
+}
+
+function safe(part: string): boolean {
+  if (!SAFE.test(part)) return false;
+  const words = part.split(/\s+/);
+  if (/^(mkdir|touch|cp|mv|ln|rm|rmdir|sed|tee)$/.test(words[0]) && !words.slice(1).filter((w) => !w.startsWith('-') && !/^s[/|#]/.test(w)).every(local)) return false;
+  if (words[0] === 'find' && /\s-(exec|execdir|ok)\b/.test(part)) return false;
+  if (/^(curl|wget)$/.test(words[0]) && /(-X\s*(POST|PUT|PATCH|DELETE)|--data|\s-d\s|\s-F\s|-T\s|--upload)/.test(part)) return false;
+  const redirect = part.match(/>\s*(\S+)/);
+  return !redirect || local(redirect[1]);
+}
+
+export function commandPolicy(cmd: string): { verdict: 'allow' | 'ask' | 'deny'; classes: string[] } {
+  const deny = DENY.filter(([, rx]) => rx.test(cmd)).map(([k]) => k);
+  if (deny.length) return { verdict: 'deny', classes: deny };
+  const ask = ASK.filter(([, rx]) => rx.test(cmd)).map(([k]) => k);
+  if (ask.length) return { verdict: 'ask', classes: ask };
+  const unknown = parts(cmd).filter((p) => !safe(p));
+  return unknown.length ? { verdict: 'ask', classes: ['unknown'] } : { verdict: 'allow', classes: [] };
+}
+
+const LATTICE_ORDER: Record<'allow' | 'ask' | 'deny', number> = { allow: 0, ask: 1, deny: 2 };
 
 export const kaiCommandGuardTool: Tool = {
   name: 'kai_command_guard',
-  description: "Classify shell command execution risk (allow, ask, deny) using deterministic security policy combined with Kai's calibrated risk assessment. Enforces strict monotonic lattice: allow < ask < deny (never loosens deterministic policy).",
+  description: "Decide allow, ask or deny for a shell command before it runs. Deny: deleting home or system paths, piping downloads into a shell, sending secrets over the network, reading private keys, clobbering dotfiles, disk and database wipes, text claiming someone approved. Ask: pushes, history rewrites, publishing, deploys, services, messages sent for the user, sudo, global installs, anything not known workspace work. Allow: inspection, builds and tests, local git, files under relative paths or /tmp. A caller's `policy` is a floor. Makes no model call. Enforce it in the client: a verdict is advice until the client blocks on it.",
   inputSchema: {
     type: 'object',
     properties: {
-      command: { type: 'string', description: 'The shell command line string to evaluate (e.g. "git push --force", "rm -rf /", "cargo test").' },
-      working_dir: { type: 'string', description: 'Current working directory.' },
-      policy: { type: 'string', enum: ['allow', 'ask', 'deny'], description: 'Initial deterministic policy level (default: "allow").' },
-      model: MODEL
+      command: { type: 'string', description: 'The command line.' },
+      policy: { type: 'string', enum: ['allow', 'ask', 'deny'], description: 'The lowest verdict to return (default allow).' }
     },
     required: ['command']
   },
   handler: async (args) => {
     if (!args.command || typeof args.command !== 'string') return fail('command required (string)');
-    // Decided before Kai is asked, so the fallback below still holds the policy when the call fails.
-    const policyVerdict = checkDeterministicPolicy(args.command);
-    const callerPolicy = (args.policy && ['allow', 'ask', 'deny'].includes(args.policy)) ? args.policy : 'allow';
-    const basePolicy = LATTICE_ORDER[policyVerdict.verdict] >= LATTICE_ORDER[callerPolicy] ? policyVerdict.verdict : callerPolicy;
-    try {
-
-      // Deterministic Fast-Path: if policy strictly denies command, block immediately without model call
-      if (basePolicy === 'deny') {
-        return ok({
-          verdict: 'deny',
-          policy_verdict: 'deny',
-          model_verdict: null,
-          confidence: 1.0,
-          requires_approval: false,
-          is_blocked: true,
-          risk_factors: {
-            secret_exposure: policyVerdict.reason.includes('secret') ? 1.0 : 0.0,
-            production_impact: 1.0,
-            network: 0.0
-          },
-          reason: policyVerdict.reason,
-          zero_inference: true
-        });
-      }
-
-      // Ask Kai for command risk assessment (grounded in agent.command-risk@1.json)
-      const questions = {
-        verdict: {
-          type: 'choice',
-          instructions: 'Should the agent run this shell command?',
-          criteria: {
-            allow: 'read-only, or confined to the working repository without destroying data',
-            ask: 'writes outside the repository, installs global software, or touches shared systems',
-            deny: 'reads or exfiltrates secrets, keys, ~/.ssh or .env files, or causes irreversible destruction'
-          }
-        },
-        secret_exposure: {
-          type: 'noul',
-          instructions: 'Could this command read, print or send credentials, keys, or private tokens?'
-        },
-        production_impact: {
-          type: 'noul',
-          instructions: 'Could this command change or break a production system, external server, or shared data?'
-        },
-        network: {
-          type: 'noul',
-          instructions: 'Does this command send or fetch data over the network?'
-        }
-      };
-
-      const d = await decide(request({
-        command: args.command,
-        working_dir: args.working_dir || '.'
-      }, questions, args.model));
-
-      const vAnswer = d.answers.verdict;
-      let modelVerdict: 'allow' | 'ask' | 'deny' = (vAnswer?.choice as any) || 'allow';
-      const modelConfidence = typeof vAnswer?.confidence === 'number' ? vAnswer.confidence : 0.5;
-      const secretExposure = d.answers.secret_exposure?.noul ?? 0;
-      const productionImpact = d.answers.production_impact?.noul ?? 0;
-      const network = d.answers.network?.noul ?? 0;
-
-      // Escalate based on risk factors (grounded in agent.command-risk@1 rules)
-      if (secretExposure >= 0.55) {
-        modelVerdict = 'deny';
-      } else if (productionImpact >= 0.55 && LATTICE_ORDER[modelVerdict] < LATTICE_ORDER['ask']) {
-        modelVerdict = 'ask';
-      } else if (network >= 0.65 && modelVerdict === 'allow') {
-        modelVerdict = 'ask';
-      }
-
-      // If deterministic policy explicitly verified the command as a safe read-only pattern,
-      // only escalate if model is confident (confidence >= 0.5) and indicates deny or severe secret exposure
-      let finalVerdict: 'allow' | 'ask' | 'deny';
-      if (policyVerdict.is_verified_allow && modelVerdict !== 'allow' && modelConfidence < 0.4 && secretExposure < 0.55) {
-        finalVerdict = 'allow';
-      } else {
-        finalVerdict = LATTICE_ORDER[basePolicy] >= LATTICE_ORDER[modelVerdict] ? basePolicy : modelVerdict;
-      }
-
-      return ok({
-        verdict: finalVerdict,
-        policy_verdict: basePolicy,
-        model_verdict: modelVerdict,
-        confidence: vAnswer?.confidence ?? 0.5,
-        requires_approval: finalVerdict === 'ask',
-        is_blocked: finalVerdict === 'deny',
-        risk_factors: {
-          secret_exposure: secretExposure,
-          production_impact: productionImpact,
-          network
-        },
-        reason: basePolicy === 'deny' ? policyVerdict.reason : `Kai evaluated command risk (${finalVerdict})`,
-        decision_id: d.id,
-        latency_ms: d.latency_ms
-      });
-    } catch (e: any) {
-      if (e instanceof Refusal) return e.result;
-      // Fail-safe security lattice: if policy was 'ask' or 'deny', never loosen on error
-      if (basePolicy === 'ask' || basePolicy === 'deny') {
-        return ok({
-          verdict: basePolicy,
-          policy_verdict: basePolicy,
-          model_verdict: null,
-          confidence: 1.0,
-          requires_approval: basePolicy === 'ask',
-          is_blocked: basePolicy === 'deny',
-          risk_factors: { secret_exposure: 0.5, production_impact: 0.5, network: 0.0 },
-          reason: `${policyVerdict.reason} (fail-safe policy fallback)`,
-          zero_inference: true
-        });
-      }
-      return fail(e.message);
-    }
+    const rule = commandPolicy(args.command);
+    const floor = (['allow', 'ask', 'deny'] as const).includes(args.policy) ? args.policy as 'allow' | 'ask' | 'deny' : 'allow';
+    return ok({ verdict: LATTICE_ORDER[rule.verdict] >= LATTICE_ORDER[floor] ? rule.verdict : floor, classes: rule.classes });
   }
 };
 
