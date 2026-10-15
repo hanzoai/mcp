@@ -18,7 +18,7 @@ export async function runRecipe06(): Promise<RecipeResult> {
   };
 
   const res = await client.callTool("kai_recover", {
-    error_category: "compilation_error",
+    error_category: "compile",
     failure_fingerprint: failureFingerprint
   });
 
@@ -28,7 +28,7 @@ export async function runRecipe06(): Promise<RecipeResult> {
     success: !res.isError && res.data.loop_breaker_triggered === true && res.data.strategy === "revert_and_switch_strategy",
     latency_ms: res.latency_ms,
     output: res.data,
-    explanation: "Circuit breaker tripped at attempt 3, commanding revert_and_switch_strategy in 0ms."
+    explanation: "Three failures with one fingerprint switch strategy instead of repeating it. No model call."
   };
 
   return result;

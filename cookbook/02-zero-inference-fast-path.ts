@@ -36,10 +36,10 @@ export async function runRecipe02(): Promise<RecipeResult> {
   const result: RecipeResult = {
     recipe: "02: Zero-Inference Fast Path",
     tool: "kai_next_action",
-    success: !res.isError && res.data.zero_inference === true && res.data.confidence === 1.0,
+    success: !res.isError && res.data.source === "single" && res.data.action?.preconditions_satisfied === true,
     latency_ms: res.latency_ms,
     output: res.data,
-    explanation: "Zero-inference fast path detected exactly 1 valid candidate and returned it in <1ms without model calls."
+    explanation: "One candidate had its preconditions met, so it was returned as is; the other was dropped. No model call."
   };
 
   return result;

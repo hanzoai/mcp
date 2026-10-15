@@ -54,25 +54,20 @@ defines:
 The core and optional tools take an `action` argument that picks the operation;
 `ui` takes `method`. The code intelligence, tracker and kai tools call
 `https://api.hanzo.ai` with the key in `HANZO_API_KEY`, or a local Kai instance via
-`LOCAL_KAI_URL` (e.g. `http://127.0.0.1:18977`).
+`LOCAL_KAI_URL` (a local `kai serve`, e.g. `http://127.0.0.1:8080`).
 
 The kai tools ask Kai, Hanzo's decision model, typed questions about a case
 (`POST /v1/decisions`) and answer with calibrated probabilities: `kai_choice`
 picks a label, `kai_score` an ordinal level, `kai_noul` the probability that a
 statement holds, and `kai_decide` asks up to 100 of them in one call.
 
-Beside the general decision primitives, 8 purpose-built native MCP tools provide
-fast-path zero-inference execution and targeted decision capabilities:
-- `kai_tool_select`: Shortlist tools from registered schemas and resolve client naming differences (e.g. `bash` → `Bash`).
-- `kai_next_action`: Recommend an executable next Action (`type`, `target`, `payload`) or calibrately abstain.
-- `kai_command_guard`: Shell command safety policy enforcement on monotonic lattice `allow < ask < deny`.
-- `kai_injection_screen`: Screen untrusted inputs or PR comments for prompt-injection / instruction overrides.
-- `kai_log_triage`: Classify compiler and test failures and pinpoint exact error spans.
-- `kai_recover`: Loop breaker and strategy recovery engine from failure fingerprints.
-- `kai_extract`: Typed discrete entity extraction across structured dimensions.
-- `kai_decide`: Joint multi-question evaluation in a single model forward pass.
-
-See the [Kai Cookbook](cookbook/README.md) for 15 runnable recipes and benchmarks across Claude Code, Cursor, Codex, and Hanzo Dev.
+Beside the decision primitives: `kai_injection_screen` (rules, then Kai's jailbreak question),
+`kai_command_guard` (allow, ask or deny before a command runs), `kai_tool_select` (named tool, then
+BM25), `kai_log_triage` (failure signatures), `kai_recover` (loop breaker and a step for each failure
+class), `kai_next_action` (precondition filter, then BM25) and `kai_extract` (typed fields, abstaining
+near uniform). Only the screen, `kai_extract` and `kai_decide` call Kai; the others decide by rules
+because kai-1.2 measured at or near chance there. The [cookbook](cookbook/README.md) has the held-out
+reads and fifteen runnable recipes.
 `instructions` is optional on every question and recommended. A `kai_choice`
 call:
 

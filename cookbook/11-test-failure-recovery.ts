@@ -13,28 +13,22 @@ export async function runRecipe11(): Promise<RecipeResult> {
   const failureSnippet = "assertion failed: `(left == right)`\n  left: `Err(\"1e3\")`,\n right: `Ok(1000.0)`\nat parser/src/number.rs:88:9";
 
   const res = await client.callTool("kai_recover", {
-    error_category: "test_assertion_failure",
+    error_category: "test",
     failure_fingerprint: {
       tool: "Bash",
       error_snippet: failureSnippet,
       attempt_count: 1,
       last_action: "cargo test -p parser"
-    },
-    strategies: [
-      { id: "inspect_source_evidence", description: "Read number.rs around line 88 to understand exponent parsing logic" },
-      { id: "retry_with_corrected_parameters", description: "Rerun test with nocapture flag" },
-      { id: "revert_and_switch_strategy", description: "Revert all repository changes back to main" },
-      { id: "install_missing_dependency", description: "Add new crate dependency to Cargo.toml" }
-    ]
+    }
   });
 
   const result: RecipeResult = {
     recipe: "11: Test Failure Recovery",
     tool: "kai_recover",
-    success: !res.isError && res.data.strategy === "inspect_source_evidence",
+    success: !res.isError && res.data.strategy === "run_focused_test_diagnostics",
     latency_ms: res.latency_ms,
     output: res.data,
-    explanation: "Kai selected inspect_source_evidence to read the failing parser code rather than looping."
+    explanation: "A test failure reruns only the failing test, verbose, before any edit. No model call."
   };
 
   return result;

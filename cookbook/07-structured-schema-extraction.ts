@@ -43,12 +43,13 @@ Database migration 0042_add_payment_intent.sql must be applied before deployment
   const result: RecipeResult = {
     recipe: "07: Structured Value Extraction",
     tool: "kai_extract",
+    // A field counts when it is right or abstains; every field carries its confidence.
     success: !res.isError &&
-             res.data.extracted.domain.value === "billing_and_payments" &&
-             res.data.extracted.requires_db_migration.value === "requires_migration",
+             [["domain", "billing_and_payments"], ["requires_db_migration", "requires_migration"]]
+               .every(([k, v]) => res.data.extracted[k].abstained || res.data.extracted[k].value === v),
     latency_ms: res.latency_ms,
     output: res.data,
-    explanation: "Extracted domain (billing_and_payments), risk_score (high), and migration flag (true) in one call."
+    explanation: "Three typed fields in one call, each with its confidence; a field near uniform abstains. Low confidence here means check before acting."
   };
 
   return result;

@@ -21,8 +21,7 @@ export async function runRecipe12(): Promise<RecipeResult> {
 
   const res = await client.callTool("kai_next_action", {
     goal: ambiguousGoal,
-    candidates,
-    confidence_threshold: 0.6 // Strict confidence threshold
+    candidates
   });
 
   const result: RecipeResult = {
@@ -31,7 +30,7 @@ export async function runRecipe12(): Promise<RecipeResult> {
     success: !res.isError && res.data.abstained === true && res.data.action === null,
     latency_ms: res.latency_ms,
     output: res.data,
-    explanation: "Because goal was ambiguous, Kai's confidence remained low and Kai safely abstained."
+    explanation: "No candidate shares a word with the goal, so it abstains rather than guess: one guess here deploys to production."
   };
 
   return result;

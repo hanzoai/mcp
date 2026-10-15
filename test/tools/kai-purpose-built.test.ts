@@ -165,95 +165,32 @@ describe('Kai Purpose-Built Native MCP Tools', () => {
   });
 
   describe('kai_next_action', () => {
-    test('applies zero-inference fast path when 1 candidate has satisfied preconditions', async () => {
-      const candidates = [
-        { action_id: 'act_edit', tool: 'Edit', description: 'Edit number.rs', parameters: { path: 'number.rs' }, preconditions_satisfied: true },
-        { action_id: 'act_read', tool: 'Read', description: 'Read number.rs', parameters: { path: 'number.rs' }, preconditions_satisfied: false }
-      ];
+    const act = (id: string, description: string, met?: boolean) => ({ action_id: id, tool: 'Bash', description, ...(met === undefined ? {} : { preconditions_satisfied: met }) });
 
-      const res = await kaiNextActionTool.handler({
-        goal: 'Fix test in number.rs',
-        candidates
-      });
-      const data = parseResult(res);
-      expect(data.zero_inference).toBe(true);
-      expect(data.action.action_id).toBe('act_edit');
-      expect(data.confidence).toBe(1.0);
-      expect(data.abstained).toBe(false);
-      expect(sent.length).toBe(0); // Zero inference!
+    test('returns the one candidate whose preconditions are met, without a network call', async () => {
+      const data = parseResult(await kaiNextActionTool.handler({ goal: 'Fix test in number.rs', candidates: [act('edit', 'Edit number.rs', true), act('read', 'Read number.rs', false)] }));
+      expect(data.action.action_id).toBe('edit');
+      expect(data.source).toBe('single');
+      expect(sent.length).toBe(0);
     });
 
-    test('abstains when single candidate has unsatisfied preconditions', async () => {
-      const candidates = [
-        { action_id: 'act_deploy', tool: 'Deploy', description: 'Deploy to prod', preconditions_satisfied: false }
-      ];
-
-      const res = await kaiNextActionTool.handler({
-        goal: 'Deploy service',
-        candidates
-      });
-      const data = parseResult(res);
+    test('never returns a candidate whose preconditions are unmet', async () => {
+      const data = parseResult(await kaiNextActionTool.handler({ goal: 'deploy', candidates: [act('deploy', 'Deploy to production', false)] }));
       expect(data.action).toBeNull();
       expect(data.abstained).toBe(true);
-      expect(data.confidence).toBe(0);
-      expect(data.reason).toContain('unsatisfied preconditions');
     });
 
-    test('calls Kai when multiple candidates are active', async () => {
-      mockReply = () => ({
-        id: 'dec_act_1',
-        model: 'kai',
-        answers: {
-          action: {
-            type: 'choice',
-            choice: 'act_cargo_test',
-            confidence: 0.88,
-            probabilities: { act_cargo_test: 0.88, act_git_status: 0.12 }
-          }
-        },
-        latency_ms: 12.0
-      });
-
-      const res = await kaiNextActionTool.handler({
-        goal: 'Verify build',
-        candidates: [
-          { action_id: 'act_cargo_test', tool: 'Bash', description: 'Run cargo test', parameters: { cmd: 'cargo test' } },
-          { action_id: 'act_git_status', tool: 'Bash', description: 'Run git status', parameters: { cmd: 'git status' } }
-        ]
-      });
-      const data = parseResult(res);
-      expect(data.zero_inference).toBe(false);
-      expect(data.action.action_id).toBe('act_cargo_test');
-      expect(data.confidence).toBe(0.88);
-      expect(data.abstained).toBe(false);
-      expect(sent.length).toBe(1);
+    test('picks among several by BM25 against the goal', async () => {
+      const data = parseResult(await kaiNextActionTool.handler({ goal: 'cargo test the parser', candidates: [act('test', 'Run cargo test -p parser'), act('status', 'Run git status')] }));
+      expect(data.action.action_id).toBe('test');
+      expect(data.source).toBe('bm25');
     });
 
-    test('abstains when confidence is below threshold', async () => {
-      mockReply = () => ({
-        id: 'dec_act_low',
-        model: 'kai',
-        answers: {
-          action: {
-            type: 'choice',
-            choice: 'act_1',
-            confidence: 0.25,
-            probabilities: { act_1: 0.51, act_2: 0.49 }
-          }
-        }
-      });
-
-      const res = await kaiNextActionTool.handler({
-        goal: 'Ambiguous task',
-        candidates: [
-          { action_id: 'act_1', tool: 'T1', description: 'Action 1' },
-          { action_id: 'act_2', tool: 'T2', description: 'Action 2' }
-        ],
-        confidence_threshold: 0.5
-      });
-      const data = parseResult(res);
-      expect(data.action).toBeNull();
-      expect(data.abstained).toBe(true);
+    test('abstains on no shared word and on a tie', async () => {
+      const none = parseResult(await kaiNextActionTool.handler({ goal: 'Update the thing', candidates: [act('a', 'Delete local cache'), act('b', 'Deploy to production')] }));
+      expect(none.abstained).toBe(true);
+      const tie = parseResult(await kaiNextActionTool.handler({ goal: 'run it', candidates: [act('a', 'run a'), act('b', 'run b')] }));
+      expect(tie.abstained).toBe(true);
     });
   });
 
@@ -440,49 +377,24 @@ error: could not compile \`hanzo-kai\` due to previous error`);
   });
 
   describe('kai_recover', () => {
-    test('circuit breaker trips after 3 failed attempts with same fingerprint', async () => {
-      const res = await kaiRecoverTool.handler({
-        error_category: 'compilation_error',
-        failure_fingerprint: {
-          tool: 'Edit',
-          error_snippet: 'mismatched types u32 vs &str',
-          attempt_count: 3
-        }
-      });
-      const data = parseResult(res);
+    const recover = async (error_category: string, attempt_count = 1) => parseResult(await kaiRecoverTool.handler({
+      error_category, failure_fingerprint: { tool: 'Bash', error_snippet: 'x', attempt_count },
+    }));
+
+    test('switches strategy after 3 failures with one fingerprint, without a network call', async () => {
+      const data = await recover('compile', 3);
       expect(data.strategy).toBe('revert_and_switch_strategy');
       expect(data.loop_breaker_triggered).toBe(true);
-      expect(data.confidence).toBe(1.0);
-      expect(sent.length).toBe(0); // Circuit breaker is deterministic!
+      expect(sent.length).toBe(0);
     });
 
-    test('selects recovery strategy via Kai on early attempt', async () => {
-      mockReply = () => ({
-        id: 'dec_rec_1',
-        model: 'kai',
-        answers: {
-          recovery_strategy: {
-            type: 'choice',
-            choice: 'inspect_source_evidence',
-            confidence: 0.84
-          }
-        },
-        latency_ms: 15.0
-      });
-
-      const res = await kaiRecoverTool.handler({
-        error_category: 'compilation_error',
-        failure_fingerprint: {
-          tool: 'Edit',
-          error_snippet: 'mismatched types u32 vs &str',
-          attempt_count: 1
-        }
-      });
-      const data = parseResult(res);
-      expect(data.strategy).toBe('inspect_source_evidence');
-      expect(data.loop_breaker_triggered).toBe(false);
-      expect(data.confidence).toBe(0.84);
-      expect(data.actionable_guidance).toContain('Inspect failing file');
+    test('maps each failure class to its step', async () => {
+      expect((await recover('dependency')).strategy).toBe('install_missing_dependency');
+      expect((await recover('test')).strategy).toBe('run_focused_test_diagnostics');
+      expect((await recover('network')).strategy).toBe('retry_later');
+      expect((await recover('permission')).strategy).toBe('request_access');
+      expect((await recover('resources')).strategy).toBe('reduce_resource_use');
+      expect((await recover('something-new')).strategy).toBe('inspect_source_evidence');
     });
   });
 });

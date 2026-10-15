@@ -48,8 +48,10 @@ Dependency tree:
   });
 
   const extracted = res.data.extracted;
-  const success = extracted.package_name.value === "openssl" &&
-                  (extracted.actionable_fix.value === "update_cargo_toml_version" || extracted.actionable_fix.value === "vendor_patched_source");
+  // A field counts when it is right or abstains: the caller acts only on fields that do not abstain.
+  const rightOrAbstained = (f: any, ok: unknown[]) => f.abstained || ok.includes(f.value);
+  const success = rightOrAbstained(extracted.package_name, ["openssl"]) &&
+                  rightOrAbstained(extracted.actionable_fix, ["update_cargo_toml_version", "vendor_patched_source"]);
 
   const result: RecipeResult = {
     recipe: "14: Dependency Audit Triage",
@@ -57,7 +59,7 @@ Dependency tree:
     success,
     latency_ms: res.latency_ms,
     output: res.data,
-    explanation: "Triaged critical CVE in openssl and recommended updating version in Cargo.toml."
+    explanation: "Each field comes back with its confidence; one near uniform abstains rather than guess. Act only on fields that do not abstain."
   };
 
   return result;

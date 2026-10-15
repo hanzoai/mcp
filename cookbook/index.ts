@@ -42,7 +42,7 @@ export const recipes = [
 export async function runAllRecipes(): Promise<RecipeResult[]> {
   console.log("=========================================================================");
   console.log("  🚀 Running All 15 Hanzo Kai Native MCP Cookbook Recipes");
-  console.log(`  Target: ${process.env.LOCAL_KAI_URL || process.env.API_URL || "http://127.0.0.1:18977"}`);
+  console.log(`  Target: ${process.env.LOCAL_KAI_URL || process.env.API_URL || "https://api.hanzo.ai"}`);
   console.log("=========================================================================\n");
 
   const results: RecipeResult[] = [];
