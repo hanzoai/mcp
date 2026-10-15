@@ -1,5 +1,5 @@
-//! `exec` and the classifier seam: a `deny` runs nothing, an `ask` runs and says so, and with
-//! no classifier installed `exec` answers as it always has.
+//! `exec` and the classifier seam: a `deny` runs nothing, an `ask` runs only with `approve: true`
+//! and says so, and with no classifier installed `exec` answers as it always has.
 
 use std::path::Path;
 use std::sync::{Arc, Mutex};
@@ -32,10 +32,15 @@ impl Classify for ByWord {
 }
 
 async fn run(tool: &ExecTool, command: Value, cwd: Option<&Path>) -> anyhow::Result<Value> {
+    run_with(tool, command, cwd, None).await
+}
+
+async fn run_with(tool: &ExecTool, command: Value, cwd: Option<&Path>, approve: Option<bool>) -> anyhow::Result<Value> {
     let args = ExecToolArgs {
         action: "exec".into(),
         command: Some(command),
         cwd: cwd.map(|c| c.display().to_string()),
+        approve,
         ..Default::default()
     };
     Ok(serde_json::from_str(&tool.execute(args).await?)?)
@@ -55,7 +60,7 @@ async fn a_deny_runs_nothing_and_registers_no_process() {
 }
 
 #[tokio::test]
-async fn an_ask_and_an_allow_run_and_carry_their_verdict() {
+async fn an_allow_runs_and_an_ask_runs_only_when_approved() {
     let dir = TempDir::new().unwrap();
     let tool = ExecTool::with_classifier(ByWord::new());
 
@@ -64,9 +69,17 @@ async fn an_ask_and_an_allow_run_and_carry_their_verdict() {
     assert_eq!(allow["verdict"], json!({"risk": "allow", "reasons": []}));
 
     // `git --version` runs offline; the verdict is what the classifier said of the word.
-    let ask = run(&tool, json!("git --version"), Some(dir.path())).await.unwrap();
-    assert_eq!(ask["verdict"], json!({"risk": "ask", "reasons": ["reaches a remote"]}));
-    assert!(ask["exit_code"].is_number(), "an ask still runs: {ask}");
+    let refused = run(&tool, json!("git --version"), Some(dir.path())).await.unwrap_err().to_string();
+    assert!(refused.starts_with("approval required: reaches a remote") && refused.contains("approve: true"), "{refused}");
+    let no = run_with(&tool, json!("git --version"), Some(dir.path()), Some(false)).await.unwrap_err().to_string();
+    assert!(no.starts_with("approval required"), "{no}");
+
+    let ask = run_with(&tool, json!("git --version"), Some(dir.path()), Some(true)).await.unwrap();
+    assert_eq!(ask["verdict"], json!({"risk": "ask", "reasons": ["reaches a remote"], "approved": true}));
+    assert!(ask["exit_code"].is_number(), "an approved ask runs: {ask}");
+    // An approval buys an ask and nothing else.
+    let deny = run_with(&tool, json!("rm x"), Some(dir.path()), Some(true)).await.unwrap_err().to_string();
+    assert_eq!(deny, "refused: rm is never run from here");
 }
 
 #[tokio::test]
@@ -112,8 +125,10 @@ async fn dev_asks_the_same_classifier_without_running_anything() {
 #[tokio::test]
 async fn the_registry_door_refuses_a_deny_as_a_tool_error() {
     let registry = ToolRegistry::new().with_classifier(ByWord::new());
-    let err = registry.execute("exec", json!({"action": "exec", "command": "rm x"})).await.unwrap_err();
+    let err = registry.execute("exec", json!({"action": "exec", "command": "rm x", "approve": true})).await.unwrap_err();
     assert_eq!(err.to_string(), "refused: rm is never run from here");
+    let err = registry.execute("exec", json!({"action": "exec", "command": "git --version"})).await.unwrap_err();
+    assert!(err.to_string().starts_with("approval required"), "{err}");
     let ok = registry.execute("exec", json!({"action": "exec", "command": "echo hi"})).await.unwrap();
     assert!(ok.success);
     assert_eq!(ok.content["verdict"]["risk"], "allow");

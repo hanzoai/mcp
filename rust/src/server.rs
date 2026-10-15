@@ -13,13 +13,15 @@ pub struct MCPServer {
     config: Config,
     port: u16,
     roots: Vec<PathBuf>,
+    shell: Arc<crate::tools::Shell>,
     tools: Arc<RwLock<ToolRegistry>>,
     handler: IoHandler,
 }
 
 impl MCPServer {
     pub fn new(config: Config, port: u16) -> Result<Self> {
-        let tools = Arc::new(RwLock::new(ToolRegistry::with_defaults()));
+        let shell = Arc::new(crate::tools::Shell::new());
+        let tools = Arc::new(RwLock::new(ToolRegistry::with_shell(shell.clone())));
         let mut handler = IoHandler::new();
         
         // Clone for move into closures
@@ -144,6 +146,7 @@ impl MCPServer {
             config,
             port,
             roots: Vec::new(),
+            shell,
             tools,
             handler,
         })
@@ -151,6 +154,8 @@ impl MCPServer {
 
     /// Record an allowed filesystem root the server may operate under.
     pub fn allow_root(&mut self, root: PathBuf) {
+        // The roots are also where a command may write without being asked about it.
+        self.shell.add_root(&root);
         self.roots.push(root);
     }
 

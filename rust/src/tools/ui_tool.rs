@@ -368,19 +368,25 @@ impl MCPTool for UiTool {
                     None => return Ok(ToolResult::ok(envelope_err("ui", "install", "UNKNOWN_FRAMEWORK",
                         format!("Unknown framework: {}", key)))),
                 };
-                let mut cmd = if key.starts_with("hanzo") {
-                    format!("npx @hanzo/ui add {}", name)
+                // A component name is a name: it is never read by a shell, and it cannot be an option.
+                let clean = !name.is_empty() && name.len() <= 128 && !name.starts_with('-') && name.chars().all(|c| c.is_ascii_alphanumeric() || matches!(c, '@' | '/' | '.' | '_' | '-' | ':'));
+                if !clean {
+                    return Ok(ToolResult::ok(envelope_err("ui", "install", "BAD_NAME", format!("Not a component name: {}", name.chars().take(60).collect::<String>()))));
+                }
+                let mut argv: Vec<String> = if key.starts_with("hanzo") {
+                    vec!["@hanzo/ui".into(), "add".into(), name.to_string()]
                 } else if key == "shadcn" || key == "react" {
-                    format!("npx shadcn@latest add {}", name)
+                    vec!["shadcn@latest".into(), "add".into(), name.to_string()]
                 } else {
                     return Ok(ToolResult::ok(envelope_err("ui", "install", "UNSUPPORTED",
                         format!("Installation not supported for framework: {}", key))));
                 };
                 if args.overwrite {
-                    cmd.push_str(" --overwrite");
+                    argv.push("--overwrite".into());
                 }
-                let mut proc = tokio::process::Command::new("sh");
-                proc.arg("-c").arg(&cmd);
+                let cmd = format!("npx {}", argv.join(" "));
+                let mut proc = tokio::process::Command::new("npx");
+                proc.args(&argv);
                 proc.stdout(std::process::Stdio::piped());
                 proc.stderr(std::process::Stdio::piped());
                 let child = match proc.spawn() {

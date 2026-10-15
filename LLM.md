@@ -109,14 +109,52 @@ hop), Claude Code and Codex call the same code over MCP.
   the tree-sitter grammars allow, so Cargo holds `tree-sitter-{c,cpp,javascript,python,rust,typescript}` at their
   previous patch releases. Gating `managed/` behind a feature in the fork removes both.
 
-**`exec` and the classifier.** `exec` asks a `Classify` (`rust/src/tools/verdict.rs`: command and cwd in, a `Verdict`
-of `allow | ask | deny` with reasons out) before it runs a command. The classifier is the shell parser and classifier
-module; this crate holds only the contract and the wiring (`ExecTool::with_classifier`,
-`ToolRegistry::with_classifier`). A `deny` is refused before a process exists; an `ask` runs, because an MCP server
-cannot ask the person and the client's own permission prompt already stood between the model and the call; every answer
-carries `verdict`. `refusal()` is the one place that policy lives. Dev asks the same classifier without running anything
-through `ExecTool::verdict`. With none installed `exec` is unchanged. `verdict` is an output field: the input schema is
-the same as the TypeScript runtime's.
+**`exec` and the classifier.** `exec` asks a `Classify` (`rust/src/tools/verdict.rs`: command and cwd in, a `Verdict` of
+`allow | ask | deny` with reasons out) before it runs a command, and the classifier is installed: `hanzo-shell`
+(`rust/shell`, pure Rust, no C, no tree-sitter), behind `tools::Shell`, which `ToolRegistry::with_defaults` installs.
+- **Policy** (`refusal(verdict, approved)` is the one place): a `deny` is refused and `approve: true` never lifts it; an `ask`
+  is refused ("approval required: <reasons>; … run the call again with `approve: true`") until the call carries `approve: true`,
+  which the client's own permission prompt then shows beside the command; an `allow` runs. Every answer carries `verdict`
+  (`approved: true` on an approved ask). `approve` is a flag the model sets, not a credential: it moves the decision to the
+  client's prompt and nowhere else.
+- **The shell and the environment are part of the command.** `exec` runs only through `sh bash dash zsh ksh ash` (any other
+  `shell` is a `deny`, since the classifier reads shell), and `env` is read beside the text (`Classify::classify_env`:
+  `BASH_ENV`, `ZDOTDIR`, `LD_PRELOAD`, `NODE_OPTIONS=--require …`, a `PATH` with scratch space in it are an `ask`).
+  `git` (`GitTool::classified`) asks the same classifier about every git it runs, refuses a `deny` and an `ask` that makes git
+  run a program, and always runs with `core.fsmonitor=false`; `ui install` no longer passes the component name to `sh -c`.
+  Other spawners (`agent`, `lsp` installs, `browser`, `fetch`) do not route through the seam.
+- **What it reads.** A bash grammar (brush-parser 0.4.0, MIT, PEG) gives the AST: pipelines, `&& || ;`, subshells, `$(…)` and
+  backquotes, loops, `if`/`case`, functions, here-strings, here-documents (a body with no end runs to the end of input), arithmetic,
+  process substitution, brace expansion, `$'…'`, `${IFS}`, parameter defaults and patterns that hold commands. Variables are followed
+  (a name set on one path only is, on the other, empty: `rm -rf $d/`), `cd` moves the directory, `$!` is a job this script started.
+  Bodies run by an interpreter are read in turn: `bash -c`, `sh` fed by a here-document, a here-string or a pipe whose text is
+  known (`echo '…' | sh`), `eval`, `trap`, `xargs`, `find -exec`, `ssh host '…'` (as a remote, with no workspace), a script the
+  command wrote and runs (`cat > s.sh <<EOF … EOF; bash s.sh`), and a script on disk (`Files`). Python (`python -c`, `-`,
+  heredoc, a `.py`) is parsed by rustpython-parser 0.4.0 (MIT, pure Rust, pinned; it fails closed on PEP 701 f-strings and 3.14
+  syntax): `subprocess`/`os.system` with a known command are classified as shell, `open(…, 'w')`, `shutil.rmtree`, `Path.write_text/unlink`,
+  sockets and `eval`/`exec` by their path or reach. `node -e`, `perl -e`, `ruby -e`, `php -r`, `lua -e` get a token scan
+  (`inline.rs`): fine only when none of the words that reach out of the process appears.
+- **The tiers.** `allow`: reads, and builds and tests in the workspace (the directory the command runs in, plus `--project-dir`
+  and `HANZO_MCP_ROOTS`; `/tmp` and friends are scratch). `ask`: writes outside the workspace, network writes (`curl -d`, `git push`,
+  `kubectl apply`), publishing (`npm/cargo publish`, `docker push`), code it cannot read (`curl … | sh`, `node -e` that uses
+  `child_process`), unknown commands. `deny`: `rm -r` outside the workspace or of `/`, `~`, `.`, `*`; `dd`/`mkfs` on devices; `git reset --hard`,
+  `git clean -f`, `git checkout .`; `terraform apply/destroy`; `kubectl/helm delete`; `aws … rm/delete/terminate`; `gh pr merge`; `sudo`
+  and kin (also behind `env`, `timeout`, `nice`, `nohup`, `flock`, `chroot`, `xargs`, `watch`); reads of `.env*`, ssh/gpg keys, `~/.aws`,
+  `~/.kube`, KMS secret values; sending any of them anywhere; a force push to a protected ref. `find -delete` and `find -exec rm` ask
+  inside the workspace and deny outside it.
+- **Measured** on 408,231 Bash commands of the owner's transcripts (`~/scratch/decision/done/traces`, 3,959 sessions; each run with
+  its own recorded cwd), against kai-gateway `src/safety.ts` on the same commands: safety.ts flags 20.69% (15.27% `unparsed`); the
+  classifier answers allow 74.1% / ask 22.9% / deny 3.0% with the workspace the cwd alone, 88.2% / 9.6% / 2.2% with `~/work`,
+  `~/.cache` and `~/scratch` as roots, and cannot read 0.22% (0.018% are shell that does not parse; the rest are Python it cannot read
+  and runtime-built commands). Parse and classify: p50 63 µs, p99 0.6 ms, p99.9 1.6 ms, max 25 ms; the cache (`Classifier`, keyed by
+  the whole command and context, never by a hash) answers a repeat without parsing, and a command that read a script from disk is not cached.
+- **wasm.** `cargo build -p hanzo-shell --target wasm32-unknown-unknown --release --features wasm`, then
+  `wasm-bindgen --target nodejs|web --out-dir pkg target/wasm32-unknown-unknown/release/hanzo_shell.wasm` (3.9 MB); `classify(command,
+  '{"cwd","home","roots","temp","remote"}')` returns `{"risk","findings":[{"risk","kind","reason"}]}`; `rust/shell/tests/wasm.mjs` is the smoke
+  test. kai-gateway can replace `safety.ts` with it; its categories map from `kind` (`Kind::category`).
+- **Does not read:** symlinks (paths are read as text; the workspace root is canonicalized), what an installed program does beyond its
+  name and arguments, JavaScript/other-language *files* (judged by where they are), values that only the running shell knows,
+  `zsh`-only syntax beyond glob qualifiers and parameter flags (asked about). `HANZO_MCP_FORCE_SHELL` is the server's own choice.
 
 **The surface a client is charged for.** Every schema in `tools/list` is paid for each turn. The whole Rust list is 34
 tools and 38 KB (about 9.5K tokens); `--tools fs,code,exec` lists and serves only those, 4.6 KB (about 1.1K tokens); with `kai` 6.5 KB (about 1.6K).
