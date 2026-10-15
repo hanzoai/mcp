@@ -47,10 +47,6 @@ export const kaiActionSchema = {
         "type": "boolean",
         "description": "Ask Kai when several actions or values remain (default true). false declines them instead."
       },
-      "kai_url": {
-        "type": "string",
-        "description": "Decisions API base, default HANZO_API_BASE or https://api.hanzo.ai, plus /v1"
-      },
       "model": {
         "type": "string",
         "description": "Decision model (default kai)"
@@ -92,7 +88,8 @@ export function argv(args: any): string[] {
   const out = ['kai', action, '--cwd', args.cwd || process.cwd(), '--request', String(args.request)];
   if (args.ask !== false) {
     const base = (process.env.HANZO_API_BASE || 'https://api.hanzo.ai').replace(/\/+$/, '');
-    out.push('--kai', args.kai_url || `${base}/v1`, '--model', args.model || 'kai');
+    // The key goes to the configured API alone: a call never names where it is sent.
+    out.push('--kai', `${base}/v1`, '--model', args.model || 'kai');
     if (process.env.HANZO_API_KEY) out.push('--key-env', 'HANZO_API_KEY');
   }
   if (args.cache) out.push('--cache', args.cache);

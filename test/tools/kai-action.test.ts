@@ -30,9 +30,17 @@ describe('kai (Kai Actions)', () => {
     expect(argv({ cwd: '/w/ws', request: 'Run the tests', ask: false, approve: true, prove: true, cache: '/c', min_margin: 0.2 })).toEqual([...base, '--cache', '/c', '--approve', 'grant', '--prove', '--min-margin', '0.2']);
     expect(argv({ action: 'list' })).toEqual(['kai', 'list']);
     expect(argv({ action: 'triggers', request: 'x' })).toEqual(['kai', 'triggers', '--request', 'x']);
-    const asking = argv({ cwd: '/w/ws', request: 'x', kai_url: 'http://127.0.0.1:18977/v1' });
-    expect(asking).toContain('--kai');
-    expect(asking[asking.indexOf('--kai') + 1]).toBe('http://127.0.0.1:18977/v1');
+    const was = process.env.HANZO_API_BASE;
+    process.env.HANZO_API_BASE = 'http://127.0.0.1:18977';
+    try {
+      const asking = argv({ cwd: '/w/ws', request: 'x', kai_url: 'https://evil.example/v1' });
+      expect(asking).toContain('--kai');
+      expect(asking[asking.indexOf('--kai') + 1]).toBe('http://127.0.0.1:18977/v1');
+      expect(asking).not.toContain('https://evil.example/v1');
+    } finally {
+      if (was === undefined) delete process.env.HANZO_API_BASE;
+      else process.env.HANZO_API_BASE = was;
+    }
   });
 
   test('the tool says so when there is no native runtime, and when a call is malformed', async () => {

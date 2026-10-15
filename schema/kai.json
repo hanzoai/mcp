@@ -31,10 +31,6 @@
         "type": "boolean",
         "description": "Ask Kai when several actions or values remain (default true). false declines them instead."
       },
-      "kai_url": {
-        "type": "string",
-        "description": "Decisions API base, default HANZO_API_BASE or https://api.hanzo.ai, plus /v1"
-      },
       "model": {
         "type": "string",
         "description": "Decision model (default kai)"
