@@ -56,6 +56,7 @@ program
   .option('-p, --port <port>', 'Port for HTTP transport', '3000')
   .option('--project <path>', 'Project path for context', process.cwd())
   .option('--allow-path <path...>', 'Allowed paths for client operations')
+  .option('--beta-safe', 'Offer only the safe validated beta tools (core + tool resolution, next action, command guard, loop breaker)')
   .option('--full-surface', 'Enable full legacy tool surface (multi-word aliases and optional categories)')
   .option('--enable-ui', 'Enable UI tools')
   .option('--enable-autogui', 'Enable AutoGUI tools')
@@ -114,6 +115,7 @@ program
 program
   .command('list-tools')
   .description('List available MCP tools')
+  .option('--beta-safe', 'List only the safe validated beta tools')
   .option('--full-surface', 'Enable full legacy tool surface (multi-word aliases and optional categories)')
   .option('--enable-ui', 'Include UI tools')
   .option('--enable-autogui', 'Include AutoGUI tools')
@@ -500,20 +502,168 @@ program
     await program.parseAsync(['node', 'cli', 'install', '--claude-desktop'], { from: 'user' });
   });
 
+program
+  .command('link')
+  .description('Link Hanzo MCP server into coding agents (Claude Code, Cursor, Codex)')
+  .option('--beta-safe', 'Link with safe-only beta capabilities (recommended)', true)
+  .option('--full', 'Link with all tools instead of beta-safe')
+  .option('--claude-code', 'Link for Claude Code')
+  .option('--cursor', 'Link for Cursor IDE')
+  .option('--codex', 'Link for OpenAI Codex')
+  .option('--claude-desktop', 'Link for Claude Desktop')
+  .option('--all', 'Link for all supported applications')
+  .action(async (options) => {
+    const isSafe = !options.full;
+    const serveArgs = isSafe ? ['serve', '--beta-safe'] : ['serve'];
+
+    const linkClaudeCode = async () => {
+      console.log('📦 Linking for Claude Code...');
+      // Remove existing registration if present so flags can be cleanly updated
+      spawnSync('claude', ['mcp', 'remove', 'hanzo', '-s', 'user'], { stdio: 'ignore' });
+      const args = [
+        'mcp', 'add', '--scope', 'user', 'hanzo',
+        '-e', 'LOCAL_KAI_URL=http://127.0.0.1:18977',
+        '--', 'npx', '-y', '@hanzo/mcp', ...serveArgs
+      ];
+      const run = spawnSync('claude', args, { stdio: 'inherit' });
+      if (run.error || run.status !== 0) {
+        const why = run.error ? `did not run: ${run.error.message}` : `exited ${run.status}`;
+        console.error(`✗ Claude Code: claude ${args.join(' ')} ${why}`);
+        return;
+      }
+      console.log(`✓ Claude Code linked with ${isSafe ? 'safe beta tools (resolution, actions, loop breaker, command guard)' : 'all tools'}`);
+    };
+
+    const linkCursor = async () => {
+      console.log('📦 Linking for Cursor IDE...');
+      const configDir = path.join(os.homedir(), '.cursor', 'mcp');
+      const configFile = path.join(configDir, 'config.json');
+      try {
+        await fs.mkdir(configDir, { recursive: true });
+        let config: any = {};
+        try {
+          config = JSON.parse(await fs.readFile(configFile, 'utf-8'));
+        } catch {}
+        if (!config.servers) config.servers = {};
+        config.servers['hanzo-mcp'] = {
+          command: 'npx',
+          args: ['-y', '--package=@hanzo/mcp', 'hanzo-mcp', ...serveArgs],
+          env: {
+            LOCAL_KAI_URL: 'http://127.0.0.1:18977'
+          }
+        };
+        await fs.writeFile(configFile, JSON.stringify(config, null, 2));
+        console.log(`✓ Cursor IDE linked: ${configFile}`);
+      } catch (error: any) {
+        console.error(`✗ Cursor linking failed: ${error.message}`);
+      }
+    };
+
+    const linkCodex = async () => {
+      console.log('📦 Linking for OpenAI Codex...');
+      const configDir = path.join(os.homedir(), '.openai', 'codex', 'mcp');
+      const configFile = path.join(configDir, 'config.json');
+      try {
+        await fs.mkdir(configDir, { recursive: true });
+        let config: any = {};
+        try {
+          config = JSON.parse(await fs.readFile(configFile, 'utf-8'));
+        } catch {}
+        if (!config.servers) config.servers = {};
+        config.servers['hanzo-mcp'] = {
+          command: 'npx',
+          args: ['-y', '--package=@hanzo/mcp', 'hanzo-mcp', ...serveArgs],
+          env: {
+            LOCAL_KAI_URL: 'http://127.0.0.1:18977'
+          }
+        };
+        await fs.writeFile(configFile, JSON.stringify(config, null, 2));
+        console.log(`✓ OpenAI Codex linked: ${configFile}`);
+      } catch (error: any) {
+        console.error(`✗ Codex linking failed: ${error.message}`);
+      }
+    };
+
+    const linkClaudeDesktop = async () => {
+      console.log('📦 Linking for Claude Desktop...');
+      const configDir = process.platform === 'win32'
+        ? path.join(process.env.APPDATA || os.homedir(), 'Claude')
+        : path.join(os.homedir(), 'Library', 'Application Support', 'Claude');
+      const configFile = path.join(configDir, 'claude_desktop_config.json');
+      try {
+        await fs.mkdir(configDir, { recursive: true });
+        let config: any = {};
+        try {
+          config = JSON.parse(await fs.readFile(configFile, 'utf-8'));
+        } catch {}
+        if (!config.mcpServers) config.mcpServers = {};
+        config.mcpServers['hanzo-mcp'] = {
+          command: 'npx',
+          args: ['-y', '--package=@hanzo/mcp', 'hanzo-mcp', ...serveArgs],
+          env: {}
+        };
+        await fs.writeFile(configFile, JSON.stringify(config, null, 2));
+        console.log(`✓ Claude Desktop linked: ${configFile}`);
+      } catch (error: any) {
+        console.error(`✗ Claude Desktop linking failed: ${error.message}`);
+      }
+    };
+
+    const targets: Array<{ name: string; run: () => Promise<void> }> = [];
+    if (options.all) {
+      targets.push(
+        { name: 'Claude Code', run: linkClaudeCode },
+        { name: 'Cursor IDE', run: linkCursor },
+        { name: 'OpenAI Codex', run: linkCodex },
+        { name: 'Claude Desktop', run: linkClaudeDesktop }
+      );
+    } else {
+      if (options.claudeCode) targets.push({ name: 'Claude Code', run: linkClaudeCode });
+      if (options.cursor) targets.push({ name: 'Cursor IDE', run: linkCursor });
+      if (options.codex) targets.push({ name: 'OpenAI Codex', run: linkCodex });
+      if (options.claudeDesktop) targets.push({ name: 'Claude Desktop', run: linkClaudeDesktop });
+    }
+
+    if (targets.length === 0) {
+      // Auto-detect installed agents and directories
+      const hasClaude = spawnSync('which', ['claude']).status === 0;
+      let hasCursor = false;
+      try { await fs.access(path.join(os.homedir(), '.cursor')); hasCursor = true; } catch {}
+      let hasCodex = false;
+      try { await fs.access(path.join(os.homedir(), '.openai', 'codex')); hasCodex = true; } catch {}
+
+      if (hasClaude) targets.push({ name: 'Claude Code', run: linkClaudeCode });
+      if (hasCursor) targets.push({ name: 'Cursor IDE', run: linkCursor });
+      if (hasCodex) targets.push({ name: 'OpenAI Codex', run: linkCodex });
+
+      if (targets.length === 0) {
+        targets.push({ name: 'Claude Code', run: linkClaudeCode });
+      }
+    }
+
+    console.log(`\n🔗 Linking Hanzo MCP v${packageJson.version} (${isSafe ? 'Beta Safe Mode' : 'Full Surface'})...\n`);
+    for (const { run } of targets) {
+      await run();
+    }
+    console.log('\n✅ Linking complete! Coding agents now have Hanzo native acceleration.');
+  });
+
 // The tool set the surface flags select. serve and list-tools take the same
 // flags, and both read them here.
 function surface(options: any): ToolConfig {
   const full = Boolean(options.fullSurface);
   const core = Boolean(options.coreOnly);
+  const betaSafe = Boolean(options.betaSafe);
   return {
     coreOnly: core,
-    enableUI: !core && (full ? !options.disableUi : Boolean(options.enableUi) && !options.disableUi),
-    enableAutoGUI: !core && (full ? !options.disableAutogui : Boolean(options.enableAutogui) && !options.disableAutogui),
-    enableOrchestration: !core && (full ? !options.disableOrchestration : Boolean(options.enableOrchestration) && !options.disableOrchestration),
-    enableUIRegistry: !core && (full || Boolean(options.enableUiRegistry)),
-    enableGitHubUI: !core && (full || Boolean(options.enableGithubUi)),
-    enableDesktop: !core && Boolean(options.enableDesktop),
-    enableCommunityCryptuon: !core && Boolean(options.enableCommunityCryptuon),
+    betaSafe: betaSafe,
+    enableUI: !core && !betaSafe && (full ? !options.disableUi : Boolean(options.enableUi) && !options.disableUi),
+    enableAutoGUI: !core && !betaSafe && (full ? !options.disableAutogui : Boolean(options.enableAutogui) && !options.disableAutogui),
+    enableOrchestration: !core && !betaSafe && (full ? !options.disableOrchestration : Boolean(options.enableOrchestration) && !options.disableOrchestration),
+    enableUIRegistry: !core && !betaSafe && (full || Boolean(options.enableUiRegistry)),
+    enableGitHubUI: !core && !betaSafe && (full || Boolean(options.enableGithubUi)),
+    enableDesktop: !core && !betaSafe && Boolean(options.enableDesktop),
+    enableCommunityCryptuon: !core && !betaSafe && Boolean(options.enableCommunityCryptuon),
     dedupeTools: true,
     enabledCategories: options.enableCategories ? options.enableCategories.split(',') : [],
     disabledTools: options.disableTools ? options.disableTools.split(',') : [],

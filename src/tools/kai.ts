@@ -312,8 +312,52 @@ export const kaiToolSelectTool: Tool = {
           top_tool: single.name,
           confidence: 1.0,
           abstained: false,
+          zero_inference: true,
           reason: 'Single registered candidate'
         });
+      }
+
+      // Deterministic fast-path: exact or case-insensitive match against candidate tools
+      const taskClean = args.task.trim().toLowerCase();
+      const quoteMatch = args.task.match(/['"`]([a-zA-Z0-9_-]+)['"`]/);
+      const targetQuery = quoteMatch ? quoteMatch[1].toLowerCase() : taskClean;
+
+      const exactOrCase = args.tools.find((t: any) => {
+        const tn = t.name.toLowerCase();
+        return tn === taskClean || tn === targetQuery;
+      });
+      if (exactOrCase) {
+        return ok({
+          selected_tools: [{ name: exactOrCase.name, description: exactOrCase.description || exactOrCase.name, score: 1.0 }],
+          top_tool: exactOrCase.name,
+          confidence: 1.0,
+          abstained: false,
+          zero_inference: true,
+          reason: `Deterministic resolution: matched tool '${exactOrCase.name}'`
+        });
+      }
+
+      // Deterministic alias mapping (e.g. bash -> Bash, read_file -> Read, edit_file -> Edit)
+      const clientAliases: Record<string, string> = {
+        'bash': 'Bash', 'sh': 'Bash', 'shell': 'Bash',
+        'read_file': 'Read', 'cat': 'Read',
+        'edit_file': 'Edit', 'patch': 'Edit',
+        'grep': 'Grep', 'find': 'Find', 'glob': 'Find'
+      };
+      const aliasKey = clientAliases[taskClean] || clientAliases[targetQuery];
+      if (aliasKey) {
+        const aliasTarget = aliasKey.toLowerCase();
+        const aliasTool = args.tools.find((t: any) => t.name.toLowerCase() === aliasTarget);
+        if (aliasTool) {
+          return ok({
+            selected_tools: [{ name: aliasTool.name, description: aliasTool.description || aliasTool.name, score: 1.0 }],
+            top_tool: aliasTool.name,
+            confidence: 1.0,
+            abstained: false,
+            zero_inference: true,
+            reason: `Deterministic alias resolution: mapped '${args.task}' to '${aliasTool.name}'`
+          });
+        }
       }
 
       const criteria: Record<string, string> = {};
@@ -426,9 +470,20 @@ export const kaiNextActionTool: Tool = {
       }
 
       if (args.candidates.length === 1) {
+        const c = args.candidates[0];
+        if (c.preconditions_satisfied === false) {
+          return ok({
+            action: null,
+            selected_action_id: null,
+            confidence: 0,
+            abstained: true,
+            zero_inference: true,
+            reason: 'Single candidate has unsatisfied preconditions'
+          });
+        }
         return ok({
-          action: args.candidates[0],
-          selected_action_id: args.candidates[0].action_id,
+          action: c,
+          selected_action_id: c.action_id,
           confidence: 1.0,
           abstained: false,
           zero_inference: true,
@@ -550,6 +605,25 @@ export const kaiCommandGuardTool: Tool = {
       const callerPolicy = (args.policy && ['allow', 'ask', 'deny'].includes(args.policy)) ? args.policy : 'allow';
       const basePolicy = LATTICE_ORDER[policyVerdict.verdict] >= LATTICE_ORDER[callerPolicy] ? policyVerdict.verdict : callerPolicy;
 
+      // Deterministic Fast-Path: if policy strictly denies command, block immediately without model call
+      if (basePolicy === 'deny') {
+        return ok({
+          verdict: 'deny',
+          policy_verdict: 'deny',
+          model_verdict: null,
+          confidence: 1.0,
+          requires_approval: false,
+          is_blocked: true,
+          risk_factors: {
+            secret_exposure: policyVerdict.reason.includes('secret') ? 1.0 : 0.0,
+            production_impact: 1.0,
+            network: 0.0
+          },
+          reason: policyVerdict.reason,
+          zero_inference: true
+        });
+      }
+
       // Ask Kai for command risk assessment (grounded in agent.command-risk@1.json)
       const questions = {
         verdict: {
@@ -610,6 +684,8 @@ export const kaiCommandGuardTool: Tool = {
         policy_verdict: basePolicy,
         model_verdict: modelVerdict,
         confidence: vAnswer?.confidence ?? 0.5,
+        requires_approval: finalVerdict === 'ask',
+        is_blocked: finalVerdict === 'deny',
         risk_factors: {
           secret_exposure: secretExposure,
           production_impact: productionImpact,
@@ -620,7 +696,22 @@ export const kaiCommandGuardTool: Tool = {
         latency_ms: d.latency_ms
       });
     } catch (e: any) {
-      return e instanceof Refusal ? e.result : fail(e.message);
+      if (e instanceof Refusal) return e.result;
+      // Fail-safe security lattice: if policy was 'ask' or 'deny', never loosen on error
+      if (typeof basePolicy !== 'undefined' && (basePolicy === 'ask' || basePolicy === 'deny')) {
+        return ok({
+          verdict: basePolicy,
+          policy_verdict: basePolicy,
+          model_verdict: null,
+          confidence: 1.0,
+          requires_approval: basePolicy === 'ask',
+          is_blocked: basePolicy === 'deny',
+          risk_factors: { secret_exposure: 0.5, production_impact: 0.5, network: 0.0 },
+          reason: `${policyVerdict.reason} (fail-safe policy fallback)`,
+          zero_inference: true
+        });
+      }
+      return fail(e.message);
     }
   }
 };

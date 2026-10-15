@@ -16,6 +16,21 @@ import { codeTool } from './unified/code.js';
 import { fetchTool } from './unified/fetch.js';
 import { workspaceTool } from './unified/workspace.js';
 import { hanzoTool } from './unified/hanzo.js';
+import {
+  kaiToolSelectTool,
+  kaiNextActionTool,
+  kaiCommandGuardTool,
+  kaiRecoverTool,
+} from './kai.js';
+
+// Opt-in Beta Safe surface: deterministic tool resolution, approved actions, loop breaker, command guard
+export const betaSafeTools: Tool[] = [
+  ...unifiedCoreTools,
+  kaiToolSelectTool,
+  kaiNextActionTool,
+  kaiCommandGuardTool,
+  kaiRecoverTool,
+];
 
 // Individual tools (legacy, available for backwards compat)
 import { fileTools } from './file-ops.js';
@@ -133,6 +148,8 @@ export { cryptuonCommunityTools } from './community/cryptuon/index.js';
 export interface ToolConfig {
   /** Use HIP-0300 unified tools (default: true) */
   unified?: boolean;
+  /** Offer only the safe beta tools (core + tool resolution, next action, command guard, loop breaker) */
+  betaSafe?: boolean;
   /** Enable legacy individual tools instead */
   enableLegacy?: boolean;
   /** Offer only the core group of the unified surface */
@@ -174,6 +191,7 @@ function dedupeByName(tools: Tool[]): Tool[] {
 export function getConfiguredTools(config: ToolConfig = {}): Tool[] {
   const {
     unified = true,
+    betaSafe = false,
     enableLegacy = false,
     coreOnly = false,
     enableUI = false,
@@ -187,6 +205,15 @@ export function getConfiguredTools(config: ToolConfig = {}): Tool[] {
     disabledTools = [],
     customTools = []
   } = config;
+
+  if (betaSafe) {
+    let tools = [...betaSafeTools];
+    if (disabledTools.length > 0) {
+      const disabled = new Set(disabledTools);
+      tools = tools.filter(t => !disabled.has(t.name));
+    }
+    return dedupeTools ? dedupeByName(tools) : tools;
+  }
 
   let tools: Tool[];
 

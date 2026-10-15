@@ -217,6 +217,22 @@ describe('Kai Purpose-Built Native MCP Tools', () => {
       expect(sent.length).toBe(0); // Zero inference!
     });
 
+    test('abstains when single candidate has unsatisfied preconditions', async () => {
+      const candidates = [
+        { action_id: 'act_deploy', tool: 'Deploy', description: 'Deploy to prod', preconditions_satisfied: false }
+      ];
+
+      const res = await kaiNextActionTool.handler({
+        goal: 'Deploy service',
+        candidates
+      });
+      const data = parseResult(res);
+      expect(data.action).toBeNull();
+      expect(data.abstained).toBe(true);
+      expect(data.confidence).toBe(0);
+      expect(data.reason).toContain('unsatisfied preconditions');
+    });
+
     test('calls Kai when multiple candidates are active', async () => {
       mockReply = () => ({
         id: 'dec_act_1',
@@ -283,8 +299,11 @@ describe('Kai Purpose-Built Native MCP Tools', () => {
       const data = parseResult(res);
       expect(data.verdict).toBe('deny');
       expect(data.policy_verdict).toBe('deny');
+      expect(data.model_verdict).toBeNull();
+      expect(data.zero_inference).toBe(true);
+      expect(data.is_blocked).toBe(true);
       expect(data.reason).toContain('Deterministic security policy');
-      expect(sent.length).toBe(1); // Kai is still asked for full audit, but verdict is locked to deny
+      expect(sent.length).toBe(0); // Zero-inference fast-path blocks immediately without network call
     });
 
     test('enforces deterministic ask for force push', async () => {
