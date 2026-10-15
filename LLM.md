@@ -409,8 +409,9 @@ Hanzo extension's Blink origin without pairing. The extension registers as
 params, the extension's `decodeCmd` body) answered by one RESPONSE (JSON, or
 `ERR:<why>`).
 
-- **Rust** (`rust/src/zap.rs`) links `zapd` v1.1.5 by git tag (crates.io has
-  only 1.1.2, which predates the unpaired door). `main` calls `zap::seat()`:
+- **Rust** (`rust/src/zap.rs`) links `zapd` 1.1.9 from crates.io, which runs on
+  Windows too: there the door for local nodes is a named pipe and the election
+  `LockFileEx` (zapd's `src/os/windows.rs`). `main` calls `zap::seat()`:
   it stands for router and joins as `mcp/hanzo-<pid>`, as Python does.
   `hanzo-mcp pair [--reset]` prints the door's code for a browser that must
   pair.
@@ -420,7 +421,12 @@ params, the extension's `decodeCmd` body) answered by one RESPONSE (JSON, or
   `native_host.py` does. Each start registers it (a symlink at
   `~/.hanzo/zap/hanzo-zap-host`) with every installed browser, but never over
   a manifest whose program exists: Python's host serves the same extension,
-  and two runtimes rewriting one file would trade it forever.
+  and two runtimes rewriting one file would trade it forever. On Windows the
+  host is a hard link `hanzo-zap-host.exe`, each browser finds its manifest
+  through its `HKCU\Software\…\NativeMessagingHosts\ai.hanzo.zap` key (set
+  with `reg.exe`), and the relay opens the router's pipe and refuses it unless
+  its server is `zapd::holder()`. That Windows path is compiled in CI, not run:
+  zapd's own election runs on a Windows runner in its CI.
 - **TypeScript** (`src/zap.ts`) is a consumer only: zapd has no JS or wasm
   build, so it joins whichever process holds the lock and never stands for
   router. With no router it says so (`NO_ROUTER`). Node cannot read a unix

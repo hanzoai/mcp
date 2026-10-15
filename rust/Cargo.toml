@@ -3,7 +3,7 @@ members = ["trigram", "actions", "shell"]
 
 [package]
 name = "hanzo-mcp"
-version = "1.1.31"
+version = "1.1.32"
 repository = "https://github.com/hanzoai/mcp"
 homepage = "https://hanzo.ai"
 keywords = ["mcp", "ai", "tools", "hanzo", "llm"]
@@ -52,9 +52,8 @@ tempfile = "3.10"
 which = "6.0"
 shell-escape = "0.1"
 # The ZAP router every Hanzo process embeds (one per login, elected by lock),
-# and this process's seat on it. crates.io has 1.1.2, which predates the
-# unpaired door on 9998, so the tag is the pin.
-zapd = "1.1.5"
+# and this process's seat on it; from 1.1.7 on Unix and Windows alike.
+zapd = "1.1.9"
 
 # Search and AST
 # The in-process text, symbol and document search over tgrep-core; light enough for
@@ -91,6 +90,8 @@ objc = "0.2"
 
 [target.'cfg(target_os = "windows")'.dependencies]
 winapi = { version = "0.3", features = ["winuser", "wingdi", "windef", "minwindef"] }
+# The router pipe's server pid, checked against the router lock holder.
+windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_System_Pipes"] }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 x11 = "2.21"

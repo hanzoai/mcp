@@ -1,15 +1,17 @@
 //! The browser's way onto this machine's ZAP router: native messaging.
 //!
-//! An extension cannot open a unix socket, so the browser starts a helper for
-//! it (host `ai.hanzo.zap`, allowed for the Hanzo extension only) and talks to
-//! it over stdio. The helper relays router envelopes both ways between that
-//! stdio and the router's socket. No port and no pairing: the browser's origin
-//! check and the socket's 0600 owner are the trust. Peer of python-sdk
+//! An extension cannot open a unix socket or a named pipe, so the browser starts
+//! a helper for it (host `ai.hanzo.zap`, allowed for the Hanzo extension only)
+//! and talks to it over stdio. The helper relays router envelopes both ways
+//! between that stdio and the router's door: the Unix socket, or on Windows the
+//! named pipe, whose server it checks is the router lock holder. No port and no
+//! pairing: the browser's origin check and the door's owner are the trust. Peer of python-sdk
 //! `hanzo_tools.browser.native_host`; either runtime's helper serves the same
 //! extension.
 //!
 //! The helper is this binary run as `hanzo-zap-host` (a symlink the manifest
-//! names). It stands for the router like every ZAP process, so a browser with
+//! names; on Windows a hard link, `hanzo-zap-host.exe`, and the manifest is found
+//! through the browser's registry key). It stands for the router like every ZAP process, so a browser with
 //! no other Hanzo process running still has one.
 //!
 //! Native messaging frames are a u32 native-endian length and UTF-8 JSON; each
@@ -17,7 +19,6 @@
 //! own little-endian u32 length.
 
 use std::io::{Read, Write};
-use std::os::unix::net::UnixStream;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
@@ -33,6 +34,12 @@ const ORIGINS: &[&str] = &["chrome-extension://biingenefmanpecedoafkfajbnlgdmbl/
 /// Firefox names an extension by its gecko id, not an origin.
 const GECKO: &[&str] = &["hanzo-ai@hanzo.ai"];
 
+/// The router's door as this process reads and writes it.
+#[cfg(unix)]
+type Door = std::os::unix::net::UnixStream;
+#[cfg(windows)]
+type Door = std::fs::File;
+
 /// Where each Chromium-family browser keeps a user's host manifests, and
 /// Firefox's host directory (present once Firefox has a profile).
 #[cfg(target_os = "macos")]
@@ -46,7 +53,7 @@ const CHROMIUM: &[&str] = &[
 ];
 #[cfg(target_os = "macos")]
 const FIREFOX: &str = "Library/Application Support/Mozilla/NativeMessagingHosts";
-#[cfg(not(target_os = "macos"))]
+#[cfg(all(unix, not(target_os = "macos")))]
 const CHROMIUM: &[&str] = &[
     ".config/google-chrome",
     ".config/google-chrome-beta",
@@ -56,13 +63,28 @@ const CHROMIUM: &[&str] = &[
     ".config/microsoft-edge",
     ".config/vivaldi",
 ];
-#[cfg(not(target_os = "macos"))]
+#[cfg(all(unix, not(target_os = "macos")))]
 const FIREFOX: &str = ".mozilla/native-messaging-hosts";
+
+/// On Windows each browser finds a host through a registry key under
+/// `HKEY_CURRENT_USER` whose default value is the manifest's path: the key, and
+/// the user-data directory under `%LOCALAPPDATA%` that shows the browser is there.
+#[cfg(windows)]
+const CHROMIUM: &[(&str, &str)] = &[
+    (r"Software\Google\Chrome\NativeMessagingHosts", r"Google\Chrome\User Data"),
+    (r"Software\Chromium\NativeMessagingHosts", r"Chromium\User Data"),
+    (r"Software\BraveSoftware\Brave-Browser\NativeMessagingHosts", r"BraveSoftware\Brave-Browser\User Data"),
+    (r"Software\Microsoft\Edge\NativeMessagingHosts", r"Microsoft\Edge\User Data"),
+];
+/// Firefox's key, and its profiles directory under `%APPDATA%`.
+#[cfg(windows)]
+const FIREFOX: (&str, &str) = (r"Software\Mozilla\NativeMessagingHosts", r"Mozilla\Firefox");
 
 /// Register the host with every browser installed for this user. A browser
 /// that is not installed is skipped, and a manifest whose program exists is
 /// left as it is: another runtime's helper (Python hanzo-mcp's) serves the same
 /// extension, and two runtimes rewriting one file would trade it forever.
+#[cfg(unix)]
 pub fn install() -> Result<Vec<PathBuf>> {
     let home = dirs::home_dir().ok_or_else(|| anyhow!("no home directory"))?;
     let exe = home.join(".hanzo/zap").join(BIN);
@@ -98,6 +120,65 @@ pub fn install() -> Result<Vec<PathBuf>> {
     Ok(written)
 }
 
+/// Register the host with every browser installed for this user: a manifest
+/// per family in `~/.hanzo/zap`, named by each browser's registry key. A key
+/// whose manifest names a program that exists is left as it is, as on Unix.
+#[cfg(windows)]
+pub fn install() -> Result<Vec<PathBuf>> {
+    let home = dirs::home_dir().ok_or_else(|| anyhow!("no home directory"))?;
+    let local = dirs::data_local_dir().ok_or_else(|| anyhow!("no local app data"))?;
+    let roaming = dirs::data_dir().ok_or_else(|| anyhow!("no app data"))?;
+    let dir = home.join(".hanzo").join("zap");
+    let exe = dir.join(format!("{BIN}.exe"));
+    let manifest = |allowed: (&str, Value)| {
+        let mut m = json!({
+            "name": NAME,
+            "description": "Hanzo ZAP: the browser's seat on this machine's router",
+            "path": exe.display().to_string(),
+            "type": "stdio",
+        });
+        m[allowed.0] = allowed.1;
+        serde_json::to_string_pretty(&m).map(|s| s + "\n")
+    };
+    let chromium = (dir.join(format!("{NAME}.json")), manifest(("allowed_origins", json!(ORIGINS)))?);
+    let firefox = (dir.join(format!("{NAME}.firefox.json")), manifest(("allowed_extensions", json!(GECKO)))?);
+    let targets = CHROMIUM
+        .iter()
+        .map(|(key, data)| (local.join(data), *key, &chromium))
+        .chain([(roaming.join(FIREFOX.1), FIREFOX.0, &firefox)]);
+
+    let mut written = Vec::new();
+    for (installed, key, (file, body)) in targets {
+        let key = format!(r"HKCU\{key}\{NAME}");
+        if !installed.is_dir() || registered(&key).is_some_and(|m| serves(&m)) {
+            continue;
+        }
+        link(&exe)?;
+        std::fs::create_dir_all(&dir)?;
+        std::fs::write(file, body)?;
+        let status = std::process::Command::new("reg")
+            .args(["add", &key, "/ve", "/t", "REG_SZ", "/d"])
+            .arg(file)
+            .arg("/f")
+            .stdout(std::process::Stdio::null())
+            .status()?;
+        if !status.success() {
+            return Err(anyhow!("reg add {key} failed ({status})"));
+        }
+        written.push(PathBuf::from(key));
+    }
+    Ok(written)
+}
+
+/// The manifest path a host key names, read with `reg query`.
+#[cfg(windows)]
+fn registered(key: &str) -> Option<PathBuf> {
+    let out = std::process::Command::new("reg").args(["query", key, "/ve"]).output().ok()?;
+    let text = String::from_utf8_lossy(&out.stdout);
+    let line = text.lines().find(|l| l.contains("REG_SZ"))?;
+    Some(PathBuf::from(line.split("REG_SZ").nth(1)?.trim()))
+}
+
 /// A manifest is there and the program it names exists.
 fn serves(manifest: &Path) -> bool {
     std::fs::read_to_string(manifest)
@@ -108,6 +189,7 @@ fn serves(manifest: &Path) -> bool {
 }
 
 /// `~/.hanzo/zap/hanzo-zap-host` -> this binary.
+#[cfg(unix)]
 fn link(at: &Path) -> Result<()> {
     let exe = std::env::current_exe()?;
     if std::fs::read_link(at).ok().as_deref() == Some(exe.as_path()) {
@@ -121,11 +203,30 @@ fn link(at: &Path) -> Result<()> {
     Ok(())
 }
 
+/// `~\.hanzo\zap\hanzo-zap-host.exe`, this binary: a hard link, since a
+/// symlink needs a privilege a user may not hold, or a copy across volumes.
+#[cfg(windows)]
+fn link(at: &Path) -> Result<()> {
+    let exe = std::env::current_exe()?;
+    if let Some(dir) = at.parent() {
+        std::fs::create_dir_all(dir)?;
+    }
+    let same = std::fs::metadata(at).ok().zip(std::fs::metadata(&exe).ok()).is_some_and(|(a, b)| a.len() == b.len() && a.modified().ok() == b.modified().ok());
+    if same {
+        return Ok(());
+    }
+    let _ = std::fs::remove_file(at);
+    if std::fs::hard_link(&exe, at).is_err() {
+        std::fs::copy(&exe, at)?;
+    }
+    Ok(())
+}
+
 /// This process was started as the host.
 pub fn invoked() -> bool {
     std::env::args_os()
         .next()
-        .and_then(|a| Path::new(&a).file_name().map(|n| n == BIN))
+        .and_then(|a| Path::new(&a).file_stem().map(|n| n == BIN))
         .unwrap_or(false)
 }
 
@@ -150,7 +251,7 @@ pub fn relay(input: impl Read + Send + 'static, output: impl Write + Send + 'sta
 }
 
 /// Router -> browser: split the socket into envelopes, one message each.
-fn to_browser(mut sock: UnixStream, mut out: impl Write) {
+fn to_browser(mut sock: Door, mut out: impl Write) {
     let mut len = [0u8; 4];
     while sock.read_exact(&mut len).is_ok() {
         let mut frame = len.to_vec();
@@ -170,7 +271,7 @@ fn to_browser(mut sock: UnixStream, mut out: impl Write) {
 }
 
 /// Browser -> router: each message's envelope, written whole.
-fn to_router(mut input: impl Read, mut sock: UnixStream) -> Result<()> {
+fn to_router(mut input: impl Read, mut sock: Door) -> Result<()> {
     let mut len = [0u8; 4];
     while input.read_exact(&mut len).is_ok() {
         let mut msg = vec![0u8; u32::from_ne_bytes(len) as usize];
@@ -182,13 +283,34 @@ fn to_router(mut input: impl Read, mut sock: UnixStream) -> Result<()> {
     Ok(())
 }
 
-/// The router's socket, waiting out an election in progress.
-fn dial(deadline: Instant) -> Result<UnixStream> {
+/// The router's door, waiting out an election in progress.
+fn dial(deadline: Instant) -> Result<Door> {
     loop {
-        match UnixStream::connect(zapd::socket_path()) {
+        match open() {
             Ok(s) => return Ok(s),
-            Err(e) if Instant::now() > deadline => return Err(anyhow!("zap: no router socket: {e}")),
+            Err(e) if Instant::now() > deadline => return Err(anyhow!("zap: no router door: {e}")),
             Err(_) => std::thread::sleep(Duration::from_millis(50)),
         }
     }
+}
+
+#[cfg(unix)]
+fn open() -> std::io::Result<Door> {
+    std::os::unix::net::UnixStream::connect(zapd::socket_path())
+}
+
+/// The router's pipe, opened as a file, and only if its server is the process
+/// holding the router lock: a pipe name is not private to a user, so another
+/// process could make one before the router does.
+#[cfg(windows)]
+fn open() -> std::io::Result<Door> {
+    use std::os::windows::io::AsRawHandle;
+    let pipe = std::fs::OpenOptions::new().read(true).write(true).open(zapd::socket_path())?;
+    let mut pid = 0u32;
+    // SAFETY: the handle is the open client end of a named pipe.
+    let ok = unsafe { windows_sys::Win32::System::Pipes::GetNamedPipeServerProcessId(pipe.as_raw_handle(), &mut pid) } != 0;
+    if !ok || zapd::holder() != Some(pid) {
+        return Err(std::io::Error::new(std::io::ErrorKind::ConnectionRefused, "the pipe is not served by the router lock holder"));
+    }
+    Ok(pipe)
 }

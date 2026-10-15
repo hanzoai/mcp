@@ -5,8 +5,8 @@
 # ships the npm package; neither produces a binary, so the tarballs on the
 # rust-v1.1.23 release arrived some other way and only ever covered Linux.
 # hanzo.sh offers `mcp` as a native download, so Linux and macOS on both
-# architectures are built here. Windows is not: the browser bridge (zapd) and
-# its native host speak a Unix socket, and the build stops there.
+# architectures are built here, and Windows on amd64: zapd's router and the
+# browser's native host speak a named pipe there.
 #
 # Tagged rust-v*, because the binary is the Rust crate in rust/ — its
 # Cargo.toml is the one that calls itself hanzo-mcp.
@@ -59,6 +59,7 @@ jobs:
           - { target: linux-arm64,   triple: aarch64-unknown-linux-gnu, bin: hanzo-mcp }
           - { target: darwin-amd64,  triple: x86_64-apple-darwin,       bin: hanzo-mcp, apple: true }
           - { target: darwin-arm64,  triple: aarch64-apple-darwin,      bin: hanzo-mcp, apple: true }
+          - { target: windows-amd64, triple: x86_64-pc-windows-gnu,     bin: hanzo-mcp.exe }
     runs-on: linux-amd64
     steps:
       - uses: actions/checkout@v4
@@ -68,7 +69,7 @@ jobs:
           targets: ${{ matrix.triple }}
 
       # Every target is cross-linked by Zig from this one Linux pool, as the CLI's
-      # release is: no macOS or Windows runner exists, and none is needed.
+      # release is (windows-amd64 included): no macOS or Windows runner is needed.
       - name: Zig (the cross-linker)
         run: |
           set -eu

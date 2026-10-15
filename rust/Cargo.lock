@@ -1265,7 +1265,7 @@ dependencies = [
 
 [[package]]
 name = "hanzo-mcp"
-version = "1.1.31"
+version = "1.1.32"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -1312,6 +1312,7 @@ dependencies = [
  "walkdir",
  "which",
  "winapi",
+ "windows-sys 0.61.0",
  "x11",
  "zapd",
 ]
@@ -4376,9 +4377,9 @@ dependencies = [
 
 [[package]]
 name = "zapd"
-version = "1.1.5"
+version = "1.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "38a02b60684f8f183918faccf1ba9c01dc69b4a5c9f6da2772e830b9d6ca936a"
+checksum = "3f02c7ff011e853d1ed6723782a40d6f4cbb70c109e9e4ed85317ce358a60c22"
 dependencies = [
  "directories",
  "futures-util",
@@ -4389,6 +4390,7 @@ dependencies = [
  "tokio",
  "tokio-tungstenite",
  "tracing",
+ "windows-sys 0.61.0",
 ]
 
 [[package]]
