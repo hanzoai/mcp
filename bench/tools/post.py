@@ -1,11 +1,13 @@
-"""post.py ITEMS CASES [--go]: the kai_* tool reads as research-API records, `POST /v1/research/{benchmarks,runs,artifacts}`.
+"""post.py ITEMS CASES [--go [--publish]]: the kai_* tool reads as research-API records, `POST /v1/research/{benchmarks,runs,artifacts}`.
 
 ITEMS holds the per-item results a read wrote (`injection.{dev,test}.jsonl`, `command.hermes.jsonl`,
 `select.{t1dev,hand}.jsonl`, `triage.ci60.jsonl`), each row the answer of every arm: `measured` (this repo's
 handler at COMMIT) and `ae4d07b` (the handler it replaced). CASES holds the cases those rows were read on.
 Every measure is computed here from the items, so a number shown anywhere traces to a stored row. One
 `Benchmark` a tool (`mcp.injection`, `mcp.command`, `mcp.select`, `mcp.triage`), one `Run` an arm and split,
-and the items and the cases as artifacts. Without --go it prints the records and sends nothing. Token:
+and the items and the cases as artifacts. Without --go it prints the records and sends nothing. The server
+stores every write private; --publish then grants each run and artifact public (`POST /v1/research/grants`),
+which is what hanzo.ai/benchmarks reads. Records are filed under the token's project (`default`). Token:
 HANZO_API_KEY, else `hanzo auth token`. COMMIT: the measured handlers' commit (env, default HEAD).
 """
 import base64
@@ -40,7 +42,7 @@ def p50(xs):
 
 
 def run(bench, split, arm, version, commit, baseline, n, measures, notes, ended):
-    return {"project": "mcp", "id": f"{bench}-{split}-{arm}", "benchmark": bench, "split": split, "system": f"hanzo-mcp/{arm}",
+    return {"project": "default", "id": f"{bench}-{split}-{arm}", "benchmark": bench, "split": split, "system": f"hanzo-mcp/{arm}",
             "version": version, "baseline": baseline, "study": "kai-tools", "commit": commit, "questions": n, "answered": n,
             "ended": ended, "measures": measures, "notes": notes, "canonical": True, "visibility": "public", "publishable": True}
 
@@ -127,7 +129,7 @@ def triage(items, commit, ended):
 
 def benchmarks(cases):
     def b(id_, title, file, dataset, license_, splits, metric, metrics):
-        return {"project": "mcp", "id": id_, "title": title, "version": sha(os.path.join(cases, file))[:12], "dataset": dataset,
+        return {"project": "default", "id": id_, "title": title, "version": sha(os.path.join(cases, file))[:12], "dataset": dataset,
                 "license": license_, "origin": "hanzoai/mcp bench/tools", "splits": splits, "metric": metric, "metrics": metrics, "canonical": True}
     return [
         b("mcp.injection", "Instructions planted in tool output", "injection.test.json",
@@ -179,6 +181,12 @@ def main():
         s = post("artifacts", {"sha256": hashlib.sha256(body).hexdigest(), "content": base64.b64encode(body).decode(), "kind": f["kind"],
                                "run_id": f["run_id"], "git_sha": f["git_sha"], "ts": ended}, token)
         print(f["path"], s.get("sha256"), s.get("created"))
+        f["sha256"] = s.get("sha256")
+    if "--publish" in sys.argv:
+        for r in runs:
+            print("grant", r["id"], json.dumps(post("grants", {"id": r["id"], "visibility": "public", "publishable": True}, token))[:120])
+        for f in files:
+            print("grant", f["path"].split("/")[-1], json.dumps(post("grants", {"sha256": f["sha256"], "visibility": "public"}, token))[:120])
 
 
 if __name__ == "__main__":
