@@ -152,7 +152,8 @@ def artifacts(items, cases, commit):
     out = []
     for d, kind in ((items, "items"), (cases, "cases")):
         for f in sorted(os.listdir(d)):
-            out.append({"path": os.path.join(d, f), "kind": kind, "run_id": f"mcp.{f.split('.')[0]}", "git_sha": commit})
+            bench, split = f.split(".")[:2]
+            out.append({"path": os.path.join(d, f), "what": kind, "run_id": f"mcp.{bench}-{split}-measured", "git_sha": commit})
     return out
 
 
@@ -178,8 +179,8 @@ def main():
     print(json.dumps(post("runs", {"runs": runs}, token)))
     for f in files:
         body = open(f["path"], "rb").read()
-        s = post("artifacts", {"sha256": hashlib.sha256(body).hexdigest(), "content": base64.b64encode(body).decode(), "kind": f["kind"],
-                               "run_id": f["run_id"], "git_sha": f["git_sha"], "ts": ended}, token)
+        s = post("artifacts", {"sha256": hashlib.sha256(body).hexdigest(), "content": base64.b64encode(body).decode(), "kind": "report",
+                               "run_id": f["run_id"], "git_sha": f["git_sha"], "ts": int(os.path.getmtime(f["path"]))}, token)
         print(f["path"], s.get("sha256"), s.get("created"))
         f["sha256"] = s.get("sha256")
     if "--publish" in sys.argv:
