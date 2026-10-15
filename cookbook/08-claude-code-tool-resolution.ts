@@ -1,66 +1,39 @@
 /**
- * Recipe 08: Claude Code Case-Sensitive Tool Resolution
- * 
- * Objective: Solve Claude Code's frequent casing mismatch error ("No such tool: bash; call Bash instead")
- * by resolving registered tool schemas deterministically before tool execution, saving $0.15+ and 10s per error.
+ * Recipe 08: Tool-Name Resolution
+ *
+ * A model asks for `bash`, `read_file` or `git_status`; the client registers `Bash`, `Read` and `Git`.
+ * kai_tool_select maps each request to a registered tool: a name the request spells in any case wins,
+ * else BM25 over names and descriptions. No model call.
  */
 
 import { createRecipeClient, logRecipe, RecipeResult } from "./helper.js";
 
-interface ToolResolution {
-  requested_name: string;
-  resolved_name: string;
-  zero_inference: boolean;
-  status: "exact_match" | "case_normalized" | "alias_repaired" | "unresolved";
-}
-
-function resolveToolForClaudeCode(requestedName: string, registeredTools: string[]): ToolResolution {
-  // 1. Exact match
-  if (registeredTools.includes(requestedName)) {
-    return { requested_name: requestedName, resolved_name: requestedName, zero_inference: true, status: "exact_match" };
-  }
-
-  // 2. Case-insensitive normalization (e.g. bash -> Bash)
-  const caseMatch = registeredTools.find(t => t.toLowerCase() === requestedName.toLowerCase());
-  if (caseMatch) {
-    return { requested_name: requestedName, resolved_name: caseMatch, zero_inference: true, status: "case_normalized" };
-  }
-
-  // 3. Known client aliases (e.g. read_file -> Read, edit_file -> Edit)
-  const aliasMap: Record<string, string> = {
-    "read_file": "Read",
-    "edit_file": "Edit",
-    "write_file": "Write",
-    "run_command": "Bash"
-  };
-  const aliasTarget = aliasMap[requestedName.toLowerCase()];
-  if (aliasTarget && registeredTools.includes(aliasTarget)) {
-    return { requested_name: requestedName, resolved_name: aliasTarget, zero_inference: true, status: "alias_repaired" };
-  }
-
-  return { requested_name: requestedName, resolved_name: requestedName, zero_inference: true, status: "unresolved" };
-}
+const REGISTERED = [
+  { name: "Bash", description: "Run a shell command" },
+  { name: "Read", description: "Read a file from the workspace" },
+  { name: "Edit", description: "Replace text in a file" },
+  { name: "Git", description: "Git status, diff, log and blame" }
+];
+const WANT: Record<string, string> = { bash: "Bash", read_file: "Read", git_status: "Git" };
 
 export async function runRecipe08(): Promise<RecipeResult> {
   const client = await createRecipeClient();
-  const registered = client.server.tools.map((t: any) => t.name);
+  const resolutions = [];
+  let elapsed = 0;
+  for (const [requested, expected] of Object.entries(WANT)) {
+    const res = await client.callTool("kai_tool_select", { task: requested.replace(/_/g, " "), tools: REGISTERED, limit: 1 });
+    elapsed += res.latency_ms;
+    resolutions.push({ requested, resolved: res.data?.top_tool, source: res.data?.source, expected });
+  }
 
-  // Claude Code emits lowercase "bash"
-  const requestedCalls = ["bash", "read_file", "git_status"];
-  const resolutions = requestedCalls.map(name => resolveToolForClaudeCode(name, ["Bash", "Read", "Edit", "Git", "exec", "fs"]));
-
-  const result: RecipeResult = {
-    recipe: "08: Claude Code Tool Resolution",
+  return {
+    recipe: "08: Tool-Name Resolution",
     tool: "kai_tool_select",
-    success: resolutions[0].resolved_name === "Bash" && resolutions[0].status === "case_normalized",
-    latency_ms: 0.05,
-    output: {
-      resolutions
-    },
-    explanation: "Resolved 'bash' -> 'Bash' and 'read_file' -> 'Read' in 0ms with zero extra model turns."
+    success: resolutions.every((r) => r.resolved === r.expected),
+    latency_ms: elapsed,
+    output: { resolutions },
+    explanation: "bash -> Bash by name; read_file -> Read and git_status -> Git by BM25."
   };
-
-  return result;
 }
 
 if (process.argv[1]?.endsWith("08-claude-code-tool-resolution.ts")) {

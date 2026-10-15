@@ -50,7 +50,7 @@ function decision(body: any) {
 }
 
 const realFetch = globalThis.fetch;
-const ENV = ['API_URL', 'HANZO_API_KEY', 'API_KEY', 'API_TOKEN', 'HANZO_TOKEN'];
+const ENV = ['API_URL', 'LOCAL_KAI_URL', 'KAI_URL', 'HANZO_API_KEY', 'API_KEY', 'API_TOKEN', 'HANZO_TOKEN'];
 const saved: Record<string, string | undefined> = {};
 
 const last = () => sent[sent.length - 1];

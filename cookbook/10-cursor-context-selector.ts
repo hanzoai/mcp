@@ -23,18 +23,17 @@ export async function runRecipe10(): Promise<RecipeResult> {
   const res = await client.callTool("kai_tool_select", {
     task: userQuery,
     tools: candidateFiles,
-    limit: 3,
-    min_confidence: 0.1
+    limit: 3
   });
 
   const selectedNames = res.data.selected_tools?.map((t: any) => t.name) || [];
   const result: RecipeResult = {
     recipe: "10: Cursor Context Selection",
     tool: "kai_tool_select",
-    success: selectedNames.includes("src/routes/auth.ts") || selectedNames.includes("src/server.ts") || selectedNames.includes("src/middleware/rate-limiter.ts"),
+    success: ["src/routes/auth.ts", "src/middleware/rate-limiter.ts"].every((f) => selectedNames.includes(f)) && !selectedNames.some((f: string) => f.startsWith("frontend/") || f.startsWith("scripts/")),
     latency_ms: res.latency_ms,
     output: res.data,
-    explanation: "Kai shortlisted backend auth, server, and rate-limiter files while excluding frontend and deploy scripts."
+    explanation: "BM25 over file names and descriptions put the auth routes and the rate limiter in the top 3, ahead of frontend and deploy files. No model call."
   };
 
   return result;

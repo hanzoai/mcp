@@ -26,17 +26,16 @@ export async function runRecipe01(): Promise<RecipeResult> {
   const res = await client.callTool("kai_tool_select", {
     task,
     tools: candidateTools,
-    limit: 3,
-    min_confidence: 0.15
+    limit: 3
   });
 
   const result: RecipeResult = {
     recipe: "01: Agent Tool Shortlisting",
     tool: "kai_tool_select",
-    success: !res.isError && res.data.top_tool === "Git",
+    success: !res.isError && res.data.top_tool === "Git" && res.data.source === "name",
     latency_ms: res.latency_ms,
     output: res.data,
-    explanation: "Kai ranked Git and Tracker as top tools while filtering out unrelated image/browser tools."
+    explanation: "The task names Git, so it leads. BM25 does not stem, so 'issue' does not reach Tracker's 'issues': name the tool or its words. No model call."
   };
 
   return result;

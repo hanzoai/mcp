@@ -20,23 +20,8 @@ export interface RecipeResult {
  * Enables zero-overhead execution for recipes and automated test suites.
  */
 export async function createRecipeClient() {
-  if (!process.env.LOCAL_KAI_URL && !process.env.API_URL) {
-    process.env.LOCAL_KAI_URL = "http://127.0.0.1:18977";
-  }
-  if (!process.env.HANZO_API_KEY) {
-    process.env.HANZO_API_KEY = "local-recipe-key";
-  }
-
-  const server = await createMCPServer({
-    name: "kai-cookbook-server",
-    version: "2.4.16",
-    environment: {
-      API_URL: process.env.API_URL || process.env.LOCAL_KAI_URL || "http://127.0.0.1:18977",
-      LOCAL_KAI_URL: process.env.LOCAL_KAI_URL || "http://127.0.0.1:18977",
-      HANZO_API_KEY: process.env.HANZO_API_KEY || "local-recipe-key"
-    }
-  });
-
+  // Kai is reached as every client reaches it: api.hanzo.ai with HANZO_API_KEY, or LOCAL_KAI_URL for a local `kai serve`.
+  const server = await createMCPServer({ name: "kai-cookbook-server", version: "2.4.16" });
   // Call tools directly via server handlers or in-memory transport
   return {
     server,

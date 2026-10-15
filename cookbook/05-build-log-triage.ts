@@ -26,17 +26,16 @@ error: could not compile \`parser\` (lib) due to 1 previous error
 `;
 
   const res = await client.callTool("kai_log_triage", {
-    logs: rawLogs,
-    command: "cargo build"
+    logs: rawLogs
   });
 
   const result: RecipeResult = {
     recipe: "05: Build & Test Log Triage",
     tool: "kai_log_triage",
-    success: !res.isError && res.data.category === "compilation_error" && res.data.relevant_files.includes("src/number.rs:88:15"),
+    success: !res.isError && res.data.category === "compile" && res.data.files.includes("src/number.rs:88:15"),
     latency_ms: res.latency_ms,
     output: res.data,
-    explanation: "Isolated src/number.rs:88:15, classified as compilation_error with recoverable severity."
+    explanation: "Classified as compile by the rustc error signature, with the failing lines and src/number.rs:88:15. No model call."
   };
 
   return result;
