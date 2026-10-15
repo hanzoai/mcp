@@ -21,7 +21,7 @@ export interface RecipeResult {
  */
 export async function createRecipeClient() {
   // Kai is reached as every client reaches it: api.hanzo.ai with HANZO_API_KEY, or LOCAL_KAI_URL for a local `kai serve`.
-  const server = await createMCPServer({ name: "kai-cookbook-server", version: "2.4.17" });
+  const server = await createMCPServer({ name: "kai-cookbook-server", version: "2.4.18" });
   // Call tools directly via server handlers or in-memory transport
   return {
     server,
