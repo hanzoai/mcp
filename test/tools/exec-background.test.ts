@@ -6,6 +6,7 @@
  */
 
 import { describe, test, expect } from '@jest/globals';
+import { execSync } from 'child_process';
 import { execTool } from '../../src/tools/unified/exec.js';
 
 const body = (r: any) => JSON.parse(r.content[0].text);
@@ -36,4 +37,18 @@ describe('exec background commands', () => {
     expect(waited.data.exit_code).toBe(0);
     expect(waited.data.stdout).toBe(fg.data.stdout);
   });
+
+  test('kill terminates a backgrounded compound command, not just the shell', async () => {
+    if (process.platform === 'win32') return; // process-group kill is POSIX-only
+    const started = body(await execTool.handler({ action: 'exec', command: 'sleep 47 && echo done', background: true }));
+    expect(started.ok).toBe(true);
+    await new Promise((r) => setTimeout(r, 500));
+    const killed = body(await execTool.handler({ action: 'kill', proc_id: started.data.proc_id }));
+    expect(killed.ok).toBe(true);
+    await new Promise((r) => setTimeout(r, 500));
+    // [s] trick: the pattern must not match the pgrep command line itself.
+    const survivors = execSync('pgrep -f "[s]leep 47" || true').toString().trim();
+    expect(survivors).toBe('');
+  }, 15000);
 });
+

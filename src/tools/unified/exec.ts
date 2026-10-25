@@ -133,7 +133,19 @@ export const execTool: Tool = {
 
           try {
             const sig = args.signal === 'SIGKILL' ? 'SIGKILL' : 'SIGTERM';
-            entry.process.kill(sig);
+            // Background commands run through a shell; signalling only the
+            // shell orphans the actual command. start() spawns detached, so
+            // on POSIX the child leads its own process group - signal the
+            // group. Windows has no process groups; kill the child directly.
+            if (process.platform !== 'win32') {
+              try {
+                process.kill(-entry.process.pid, sig);
+              } catch {
+                entry.process.kill(sig);
+              }
+            } else {
+              entry.process.kill(sig);
+            }
             processes.delete(args.proc_id);
             return envelope({ proc_id: args.proc_id, killed: true, signal: sig }, 'kill');
           } catch (e: any) {
