@@ -15,10 +15,15 @@ type Entry = { process: any; stdout: string[]; stderr: string[]; exitCode?: numb
 const processes = new Map<string, Entry>();
 let procCounter = 0;
 
-/** Spawn `argv` with no shell into the process table. */
-function start(argv: string[], command: string, cwd?: string, env?: Record<string, string>, id = `proc_${++procCounter}`) {
+/** Spawn into the process table. `argv` runs with no shell (package runners
+ *  like npx and uvx); `shell: true` runs a command string through the shell,
+ *  exactly like foreground exec, so quoting and shell syntax mean the same
+ *  thing backgrounded as they do in the foreground. */
+function start(argv: string[], command: string, cwd?: string, env?: Record<string, string>, id = `proc_${++procCounter}`, shell = false) {
   const [cmd, ...rest] = argv;
-  const proc = spawn(cmd, rest, { cwd, detached: true, stdio: 'pipe', env: { ...process.env, ...env } });
+  const proc = shell
+    ? spawn(command, { cwd, detached: true, stdio: 'pipe', env: { ...process.env, ...env }, shell: true })
+    : spawn(cmd, rest, { cwd, detached: true, stdio: 'pipe', env: { ...process.env, ...env } });
   const entry: Entry = { process: proc, stdout: [], stderr: [], exitCode: undefined, started: new Date().toISOString(), command };
   processes.set(id, entry);
   proc.stdout?.on('data', (d: Buffer) => entry.stdout.push(d.toString()));
@@ -85,7 +90,9 @@ export const execTool: Tool = {
 
           if (args.background) {
             if (args.proc_id && processes.has(args.proc_id)) return fail('CONFLICT', `Process ${args.proc_id} already exists`);
-            const { id, entry } = start(args.command.split(' '), args.command, args.cwd, args.env, args.proc_id);
+            // Run the string through the shell: splitting on spaces broke
+            // quoted arguments and shell syntax for backgrounded commands.
+            const { id, entry } = start([], args.command, args.cwd, args.env, args.proc_id, true);
             return envelope({ proc_id: id, pid: entry.process.pid, background: true }, 'exec');
           }
 
