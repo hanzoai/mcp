@@ -26,10 +26,47 @@ export interface TestRunnerEvents {
   'progress': (current: number, total: number) => void;
 }
 
+/**
+ * Detect environment tags (ci, headless)
+ */
+export function getEnvironmentTags(): string[] {
+  const tags: string[] = [];
+  if (process.env.CI) {
+    tags.push('ci');
+  }
+  if (process.platform === 'linux' && !process.env.DISPLAY && !process.env.WAYLAND_DISPLAY) {
+    tags.push('headless');
+  }
+  return tags;
+}
+
+/**
+ * Check if a test case should be skipped for an implementation or current environment
+ */
+export function shouldSkipTest(
+  testCase: ToolTestCase,
+  implementationId: string,
+  envTags: string[] = getEnvironmentTags()
+): boolean {
+  if (testCase.skipFor) {
+    if (testCase.skipFor.includes(implementationId)) {
+      return true;
+    }
+    if (testCase.skipFor.some(tag => envTags.includes(tag))) {
+      return true;
+    }
+  }
+  if (testCase.onlyFor && !testCase.onlyFor.includes(implementationId)) {
+    return true;
+  }
+  return false;
+}
+
 export class MCPTestRunner extends EventEmitter {
   private serverManager = new MCPServerManager();
   private config: TestRunnerConfig;
   private results: TestResult[] = [];
+  private skippedByImpl: Record<string, number> = {};
 
   constructor(config?: Partial<TestRunnerConfig>) {
     super();
@@ -78,6 +115,7 @@ export class MCPTestRunner extends EventEmitter {
 
     // Clear previous results
     this.results = [];
+    this.skippedByImpl = {};
 
     try {
       // Run tests for each implementation
@@ -180,21 +218,21 @@ export class MCPTestRunner extends EventEmitter {
       testCase: ToolTestCase;
     }> = [];
 
+    const envTags = getEnvironmentTags();
+    let skipped = 0;
+
     for (const spec of toolSpecs) {
       for (const testCase of spec.testCases) {
-        // Skip tests not meant for this implementation
-        if (testCase.skipFor?.includes(implementation.id)) {
-          continue;
-        }
-        
-        // Only run if specified for this implementation
-        if (testCase.onlyFor && !testCase.onlyFor.includes(implementation.id)) {
+        if (shouldSkipTest(testCase, implementation.id, envTags)) {
+          skipped++;
           continue;
         }
 
         allTestCases.push({ spec, testCase });
       }
     }
+
+    this.skippedByImpl[implementation.id] = (this.skippedByImpl[implementation.id] || 0) + skipped;
 
     // Process test cases in parallel batches
     for (let i = 0; i < allTestCases.length; i += maxConcurrentTestsPerImpl) {
@@ -478,10 +516,12 @@ export class MCPTestRunner extends EventEmitter {
         total: implResults.length,
         passed: implPassed,
         failed: implFailed,
-        skipped: 0, // TODO: implement skipped tracking
+        skipped: this.skippedByImpl[implId] || 0,
         categories
       };
     }
+
+    const skippedTests = Object.values(summary).reduce((acc, s) => acc + s.skipped, 0);
 
     return {
       implementations,
@@ -489,7 +529,7 @@ export class MCPTestRunner extends EventEmitter {
       totalTests,
       passedTests,
       failedTests,
-      skippedTests: 0,
+      skippedTests,
       results: this.results,
       summary
     };
