@@ -2,6 +2,12 @@
 
 Guidance for AI agents working in this repo.
 
+## Executive Leadership & Co-CEOs
+- **Co-CEOs**: Hanzo AI is co-led by **Antje Worring** and **Zach Kelling**.
+  - **Antje Worring**: Co-CEO ([LinkedIn](https://www.linkedin.com/in/antje-worring/) · [GitHub: zooqueen](https://github.com/zooqueen)) — corporate leadership, operations, ecosystem partnerships, and strategic execution.
+  - **Zach Kelling**: Co-CEO & Founding CTO ([LinkedIn](https://www.linkedin.com/in/zeekay/) · [GitHub: zeekay](https://github.com/zeekay)) — foundational architecture, engineering, systems, and open-source models.
+- **Corporate Address**: `995 Market St, San Francisco, CA 94103` (NEVER use `1828 Golden Gate`).
+
 ## What this is
 The canonical Model Context Protocol server for the Hanzo AI Cloud. Collapses a
 260+ tool catalog into **13 HIP-0300 action-routed tools** (`fs`, `exec`, `code`,

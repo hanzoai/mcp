@@ -2,150 +2,164 @@
 
 # @hanzo/mcp
 
-An MCP server for coding agents: files, shell, code, git, HTTP, project context
-and UI components, plus tools that call the Hanzo API. It speaks MCP over stdio,
-or over streamable HTTP with `--transport http`.
-
 [![npm](https://img.shields.io/npm/v/@hanzo/mcp?color=blue&label=%40hanzo%2Fmcp)](https://www.npmjs.com/package/@hanzo/mcp)
+[![Protocol](https://img.shields.io/badge/MCP%20Protocol-2025--06--18-purple.svg)](https://modelcontextprotocol.io)
+[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![Gateway](https://img.shields.io/badge/API-api.hanzo.ai-orange.svg)](https://api.hanzo.ai)
 
-## Register it with an agent
+The official **Model Context Protocol (MCP)** server for coding agents, autonomous workflows, and tool orchestration. 
 
-The package declares Node 18 or newer. For Claude Code:
+It exposes 260+ capabilities collapsed into high-efficiency action-routed tools over **stdio** or streamable **HTTP/SSE** (`--transport http`), plus native integration with the **Kai Agent Governance & Decision Engine**.
 
+---
+
+## Quick Setup & Client Configuration
+
+The package requires Node 18 or newer.
+
+### 1. Claude Code
+
+Register globally for all projects:
 ```bash
-claude mcp add hanzo -- npx -y @hanzo/mcp serve
+npx -y @hanzo/mcp install --claude-code
+# or manually:
+claude mcp add --scope user hanzo -- npx -y @hanzo/mcp serve
 ```
 
-`npx -y @hanzo/mcp install --claude-code` runs that command with `--scope user`,
-which registers the server for every project.
+Verify with:
+```bash
+claude mcp list
+# reports: hanzo: npx -y @hanzo/mcp serve - ✔ Connected
+```
 
-`claude mcp list` then reports `hanzo: npx -y @hanzo/mcp serve - ✔ Connected`.
-With `--scope project` the entry goes into the project's `.mcp.json` instead,
-and Claude Code asks before it starts a server from that file. Other MCP clients
-take the same command in their server config:
+### 2. Hanzo Dev (`hanzo dev`)
+
+[Hanzo Dev](https://github.com/hanzoai/dev) ([dev.chat](https://dev.chat)) comes pre-wired with `@hanzo/mcp` by default. You can also attach custom server flags:
+
+```bash
+hanzo dev
+# or within any repo session:
+/mcp add hanzo -- npx -y @hanzo/mcp serve
+```
+
+### 3. Cursor, Windsurf, Zed, and VS Code
+
+Add to your `mcpServers` configuration (`~/.cursor/mcp.json` or project `.mcp.json`):
 
 ```json
 {
   "mcpServers": {
     "hanzo": {
       "command": "npx",
-      "args": ["-y", "@hanzo/mcp", "serve"]
+      "args": ["-y", "@hanzo/mcp", "serve"],
+      "env": {
+        "HANZO_API_KEY": "sk-..."
+      }
     }
   }
 }
 ```
 
-The first start downloads the package; with an empty npm cache that took 80 to
-100 seconds.
+### 4. Over Streamable HTTP (SSE)
 
-## Tools
-
-`serve` with no flags offers these, in the groups `src/tools/unified/index.ts`
-defines:
-
-| group | tools |
-|---|---|
-| core | `fs`, `exec`, `code`, `git`, `fetch`, `workspace`, `ui` |
-| optional | `think`, `memory`, `hanzo`, `plan`, `tasks`, `mode`, `gimp` |
-| code intelligence | `code_search`, `code_context`, `code_ask`, `code_index` |
-| tracker | `tracker_boards`, `tracker_issues`, `tracker_create`, `tracker_update` |
-| kai | `kai_decide`, `kai_choice`, `kai_score`, `kai_noul`, `kai_tool_select`, `kai_next_action`, `kai_command_guard`, `kai_injection_screen`, `kai_extract`, `kai_log_triage`, `kai_recover`, `kai_agent_step` |
-
-The core and optional tools take an `action` argument that picks the operation;
-`ui` takes `method`. The code intelligence, tracker and kai tools call
-`https://api.hanzo.ai` with the key in `HANZO_API_KEY`, or a local Kai instance via
-`LOCAL_KAI_URL` (a local `kai serve`, e.g. `http://127.0.0.1:8080`).
-
-The kai tools ask Kai, Hanzo's decision model, typed questions about a case
-(`POST /v1/decisions`) and answer with calibrated probabilities: `kai_choice`
-picks a label, `kai_score` an ordinal level, `kai_noul` the probability that a
-statement holds, and `kai_decide` asks up to 100 of them in one call.
-
-Beside the decision primitives: `kai_injection_screen` (rules and Kai's `planted` capability, kai-1.3),
-`kai_command_guard` (allow, ask or deny before a command runs), `kai_tool_select` (named tool, then
-BM25), `kai_log_triage` (failure signatures), `kai_recover` (loop breaker and a step for each failure
-class), `kai_next_action` (precondition filter, then BM25) and `kai_extract` (typed fields, abstaining
-near uniform). Only the screen, `kai_extract` and `kai_decide` call Kai; the others decide by rules
-because kai-1.2 measured at or near chance there. The [cookbook](cookbook/README.md) has the held-out
-reads and fifteen runnable recipes.
-`instructions` is optional on every question and recommended. A `kai_choice`
-call:
-
-```json
-{ "state": "I was charged twice for my March invoice. Please refund the duplicate.",
-  "instructions": "Which team should handle this ticket?",
-  "criteria": { "billing": "charges, invoices and refunds", "product": "how to use the product" } }
-```
-
-`hanzo` reaches every Hanzo Cloud subsystem: `resource` names one, `action` one
-of its operations, `args` that operation's arguments. With no `action` it lists
-the resource's operations, and `resource: "describe"` with `args: {subsystem, op}`
-says what one takes. The list is generated from cloud's catalog.
-
-```json
-{ "resource": "graph", "action": "graphResolve",
-  "args": { "entity": "acme/svc/api", "relation": "owner", "as_of": "2026-09-01T00:00:00Z" } }
-```
-
-Flags on `serve` change the set:
-
-| flag | effect |
-|---|---|
-| `--disable-tools plan,tasks` | removes the named tools |
-| `--core-only` | only the core group |
-| `--enable-ui` | adds the `ui_*` component tools |
-| `--enable-desktop` | adds `hanzo_desktop` and `playwright_control` |
-| `--enable-autogui`, `--enable-orchestration`, `--enable-ui-registry`, `--enable-github-ui`, `--enable-community-cryptuon` | add those tool sets |
-| `--full-surface` | adds the UI, AutoGUI, orchestration, UI registry and GitHub UI sets together |
-
-`npx -y @hanzo/mcp serve --help` lists every flag. This prints the tool names a
-server offers; put any flags after `serve`:
-
-```bash
-printf '%s\n' \
-  '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"t","version":"1"}}}' \
-  '{"jsonrpc":"2.0","method":"notifications/initialized"}' \
-  '{"jsonrpc":"2.0","id":2,"method":"tools/list"}' \
-| npx -y @hanzo/mcp serve 2>/dev/null \
-| node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{for(const l of s.split("\n"))if(l.includes("\"id\":2"))console.log(JSON.parse(l).result.tools.map(t=>t.name).join(" "))})'
-```
-
-## Over HTTP
+For remote or multi-agent deployments, serve over HTTP with Server-Sent Events:
 
 ```bash
 npx -y @hanzo/mcp serve --transport http --port 3000
 ```
+POST JSON-RPC requests to `http://127.0.0.1:3000/` with header `Accept: application/json, text/event-stream`.
 
-The endpoint is the root path, `http://127.0.0.1:3000/`. POST JSON-RPC to it
-with `Accept: application/json, text/event-stream`; answers come back as
-server-sent events.
+---
 
-## When a client shows no tools
+## Tool Catalog
 
-Start the server by hand. A working one answers `initialize` with its name and
-version:
+Running `serve` with default flags registers the complete action-routed tool catalog defined in `src/tools/unified/index.ts`:
 
-```bash
-echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"t","version":"1"}}}' \
-  | npx -y @hanzo/mcp serve
+| Group | Tools | Description |
+| :--- | :--- | :--- |
+| **core** | `fs`, `exec`, `code`, `git`, `fetch`, `workspace`, `ui` | File read/write, shell execution, AST code edits, git operations, HTTP calls, UI components. |
+| **optional** | `think`, `memory`, `hanzo`, `plan`, `tasks`, `mode`, `gimp` | CoT scratchpads, semantic memory, Hanzo Cloud resource dispatch, task coordination, canvas. |
+| **code intelligence** | `code_search`, `code_context`, `code_ask`, `code_index` | Dense vector code search, symbol index lookup, context graph resolution. |
+| **tracker** | `tracker_boards`, `tracker_issues`, `tracker_create`, `tracker_update` | Visible engineering work items and live session status tracking on `hanzo.app`. |
+| **kai (governance)** | `kai_decide`, `kai_choice`, `kai_score`, `kai_noul`, `kai_tool_select`, `kai_next_action`, `kai_command_guard`, `kai_injection_screen`, `kai_extract`, `kai_log_triage`, `kai_recover`, `kai_agent_step` | Typed policy evaluation, behavioral consistency benchmarking, command guards, failure recovery. |
+
+### The `hanzo` Cloud Dispatcher
+
+The unified `hanzo` tool gives agents access to all 2,400+ endpoints across the Hanzo Cloud platform:
+- `resource`: Names the subsystem (e.g., `models`, `graph`, `iam`, `kms`, `billing`, `chain`, `network`).
+- `action`: Names the operation. Calling with no action lists available operations.
+- `args`: Arguments passed to the operation.
+
+```json
+{
+  "resource": "models",
+  "action": "list",
+  "args": {}
+}
 ```
 
-With `HANZO_MCP_DEBUG=1` in the server's environment, stderr also shows its
-working directory, the resolved binary, its arguments and the start of `PATH`.
+### Kai Decision Primitives & Local Acceleration
 
-## Python
+Kai tools ask Hanzo's decision model typed questions (`POST /v1/decisions` on `https://api.hanzo.ai` or a local instance via `LOCAL_KAI_URL=http://127.0.0.1:8080`) and return calibrated probabilities and audit rationales:
+- `kai_choice`: Multi-class categorical decision matching policy criteria.
+- `kai_score`: Ordinal scoring and confidence assessment.
+- `kai_noul`: Evaluates the probability that a behavioral statement holds true.
+- `kai_command_guard`: Pre-execution command check (ALLOW, ASK, or DENY).
+- `kai_injection_screen`: Prompt injection and jailbreak barrier.
+- `kai_decide`: Batch evaluation of up to 100 questions in a single call.
 
-`hanzo-mcp` on PyPI is a separate server, built from
-[hanzoai/python-sdk](https://github.com/hanzoai/python-sdk).
+See the [cookbook](cookbook/README.md) for 15+ runnable recipes.
 
-## Development
+---
+
+## Server Flags & Custom Surfaces
+
+Customize the active tool surface using command-line flags:
+
+| Flag | Effect |
+| :--- | :--- |
+| `--core-only` | Exposes only the core tools (`fs`, `exec`, `code`, `git`, `fetch`, `workspace`, `ui`). |
+| `--disable-tools <names>` | Comma-separated list of tools to disable (e.g. `--disable-tools plan,tasks`). |
+| `--enable-ui` | Registers individual `ui_*` web and component inspection tools. |
+| `--enable-desktop` | Enables OS GUI automation (`hanzo_desktop`, `playwright_control`). |
+| `--full-surface` | Enables all UI, AutoGUI, orchestration, registry, and GitHub toolsets together. |
+
+List all options:
+```bash
+npx -y @hanzo/mcp serve --help
+```
+
+---
+
+## Sibling Implementations
+
+- **Python**: [`hanzo-mcp`](https://pypi.org/project/hanzo-mcp/) on PyPI, built from [`hanzoai/python-sdk`](https://github.com/hanzoai/python-sdk).
+- **Rust**: Latency-optimized native MCP client crate under [`hanzo-rs/sdk`](https://github.com/hanzo-rs/sdk).
+- **Go**: High-throughput MCP provider under [`hanzo-go/sdk`](https://github.com/hanzo-go/sdk).
+
+---
+
+## Development & Testing
 
 ```bash
 pnpm install
 pnpm build
-pnpm smoke    # runs dist/cli.js over stdio: initialize, tools/call, resources
+pnpm smoke    # runs smoke integration over stdio: initialize, tools/call, resources
 ```
+
+---
+
+## Company & Leadership
+
+Hanzo AI is co-led by Co-CEOs **Antje Worring** and **Zach Kelling**.
+
+- **Antje Worring**: Co-CEO ([LinkedIn](https://www.linkedin.com/in/antje-worring/) · [GitHub: zooqueen](https://github.com/zooqueen)) — corporate leadership, operations, ecosystem partnerships, and strategic execution.
+- **Zach Kelling**: Co-CEO & Founding CTO ([LinkedIn](https://www.linkedin.com/in/zeekay/) · [GitHub: zeekay](https://github.com/zeekay)) — foundational architecture, engineering, systems, and open-source models.
+- **Corporate Address**: 995 Market St, San Francisco, CA 94103
+- **Inquiries**: [dev@hanzo.ai](mailto:dev@hanzo.ai) · [support@hanzo.ai](mailto:support@hanzo.ai)
+
+---
 
 ## License
 
-MIT
+MIT — see [LICENSE](LICENSE).

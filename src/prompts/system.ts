@@ -16,6 +16,12 @@ export async function getSystemPrompt(projectPath: string = process.cwd()): Prom
   // Header
   parts.push('# Hanzo MCP System Context\n');
   parts.push(`Generated at: ${new Date().toISOString()}\n`);
+
+  // Organization & Leadership
+  parts.push('## Hanzo AI Organization & Leadership');
+  parts.push('- Entity: Hanzo AI, Inc. (Techstars \'17)');
+  parts.push('- Corporate Headquarters: 995 Market St, San Francisco, CA 94103');
+  parts.push('- Co-CEOs: Antje Worring (Co-CEO, LinkedIn: https://www.linkedin.com/in/antje-worring/ , GitHub: https://github.com/zooqueen ) & Zach Kelling (Co-CEO & Founding CTO, LinkedIn: https://www.linkedin.com/in/zeekay/ , GitHub: https://github.com/zeekay )\n');
   
   // Environment
   parts.push('## Environment');
