@@ -1,5 +1,5 @@
 /**
- * Tests for the work-item tools (Hanzo /v1/tracker surface).
+ * Tests for the work-item tools (Hanzo /v1/task surface).
  *
  * A local HTTP server stands in for api.hanzo.ai so the tests are deterministic
  * and hermetic. We assert each tool: (1) hits the right method + path, (2) carries
@@ -12,13 +12,7 @@
 import { describe, test, expect, beforeAll, afterAll, beforeEach } from '@jest/globals';
 import * as http from 'http';
 import { AddressInfo } from 'net';
-import {
-  trackerBoardsTool,
-  trackerIssuesTool,
-  trackerCreateTool,
-  trackerUpdateTool,
-  trackerTools,
-} from '../../src/tools/tracker.js';
+import * as T from '../../src/tools/tracker.js';
 
 interface RecordedRequest {
   method: string;
@@ -78,149 +72,88 @@ afterAll(async () => {
 
 beforeEach(() => { recorded.length = 0; });
 
-describe('the tracker tool surface', () => {
-  test('is four tools, each uniquely named', () => {
-    const names = trackerTools.map((t) => t.name);
-    expect(names).toEqual(['tracker_boards', 'tracker_issues', 'tracker_create', 'tracker_update']);
-    expect(new Set(names).size).toBe(names.length);
+describe('tracker tools hit /v1/task (the renamed surface), never /v1/tracker', () => {
+  const cases: [string, any, any, string, string][] = [
+    ['boards', T.trackerBoardsTool, {}, 'GET', '/v1/task/projects'],
+    ['issues/board', T.trackerIssuesTool, { key: 'cloud', status: 'todo' }, 'GET', '/v1/task/projects/cloud/issues'],
+    ['issues/global', T.trackerIssuesTool, {}, 'GET', '/v1/task/board'],
+    ['issue', T.trackerIssueTool, { key: 'ENG', number: 3 }, 'GET', '/v1/task/projects/ENG/issues/3'],
+    ['create', T.trackerCreateTool, { key: 'cloud', title: 't' }, 'POST', '/v1/task/projects/cloud/issues'],
+    ['update', T.trackerUpdateTool, { key: 'cloud', number: 2, priority: 'high' }, 'PATCH', '/v1/task/projects/cloud/issues/2'],
+    ['close', T.trackerCloseTool, { key: 'cloud', number: 2 }, 'PATCH', '/v1/task/projects/cloud/issues/2'],
+    ['comment', T.trackerCommentTool, { key: 'cloud', number: 2, body: 'hi' }, 'PATCH', '/v1/task/projects/cloud/issues/2'],
+    ['comments', T.trackerCommentsTool, { key: 'cloud', number: 2 }, 'GET', '/v1/task/projects/cloud/issues/2/comments'],
+    ['labels', T.trackerLabelsTool, { key: 'cloud' }, 'GET', '/v1/task/projects/cloud/labels'],
+    ['label create', T.trackerLabelCreateTool, { key: 'cloud', name: 'bug', color: '#ff0000' }, 'POST', '/v1/task/projects/cloud/labels'],
+    ['label edit', T.trackerLabelEditTool, { key: 'cloud', id: 7, color: '#00ff00' }, 'PATCH', '/v1/task/projects/cloud/labels/7'],
+    ['milestones', T.trackerMilestonesTool, { key: 'cloud' }, 'GET', '/v1/task/projects/cloud/milestones'],
+    ['milestone create', T.trackerMilestoneCreateTool, { key: 'cloud', title: 'v1' }, 'POST', '/v1/task/projects/cloud/milestones'],
+    ['milestone edit', T.trackerMilestoneEditTool, { key: 'cloud', id: 4, state: 'closed' }, 'PATCH', '/v1/task/projects/cloud/milestones/4'],
+  ];
+  for (const [name, tool, args, method, path] of cases) {
+    test(name, async () => {
+      const r: any = await tool.handler(args);
+      expect(r.isError).toBeUndefined();
+      expect(last().method).toBe(method);
+      expect(last().pathname).toBe(path);
+      expect(last().headers.authorization).toBe('Bearer test-key');
+      expect(last().query.has('org')).toBe(false);
+      if (last().body) expect(JSON.parse(last().body).org).toBeUndefined();
+    });
+  }
+
+  test('keys keep their case (forge repo names)', async () => {
+    await T.trackerIssuesTool.handler({ key: 'cloud' });
+    expect(last().pathname).toBe('/v1/task/projects/cloud/issues');
   });
 
-  test('does not collide with the LOCAL `tasks` todo tool', () => {
-    // `tasks` is a private file on disk; these are the shared board. Two planes,
-    // two names — the day they collide is the day an agent reports progress into
-    // a file nobody reads.
-    expect(trackerTools.map((t) => t.name)).not.toContain('tasks');
-  });
-});
-
-describe('tracker_boards', () => {
-  test('GET /v1/tracker/projects with the bearer and no org', async () => {
-    const result = await trackerBoardsTool.handler({});
-    expect(result.isError).toBeFalsy();
-
-    const req = last();
-    expect(req.method).toBe('GET');
-    expect(req.pathname).toBe('/v1/tracker/projects');
-    expect(req.headers['authorization']).toBe('Bearer test-key');
-    // Tenancy is minted from the identity; a tool that sends an org is a tool
-    // asking to be trusted about tenancy.
-    expect([...req.query.keys()]).not.toContain('org');
-  });
-});
-
-describe('tracker_issues', () => {
-  test('GET one board, uppercasing the key as cloud stores it', async () => {
-    await trackerIssuesTool.handler({ key: 'eng' });
-    expect(last().pathname).toBe('/v1/tracker/projects/ENG/issues');
+  test('close sends status done and the comment', async () => {
+    const r: any = await T.trackerCloseTool.handler({ key: 'cloud', number: 2, comment: 'fixed' });
+    expect(json(r).sent).toEqual({ status: 'done', comment: 'fixed' });
   });
 
-  test('carries every filter, and only the ones given', async () => {
-    await trackerIssuesTool.handler({ key: 'ENG', status: 'in_progress', source: 'agent' });
-    const req = last();
-    expect(req.query.get('status')).toBe('in_progress');
-    expect(req.query.get('source')).toBe('agent');
-    expect(req.query.get('kind')).toBeNull();
-    expect(req.query.get('repo')).toBeNull();
+  test('comment is written through PATCH {comment}', async () => {
+    const r: any = await T.trackerCommentTool.handler({ key: 'cloud', number: 2, body: 'hi' });
+    expect(json(r).sent).toEqual({ comment: 'hi' });
   });
 
-  test('missing key fails before any network call', async () => {
-    const result = await trackerIssuesTool.handler({});
-    expect(result.isError).toBe(true);
-    expect(recorded).toHaveLength(0);
-  });
-});
-
-describe('tracker_create', () => {
-  test('POSTs the issue and defaults source to agent', async () => {
-    const result = await trackerCreateTool.handler({ key: 'ENG', title: 'ship the board' });
-    expect(result.isError).toBeFalsy();
-
-    const req = last();
-    expect(req.method).toBe('POST');
-    expect(req.pathname).toBe('/v1/tracker/projects/ENG/issues');
-    // The board's "an agent's work" filter is only true if agents say so.
-    expect(JSON.parse(req.body)).toEqual({ title: 'ship the board', source: 'agent' });
+  test('update sends only named fields; empty assignee unassigns', async () => {
+    const r: any = await T.trackerUpdateTool.handler({ key: 'cloud', number: 2, assignee: '' });
+    expect(json(r).sent).toEqual({ assignee: '' });
   });
 
-  test('writes an agent session as the one anchor format', async () => {
-    await trackerCreateTool.handler({ key: 'ENG', title: 'x', session: 'sess_123' });
-    expect(JSON.parse(last().body).extRef).toBe('session:sess_123');
+  test('update with nothing is refused locally', async () => {
+    const r: any = await T.trackerUpdateTool.handler({ key: 'cloud', number: 2 });
+    expect(r.isError).toBe(true);
+    expect(recorded.length).toBe(0);
   });
 
-  test('a raw extRef still passes through for a non-session anchor', async () => {
-    await trackerCreateTool.handler({ key: 'ENG', title: 'x', extRef: 'feat/branch' });
-    expect(JSON.parse(last().body).extRef).toBe('feat/branch');
+  test('missing required args are refused locally', async () => {
+    const r: any = await T.trackerCreateTool.handler({ key: 'cloud' });
+    expect(r.isError).toBe(true);
+    expect(r.content[0].text).toContain('title required');
+    expect(recorded.length).toBe(0);
   });
 
-  test('sends no field the caller did not name', async () => {
-    await trackerCreateTool.handler({ key: 'ENG', title: 'x', source: 'team' });
-    // An undefined priority must not become a null that overwrites cloud's default.
-    expect(JSON.parse(last().body)).toEqual({ title: 'x', source: 'team' });
+  test('cloud refusals reach the agent verbatim', async () => {
+    const r: any = await T.trackerIssuesTool.handler({ key: 'DENY' });
+    expect(r.isError).toBe(true);
+    expect(r.content[0].text).toContain('403');
   });
 
-  test('missing title fails before any network call', async () => {
-    const result = await trackerCreateTool.handler({ key: 'ENG' });
-    expect(result.isError).toBe(true);
-    expect(recorded).toHaveLength(0);
-  });
-});
-
-describe('tracker_update', () => {
-  test('PATCHes one issue by board key and number', async () => {
-    const result = await trackerUpdateTool.handler({ key: 'ENG', number: 14, status: 'done' });
-    expect(result.isError).toBeFalsy();
-
-    const req = last();
-    expect(req.method).toBe('PATCH');
-    expect(req.pathname).toBe('/v1/tracker/projects/ENG/issues/14');
-    expect(JSON.parse(req.body)).toEqual({ status: 'done' });
-  });
-
-  test('relinks a session without touching anything else', async () => {
-    await trackerUpdateTool.handler({ key: 'ENG', number: 1, session: 'sess_9' });
-    expect(JSON.parse(last().body)).toEqual({ extRef: 'session:sess_9' });
-  });
-
-  test('number 0 is a number, not a missing argument', async () => {
-    // `if (!args.number)` would refuse this; cloud refuses it too, but for the
-    // right reason and with its own message.
-    await trackerUpdateTool.handler({ key: 'ENG', number: 0, status: 'todo' });
-    expect(last().pathname).toBe('/v1/tracker/projects/ENG/issues/0');
-  });
-
-  test('an empty patch is refused rather than sent as a no-op write', async () => {
-    const result = await trackerUpdateTool.handler({ key: 'ENG', number: 3 });
-    expect(result.isError).toBe(true);
-    expect(recorded).toHaveLength(0);
-  });
-});
-
-describe('failures surface honestly', () => {
-  test("cloud's own refusal reaches the agent verbatim", async () => {
-    const result = await trackerIssuesTool.handler({ key: 'DENY' });
-    expect(result.isError).toBe(true);
-    // Not "request failed" — the sentence cloud actually said.
-    expect(result.content[0].text).toContain('403');
-    expect(result.content[0].text).toContain('X-Org-Id required');
-  });
-
-  test('missing token fails with a clear error and no call', async () => {
-    const prev = process.env.HANZO_API_KEY;
+  test('no token → error, no request', async () => {
+    const k = process.env.HANZO_API_KEY;
     delete process.env.HANZO_API_KEY;
     try {
-      const result = await trackerBoardsTool.handler({});
-      expect(result.isError).toBe(true);
-      expect(result.content[0].text).toContain('HANZO_API_KEY required');
-      expect(recorded).toHaveLength(0);
-    } finally {
-      process.env.HANZO_API_KEY = prev;
-    }
+      const r: any = await T.trackerBoardsTool.handler({});
+      expect(r.isError).toBe(true);
+      expect(recorded.length).toBe(0);
+    } finally { process.env.HANZO_API_KEY = k; }
   });
-});
 
-describe('the body comes back to the agent', () => {
-  test('a successful call returns the parsed JSON', async () => {
-    const result = await trackerBoardsTool.handler({});
-    expect(json(result as { content: { text: string }[] }).pathname).toBe('/v1/tracker/projects');
+  test('registry lists every tool once', () => {
+    const names = T.trackerTools.map((t) => t.name);
+    expect(new Set(names).size).toBe(names.length);
+    expect(names.length).toBe(14);
   });
 });

@@ -1,27 +1,34 @@
 /**
- * Work items — the Hanzo Cloud /v1/tracker surface as MCP tools.
+ * Work items — the Hanzo Cloud /v1/task surface as MCP tools.
  *
- * This is how an agent reports on its own work. Hanzo has exactly ONE work-item
- * primitive — the cloud tracker Issue (cloud apps/tracker/contract.go is law) —
- * and these tools are a thin, named projection of it. One tool per job:
+ * The cloud surface these tools were written against, /v1/tracker, was renamed
+ * to /v1/task (cloud apps/task); every tracker_* call answered 404 since. The
+ * board is now the FORGE: a board is a repository on forge.hanzo.ai, a work item
+ * is a forge issue, a column is a label. Cloud resolves the caller's forge
+ * account from their Hanzo identity and acts as them (Sudo), so the forge's own
+ * ACL and audit apply — no forge credential ever reaches this process.
  *
- *   tracker_boards  GET   /v1/tracker/projects                    the org's boards
- *   tracker_issues  GET   /v1/tracker/projects/{key}/issues       ?status&kind&source&repo
- *   tracker_create  POST  /v1/tracker/projects/{key}/issues       open a work item
- *   tracker_update  PATCH /v1/tracker/projects/{key}/issues/{num} move / assign / link
+ *   tracker_boards           GET   /v1/task/projects
+ *   tracker_issues           GET   /v1/task/projects/{key}/issues   (or /v1/task/board with no key)
+ *   tracker_issue            GET   /v1/task/projects/{key}/issues/{num}
+ *   tracker_create           POST  /v1/task/projects/{key}/issues
+ *   tracker_update           PATCH /v1/task/projects/{key}/issues/{num}
+ *   tracker_close            PATCH …/issues/{num}  {status: done}
+ *   tracker_comment          PATCH …/issues/{num}  {comment}
+ *   tracker_comments         GET   …/issues/{num}/comments
+ *   tracker_labels           GET   /v1/task/projects/{key}/labels          (cloud patch)
+ *   tracker_label_create     POST  /v1/task/projects/{key}/labels          (cloud patch)
+ *   tracker_label_edit       PATCH /v1/task/projects/{key}/labels/{id}     (cloud patch)
+ *   tracker_milestones       GET   /v1/task/projects/{key}/milestones      (cloud patch)
+ *   tracker_milestone_create POST  /v1/task/projects/{key}/milestones      (cloud patch)
+ *   tracker_milestone_edit   PATCH /v1/task/projects/{key}/milestones/{id} (cloud patch)
  *
- * NOT to be confused with the local `tasks` tool (a private todo file) or with
- * hanzoai/tasks (durable async execution). Those are different planes; this one
- * is the shared board a human can see.
+ * Board keys are forge repository names and are sent as given (no case
+ * folding): `cloud` and `ENG` are both live keys.
  *
- * LINKING A RUN. An agent's run is a SESSION (`/v1/agents/sessions`). A work item
- * points at one through `extRef`, which the tracker contract defines as "a link
- * INTO another plane", using the anchor `session:<id>`. Pass `session` and these
- * tools write that anchor — there is no second field and no metadata bag.
- *
- * Auth mirrors hanzo-cloud.ts and code-intel.ts EXACTLY: the caller's Hanzo
- * bearer from the environment. The org is minted server-side from that identity —
- * a client NEVER passes an org, and cloud strips one if it tries.
+ * Auth: the caller's Hanzo bearer (an sk- API key or an IAM access token) from
+ * the environment. The org is minted server-side from that identity — a client
+ * NEVER passes an org.
  */
 
 import { Tool } from '../types/index.js';
@@ -59,159 +66,98 @@ function qs(params: Record<string, string | number | undefined>): string {
   return s ? `?${s}` : '';
 }
 
-/** The path of one board's issues. The key is uppercased as cloud stores it. */
-function issues(key: string): string {
-  return `/v1/tracker/projects/${encodeURIComponent(String(key).trim().toUpperCase())}/issues`;
+/** The path of one board. */
+function board(key: string): string {
+  return `/v1/task/projects/${encodeURIComponent(String(key).trim())}`;
 }
+function issues(key: string): string { return `${board(key)}/issues`; }
+function issue(key: string, num: unknown): string { return `${issues(key)}/${encodeURIComponent(String(num))}`; }
 
-/** The `extRef` anchor for an agent session — the ONE link format. */
-function anchor(session?: string, extRef?: string): string | undefined {
-  if (session) return `session:${session}`;
-  return extRef || undefined;
-}
-
-const STATUS = ['backlog', 'todo', 'in_progress', 'done', 'canceled'];
+const STATUS = ['backlog', 'todo', 'in_progress', 'in_review', 'done', 'canceled'];
 const PRIORITY = ['none', 'urgent', 'high', 'medium', 'low'];
-const KIND = ['issue', 'pr', 'epic'];
-const SOURCE = ['team', 'git', 'crm', 'helpdesk', 'cms', 'agent'];
 
-// =============================================
-// tracker_boards — the org's boards
-// =============================================
+function compact(o: Record<string, unknown>): Record<string, unknown> {
+  for (const k of Object.keys(o)) if (o[k] === undefined) delete o[k];
+  return o;
+}
 
-export const trackerBoardsTool: Tool = {
-  name: 'tracker_boards',
-  description: "List the work-item boards in your org. Returns [{id,org,key,name,description,createdAt,updatedAt}]. The `key` is what every other tracker tool takes — call this first when you do not know it. A board's issues are identified KEY-1, KEY-2, …",
-  inputSchema: { type: 'object', properties: {} },
-  handler: async () => {
-    try {
-      return ok(await track('/v1/tracker/projects'));
-    } catch (e: any) {
-      return fail(e.message);
-    }
-  },
-};
-
-// =============================================
-// tracker_issues — one board's work items
-// =============================================
-
-export const trackerIssuesTool: Tool = {
-  name: 'tracker_issues',
-  description: "List a board's work items. Returns [{id,identifier,projectKey,number,kind,source,repo,extRef,title,description,status,priority,assignee,labels,createdAt,updatedAt}]. Filters are AND-ed and each is a closed set — an unknown value is refused rather than silently returning an empty board. Use source=agent to see only work agents opened; an item's extRef `session:<id>` names the agent session behind it.",
-  inputSchema: {
-    type: 'object',
-    properties: {
-      key: { type: 'string', description: 'Board key, e.g. ENG (from tracker_boards)' },
-      status: { type: 'string', enum: STATUS, description: 'Board column' },
-      kind: { type: 'string', enum: KIND, description: 'What the item is' },
-      source: { type: 'string', enum: SOURCE, description: 'Which surface opened it' },
-      repo: { type: 'string', description: 'Only items bound to this git repository' },
+type Args = Record<string, any>;
+function tool(name: string, description: string, properties: Record<string, unknown>, required: string[], run: (a: Args) => Promise<unknown>): Tool {
+  return {
+    name,
+    description,
+    inputSchema: { type: 'object', properties, required },
+    handler: async (args: Args) => {
+      try {
+        for (const r of required) if (args[r] === undefined || args[r] === null || args[r] === '') return fail(`${r} required`);
+        return ok(await run(args));
+      } catch (e: any) {
+        return fail(e.message);
+      }
     },
-    required: ['key'],
-  },
-  handler: async (args) => {
-    try {
-      if (!args.key) return fail('key required');
-      return ok(await track(issues(args.key) + qs({ status: args.status, kind: args.kind, source: args.source, repo: args.repo })));
-    } catch (e: any) {
-      return fail(e.message);
-    }
-  },
-};
+  } as Tool;
+}
 
-// =============================================
-// tracker_create — open a work item
-// =============================================
+const KEY = { type: 'string', description: 'Board key = forge repository name, e.g. cloud (from tracker_boards)' };
+const NUM = { type: 'number', description: 'Issue number in that repository' };
 
-export const trackerCreateTool: Tool = {
-  name: 'tracker_create',
-  description: "Open a work item on a board — this is how you put your work somewhere a human can see it. Returns the created issue including its identifier (KEY-N). `source` defaults to agent, because a work item opened through this tool WAS opened by an agent and the board filters on that. Pass `session` with your agent-session id to link the item to the run doing it; its live status then shows on the board.",
-  inputSchema: {
-    type: 'object',
-    properties: {
-      key: { type: 'string', description: 'Board key, e.g. ENG (from tracker_boards)' },
-      title: { type: 'string', description: 'One line saying what needs doing' },
-      description: { type: 'string', description: 'The detail behind the title' },
-      status: { type: 'string', enum: STATUS, description: 'Board column (default backlog)' },
-      priority: { type: 'string', enum: PRIORITY, description: 'Default none' },
-      assignee: { type: 'string', description: 'Who holds it' },
-      labels: { type: 'array', items: { type: 'string' }, description: 'Free-form tags' },
-      kind: { type: 'string', enum: KIND, description: 'What it is (default issue)' },
-      source: { type: 'string', enum: SOURCE, description: 'Which surface opened it (default agent)' },
-      repo: { type: 'string', description: 'Git repository this work belongs to' },
-      session: { type: 'string', description: 'Agent-session id to link — stored as extRef `session:<id>`' },
-      extRef: { type: 'string', description: 'Raw external anchor, when it is not a session (e.g. a PR branch)' },
-    },
-    required: ['key', 'title'],
-  },
-  handler: async (args) => {
-    try {
-      if (!args.key) return fail('key required');
-      if (!args.title) return fail('title required');
-      const body: Record<string, unknown> = {
-        title: args.title,
-        description: args.description,
-        status: args.status,
-        priority: args.priority,
-        assignee: args.assignee,
-        labels: args.labels,
-        kind: args.kind,
-        source: args.source || 'agent',
-        repo: args.repo,
-        extRef: anchor(args.session, args.extRef),
-      };
-      for (const k of Object.keys(body)) if (body[k] === undefined) delete body[k];
-      return ok(await track(issues(args.key), { method: 'POST', body: JSON.stringify(body) }));
-    } catch (e: any) {
-      return fail(e.message);
-    }
-  },
-};
+export const trackerBoardsTool = tool('tracker_boards',
+  "List the boards in your org. A board is a forge repository; its `key` is what every other tracker tool takes.",
+  {}, [], () => track('/v1/task/projects'));
 
-// =============================================
-// tracker_update — move, assign, link
-// =============================================
+export const trackerIssuesTool = tool('tracker_issues',
+  "List work items. With `key`, one board; without it, every board in your org. Filters are passed to cloud, which refuses unknown values rather than returning an empty board.",
+  { key: KEY, status: { type: 'string', enum: STATUS }, label: { type: 'string', description: 'Only items carrying this label' }, assignee: { type: 'string' }, q: { type: 'string', description: 'Text search' } },
+  [], (a) => track((a.key ? issues(a.key) : '/v1/task/board') + qs({ status: a.status, label: a.label, assignee: a.assignee, q: a.q })));
 
-export const trackerUpdateTool: Tool = {
-  name: 'tracker_update',
-  description: "Update one work item by its board key and number (ENG-14 → key ENG, number 14). Only the fields you pass change. This is how an agent reports progress: move to in_progress when you start and done when you finish. Pass `session` to link (or relink) the item to the agent session doing the work.",
-  inputSchema: {
-    type: 'object',
-    properties: {
-      key: { type: 'string', description: 'Board key, e.g. ENG' },
-      number: { type: 'number', description: 'Issue number within the board — the 14 of ENG-14' },
-      title: { type: 'string', description: 'New title' },
-      description: { type: 'string', description: 'New description' },
-      status: { type: 'string', enum: STATUS, description: 'Move to this column' },
-      priority: { type: 'string', enum: PRIORITY },
-      assignee: { type: 'string', description: 'Hand it to someone' },
-      labels: { type: 'array', items: { type: 'string' } },
-      session: { type: 'string', description: 'Agent-session id to link — stored as extRef `session:<id>`' },
-      extRef: { type: 'string', description: 'Raw external anchor, when it is not a session' },
-    },
-    required: ['key', 'number'],
-  },
-  handler: async (args) => {
-    try {
-      if (!args.key) return fail('key required');
-      if (args.number === undefined || args.number === null) return fail('number required');
-      const body: Record<string, unknown> = {
-        title: args.title,
-        description: args.description,
-        status: args.status,
-        priority: args.priority,
-        assignee: args.assignee,
-        labels: args.labels,
-        extRef: anchor(args.session, args.extRef),
-      };
-      for (const k of Object.keys(body)) if (body[k] === undefined) delete body[k];
-      if (Object.keys(body).length === 0) return fail('nothing to update — pass at least one field');
-      return ok(await track(`${issues(args.key)}/${encodeURIComponent(String(args.number))}`, { method: 'PATCH', body: JSON.stringify(body) }));
-    } catch (e: any) {
-      return fail(e.message);
-    }
-  },
-};
+export const trackerIssueTool = tool('tracker_issue', 'Read one work item, including its description.',
+  { key: KEY, number: NUM }, ['key', 'number'], (a) => track(issue(a.key, a.number)));
 
-export const trackerTools: Tool[] = [trackerBoardsTool, trackerIssuesTool, trackerCreateTool, trackerUpdateTool];
+export const trackerCreateTool = tool('tracker_create',
+  'Open a work item (a forge issue) as yourself. Returns it with its identifier.',
+  { key: KEY, title: { type: 'string' }, description: { type: 'string' }, status: { type: 'string', enum: STATUS, description: 'Column (default backlog)' }, priority: { type: 'string', enum: PRIORITY } },
+  ['key', 'title'],
+  (a) => track(issues(a.key), { method: 'POST', body: JSON.stringify(compact({ title: a.title, description: a.description, status: a.status, priority: a.priority })) }));
+
+export const trackerUpdateTool = tool('tracker_update',
+  'Edit a work item. Only the fields you pass change. `assignee: ""` unassigns; `status: done` also closes it; `comment` is posted after the other changes.',
+  { key: KEY, number: NUM, title: { type: 'string' }, description: { type: 'string' }, status: { type: 'string', enum: STATUS }, priority: { type: 'string', enum: PRIORITY }, assignee: { type: 'string' }, comment: { type: 'string' } },
+  ['key', 'number'],
+  async (a) => {
+    const body = compact({ title: a.title, description: a.description, status: a.status, priority: a.priority, assignee: a.assignee, comment: a.comment });
+    if (Object.keys(body).length === 0) throw new Error('nothing to update — pass at least one field');
+    return track(issue(a.key, a.number), { method: 'PATCH', body: JSON.stringify(body) });
+  });
+
+export const trackerCloseTool = tool('tracker_close', 'Close a work item (moves it to done). Optional closing comment.',
+  { key: KEY, number: NUM, comment: { type: 'string' } }, ['key', 'number'],
+  (a) => track(issue(a.key, a.number), { method: 'PATCH', body: JSON.stringify(compact({ status: 'done', comment: a.comment })) }));
+
+export const trackerCommentTool = tool('tracker_comment', 'Comment on a work item as yourself.',
+  { key: KEY, number: NUM, body: { type: 'string' } }, ['key', 'number', 'body'],
+  (a) => track(issue(a.key, a.number), { method: 'PATCH', body: JSON.stringify({ comment: a.body }) }));
+
+export const trackerCommentsTool = tool('tracker_comments', "Read a work item's comments.",
+  { key: KEY, number: NUM }, ['key', 'number'], (a) => track(`${issue(a.key, a.number)}/comments`));
+
+const LABEL = { name: { type: 'string' }, color: { type: 'string', description: 'Hex, e.g. #ee0701' }, description: { type: 'string' } };
+export const trackerLabelsTool = tool('tracker_labels', "List a board's labels.", { key: KEY }, ['key'], (a) => track(`${board(a.key)}/labels`));
+export const trackerLabelCreateTool = tool('tracker_label_create', 'Create a label on a board.', { key: KEY, ...LABEL }, ['key', 'name', 'color'],
+  (a) => track(`${board(a.key)}/labels`, { method: 'POST', body: JSON.stringify(compact({ name: a.name, color: a.color, description: a.description })) }));
+export const trackerLabelEditTool = tool('tracker_label_edit', 'Edit a label. Only the fields you pass change.', { key: KEY, id: { type: 'number' }, ...LABEL }, ['key', 'id'],
+  (a) => track(`${board(a.key)}/labels/${encodeURIComponent(String(a.id))}`, { method: 'PATCH', body: JSON.stringify(compact({ name: a.name, color: a.color, description: a.description })) }));
+
+const MILESTONE = { title: { type: 'string' }, description: { type: 'string' }, due: { type: 'string', description: 'RFC 3339 due date' }, state: { type: 'string', enum: ['open', 'closed'] } };
+export const trackerMilestonesTool = tool('tracker_milestones', "List a board's milestones.", { key: KEY, state: { type: 'string', enum: ['open', 'closed', 'all'] } }, ['key'],
+  (a) => track(`${board(a.key)}/milestones` + qs({ state: a.state })));
+export const trackerMilestoneCreateTool = tool('tracker_milestone_create', 'Create a milestone on a board.', { key: KEY, ...MILESTONE }, ['key', 'title'],
+  (a) => track(`${board(a.key)}/milestones`, { method: 'POST', body: JSON.stringify(compact({ title: a.title, description: a.description, due: a.due })) }));
+export const trackerMilestoneEditTool = tool('tracker_milestone_edit', 'Edit or close a milestone. Only the fields you pass change.', { key: KEY, id: { type: 'number' }, ...MILESTONE }, ['key', 'id'],
+  (a) => track(`${board(a.key)}/milestones/${encodeURIComponent(String(a.id))}`, { method: 'PATCH', body: JSON.stringify(compact({ title: a.title, description: a.description, due: a.due, state: a.state })) }));
+
+export const trackerTools: Tool[] = [
+  trackerBoardsTool, trackerIssuesTool, trackerIssueTool, trackerCreateTool, trackerUpdateTool,
+  trackerCloseTool, trackerCommentTool, trackerCommentsTool,
+  trackerLabelsTool, trackerLabelCreateTool, trackerLabelEditTool,
+  trackerMilestonesTool, trackerMilestoneCreateTool, trackerMilestoneEditTool,
+];
