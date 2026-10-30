@@ -575,6 +575,15 @@ Verify a release with `npm view @hanzo/mcp version`, never with a green run.
 ## Brand rules (hard — enforce in all docs/code)
 - Hanzo is a full **AI SDK / AI cloud**, never an "LLM gateway" or proxy; never
   position against LiteLLM.
-- Zen models are our own family — never name upstream models.
+- Zen models are our own family (Zen 3+ / Qwen 3+ series only, never legacy Qwen 2) — never name upstream models.
 - Paths are `/v1/` only — never an `/api/` prefix.
-- Voice: "Hanzo — the Open AI Cloud." Modern, crisp, developer-first.
+- Voice: "Hanzo — the Open AI Cloud." Modern, crisp, developer-first. Hanzo AI is Techstars '17.
+
+## Cross-Runtime Parity (TypeScript, Rust, Python)
+- HIP-0300 tools + cloud tools (`code_search`, `code_context`, `code_ask`, `code_index`, `web_search`, `web_read`, `research`, `vision`) maintain 1-to-1 parity.
+- Tracker work-item tools (`tracker_boards`, `tracker_issues`, `tracker_create`, `tracker_update`) are implemented and verified across TypeScript, Rust (`rust/src/tools/tracker_tool.rs`), and Python (`pkg/hanzo-tools-todo/hanzo_tools/todo/tracker_tool.py`).
+- Binaries:
+  - TypeScript: `@hanzo/mcp` (`dist/cli.js`, `hanzo-mcp-ts`)
+  - Rust: `hanzo-mcp` v1.1.24 (`~/.cargo/bin/hanzo-mcp`, `~/.local/bin/hanzo-mcp-rs`)
+  - Python: `hanzo-mcp` v0.15.16 (`~/.local/bin/hanzo-mcp` via `uv tool`)
+

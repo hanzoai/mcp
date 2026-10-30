@@ -72,6 +72,8 @@
  },
  "ai": {
   "ops": [
+   "aiLimits",
+   "aiLimitsReset",
    "aiMCPTools"
   ]
  },
@@ -703,6 +705,7 @@
    "graphAnswer",
    "graphAssert",
    "graphCommunities",
+   "graphDerive",
    "graphDiff",
    "graphErase",
    "graphExtract",
@@ -1026,6 +1029,7 @@
  },
  "network": {
   "ops": [
+   "delete_network_services_by_id",
    "get_network",
    "get_network_by_id",
    "get_network_identities",
@@ -1409,11 +1413,13 @@
  },
  "platform": {
   "ops": [
+   "delete_platform_projects_by_project",
    "delete_platform_projects_by_project_apps_by_app",
    "delete_platform_projects_by_project_apps_by_app_domains_by_host",
    "get_platform_apps",
    "get_platform_apps_by_app",
    "get_platform_apps_by_app_cd",
+   "get_platform_apps_by_app_diff",
    "get_platform_builds",
    "get_platform_cd",
    "get_platform_environments",
@@ -1431,7 +1437,9 @@
    "get_platform_projects_by_project_apps_by_app_domains",
    "get_platform_releases",
    "post_build",
+   "post_platform_apps_by_app_sync",
    "post_platform_fleet_by_app_deploy",
+   "post_platform_projects",
    "post_platform_projects_by_project_apps",
    "post_platform_projects_by_project_apps_by_app_deploy",
    "post_platform_projects_by_project_apps_by_app_domains",
@@ -1442,6 +1450,8 @@
    "post_platform_projects_by_project_apps_by_app_start",
    "post_platform_projects_by_project_apps_by_app_stop",
    "post_platform_run",
+   "put_platform_apps_by_app_project",
+   "put_platform_projects_by_project",
    "put_platform_projects_by_project_apps_by_app_env"
   ]
  },
@@ -1794,6 +1804,36 @@
    "patch_task_projects_by_key_issues_by_num",
    "post_task_projects_by_key_issues",
    "post_task_projects_by_key_issues_by_num_claim"
+  ]
+ },
+ "tax": {
+  "ops": [
+   "get_tax_filings",
+   "get_tax_filings_by_id",
+   "get_tax_forms",
+   "get_tax_forms_by_id",
+   "get_tax_inbox",
+   "get_tax_inbox_by_id",
+   "get_tax_payments",
+   "get_tax_profile",
+   "get_tax_w9",
+   "get_tax_w9_by_id",
+   "get_tax_w9_by_id_tin",
+   "post_tax_filings",
+   "post_tax_filings_by_id_receipt",
+   "post_tax_forms",
+   "post_tax_forms_by_id_correct",
+   "post_tax_forms_by_id_furnish",
+   "post_tax_forms_by_id_mailed",
+   "post_tax_forms_by_id_review",
+   "post_tax_forms_by_id_void",
+   "post_tax_profile_certify",
+   "post_tax_w9",
+   "post_tax_w9_by_id_decline",
+   "post_tax_w9_by_id_grant",
+   "post_tax_w9_by_id_match",
+   "post_tax_w9_by_id_revoke",
+   "put_tax_profile"
   ]
  },
  "taxonomy": {

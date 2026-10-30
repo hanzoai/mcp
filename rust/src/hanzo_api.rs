@@ -95,6 +95,12 @@ impl HanzoApi {
         self.send(req).await
     }
 
+    /// PATCH `path` with a JSON body, returning the parsed JSON body.
+    pub async fn patch(&self, path: &str, body: Value) -> Result<Value> {
+        let req = self.client.patch(join_url(&self.base_url, path)).json(&body);
+        self.send(req).await
+    }
+
     /// POST `path` with a JSON body over `text/event-stream`, returning the
     /// stream's decoded `data:` frames in order.
     ///

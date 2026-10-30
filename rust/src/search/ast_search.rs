@@ -53,10 +53,21 @@ impl AstSearcher {
     ) -> Result<Vec<SearchResult>, Box<dyn std::error::Error>> {
         let mut results = Vec::new();
 
+        const SKIP_DIRS: &[&str] = &[
+            ".git", "node_modules", "target", "dist", "build", "__pycache__", ".venv", "venv", ".next",
+        ];
+
         // Walk directory tree
         for entry in WalkDir::new(path)
-            .follow_links(true)
+            .follow_links(false)
             .into_iter()
+            .filter_entry(|e| {
+                if let Some(name) = e.file_name().to_str() {
+                    !SKIP_DIRS.contains(&name)
+                } else {
+                    true
+                }
+            })
             .filter_map(|e| e.ok())
             .filter(|e| e.file_type().is_file())
         {
