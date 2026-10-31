@@ -30,7 +30,7 @@ export class MCPTestRunner extends EventEmitter {
   private serverManager = new MCPServerManager();
   private config: TestRunnerConfig;
   private results: TestResult[] = [];
-
+  private skippedCounts = new Map<string, number>();
   constructor(config?: Partial<TestRunnerConfig>) {
     super();
     
@@ -78,6 +78,7 @@ export class MCPTestRunner extends EventEmitter {
 
     // Clear previous results
     this.results = [];
+    this.skippedCounts = new Map();
 
     try {
       // Run tests for each implementation
@@ -165,6 +166,43 @@ export class MCPTestRunner extends EventEmitter {
   }
 
   /**
+   * Environment tag matchers for `skipFor`. Besides the implementation id,
+   * a test case may list the pseudo-tags `ci` (true when `process.env.CI` is
+   * set) and `headless` (true when there is no display: both `DISPLAY` and
+   * `WAYLAND_DISPLAY` unset on Linux, always headless elsewhere).
+   */
+  static matchesSkipTag(tag: string): boolean {
+    if (tag === 'ci') {
+      return !!process.env.CI;
+    }
+    if (tag === 'headless') {
+      if (process.platform === 'linux') {
+        return !process.env.DISPLAY && !process.env.WAYLAND_DISPLAY;
+      }
+      return true;
+    }
+    return false;
+  }
+
+  /**
+   * Whether a test case is skipped for an implementation: either the
+   * implementation id is listed in `skipFor`, or an environment tag in
+   * `skipFor` currently matches, or `onlyFor` is set and does not include it.
+   */
+  static isSkippedFor(testCase: ToolTestCase, implementationId: string): boolean {
+    if (testCase.skipFor?.includes(implementationId)) {
+      return true;
+    }
+    if (testCase.skipFor?.some((tag) => MCPTestRunner.matchesSkipTag(tag))) {
+      return true;
+    }
+    if (testCase.onlyFor && !testCase.onlyFor.includes(implementationId)) {
+      return true;
+    }
+    return false;
+  }
+
+  /**
    * Run tool tests in parallel batches
    */
   private async runToolTestsInParallel(
@@ -173,7 +211,7 @@ export class MCPTestRunner extends EventEmitter {
     results: TestResult[]
   ): Promise<void> {
     const { maxConcurrentTestsPerImpl } = this.config.parallel;
-    
+
     // Flatten all test cases
     const allTestCases: Array<{
       spec: ToolTestSpec;
@@ -182,13 +220,12 @@ export class MCPTestRunner extends EventEmitter {
 
     for (const spec of toolSpecs) {
       for (const testCase of spec.testCases) {
-        // Skip tests not meant for this implementation
-        if (testCase.skipFor?.includes(implementation.id)) {
-          continue;
-        }
-        
-        // Only run if specified for this implementation
-        if (testCase.onlyFor && !testCase.onlyFor.includes(implementation.id)) {
+        // Skip tests not meant for this implementation (id, onlyFor, or env tags)
+        if (MCPTestRunner.isSkippedFor(testCase, implementation.id)) {
+          this.skippedCounts.set(
+            implementation.id,
+            (this.skippedCounts.get(implementation.id) ?? 0) + 1
+          );
           continue;
         }
 
@@ -455,11 +492,14 @@ export class MCPTestRunner extends EventEmitter {
 
     // Generate per-implementation summary
     const summary: TestSuiteResult['summary'] = {};
-    
+    let skippedTests = 0;
+
     for (const implId of implementations) {
       const implResults = this.results.filter(r => r.implementation === implId);
       const implPassed = implResults.filter(r => r.success).length;
       const implFailed = implResults.filter(r => !r.success).length;
+      const implSkipped = this.skippedCounts.get(implId) ?? 0;
+      skippedTests += implSkipped;
 
       // Group by categories
       const categories: any = {};
@@ -478,7 +518,7 @@ export class MCPTestRunner extends EventEmitter {
         total: implResults.length,
         passed: implPassed,
         failed: implFailed,
-        skipped: 0, // TODO: implement skipped tracking
+        skipped: implSkipped,
         categories
       };
     }
@@ -489,7 +529,7 @@ export class MCPTestRunner extends EventEmitter {
       totalTests,
       passedTests,
       failedTests,
-      skippedTests: 0,
+      skippedTests,
       results: this.results,
       summary
     };
