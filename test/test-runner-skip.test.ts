@@ -114,7 +114,9 @@ describe('MCPTestRunner skipFor environment tags and skipped counts', () => {
     expect(result.passedTests).toBe(2);
   });
 
-  it('skips tests tagged skipFor: ["headless"] when neither DISPLAY nor WAYLAND_DISPLAY is set', async () => {
+  it('skips tests tagged skipFor: ["headless"] on Linux when neither DISPLAY nor WAYLAND_DISPLAY is set', async () => {
+    const originalPlatform = process.platform;
+    Object.defineProperty(process, 'platform', { value: 'linux', configurable: true });
     delete process.env.CI;
     delete process.env.DISPLAY;
     delete process.env.WAYLAND_DISPLAY;
