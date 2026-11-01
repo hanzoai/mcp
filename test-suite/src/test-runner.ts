@@ -428,7 +428,7 @@ export class MCPTestRunner extends EventEmitter {
     if (process.env.CI) {
       tags.add('ci');
     }
-    if (!process.env.DISPLAY && !process.env.WAYLAND_DISPLAY) {
+    if (process.platform === 'linux' && !process.env.DISPLAY && !process.env.WAYLAND_DISPLAY) {
       tags.add('headless');
     }
     return tags;
