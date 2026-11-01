@@ -30,6 +30,7 @@ export class MCPTestRunner extends EventEmitter {
   private serverManager = new MCPServerManager();
   private config: TestRunnerConfig;
   private results: TestResult[] = [];
+  private skippedCounts: Record<string, number> = {};
 
   constructor(config?: Partial<TestRunnerConfig>) {
     super();
@@ -78,6 +79,7 @@ export class MCPTestRunner extends EventEmitter {
 
     // Clear previous results
     this.results = [];
+    this.skippedCounts = {};
 
     try {
       // Run tests for each implementation
@@ -182,13 +184,8 @@ export class MCPTestRunner extends EventEmitter {
 
     for (const spec of toolSpecs) {
       for (const testCase of spec.testCases) {
-        // Skip tests not meant for this implementation
-        if (testCase.skipFor?.includes(implementation.id)) {
-          continue;
-        }
-        
-        // Only run if specified for this implementation
-        if (testCase.onlyFor && !testCase.onlyFor.includes(implementation.id)) {
+        if (this.shouldSkipTestCase(testCase, implementation.id)) {
+          this.skippedCounts[implementation.id] = (this.skippedCounts[implementation.id] || 0) + 1;
           continue;
         }
 
@@ -426,6 +423,32 @@ export class MCPTestRunner extends EventEmitter {
       }, 0);
   }
 
+  private getActiveEnvironmentTags(): Set<string> {
+    const tags = new Set<string>();
+    if (process.env.CI) {
+      tags.add('ci');
+    }
+    if (!process.env.DISPLAY && !process.env.WAYLAND_DISPLAY) {
+      tags.add('headless');
+    }
+    return tags;
+  }
+
+  private shouldSkipTestCase(testCase: ToolTestCase, implementationId: string): boolean {
+    if (testCase.skipFor && testCase.skipFor.length > 0) {
+      const envTags = this.getActiveEnvironmentTags();
+      if (testCase.skipFor.some(tag => tag === implementationId || envTags.has(tag))) {
+        return true;
+      }
+    }
+
+    if (testCase.onlyFor && !testCase.onlyFor.includes(implementationId)) {
+      return true;
+    }
+
+    return false;
+  }
+
   private getRelevantSpecs(implementation: MCPImplementation): ToolTestSpec[] {
     return this.config.toolSpecs.filter(spec => 
       implementation.expectedCategories.includes(spec.category)
@@ -474,14 +497,18 @@ export class MCPTestRunner extends EventEmitter {
         };
       }
 
+      const implSkipped = this.skippedCounts[implId] || 0;
+
       summary[implId] = {
         total: implResults.length,
         passed: implPassed,
         failed: implFailed,
-        skipped: 0, // TODO: implement skipped tracking
+        skipped: implSkipped,
         categories
       };
     }
+
+    const skippedTests = Object.values(summary).reduce((sum, item) => sum + item.skipped, 0);
 
     return {
       implementations,
@@ -489,7 +516,7 @@ export class MCPTestRunner extends EventEmitter {
       totalTests,
       passedTests,
       failedTests,
-      skippedTests: 0,
+      skippedTests,
       results: this.results,
       summary
     };
