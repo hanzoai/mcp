@@ -44,6 +44,24 @@ board renders that session's live status on the row.
 `tracker_create` defaults `source` to `agent`, because the board's "an agent's
 work" filter (`?source=agent`) is only true if agents say so.
 
+## `coding` — runs, one tool (Rust)
+
+`coding` (`rust/src/tools/coding_tool.rs`) is cloud's autonomous coding run: a repo
+and a task in, a branch and a pull request out. One tool, `action` picks the
+operation: `start` (`POST /v1/agent/coding`) answers at once with `{session,
+branch}` (`session` is the server's `sessionId` said under the name every later
+action takes); `progress` (`/v1/agent/sessions/{id}/progress`) is polled until
+`phase` is `done` or `error`; `changes`, `artifacts`, `tree`, `blob` read what the
+run left (`/v1/agent/coding/{session}/…`); `steer`, `merge` act on it; `stop` ends
+it. `start` with `after=<session>` continues an earlier run.
+
+It exists because the generated catalog reaches these only as ops of the `agent`
+tool under generated names, and `rust/catalog.json` can lag the API: a bot working
+from the catalog found `post_agent_coding` and none of the reads. The tool uses
+`HanzoApi::call`, so a 402, 404 or 503 is an `UPSTREAM` error carrying the server's
+sentence, never an empty success. A session id must be one plain path segment.
+TypeScript does not carry it.
+
 ## `kai_*` — decisions
 
 `kai_decide`, `kai_choice`, `kai_score`, `kai_noul` (`src/tools/kai.ts`) ask Kai,
