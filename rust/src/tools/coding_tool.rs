@@ -42,6 +42,7 @@ const ACTIONS: &[&str] = &[
     "steer",
     "pull",
     "merge",
+    "extend",
     "stop",
 ];
 
@@ -54,7 +55,7 @@ A run that runs out of time keeps its work; continue it with after. A task longe
 Review, then pull {session} when the work is ready: it opens the pull request for the pushed branch with no agent run (optional title, body, base, draft) and answers {number, url}; asking twice answers the same one. \
 (start with pull=true opens it when that run finishes.) merge {session} merges the pull request. \
 branch names the branch (agent/<name>); a name that exists is built on. \
-steer {session, text} redirects a live run; stop {session} ends it; artifacts, tree, blob read what it left. \
+steer {session, text} redirects a live run; extend {session, seconds} gives a working run more time before it is ended for time (a run is held to its timeoutSeconds); stop {session} ends it; artifacts, tree, blob read what it left. \
 mode build (default) edits and pushes, plan only reads and answers with a plan.";
 
 /// One request, decided before anything is sent: the same value the tests read
@@ -87,6 +88,8 @@ struct CodingArgs {
     title: Option<String>,
     body: Option<String>,
     draft: Option<bool>,
+    // extend
+    seconds: Option<i64>,
     mode: Option<String>,
     tool: Option<String>,
     model: Option<String>,
@@ -242,6 +245,18 @@ fn plan(args: &CodingArgs) -> std::result::Result<(String, Request), String> {
                 body: Some(Value::Object(body)),
             }
         }
+        "extend" => {
+            let seconds = args
+                .seconds
+                .filter(|s| *s > 0)
+                .ok_or("seconds required: how much longer the run may work, above zero")?;
+            Request {
+                method: Method::POST,
+                path: format!("/v1/agent/coding/{}/extend", session_of(args)?),
+                query: vec![],
+                body: Some(json!({ "seconds": seconds })),
+            }
+        }
         "merge" => Request {
             method: Method::POST,
             path: format!("/v1/agent/coding/{}/merge", session_of(args)?),
@@ -293,6 +308,7 @@ impl CodingTool {
                     "title": { "type": "string", "description": "pull: the pull request's title. Empty takes one from the run's task" },
                     "body": { "type": "string", "description": "pull: its description. Empty says who it is for, the task and the branch" },
                     "draft": { "type": "boolean", "description": "pull: open it as a draft" },
+                    "seconds": { "type": "integer", "description": "extend: how much to add to the time the run has left, up to the longest a run may be given; the answer says when it is up now" },
                     "issue": { "type": "integer", "description": "start: the issue number on repo this run resolves; its pull request (when pull is set) closes it" },
                     "project": { "type": "string", "description": "start: the board's project, when the org keeps more than one" },
                     "desktop": { "type": "boolean", "description": "start: give the run a screen, for a task that drives a browser" },
@@ -422,7 +438,7 @@ mod tests {
         assert_eq!(named, ACTIONS);
         for action in ACTIONS {
             let got = planned(
-                json!({ "action": action, "session": "ses-1", "prompt": "x", "text": "x" }),
+                json!({ "action": action, "session": "ses-1", "prompt": "x", "text": "x", "seconds": 60 }),
             );
             assert!(got.is_ok(), "{action}: {got:?}");
         }
@@ -443,6 +459,19 @@ mod tests {
             r.body.unwrap(),
             json!({ "prompt": "fix the footer", "repo": "hanzoai/social", "after": "ses-0", "mode": "plan", "timeoutSeconds": 3600 })
         );
+    }
+
+    #[test]
+    fn extend_gives_a_working_run_more_seconds_and_needs_them() {
+        let r = planned(json!({ "action": "extend", "session": "ses-1", "seconds": 300 })).unwrap();
+        assert_eq!(
+            (r.method, r.path.as_str()),
+            (Method::POST, "/v1/agent/coding/ses-1/extend")
+        );
+        assert_eq!(r.body.unwrap(), json!({ "seconds": 300 }));
+        for bad in [json!({ "action": "extend", "session": "ses-1" }), json!({ "action": "extend", "session": "ses-1", "seconds": 0 })] {
+            assert!(planned(bad).is_err(), "an extension of nothing was sent");
+        }
     }
 
     #[test]
