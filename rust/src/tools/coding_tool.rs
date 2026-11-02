@@ -32,15 +32,27 @@ use crate::{MCPTool, ToolResult};
 
 const TOOL: &str = "coding";
 
-const ACTIONS: &[&str] = &["start", "progress", "changes", "artifacts", "tree", "blob", "steer", "merge", "stop"];
+const ACTIONS: &[&str] = &[
+    "start",
+    "progress",
+    "changes",
+    "artifacts",
+    "tree",
+    "blob",
+    "steer",
+    "pull",
+    "merge",
+    "stop",
+];
 
 const DESCRIPTION: &str = "Autonomous coding runs on Hanzo Cloud: a repo and a task in, a pushed branch out; no pull request unless asked. \
-start {repo, prompt} returns at once with {session, branch}; a run may take up to 24 hours. \
+start {repo, prompt} returns at once with {session, branch}; a run may take up to 4 hours. \
 Then poll progress {session} until phase is done, error or stopped (queued = waiting for a sandbox; running = working). \
 Read changes {session} for the commits and the files with patches. \
 To keep going, start again with after=<session>: it adds to the SAME branch, and a task longer than one run is a chain of these. \
-A run that runs out of time keeps its work and ends stopped; continue it with after. \
-Review, then start with pull=true when the work is ready: that opens the pull request (url in changes), and merge {session} merges it. \
+A run that runs out of time keeps its work; continue it with after. A task longer than one run is a chain of these. \
+Review, then pull {session} when the work is ready: it opens the pull request for the pushed branch with no agent run (optional title, body, base, draft) and answers {number, url}; asking twice answers the same one. \
+(start with pull=true opens it when that run finishes.) merge {session} merges the pull request. \
 branch names the branch (agent/<name>); a name that exists is built on. \
 steer {session, text} redirects a live run; stop {session} ends it; artifacts, tree, blob read what it left. \
 mode build (default) edits and pushes, plan only reads and answers with a plan.";
@@ -71,6 +83,10 @@ struct CodingArgs {
     after: Option<String>,
     branch: Option<String>,
     pull: Option<bool>,
+    // pull
+    title: Option<String>,
+    body: Option<String>,
+    draft: Option<bool>,
     mode: Option<String>,
     tool: Option<String>,
     model: Option<String>,
@@ -105,7 +121,9 @@ fn said(v: &Option<String>) -> Option<&str> {
 /// rather than quoted: a run is named by what the server minted, nothing else.
 fn session_of(args: &CodingArgs) -> std::result::Result<&str, String> {
     let s = said(&args.session).ok_or("session required: the id start returned")?;
-    let clean = s.chars().all(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '.' | ':'))
+    let clean = s
+        .chars()
+        .all(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '.' | ':'))
         && !s.chars().all(|c| c == '.');
     if clean {
         Ok(s)
@@ -118,7 +136,8 @@ fn plan(args: &CodingArgs) -> std::result::Result<(String, Request), String> {
     let action = args.action.as_deref().unwrap_or("").trim().to_lowercase();
     let request = match action.as_str() {
         "start" => {
-            let prompt = said(&args.prompt).ok_or("prompt required: the task, in the words you would use with a colleague")?;
+            let prompt = said(&args.prompt)
+                .ok_or("prompt required: the task, in the words you would use with a colleague")?;
             let mut body = Map::new();
             body.insert("prompt".into(), json!(prompt));
             for (key, v) in [
@@ -150,7 +169,12 @@ fn plan(args: &CodingArgs) -> std::result::Result<(String, Request), String> {
             if let Some(p) = args.pull {
                 body.insert("pull".into(), json!(p));
             }
-            Request { method: Method::POST, path: "/v1/agent/coding".into(), query: vec![], body: Some(Value::Object(body)) }
+            Request {
+                method: Method::POST,
+                path: "/v1/agent/coding".into(),
+                query: vec![],
+                body: Some(Value::Object(body)),
+            }
         }
         "progress" => Request {
             method: Method::GET,
@@ -181,7 +205,12 @@ fn plan(args: &CodingArgs) -> std::result::Result<(String, Request), String> {
             if let Some(p) = said(&args.path) {
                 query.push(("path", p.to_string()));
             }
-            Request { method: Method::GET, path: format!("/v1/agent/coding/{}/{}", session_of(args)?, action), query, body: None }
+            Request {
+                method: Method::GET,
+                path: format!("/v1/agent/coding/{}/{}", session_of(args)?, action),
+                query,
+                body: None,
+            }
         }
         "steer" => {
             let text = said(&args.text).ok_or("text required: the new instruction for the run")?;
@@ -192,6 +221,27 @@ fn plan(args: &CodingArgs) -> std::result::Result<(String, Request), String> {
                 body: Some(json!({ "text": text })),
             }
         }
+        "pull" => {
+            let mut body = Map::new();
+            for (key, v) in [
+                ("title", said(&args.title)),
+                ("body", said(&args.body)),
+                ("base", said(&args.base)),
+            ] {
+                if let Some(v) = v {
+                    body.insert(key.into(), json!(v));
+                }
+            }
+            if let Some(d) = args.draft {
+                body.insert("draft".into(), json!(d));
+            }
+            Request {
+                method: Method::POST,
+                path: format!("/v1/agent/coding/{}/pull", session_of(args)?),
+                query: vec![],
+                body: Some(Value::Object(body)),
+            }
+        }
         "merge" => Request {
             method: Method::POST,
             path: format!("/v1/agent/coding/{}/merge", session_of(args)?),
@@ -199,7 +249,12 @@ fn plan(args: &CodingArgs) -> std::result::Result<(String, Request), String> {
             body: None,
         },
         "" => return Err(format!("action required: one of {}", ACTIONS.join(", "))),
-        other => return Err(format!("unknown action {other:?}: one of {}", ACTIONS.join(", "))),
+        other => {
+            return Err(format!(
+                "unknown action {other:?}: one of {}",
+                ACTIONS.join(", ")
+            ))
+        }
     };
     Ok((action, request))
 }
@@ -210,7 +265,9 @@ pub struct CodingTool {
 
 impl CodingTool {
     pub fn new() -> Self {
-        Self { api: HanzoApi::from_env() }
+        Self {
+            api: HanzoApi::from_env(),
+        }
     }
 
     pub fn schema() -> Value {
@@ -232,7 +289,10 @@ impl CodingTool {
                     "tool": { "type": "string", "enum": ["dev", "claude", "codex", "python", "node"], "description": "start: the harness that runs the prompt (default dev)" },
                     "model": { "type": "string", "description": "start: the model, by id from GET /v1/models. Empty takes the platform's coding model" },
                     "effort": { "type": "string", "enum": ["low", "medium", "high"], "description": "start: how hard the model reasons" },
-                    "timeoutSeconds": { "type": "integer", "description": "start: bounds the whole run. Default and most is 86400 (24 hours); at the bound the run keeps its work and ends stopped, and after=<session> carries on" },
+                    "timeoutSeconds": { "type": "integer", "description": "start: bounds the whole run. Default and most is 14400 (4 hours, as long as the run's model credential lasts); at the bound the run keeps its work, and after=<session> carries on" },
+                    "title": { "type": "string", "description": "pull: the pull request's title. Empty takes one from the run's task" },
+                    "body": { "type": "string", "description": "pull: its description. Empty says who it is for, the task and the branch" },
+                    "draft": { "type": "boolean", "description": "pull: open it as a draft" },
                     "issue": { "type": "integer", "description": "start: the issue number on repo this run resolves; its pull request (when pull is set) closes it" },
                     "project": { "type": "string", "description": "start: the board's project, when the org keeps more than one" },
                     "desktop": { "type": "boolean", "description": "start: give the run a screen, for a task that drives a browser" },
@@ -270,32 +330,58 @@ impl MCPTool for CodingTool {
             Ok(planned) => planned,
             Err(message) => {
                 let action = args.action.as_deref().unwrap_or("").trim().to_lowercase();
-                return Ok(ToolResult::ok(envelope_err(TOOL, &action, "INVALID_ARGS", message)));
+                return Ok(ToolResult::ok(envelope_err(
+                    TOOL,
+                    &action,
+                    "INVALID_ARGS",
+                    message,
+                )));
             }
         };
         if !self.api.has_key() {
-            return Ok(ToolResult::ok(envelope_err(TOOL, &action, "NO_API_KEY", NO_KEY)));
+            return Ok(ToolResult::ok(envelope_err(
+                TOOL,
+                &action,
+                "NO_API_KEY",
+                NO_KEY,
+            )));
         }
 
         // `call`, not `get`: a refusal — a 402 for money, a 404 for a run that is
         // not yours, a 503 for a full pool — must read as an error, never as an
         // empty success a bot would poll for ever.
-        let query: Vec<String> = request.query.iter().map(|(k, v)| format!("{k}={}", encode(v))).collect();
-        let path = if query.is_empty() { request.path } else { format!("{}?{}", request.path, query.join("&")) };
-        Ok(match self.api.call(request.method, &path, request.body, &[]).await {
-            Ok(answer) => {
-                let mut data = answer.body;
-                // The handle every later action takes is called `session` here; the
-                // server's start answer calls it `sessionId`. Say it under both.
-                if action == "start" {
-                    if let Some(id) = data.get("sessionId").cloned() {
-                        data["session"] = id;
+        let query: Vec<String> = request
+            .query
+            .iter()
+            .map(|(k, v)| format!("{k}={}", encode(v)))
+            .collect();
+        let path = if query.is_empty() {
+            request.path
+        } else {
+            format!("{}?{}", request.path, query.join("&"))
+        };
+        Ok(
+            match self
+                .api
+                .call(request.method, &path, request.body, &[])
+                .await
+            {
+                Ok(answer) => {
+                    let mut data = answer.body;
+                    // The handle every later action takes is called `session` here; the
+                    // server's start answer calls it `sessionId`. Say it under both.
+                    if action == "start" {
+                        if let Some(id) = data.get("sessionId").cloned() {
+                            data["session"] = id;
+                        }
                     }
+                    ToolResult::ok(envelope_ok(TOOL, &action, data))
                 }
-                ToolResult::ok(envelope_ok(TOOL, &action, data))
-            }
-            Err(e) => refused(TOOL, &action, &e).unwrap_or_else(|| ToolResult::ok(envelope_err(TOOL, &action, "UPSTREAM", e.to_string()))),
-        })
+                Err(e) => refused(TOOL, &action, &e).unwrap_or_else(|| {
+                    ToolResult::ok(envelope_err(TOOL, &action, "UPSTREAM", e.to_string()))
+                }),
+            },
+        )
     }
 }
 
@@ -304,7 +390,9 @@ impl MCPTool for CodingTool {
 fn encode(v: &str) -> String {
     v.bytes()
         .map(|b| match b {
-            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' | b'/' => (b as char).to_string(),
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' | b'/' => {
+                (b as char).to_string()
+            }
             _ => format!("%{b:02X}"),
         })
         .collect()
@@ -333,7 +421,9 @@ mod tests {
             .collect();
         assert_eq!(named, ACTIONS);
         for action in ACTIONS {
-            let got = planned(json!({ "action": action, "session": "ses-1", "prompt": "x", "text": "x" }));
+            let got = planned(
+                json!({ "action": action, "session": "ses-1", "prompt": "x", "text": "x" }),
+            );
             assert!(got.is_ok(), "{action}: {got:?}");
         }
     }
@@ -345,7 +435,10 @@ mod tests {
             "timeout_seconds": 3600, "mode": "plan", "base": "  "
         }))
         .unwrap();
-        assert_eq!((r.method, r.path.as_str()), (Method::POST, "/v1/agent/coding"));
+        assert_eq!(
+            (r.method, r.path.as_str()),
+            (Method::POST, "/v1/agent/coding")
+        );
         assert_eq!(
             r.body.unwrap(),
             json!({ "prompt": "fix the footer", "repo": "hanzoai/social", "after": "ses-0", "mode": "plan", "timeoutSeconds": 3600 })
@@ -354,8 +447,12 @@ mod tests {
 
     #[test]
     fn a_pull_request_and_a_branch_are_asked_for_by_name_and_never_by_default() {
-        let r = planned(json!({ "action": "start", "repo": "hanzoai/social", "prompt": "x" })).unwrap();
-        assert!(r.body.unwrap().get("pull").is_none(), "a start that did not ask for a pull request sent one");
+        let r =
+            planned(json!({ "action": "start", "repo": "hanzoai/social", "prompt": "x" })).unwrap();
+        assert!(
+            r.body.unwrap().get("pull").is_none(),
+            "a start that did not ask for a pull request sent one"
+        );
         let r = planned(json!({
             "action": "start", "repo": "hanzoai/social", "prompt": "x", "after": "ses-0",
             "branch": " fix-header ", "pull": true
@@ -365,8 +462,29 @@ mod tests {
         assert_eq!(body["branch"], "fix-header");
         assert_eq!(body["pull"], true);
         assert_eq!(body["after"], "ses-0");
-        let r = planned(json!({ "action": "start", "repo": "a", "prompt": "x", "pull": false })).unwrap();
+        let r = planned(json!({ "action": "start", "repo": "a", "prompt": "x", "pull": false }))
+            .unwrap();
         assert_eq!(r.body.unwrap()["pull"], false);
+    }
+
+    #[test]
+    fn a_pull_request_is_opened_with_only_what_was_said() {
+        let r = planned(json!({ "action": "pull", "session": "ses-3" })).unwrap();
+        assert_eq!(
+            (r.method, r.path.as_str()),
+            (Method::POST, "/v1/agent/coding/ses-3/pull")
+        );
+        assert_eq!(r.body.unwrap(), json!({}));
+        let r = planned(json!({
+            "action": "pull", "session": "ses-3", "title": " Header ", "body": "Ready.", "base": "develop", "draft": true
+        }))
+        .unwrap();
+        assert_eq!(
+            r.body.unwrap(),
+            json!({ "title": "Header", "body": "Ready.", "base": "develop", "draft": true })
+        );
+        assert!(planned(json!({ "action": "pull", "session": "../x" })).is_err());
+        assert!(planned(json!({ "action": "pull" })).is_err());
     }
 
     #[test]
@@ -377,24 +495,40 @@ mod tests {
         assert_eq!(at("changes").path, "/v1/agent/coding/ses-9/changes");
         assert_eq!(at("artifacts").path, "/v1/agent/coding/ses-9/artifacts");
         let merge = at("merge");
-        assert_eq!((merge.method, merge.path.as_str(), merge.body), (Method::POST, "/v1/agent/coding/ses-9/merge", None));
+        assert_eq!(
+            (merge.method, merge.path.as_str(), merge.body),
+            (Method::POST, "/v1/agent/coding/ses-9/merge", None)
+        );
     }
 
     #[test]
     fn steer_and_stop_carry_their_words() {
-        let steer = planned(json!({ "action": "steer", "session": "s", "message": "also add tests" })).unwrap();
+        let steer =
+            planned(json!({ "action": "steer", "session": "s", "message": "also add tests" }))
+                .unwrap();
         assert_eq!(steer.body.unwrap(), json!({ "text": "also add tests" }));
-        let stop = planned(json!({ "action": "stop", "session": "s", "text": "wrong repo" })).unwrap();
+        let stop =
+            planned(json!({ "action": "stop", "session": "s", "text": "wrong repo" })).unwrap();
         assert_eq!(stop.body.unwrap(), json!({ "message": "wrong repo" }));
     }
 
     #[test]
     fn a_missing_word_is_named_not_guessed() {
-        assert!(planned(json!({ "action": "start", "repo": "a/b" })).unwrap_err().starts_with("prompt required"));
-        assert!(planned(json!({ "action": "progress" })).unwrap_err().starts_with("session required"));
-        assert!(planned(json!({ "action": "steer", "session": "s" })).unwrap_err().starts_with("text required"));
-        assert!(planned(json!({})).unwrap_err().starts_with("action required"));
-        assert!(planned(json!({ "action": "delete", "session": "s" })).unwrap_err().starts_with("unknown action"));
+        assert!(planned(json!({ "action": "start", "repo": "a/b" }))
+            .unwrap_err()
+            .starts_with("prompt required"));
+        assert!(planned(json!({ "action": "progress" }))
+            .unwrap_err()
+            .starts_with("session required"));
+        assert!(planned(json!({ "action": "steer", "session": "s" }))
+            .unwrap_err()
+            .starts_with("text required"));
+        assert!(planned(json!({}))
+            .unwrap_err()
+            .starts_with("action required"));
+        assert!(planned(json!({ "action": "delete", "session": "s" }))
+            .unwrap_err()
+            .starts_with("unknown action"));
     }
 
     #[test]
