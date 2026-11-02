@@ -47,7 +47,7 @@ work" filter (`?source=agent`) is only true if agents say so.
 ## `coding` — runs, one tool (Rust)
 
 `coding` (`rust/src/tools/coding_tool.rs`) is cloud's autonomous coding run: a repo
-and a task in, a branch and a pull request out. One tool, `action` picks the
+and a task in, a pushed branch out, and a pull request when the work is ready. One tool, `action` picks the
 operation: `start` (`POST /v1/agent/coding`) answers at once with `{session,
 branch}` (`session` is the server's `sessionId` said under the name every later
 action takes); `progress` (`/v1/agent/sessions/{id}/progress`) is polled until
