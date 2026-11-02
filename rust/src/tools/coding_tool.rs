@@ -1,7 +1,8 @@
 //! Coding runs — the Hanzo Cloud autonomous coding surface as one MCP tool.
 //!
 //! A run is a SESSION: give it a repository and a task, it works in its own
-//! sandbox, pushes its own branch and proposes a pull request. These are the
+//! sandbox and pushes its own branch; a pull request is a step after, taken when
+//! the work is ready. These are the
 //! operations the API publishes for it, named by the verb a caller uses:
 //!
 //!   start      POST /v1/agent/coding                       → {sessionId, branch, repo}
@@ -33,12 +34,14 @@ const TOOL: &str = "coding";
 
 const ACTIONS: &[&str] = &["start", "progress", "changes", "artifacts", "tree", "blob", "steer", "merge", "stop"];
 
-const DESCRIPTION: &str = "Autonomous coding runs on Hanzo Cloud: a repo and a task in, a branch and a pull request out. \
-start {repo, prompt} returns at once with {session, branch}; the run takes minutes. \
-Then poll progress {session} until phase is done or error (running, blocked, unknown = not estimated yet; keep polling). \
-Read changes {session} for the commits, the files with patches, and the pull request (url, state, mergeable, reviews); \
-merge {session} merges that pull request. \
-start with after=<session> to continue from where an earlier run stopped. \
+const DESCRIPTION: &str = "Autonomous coding runs on Hanzo Cloud: a repo and a task in, a pushed branch out; no pull request unless asked. \
+start {repo, prompt} returns at once with {session, branch}; a run may take up to 24 hours. \
+Then poll progress {session} until phase is done, error or stopped (queued = waiting for a sandbox; running = working). \
+Read changes {session} for the commits and the files with patches. \
+To keep going, start again with after=<session>: it adds to the SAME branch, and a task longer than one run is a chain of these. \
+A run that runs out of time keeps its work and ends stopped; continue it with after. \
+Review, then start with pull=true when the work is ready: that opens the pull request (url in changes), and merge {session} merges it. \
+branch names the branch (agent/<name>); a name that exists is built on. \
 steer {session, text} redirects a live run; stop {session} ends it; artifacts, tree, blob read what it left. \
 mode build (default) edits and pushes, plan only reads and answers with a plan.";
 
@@ -66,6 +69,8 @@ struct CodingArgs {
     prompt: Option<String>,
     base: Option<String>,
     after: Option<String>,
+    branch: Option<String>,
+    pull: Option<bool>,
     mode: Option<String>,
     tool: Option<String>,
     model: Option<String>,
@@ -120,6 +125,7 @@ fn plan(args: &CodingArgs) -> std::result::Result<(String, Request), String> {
                 ("repo", said(&args.repo)),
                 ("base", said(&args.base)),
                 ("after", said(&args.after)),
+                ("branch", said(&args.branch)),
                 ("mode", said(&args.mode)),
                 ("tool", said(&args.tool)),
                 ("model", said(&args.model)),
@@ -140,6 +146,9 @@ fn plan(args: &CodingArgs) -> std::result::Result<(String, Request), String> {
             }
             if let Some(d) = args.desktop {
                 body.insert("desktop".into(), json!(d));
+            }
+            if let Some(p) = args.pull {
+                body.insert("pull".into(), json!(p));
             }
             Request { method: Method::POST, path: "/v1/agent/coding".into(), query: vec![], body: Some(Value::Object(body)) }
         }
@@ -215,14 +224,16 @@ impl CodingTool {
                     "session": { "type": "string", "description": "The run's id: the session start returned. Every action but start takes it" },
                     "repo": { "type": "string", "description": "start: what to work on — a repository name, owner/name, or the site it serves" },
                     "prompt": { "type": "string", "description": "start: the task. Name the files and the outcome you want; this is the whole instruction" },
-                    "after": { "type": "string", "description": "start: continue from the run with this session id instead of from the default branch" },
+                    "after": { "type": "string", "description": "start: continue the run with this session id: the new run adds to the same branch" },
+                    "branch": { "type": "string", "description": "start: the branch to write, as a plain name; it lives under agent/. A name that already exists is built on, not replaced" },
+                    "pull": { "type": "boolean", "description": "start: open a pull request for what the run pushed. Default false: push the branch and stop, then set this on the run that finishes the work" },
                     "base": { "type": "string", "description": "start: the branch to start from. The run never writes it; it writes its own branch" },
                     "mode": { "type": "string", "enum": ["build", "plan", "setup"], "description": "start: build edits, commits and pushes (default); plan only reads and answers with a plan; setup works out how to run the codebase" },
                     "tool": { "type": "string", "enum": ["dev", "claude", "codex", "python", "node"], "description": "start: the harness that runs the prompt (default dev)" },
                     "model": { "type": "string", "description": "start: the model, by id from GET /v1/models. Empty takes the platform's coding model" },
                     "effort": { "type": "string", "enum": ["low", "medium", "high"], "description": "start: how hard the model reasons" },
-                    "timeoutSeconds": { "type": "integer", "description": "start: bounds the whole run; at the bound it stops and reports what it did" },
-                    "issue": { "type": "integer", "description": "start: the issue number on repo this run resolves; its pull request closes it" },
+                    "timeoutSeconds": { "type": "integer", "description": "start: bounds the whole run. Default and most is 86400 (24 hours); at the bound the run keeps its work and ends stopped, and after=<session> carries on" },
+                    "issue": { "type": "integer", "description": "start: the issue number on repo this run resolves; its pull request (when pull is set) closes it" },
                     "project": { "type": "string", "description": "start: the board's project, when the org keeps more than one" },
                     "desktop": { "type": "boolean", "description": "start: give the run a screen, for a task that drives a browser" },
                     "agentRef": { "type": "string", "description": "start: a configured agent to run as" },
@@ -339,6 +350,23 @@ mod tests {
             r.body.unwrap(),
             json!({ "prompt": "fix the footer", "repo": "hanzoai/social", "after": "ses-0", "mode": "plan", "timeoutSeconds": 3600 })
         );
+    }
+
+    #[test]
+    fn a_pull_request_and_a_branch_are_asked_for_by_name_and_never_by_default() {
+        let r = planned(json!({ "action": "start", "repo": "hanzoai/social", "prompt": "x" })).unwrap();
+        assert!(r.body.unwrap().get("pull").is_none(), "a start that did not ask for a pull request sent one");
+        let r = planned(json!({
+            "action": "start", "repo": "hanzoai/social", "prompt": "x", "after": "ses-0",
+            "branch": " fix-header ", "pull": true
+        }))
+        .unwrap();
+        let body = r.body.unwrap();
+        assert_eq!(body["branch"], "fix-header");
+        assert_eq!(body["pull"], true);
+        assert_eq!(body["after"], "ses-0");
+        let r = planned(json!({ "action": "start", "repo": "a", "prompt": "x", "pull": false })).unwrap();
+        assert_eq!(r.body.unwrap()["pull"], false);
     }
 
     #[test]
