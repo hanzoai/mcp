@@ -21,8 +21,8 @@ export const DEFAULT_ENABLED_SKILLS = [
 ];
 
 const modes: Mode[] = [
-  { name: 'developer', description: 'Senior Dev (Ponytail) + Thermo-Nuclear Code Review + Full Engineering', tools: ['*'], skills: ['dev', 'code-review', 'qa', 'cyber', 'it', 'data', 'sci', 'auto', 'hanzo-code', 'hanzo-cloud'] },
-  { name: 'code-review', description: 'Thermo-nuclear code quality, Code Judo simplification, pstack blast-radius & runtime proof', tools: ['read', 'list', 'tree', 'grep', 'find', 'search', 'ast', 'bash', 'think'], skills: ['code-review', 'dev', 'qa', 'cyber'] },
+  { name: 'developer', description: 'Dev Mode + Code Review + Full Engineering', tools: ['*'], skills: ['dev', 'code-review', 'qa', 'cyber', 'it', 'data', 'sci', 'auto', 'hanzo-code', 'hanzo-cloud'] },
+  { name: 'code-review', description: 'Code quality, structural simplification, blast-radius & runtime proof', tools: ['read', 'list', 'tree', 'grep', 'find', 'search', 'ast', 'bash', 'think'], skills: ['code-review', 'dev', 'qa', 'cyber'] },
   { name: 'designer', description: 'UI Design & Multi-Viewport Visual Parity (@hanzo/ui) + Creative Suite', tools: ['*'], skills: ['ui', 'des', 'art', 'mu', 'doc', 'edu', 'lang'] },
   { name: 'marketer', description: 'Product Marketing, Launch Strategy, CRO, SEO & Developer Community', tools: ['*'], skills: ['mark', 'com', 'art', 'doc', 'lang'] },
   { name: 'sales', description: 'MEDDPICC Sales, Revenue & Pricing, Support Triage & Customer Success', tools: ['*'], skills: ['sal', 'rev', 'su', 'cust', 'hanzo-commerce'] },

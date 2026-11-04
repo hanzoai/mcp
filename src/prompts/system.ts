@@ -165,8 +165,8 @@ export async function getSystemPrompt(projectPath: string = process.cwd()): Prom
   
   // Default Enabled Skills & 32 Agent Role Sets
   parts.push('## Default Enabled Skills (Out-of-the-Box < 10)');
-  parts.push('- `/dev`: Senior dev mode (Ponytail — smallest complete change, -53% code, 98% tested on risky logic)');
-  parts.push('- `/code-review`: Thermo-nuclear code quality review (Code Judo simplification + Ponytail + pstack blast-radius & runtime proof + <1,000-line file rule)');
+  parts.push('- `/dev`: Dev Mode (smallest complete change, -53% code, 98% tested on risky logic)');
+  parts.push('- `/code-review`: Code Review (structural simplification, blast-radius & runtime proof, cross-boundary agreement, <1,000-line file rule)');
   parts.push('- `/ui`: UI design & multi-viewport visual parity (@hanzo/ui, @hanzo/gui, @hanzo/design tokens)');
   parts.push('- `/hanzo-code`: Autonomous multi-file repository engineering');
   parts.push('- `/hanzo-cloud`: Unified Cloud architecture (IAM, KMS, o11y, PaaS, Commerce)');
