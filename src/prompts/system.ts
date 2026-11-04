@@ -163,6 +163,23 @@ export async function getSystemPrompt(projectPath: string = process.cwd()): Prom
   parts.push('- Use `tree` to understand project structure');
   parts.push('- Background processes are useful for long-running tasks\n');
   
+  // Default Enabled Skills & 32 Agent Role Sets
+  parts.push('## Default Enabled Skills (Out-of-the-Box < 10)');
+  parts.push('- `/dev`: Senior dev mode (Ponytail — smallest complete change, -53% code, 98% tested on risky logic)');
+  parts.push('- `/code-review`: Thermo-nuclear code quality review (Code Judo simplification + Ponytail + pstack blast-radius & runtime proof + <1,000-line file rule)');
+  parts.push('- `/ui`: UI design & multi-viewport visual parity (@hanzo/ui, @hanzo/gui, @hanzo/design tokens)');
+  parts.push('- `/hanzo-code`: Autonomous multi-file repository engineering');
+  parts.push('- `/hanzo-cloud`: Unified Cloud architecture (IAM, KMS, o11y, PaaS, Commerce)');
+  parts.push('- `/xlsx`, `/pptx`, `/pdf`, `/docx`: Office document modeling, decks, extraction, and redlining\n');
+
+  parts.push('## Role-Based Skill Sets (32 Canonical Hanzo Agent Seats — hanzoskills.com)');
+  parts.push('- **Developer & Engineering (`developer`)**: `/dev`, `/code-review`, `/qa`, `/cyber`, `/it`, `/data`, `/sci`, `/auto`');
+  parts.push('- **Designer & Creative (`designer`)**: `/ui`, `/des`, `/art`, `/mu`, `/doc`, `/edu`, `/lang`');
+  parts.push('- **Marketer & Growth (`marketer`)**: `/mark`, `/com`, `/art`, `/doc`, `/lang`');
+  parts.push('- **Sales, Revenue & Customer (`sales`)**: `/sal`, `/rev`, `/su`, `/cust`, `/hanzo-commerce`');
+  parts.push('- **Executive, Product & People (`executive`)**: `/vi`, `/opera`, `/mana`, `/huma`');
+  parts.push('- **Finance, Legal & Governance (`finance-legal`)**: `/fin`, `/proc`, `/supply`, `/corp`, `/law`, `/comp`, `/risk`, `/audit`, `/gov`, `/xlsx`, `/docx`, `/pdf`, `/pptx`\n');
+
   // Code Reference Format
   parts.push('## Code Reference Format');
   parts.push('When referencing code, use: `filename:line_number`');
