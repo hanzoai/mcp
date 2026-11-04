@@ -555,8 +555,16 @@ the shared schema. Full model: `~/work/hanzo/SDK-ARCHITECTURE.md`.
 
 ## Install / run
 ```bash
-npm install -g @hanzo/mcp && hanzo-mcp serve   # or: pip install hanzo-mcp
+npm i -g hanzo                 # any OS incl. Windows; Unix also: curl -fsSL https://hanzo.sh | sh
+hanzo mcp                      # native Rust hanzo-mcp over stdio; -t sse for HTTP
+claude mcp add --scope user hanzo -- npx -y hanzo mcp   # register, no prior install
+codex mcp add hanzo -- npx -y hanzo mcp
 ```
+`npm i -g hanzo` installs a launcher only; the native binary downloads on first
+use, SHA-256 checked. The native server has NO `serve` subcommand (`hanzo mcp
+serve` is tolerated). Client JSON: `{"command":"npx","args":["-y","hanzo","mcp"]}`.
+The TypeScript package is the secondary path, for its TS-only tools:
+`npx -y @hanzo/mcp serve` (or `pip install hanzo-mcp` for Python).
 
 ## Publishing
 This repo is the only place `@hanzo/mcp` publishes from. `hanzoai/extension`
