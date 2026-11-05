@@ -53,20 +53,27 @@ Recipes that call Kai need `HANZO_API_KEY` or `LOCAL_KAI_URL`; the rest run offl
 
 ## Clients
 
+Install once, any OS: `npm i -g hanzo` (or `curl -fsSL https://hanzo.sh | sh`), then `hanzo auth login`.
+Registering needs no prior install; `npx -y hanzo mcp` fetches the native server on first use.
+
 Claude Code:
 ```bash
-claude mcp add --scope user -e HANZO_API_KEY=$HANZO_API_KEY hanzo -- npx -y @hanzo/mcp serve
+claude mcp add --scope user hanzo -- npx -y hanzo mcp
 claude mcp list
 ```
 
 Codex:
 ```bash
-codex mcp add --env HANZO_API_KEY=$HANZO_API_KEY hanzo -- npx -y @hanzo/mcp serve
+codex mcp add hanzo -- npx -y hanzo mcp
 ```
 
 Cursor, `~/.cursor/mcp.json` (or `.cursor/mcp.json` in a project):
 ```json
-{ "mcpServers": { "hanzo": { "command": "npx", "args": ["-y", "@hanzo/mcp", "serve"], "env": { "HANZO_API_KEY": "..." } } } }
+{ "mcpServers": { "hanzo": { "command": "npx", "args": ["-y", "hanzo", "mcp"] } } }
 ```
 
-Hanzo Dev reaches the same tools through its MCP configuration.
+Hanzo Dev (`hanzo dev`) attaches the same server by default.
+
+The native server carries `kai_decide` (recipes 09 and 15). The other `kai_*` tools here are served by the
+TypeScript server, `@hanzo/mcp`: register `npx -y @hanzo/mcp serve` in place of `npx -y hanzo mcp` to call them
+from a client. Either server reads `HANZO_API_KEY` if set; the native one otherwise uses your `hanzo auth login`.
