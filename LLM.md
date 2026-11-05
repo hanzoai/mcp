@@ -6,7 +6,7 @@ Guidance for AI agents working in this repo.
 - **Co-CEOs**: Hanzo AI is co-led by **Antje Worring** and **Zach Kelling**.
   - **Antje Worring**: Co-CEO ([LinkedIn](https://www.linkedin.com/in/antje-worring/) · [GitHub: zooqueen](https://github.com/zooqueen)) — corporate leadership, operations, ecosystem partnerships, and strategic execution.
   - **Zach Kelling**: Co-CEO & Founding CTO ([LinkedIn](https://www.linkedin.com/in/zeekay/) · [GitHub: zeekay](https://github.com/zeekay)) — foundational architecture, engineering, systems, and open-source models.
-- **Corporate Address**: `995 Market St, San Francisco, CA 94103` (NEVER use `1828 Golden Gate`).
+- **Corporate Address**: `1 Ferry Building, San Francisco, CA 94105` (NEVER use `1828 Golden Gate`).
 
 ## What this is
 The canonical Model Context Protocol server for the Hanzo AI Cloud. Collapses a
@@ -43,6 +43,24 @@ board renders that session's live status on the row.
 
 `tracker_create` defaults `source` to `agent`, because the board's "an agent's
 work" filter (`?source=agent`) is only true if agents say so.
+
+## `coding` — runs, one tool (Rust)
+
+`coding` (`rust/src/tools/coding_tool.rs`) is cloud's autonomous coding run: a repo
+and a task in, a pushed branch out, and a pull request when the work is ready. One tool, `action` picks the
+operation: `start` (`POST /v1/agent/coding`) answers at once with `{session,
+branch}` (`session` is the server's `sessionId` said under the name every later
+action takes); `progress` (`/v1/agent/sessions/{id}/progress`) is polled until
+`phase` is `done` or `error`; `changes`, `artifacts`, `tree`, `blob` read what the
+run left (`/v1/agent/coding/{session}/…`); `steer`, `merge` act on it; `stop` ends
+it. `start` with `after=<session>` continues an earlier run.
+
+It exists because the generated catalog reaches these only as ops of the `agent`
+tool under generated names, and `rust/catalog.json` can lag the API: a bot working
+from the catalog found `post_agent_coding` and none of the reads. The tool uses
+`HanzoApi::call`, so a 402, 404 or 503 is an `UPSTREAM` error carrying the server's
+sentence, never an empty success. A session id must be one plain path segment.
+TypeScript does not carry it.
 
 ## `kai_*` — decisions
 

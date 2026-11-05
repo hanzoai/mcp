@@ -5,25 +5,49 @@
 import { Tool } from '../types/index.js';
 import { getAllRegisteredTools } from './tool-registry.js';
 
-interface Mode { name: string; description: string; tools: string[]; prompt?: string; }
-interface Preset { name: string; description: string; modes: string[]; shortcuts?: Record<string, string>; }
+interface Mode { name: string; description: string; tools: string[]; skills?: string[]; prompt?: string; }
+interface Preset { name: string; description: string; modes: string[]; skills: string[]; shortcuts?: Record<string, string>; }
+
+export const DEFAULT_ENABLED_SKILLS = [
+  'dev',
+  'code-review',
+  'ui',
+  'hanzo-code',
+  'hanzo-cloud',
+  'xlsx',
+  'pptx',
+  'pdf',
+  'docx',
+];
 
 const modes: Mode[] = [
-  { name: 'developer', description: 'Full development', tools: ['*'] },
-  { name: 'research', description: 'Research and exploration', tools: ['read', 'list', 'tree', 'grep', 'find', 'search', 'ast', 'think'] },
-  { name: 'editor', description: 'Code editing', tools: ['read', 'write', 'edit', 'patch', 'create', 'delete', 'grep', 'ast'] },
-  { name: 'terminal', description: 'Shell operations', tools: ['bash', 'bg', 'kill', 'ps', 'read'] },
-  { name: 'cloud_admin', description: 'Cloud administration', tools: ['iam', 'kms', 'paas', 'commerce', 'storage', 'auth', 'api'] },
-  { name: 'devops', description: 'DevOps', tools: ['read', 'write', 'edit', 'bash', 'paas', 'git', 'tasks'] },
-  { name: 'minimal', description: 'Minimal', tools: ['read', 'write', 'edit', 'grep', 'bash'] },
-  { name: '10x', description: 'All tools', tools: ['*'] },
+  { name: 'developer', description: 'Dev Mode + Code Review + Full Engineering', tools: ['*'], skills: ['dev', 'code-review', 'qa', 'cyber', 'it', 'data', 'sci', 'auto', 'hanzo-code', 'hanzo-cloud'] },
+  { name: 'code-review', description: 'Code quality, structural simplification, blast-radius & runtime proof', tools: ['read', 'list', 'tree', 'grep', 'find', 'search', 'ast', 'bash', 'think'], skills: ['code-review', 'dev', 'qa', 'cyber'] },
+  { name: 'designer', description: 'UI Design & Multi-Viewport Visual Parity (@hanzo/ui) + Creative Suite', tools: ['*'], skills: ['ui', 'des', 'art', 'mu', 'doc', 'edu', 'lang'] },
+  { name: 'marketer', description: 'Product Marketing, Launch Strategy, CRO, SEO & Developer Community', tools: ['*'], skills: ['mark', 'com', 'art', 'doc', 'lang'] },
+  { name: 'sales', description: 'MEDDPICC Sales, Revenue & Pricing, Support Triage & Customer Success', tools: ['*'], skills: ['sal', 'rev', 'su', 'cust', 'hanzo-commerce'] },
+  { name: 'executive', description: 'CEO Strategy (Vi), Operations (Opera), Product (Mana) & People (Huma)', tools: ['*'], skills: ['vi', 'opera', 'mana', 'huma'] },
+  { name: 'finance-legal', description: 'Finance, Procurement, Supply Chain, Corp Dev, Legal, Compliance, Risk, Audit & Office Suite', tools: ['*'], skills: ['fin', 'proc', 'supply', 'corp', 'law', 'comp', 'risk', 'audit', 'gov', 'xlsx', 'docx', 'pdf', 'pptx'] },
+  { name: 'research', description: 'Research and exploration', tools: ['read', 'list', 'tree', 'grep', 'find', 'search', 'ast', 'think'], skills: ['sci', 'data', 'doc'] },
+  { name: 'editor', description: 'Code editing', tools: ['read', 'write', 'edit', 'patch', 'create', 'delete', 'grep', 'ast'], skills: ['dev', 'code-review', 'ui'] },
+  { name: 'terminal', description: 'Shell operations', tools: ['bash', 'bg', 'kill', 'ps', 'read'], skills: ['dev', 'it', 'auto'] },
+  { name: 'cloud_admin', description: 'Cloud administration', tools: ['iam', 'kms', 'paas', 'commerce', 'storage', 'auth', 'api'], skills: ['hanzo-cloud', 'it', 'cyber', 'comp'] },
+  { name: 'devops', description: 'DevOps', tools: ['read', 'write', 'edit', 'bash', 'paas', 'git', 'tasks'], skills: ['auto', 'it', 'cyber', 'hanzo-cloud'] },
+  { name: 'minimal', description: 'Minimal', tools: ['read', 'write', 'edit', 'grep', 'bash'], skills: ['dev', 'code-review'] },
+  { name: '10x', description: 'All tools and all 32 agent seat skills', tools: ['*'], skills: DEFAULT_ENABLED_SKILLS },
 ];
 
 const presets: Preset[] = [
-  { name: 'default', description: 'Default', modes: ['developer'] },
-  { name: 'minimal', description: 'Minimal', modes: ['research', 'editor'] },
-  { name: 'power', description: 'Power user', modes: ['developer', 'cloud_admin'] },
-  { name: 'cloud', description: 'Cloud admin', modes: ['cloud_admin', 'devops'] },
+  { name: 'default', description: 'Default (9 Core Skills: dev, code-review, ui, hanzo-code, hanzo-cloud, xlsx, pptx, pdf, docx)', modes: ['developer', 'code-review'], skills: DEFAULT_ENABLED_SKILLS },
+  { name: 'developer', description: 'Developer & Engineering Role Set (Seats 11–17)', modes: ['developer', 'code-review', 'devops'], skills: ['dev', 'code-review', 'qa', 'cyber', 'it', 'data', 'sci', 'auto', 'hanzo-code', 'hanzo-cloud'] },
+  { name: 'designer', description: 'Designer & Creative Role Set (Seats 18–23)', modes: ['designer', 'editor'], skills: ['ui', 'des', 'art', 'mu', 'doc', 'edu', 'lang'] },
+  { name: 'marketer', description: 'Marketer & Growth Role Set (Seats 6 & 10)', modes: ['marketer'], skills: ['mark', 'com', 'art', 'doc', 'lang'] },
+  { name: 'sales', description: 'Sales, Revenue & Customer Role Set (Seats 5, 7, 8, 9)', modes: ['sales'], skills: ['sal', 'rev', 'su', 'cust', 'hanzo-commerce'] },
+  { name: 'executive', description: 'Executive, Product & People Role Set (Seats 1–4)', modes: ['executive'], skills: ['vi', 'opera', 'mana', 'huma'] },
+  { name: 'finance-legal', description: 'Finance, Legal & Governance Role Set (Seats 24–32)', modes: ['finance-legal'], skills: ['fin', 'proc', 'supply', 'corp', 'law', 'comp', 'risk', 'audit', 'gov', 'xlsx', 'docx', 'pdf', 'pptx'] },
+  { name: 'minimal', description: 'Minimal (dev + code-review)', modes: ['research', 'editor'], skills: ['dev', 'code-review'] },
+  { name: 'power', description: 'Power user', modes: ['developer', 'cloud_admin'], skills: DEFAULT_ENABLED_SKILLS },
+  { name: 'cloud', description: 'Cloud admin', modes: ['cloud_admin', 'devops'], skills: ['hanzo-cloud', 'it', 'cyber', 'auto'] },
 ];
 
 let currentMode = modes[0];

@@ -40,6 +40,7 @@ pub mod lsp_tool;
 pub mod refactor_tool;
 pub mod system_tool;
 pub mod tracker_tool;
+pub mod coding_tool;
 
 // Re-export tools — HIP-0300 canonical names
 pub use fs_tool::{FsTool, FsToolArgs, FsToolDefinition};
@@ -65,6 +66,7 @@ pub use personality::{ToolPersonality, PersonalityRegistry};
 pub use cloud_code::{CodeSearchTool, CodeContextTool, CodeAskTool, CodeIndexTool};
 pub use cloud_web::{WebSearchTool, WebReadTool, ResearchTool};
 pub use tracker_tool::{TrackerBoardsTool, TrackerIssuesTool, TrackerCreateTool, TrackerUpdateTool};
+pub use coding_tool::CodingTool;
 pub use vision_tool::VisionTool;
 pub use config_tool::ConfigTool;
 pub use llm_tool::LlmTool;
@@ -172,10 +174,10 @@ pub fn parity_status() -> serde_json::Value {
         },
         "cloud": {
             "backend": "api.hanzo.ai",
-            "tools": ["code_search", "code_context", "code_ask", "code_index", "web_search", "web_read", "research", "vision", "tracker_boards", "tracker_issues", "tracker_create", "tracker_update"],
+            "tools": ["code_search", "code_context", "code_ask", "code_index", "web_search", "web_read", "research", "vision", "tracker_boards", "tracker_issues", "tracker_create", "tracker_update", "coding"],
             "auth": "pk-/sk- bearer from HANZO_API_KEY or ~/.hanzo/config.json .apiKey"
         },
-        "notes": "Local tree-sitter AST engine for single-file ops; cloud tools for cross-repo search/index, web, vision, and tracker work items. Browser tool available as extension."
+        "notes": "Local tree-sitter AST engine for single-file ops; cloud tools for cross-repo search/index, web, vision, tracker work items, and autonomous coding runs. Browser tool available as extension."
     })
 }
 
