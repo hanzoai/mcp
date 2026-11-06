@@ -152,7 +152,7 @@ impl HanzoApi {
         if let Some(r) = refusal(status, parsed.as_ref()) {
             return Err(r.into());
         }
-        let refused = parsed.as_ref().is_some_and(|b| b["status"] == "error");
+        let refused = parsed.as_ref().is_some_and(refused);
         if !(200..300).contains(&status) || refused {
             return Err(anyhow!("{}: {}", status, reason(parsed.as_ref(), &text)));
         }
@@ -267,6 +267,19 @@ pub struct Answer {
 
 /// The sentence in a refusal: the gateway's `error.message` or `msg`, else the
 /// body itself.
+/// The keys a `/v1` envelope carries: `{status,msg,data}`, IAM's `sub`, `name` and
+/// `data2`, and the bare `error`/`code` form.
+const ENVELOPE: &[&str] = &["status", "msg", "data", "data2", "sub", "name", "error", "code"];
+
+/// A 2xx that is a refusal: an envelope whose `status` is `error`. Only a body made
+/// of envelope keys is an envelope. A body with any other key is a resource, and its
+/// `status` is its own state: a failed coding run is `{"id":…,"status":"error",…}`,
+/// an answer to return, not a refusal.
+fn refused(body: &Value) -> bool {
+    body.as_object().is_some_and(|o| o.keys().all(|k| ENVELOPE.contains(&k.as_str())))
+        && body["status"] == "error"
+}
+
 fn reason(body: Option<&Value>, text: &str) -> String {
     let said = body.and_then(|b| {
         [&b["error"]["message"], &b["msg"], &b["message"], &b["error"]]
@@ -408,6 +421,17 @@ mod tests {
         // A key, when one is set, is the credential and the login is not asked.
         let keyed = HanzoApi { base_url: DEFAULT_BASE_URL.into(), api_key: Some("sk-set".into()), login: None, client: reqwest::Client::new() };
         assert_eq!(keyed.key().as_deref(), Some("sk-set"));
+    }
+
+    /// A failed run is an answer; IAM's error envelope is a refusal.
+    #[test]
+    fn a_failed_resource_is_not_a_refusal() {
+        let run = json!({"id": "sess_1", "kind": "coding", "status": "error", "error": "coding: clone: exit 128"});
+        assert!(!refused(&run));
+        assert!(!refused(&json!({"id": "b1", "status": "failed"})));
+        assert!(!refused(&json!({"status": "ok", "data": {"id": 1}})));
+        assert!(refused(&json!({"status": "error", "msg": "Unauthorized operation"})));
+        assert!(refused(&json!({"status": "error", "msg": "nope", "sub": "", "name": "", "data": null, "data2": null})));
     }
 
     #[test]
