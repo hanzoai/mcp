@@ -14,8 +14,8 @@
 //!
 //! Mirrors the Python `hanzo` surface (hanzo-tools-api) and the ten service
 //! HTTP clients (hanzo-tools-{iam,kms,paas,billing,commerce,ingress,mpc,team}).
-//! Credential is the shared `pk-`/`sk-` bearer resolved the same way as
-//! `HanzoApi` (`HANZO_API_KEY`, else `~/.hanzo/config.json` field `apiKey`).
+//! Credential is `HanzoApi`'s: `HANZO_API_KEY`, else `~/.hanzo/config.json`
+//! field `apiKey`, else the `hanzo` login's token.
 
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
@@ -23,7 +23,7 @@ use serde_json::{json, Map, Value};
 use std::collections::HashMap;
 
 use super::{envelope_err, envelope_ok};
-use crate::hanzo_api::api_key_from_config_json;
+use crate::hanzo_api::HanzoApi;
 
 /// `auth` is answered locally from credential state; every other name comes from
 /// the generated catalog, so this list cannot describe an API that has moved.
@@ -140,22 +140,9 @@ impl HanzoToolDefinition {
 
 /// Per-service base URL, honoring the same env overrides as the Python clients.
 
-/// Resolve the shared bearer: `HANZO_API_KEY`, else `~/.hanzo/config.json`.
-fn resolve_key() -> Option<String> {
-    if let Ok(k) = std::env::var("HANZO_API_KEY") {
-        let k = k.trim().to_string();
-        if !k.is_empty() {
-            return Some(k);
-        }
-    }
-    let path = dirs::home_dir()?.join(".hanzo").join("config.json");
-    let content = std::fs::read_to_string(path).ok()?;
-    api_key_from_config_json(&content)
-}
-
 pub struct HanzoTool {
     client: reqwest::Client,
-    key: Option<String>,
+    api: HanzoApi,
 }
 
 impl Default for HanzoTool {
@@ -173,12 +160,12 @@ impl HanzoTool {
             .unwrap_or_else(|_| reqwest::Client::new());
         Self {
             client,
-            key: resolve_key(),
+            api: HanzoApi::from_env(),
         }
     }
 
     fn has_key(&self) -> bool {
-        self.key.as_deref().map_or(false, |k| !k.is_empty())
+        self.api.has_key()
     }
 
     pub async fn execute(&self, args: HanzoToolArgs) -> Result<Value> {
@@ -265,9 +252,9 @@ impl HanzoTool {
                 action,
                 json!({
                     "authenticated": self.has_key(),
-                    "credential": if self.has_key() { "pk-/sk- bearer" } else { "none" },
+                    "credential": if self.has_key() { "bearer" } else { "none" },
                     "message": if self.has_key() {
-                        "Authenticated via an API key."
+                        "Authenticated with an API key or the hanzo login."
                     } else {
                         "Not authenticated. Run `hanzo login` or set HANZO_API_KEY."
                     }
@@ -306,7 +293,7 @@ impl HanzoTool {
         });
         let base = std::env::var("HANZO_API_URL").unwrap_or_else(|_| "https://api.hanzo.ai".into());
         let mut req = self.client.post(format!("{base}/v1/mcp")).json(&body);
-        if let Some(k) = &self.key {
+        if let Some(k) = self.api.key() {
             req = req.bearer_auth(k);
         }
         let text = req.send().await?.text().await?;
