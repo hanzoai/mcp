@@ -5,10 +5,10 @@
 import { EventEmitter } from 'events';
 import * as fs from 'fs/promises';
 import * as path from 'path';
-import { 
-  TestRunnerConfig, 
-  TestResult, 
-  TestSuiteResult, 
+import {
+  TestRunnerConfig,
+  TestResult,
+  TestSuiteResult,
   ToolTestSpec,
   ToolTestCase,
   MCPImplementation
@@ -16,6 +16,7 @@ import {
 import { MCPServerManager } from './server-manager.js';
 import { allToolSpecs } from '../specs/index.js';
 import { getConfigForEnvironment } from '../configs/implementations.js';
+import { environmentTags, partitionTestCases } from './skip.js';
 
 export interface TestRunnerEvents {
   'test-start': (implementation: string, toolName: string, testCase: string) => void;
@@ -30,13 +31,17 @@ export class MCPTestRunner extends EventEmitter {
   private serverManager = new MCPServerManager();
   private config: TestRunnerConfig;
   private results: TestResult[] = [];
+  /** Per-implementation count of skipFor/onlyFor/env-skipped test cases */
+  private skippedByImplementation = new Map<string, number>();
+  /** Environment tags (CI, headless, …) resolved once per runner */
+  private readonly envTags = environmentTags();
 
   constructor(config?: Partial<TestRunnerConfig>) {
     super();
-    
+
     // Default configuration
     const envConfig = getConfigForEnvironment();
-    
+
     this.config = {
       implementations: envConfig.implementations,
       toolSpecs: allToolSpecs,
@@ -78,6 +83,7 @@ export class MCPTestRunner extends EventEmitter {
 
     // Clear previous results
     this.results = [];
+    this.skippedByImplementation.clear();
 
     try {
       // Run tests for each implementation
@@ -85,7 +91,7 @@ export class MCPTestRunner extends EventEmitter {
 
       // Generate final results
       const suiteResult = this.generateSuiteResult(startTime);
-      
+
       // Save results
       await this.saveResults(suiteResult);
 
@@ -109,11 +115,11 @@ export class MCPTestRunner extends EventEmitter {
   private async runImplementationsInParallel(): Promise<void> {
     const { maxConcurrentImplementations } = this.config.parallel;
     const enabledImpls = this.config.implementations.filter(impl => impl.enabled);
-    
+
     // Process implementations in batches
     for (let i = 0; i < enabledImpls.length; i += maxConcurrentImplementations) {
       const batch = enabledImpls.slice(i, i + maxConcurrentImplementations);
-      
+
       await Promise.all(
         batch.map(impl => this.runImplementationTests(impl))
       );
@@ -132,7 +138,7 @@ export class MCPTestRunner extends EventEmitter {
     try {
       // Start the server
       const server = await this.serverManager.startServer(implementation);
-      
+
       // Wait for server to be ready
       await this.waitForServer(implementation.id);
 
@@ -141,11 +147,11 @@ export class MCPTestRunner extends EventEmitter {
       console.log(`  📦 Testing ${relevantSpecs.length} tools`);
 
       // Run tool tests in parallel batches
-      await this.runToolTestsInParallel(implementation, relevantSpecs, implResults);
+      await this.runToolTestsInParallel(implementation, implResults);
 
     } catch (error) {
       console.error(`❌ Failed to test implementation ${implementation.name}:`, error);
-      
+
       // Add error result
       implResults.push({
         implementation: implementation.id,
@@ -169,45 +175,57 @@ export class MCPTestRunner extends EventEmitter {
    */
   private async runToolTestsInParallel(
     implementation: MCPImplementation,
-    toolSpecs: ToolTestSpec[],
     results: TestResult[]
   ): Promise<void> {
     const { maxConcurrentTestsPerImpl } = this.config.parallel;
-    
-    // Flatten all test cases
+
+    const relevantSpecs = new Set(this.getRelevantSpecs(implementation));
+
+    // Resolve skip directives for EVERY configured spec (not only the ones
+    // this implementation expects): environment tags like skipFor: ['ci']
+    // must be counted as skipped for every implementation, otherwise those
+    // cases silently vanish from the totals. Cases that are neither skipped
+    // nor relevant to this implementation are dropped from execution.
+    const { runnable, skipped } = partitionTestCases(this.config.toolSpecs, {
+      implementationId: implementation.id,
+      envTags: this.envTags,
+      isRelevant: spec => relevantSpecs.has(spec)
+    });
+
+    if (skipped.length > 0) {
+      this.skippedByImplementation.set(
+        implementation.id,
+        (this.skippedByImplementation.get(implementation.id) ?? 0) + skipped.length
+      );
+
+      if (this.config.output.verbose) {
+        const reasons = new Map<string, number>();
+        for (const { reason } of skipped) {
+          reasons.set(reason, (reasons.get(reason) ?? 0) + 1);
+        }
+        const detail = [...reasons.entries()].map(([reason, n]) => `${reason}: ${n}`).join(', ');
+        console.log(`    ⏭️  Skipped ${skipped.length} test cases (${detail})`);
+      }
+    }
+
+    // Test cases that will actually run
     const allTestCases: Array<{
       spec: ToolTestSpec;
       testCase: ToolTestCase;
-    }> = [];
-
-    for (const spec of toolSpecs) {
-      for (const testCase of spec.testCases) {
-        // Skip tests not meant for this implementation
-        if (testCase.skipFor?.includes(implementation.id)) {
-          continue;
-        }
-        
-        // Only run if specified for this implementation
-        if (testCase.onlyFor && !testCase.onlyFor.includes(implementation.id)) {
-          continue;
-        }
-
-        allTestCases.push({ spec, testCase });
-      }
-    }
+    }> = runnable;
 
     // Process test cases in parallel batches
     for (let i = 0; i < allTestCases.length; i += maxConcurrentTestsPerImpl) {
       const batch = allTestCases.slice(i, i + maxConcurrentTestsPerImpl);
-      
+
       const batchResults = await Promise.all(
-        batch.map(({ spec, testCase }) => 
+        batch.map(({ spec, testCase }) =>
           this.runSingleTest(implementation, spec, testCase)
         )
       );
 
       results.push(...batchResults);
-      
+
       // Emit progress
       this.emit('progress', i + batch.length, allTestCases.length);
     }
@@ -222,9 +240,9 @@ export class MCPTestRunner extends EventEmitter {
     testCase: ToolTestCase
   ): Promise<TestResult> {
     const startTime = Date.now();
-    
+
     this.emit('test-start', implementation.id, spec.name, testCase.name);
-    
+
     if (this.config.output.verbose) {
       console.log(`    🧪 ${spec.name}: ${testCase.name}`);
     }
@@ -299,7 +317,7 @@ export class MCPTestRunner extends EventEmitter {
     try {
       // Check if we expected success/failure
       const isError = response.error || response.isError;
-      
+
       if (expect.success && isError) {
         return {
           success: false,
@@ -318,7 +336,7 @@ export class MCPTestRunner extends EventEmitter {
       if (!expect.success && expect.errorPattern && isError) {
         const errorMsg = response.error?.message || response.content?.[0]?.text || '';
         const pattern = new RegExp(expect.errorPattern, 'i');
-        
+
         if (!pattern.test(errorMsg)) {
           return {
             success: false,
@@ -421,13 +439,13 @@ export class MCPTestRunner extends EventEmitter {
       .filter(impl => impl.enabled)
       .reduce((total, impl) => {
         const relevantSpecs = this.getRelevantSpecs(impl);
-        return total + relevantSpecs.reduce((specTotal, spec) => 
+        return total + relevantSpecs.reduce((specTotal, spec) =>
           specTotal + spec.testCases.length, 0);
       }, 0);
   }
 
   private getRelevantSpecs(implementation: MCPImplementation): ToolTestSpec[] {
-    return this.config.toolSpecs.filter(spec => 
+    return this.config.toolSpecs.filter(spec =>
       implementation.expectedCategories.includes(spec.category)
     );
   }
@@ -455,7 +473,7 @@ export class MCPTestRunner extends EventEmitter {
 
     // Generate per-implementation summary
     const summary: TestSuiteResult['summary'] = {};
-    
+
     for (const implId of implementations) {
       const implResults = this.results.filter(r => r.implementation === implId);
       const implPassed = implResults.filter(r => r.success).length;
@@ -464,7 +482,7 @@ export class MCPTestRunner extends EventEmitter {
       // Group by categories
       const categories: any = {};
       const implCategories = [...new Set(implResults.map(r => r.category))];
-      
+
       for (const category of implCategories) {
         const catResults = implResults.filter(r => r.category === category);
         categories[category] = {
@@ -478,10 +496,18 @@ export class MCPTestRunner extends EventEmitter {
         total: implResults.length,
         passed: implPassed,
         failed: implFailed,
-        skipped: 0, // TODO: implement skipped tracking
+        skipped: this.skippedByImplementation.get(implId) ?? 0,
         categories
       };
     }
+
+    // Skipped cases are never counted as passed or failed: the suite-level
+    // counter is derived from the per-implementation summaries so the two
+    // always agree.
+    const skippedTests = Object.values(summary).reduce(
+      (sum, impl) => sum + impl.skipped,
+      0
+    );
 
     return {
       implementations,
@@ -489,7 +515,7 @@ export class MCPTestRunner extends EventEmitter {
       totalTests,
       passedTests,
       failedTests,
-      skippedTests: 0,
+      skippedTests,
       results: this.results,
       summary
     };
@@ -501,7 +527,7 @@ export class MCPTestRunner extends EventEmitter {
 
   private async saveResults(suiteResult: TestSuiteResult): Promise<void> {
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    
+
     // Save JSON report
     if (this.config.output.generateJsonReport) {
       const jsonPath = path.join(this.config.output.resultsDir, `results-${timestamp}.json`);
@@ -546,16 +572,17 @@ export class MCPTestRunner extends EventEmitter {
         <p><strong>Total Tests:</strong> ${suiteResult.totalTests}</p>
         <p><strong>Passed:</strong> <span class="success">${suiteResult.passedTests}</span></p>
         <p><strong>Failed:</strong> <span class="failure">${suiteResult.failedTests}</span></p>
-        <p><strong>Success Rate:</strong> ${((suiteResult.passedTests / suiteResult.totalTests) * 100).toFixed(1)}%</p>
+        <p><strong>Skipped:</strong> ${suiteResult.skippedTests}</p>
+        <p><strong>Success Rate:</strong> ${suiteResult.totalTests > 0 ? ((suiteResult.passedTests / suiteResult.totalTests) * 100).toFixed(1) : '0.0'}%</p>
         <p><strong>Timestamp:</strong> ${suiteResult.timestamp}</p>
     </div>
-    
+
     <h2>Results by Implementation</h2>
     ${Object.entries(suiteResult.summary).map(([impl, stats]) => `
         <h3>${impl}</h3>
         <p>Passed: ${stats.passed}/${stats.total} (${((stats.passed / stats.total) * 100).toFixed(1)}%)</p>
     `).join('')}
-    
+
     <h2>Detailed Results</h2>
     <table>
         <tr>
@@ -591,12 +618,14 @@ export class MCPTestRunner extends EventEmitter {
     console.log(`Total Tests: ${suiteResult.totalTests}`);
     console.log(`✅ Passed: ${suiteResult.passedTests}`);
     console.log(`❌ Failed: ${suiteResult.failedTests}`);
-    console.log(`Success Rate: ${((suiteResult.passedTests / suiteResult.totalTests) * 100).toFixed(1)}%`);
-    
+    console.log(`⏭️  Skipped: ${suiteResult.skippedTests}`);
+    console.log(`Success Rate: ${suiteResult.totalTests > 0 ? ((suiteResult.passedTests / suiteResult.totalTests) * 100).toFixed(1) : '0.0'}%`);
+
     console.log('\nBy Implementation:');
     for (const [impl, stats] of Object.entries(suiteResult.summary)) {
-      const rate = ((stats.passed / stats.total) * 100).toFixed(1);
-      console.log(`  ${impl}: ${stats.passed}/${stats.total} (${rate}%)`);
+      const rate = stats.total > 0 ? ((stats.passed / stats.total) * 100).toFixed(1) : '0.0';
+      const skipped = stats.skipped > 0 ? ` · ${stats.skipped} skipped` : '';
+      console.log(`  ${impl}: ${stats.passed}/${stats.total} (${rate}%)${skipped}`);
     }
   }
 
