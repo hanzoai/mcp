@@ -283,3 +283,21 @@ async fn nothing_leaves_the_process_for_a_call_that_cannot_succeed() {
         );
     }
 }
+
+/// An issue in another repository is named the way a person writes it, and that
+/// text is what reaches cloud: `owner/name#464` used to be refused as not a number.
+#[tokio::test]
+async fn an_issue_in_another_repository_reaches_cloud_as_written() {
+    let _env = own_env();
+    let (out, seen) = call(
+        json!({ "sessionId": "ses-9", "branch": "agent/ses-9", "repo": "hanzoai/iam" }),
+        json!({ "action": "start", "repo": "hanzoai/iam", "prompt": "verify the signature", "issue": "hanzo-inc/cloud#464" }),
+    )
+    .await;
+    assert_eq!(seen.start, "POST /v1/agent/coding HTTP/1.1");
+    assert_eq!(
+        seen.body.unwrap(),
+        json!({ "prompt": "verify the signature", "repo": "hanzoai/iam", "issue": "hanzo-inc/cloud#464" })
+    );
+    assert_eq!(out["ok"], true);
+}

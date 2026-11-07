@@ -97,7 +97,7 @@ struct CodingArgs {
     #[serde(alias = "timeout_seconds")]
     #[serde(rename = "timeoutSeconds")]
     timeout_seconds: Option<u64>,
-    issue: Option<u64>,
+    issue: Option<Issue>,
     project: Option<String>,
     desktop: Option<bool>,
     #[serde(alias = "agent_ref")]
@@ -113,6 +113,24 @@ struct CodingArgs {
 
     // tree, blob
     path: Option<String>,
+}
+
+/// The issue a run resolves, as cloud's `client.Issue` reads it: `464`, `#464`, or
+/// `owner/name#464` for an issue in another repository. A model may still send the
+/// bare number as a JSON number, so that is read too, as its decimal text. It goes
+/// out as the text it came in as; cloud parses it, so this tool cannot disagree
+/// with cloud about which forms exist.
+#[derive(Debug)]
+struct Issue(String);
+
+impl<'de> Deserialize<'de> for Issue {
+    fn deserialize<D: serde::Deserializer<'de>>(d: D) -> std::result::Result<Self, D::Error> {
+        match Value::deserialize(d)? {
+            Value::String(s) => Ok(Issue(s)),
+            Value::Number(n) => Ok(Issue(n.to_string())),
+            _ => Err(serde::de::Error::custom("issue: a number, #number, or owner/name#number")),
+        }
+    }
 }
 
 fn said(v: &Option<String>) -> Option<&str> {
@@ -163,8 +181,8 @@ fn plan(args: &CodingArgs) -> std::result::Result<(String, Request), String> {
             if let Some(n) = args.timeout_seconds {
                 body.insert("timeoutSeconds".into(), json!(n));
             }
-            if let Some(n) = args.issue {
-                body.insert("issue".into(), json!(n));
+            if let Some(Issue(i)) = args.issue.as_ref().filter(|Issue(i)| !i.trim().is_empty()) {
+                body.insert("issue".into(), json!(i));
             }
             if let Some(d) = args.desktop {
                 body.insert("desktop".into(), json!(d));
@@ -309,7 +327,7 @@ impl CodingTool {
                     "body": { "type": "string", "description": "pull: its description. Empty says who it is for, the task and the branch" },
                     "draft": { "type": "boolean", "description": "pull: open it as a draft" },
                     "seconds": { "type": "integer", "description": "extend: how much to add to the time the run has left, up to the longest a run may be given; the answer says when it is up now" },
-                    "issue": { "type": "integer", "description": "start: the issue number on repo this run resolves; its pull request (when pull is set) closes it" },
+                    "issue": { "type": "string", "description": "start: the issue this run resolves: 464 or #464 on repo, or owner/name#464 in another repository; its pull request (when pull is set) closes it" },
                     "project": { "type": "string", "description": "start: the board's project, when the org keeps more than one" },
                     "desktop": { "type": "boolean", "description": "start: give the run a screen, for a task that drives a browser" },
                     "agentRef": { "type": "string", "description": "start: a configured agent to run as" },
@@ -459,6 +477,30 @@ mod tests {
             r.body.unwrap(),
             json!({ "prompt": "fix the footer", "repo": "hanzoai/social", "after": "ses-0", "mode": "plan", "timeoutSeconds": 3600 })
         );
+    }
+
+    #[test]
+    fn an_issue_goes_out_as_the_text_it_was_named_by() {
+        // Every form cloud's client.Issue reads, sent as written; a bare JSON
+        // number is the first form, as its decimal text.
+        for (given, sent) in [
+            (json!("464"), "464"),
+            (json!("#464"), "#464"),
+            (json!("hanzo-inc/cloud#464"), "hanzo-inc/cloud#464"),
+            (json!(464), "464"),
+        ] {
+            let r = planned(json!({ "action": "start", "repo": "hanzoai/iam", "prompt": "x", "issue": given }))
+                .unwrap();
+            assert_eq!(r.body.unwrap()["issue"], sent, "issue {given} went out changed");
+        }
+        // Blank names no issue.
+        let r = planned(json!({ "action": "start", "prompt": "x", "issue": "  " })).unwrap();
+        assert!(r.body.unwrap().get("issue").is_none(), "a blank issue was sent");
+        // Anything else is refused before a request exists.
+        assert!(serde_json::from_value::<CodingArgs>(json!({ "action": "start", "issue": [464] })).is_err());
+        // The schema says what a caller may send.
+        let schema = CodingTool::schema();
+        assert_eq!(schema["inputSchema"]["properties"]["issue"]["type"], "string");
     }
 
     #[test]
