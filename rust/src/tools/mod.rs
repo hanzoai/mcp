@@ -175,7 +175,7 @@ pub fn parity_status() -> serde_json::Value {
         "cloud": {
             "backend": "api.hanzo.ai",
             "tools": ["code_search", "code_context", "code_ask", "code_index", "web_search", "web_read", "research", "vision", "tracker_boards", "tracker_issues", "tracker_create", "tracker_update", "coding"],
-            "auth": "pk-/sk- bearer from HANZO_API_KEY or ~/.hanzo/config.json .apiKey"
+            "auth": "pk-/sk- bearer from HANZO_API_KEY, else the hanzo login (hanzo auth token), else ~/.hanzo/config.json .apiKey"
         },
         "notes": "Local tree-sitter AST engine for single-file ops; cloud tools for cross-repo search/index, web, vision, tracker work items, and autonomous coding runs. Browser tool available as extension."
     })

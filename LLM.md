@@ -91,12 +91,29 @@ mean level index, and `confidence` describes the likeliest level. A noul's
 Tools that run a whole decision program arrive with Kai's joint decoder.
 The Rust runtime carries `kai_decide` (`rust/src/tools/kai_tool.rs`); the other
 three, like `tracker_*`, are TypeScript only, and Python `hanzo-mcp` carries none.
-The Rust runtime's key (`rust/src/hanzo_api.rs`): `HANZO_API_KEY`, else
-`~/.hanzo/config.json` `apiKey`, else the person's `hanzo login`, read as
-`hanzo auth token` from the `hanzo` beside the binary or at `~/.local/bin/hanzo`
-and kept five minutes. Never a `hanzo` off PATH: Debian's `hanzo-ide` package
-installs a GUI at `/usr/bin/hanzo`. A desktop app's MCP entry therefore needs no
-env block once the person has signed in.
+The Rust runtime's key (`rust/src/hanzo_api.rs`), in this order: `HANZO_API_KEY`
+(explicit), else the person's `hanzo` login, read as `hanzo auth token` from the
+`hanzo` beside the binary or at `~/.local/bin/hanzo` and kept five minutes, else
+`~/.hanzo/config.json` `apiKey` (legacy, last: a key left there for another
+account never speaks for a person who has signed in). Never a `hanzo` off PATH:
+Debian's `hanzo-ide` package installs a GUI at `/usr/bin/hanzo`. A desktop app's
+MCP entry therefore needs no env block once the person has signed in. The MCP
+never reads the CLI's stores; the CLI owns refresh.
+
+A login holds several identities. The `hanzo` router tool chooses among them:
+`auth whoami` (source `env`/`login`/`stored`; for a login the identity key, email,
+name, `org` and `orgs` from the token's claims; for a key its prefix only; never
+a token), `auth list` (`hanzo auth list -o json`), `auth use {identity}` (this
+process only, kept in `hanzo_api::USING`, so every tool follows it) and `auth
+switch {identity}` (`hanzo auth switch`: the CLI's active identity, GLOBAL for
+every tool and session on the machine). Every networked router call takes `as`
+(an identity, `hanzo auth token --as <owner|owner/name>`; beats `use`; a named
+identity is always the login's, even with `HANZO_API_KEY` set) and `org` (sent as
+`X-Org-Id`; the gateway honours it for members and answers a non-member as the
+token's own org; an operation's own `org` parameter goes inside `args`). The CLI
+contract this relies on, in both CLIs that answer to `hanzo`: `auth token
+[--as ...]`, `auth list -o json` (`[{key, owner, subject, expiry, active}]`),
+`auth switch <identity>`.
 
 ## Native search, the exec verdict, and a lean surface (Rust)
 
