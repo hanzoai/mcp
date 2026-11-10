@@ -15,6 +15,7 @@
 pub mod catalog;
 pub mod brain;
 pub mod config;
+pub mod context;
 pub mod ffi;
 pub mod hanzo_api;
 pub mod server;
@@ -32,6 +33,7 @@ pub use hanzo_trigram as trigram;
 /// Its own light crate, for the same reason as `trigram`.
 pub use hanzo_actions as actions;
 pub use config::Config;
+pub use context::Ctx;
 pub use server::MCPServer;
 pub use tools::{
     ExecTool, FsTool, PlanTool, ThinkTool, MemoryTool,
@@ -61,6 +63,12 @@ pub trait MCPTool: Send + Sync {
 
     /// Execute the tool with given parameters
     async fn execute(&self, params: serde_json::Value) -> Result<ToolResult>;
+
+    /// Execute with the request's [`Ctx`]. A tool that can report progress, or that leaves work
+    /// running a dropped future would not stop, overrides this; the rest need not.
+    async fn execute_with(&self, params: serde_json::Value, _ctx: &Ctx) -> Result<ToolResult> {
+        self.execute(params).await
+    }
 }
 
 /// Result from tool execution
@@ -126,6 +134,51 @@ pub struct ToolRegistry {
 /// runs actions and `code_index` writes the index, so neither is here.
 pub const READ_ONLY: &[&str] =
     &["kai_decide", "llm", "research", "web_search", "web_read", "code_search", "code_context", "code_ask", "vision", "think"];
+
+/// The hints of the built-in tools that may change something. A hint is the tool's, not an
+/// action's, so the most dangerous action decides: a tool any of whose actions writes or deletes
+/// is `destructiveHint`. `openWorldHint` is whether it reaches past this machine.
+fn built_in_hints(name: &str) -> Option<Value> {
+    let (read_only, destructive, open_world) = match name {
+        "exec" | "npx" | "uvx" => (false, true, true),
+        "fs" | "code" => (false, true, false),
+        "git" | "fetch" | "computer" | "browser" | "hanzo" => (false, true, true),
+        "memory" => (false, true, false),
+        // Only the server's own session state: a plan, a todo list, a mode.
+        "plan" | "tasks" | "mode" => (false, false, false),
+        "workspace" => (true, false, false),
+        _ => return None,
+    };
+    let mut hints = json!({ "readOnlyHint": read_only, "openWorldHint": open_world });
+    if !read_only {
+        hints["destructiveHint"] = json!(destructive);
+        hints["idempotentHint"] = json!(false);
+    }
+    Some(hints)
+}
+
+/// The name a client shows a person for a built-in tool.
+fn built_in_title(name: &str) -> Option<&'static str> {
+    Some(match name {
+        "exec" => "Run command",
+        "fs" => "Files",
+        "code" => "Code intelligence",
+        "git" => "Git",
+        "fetch" => "Fetch URL",
+        "workspace" => "Workspace info",
+        "plan" => "Plan",
+        "think" => "Think",
+        "memory" => "Memory",
+        "computer" => "Computer control",
+        "browser" => "Browser",
+        "mode" => "Mode",
+        "tasks" => "Todo list",
+        "hanzo" => "Hanzo Cloud",
+        "npx" => "Run npx package",
+        "uvx" => "Run uvx package",
+        _ => return None,
+    })
+}
 
 impl ToolRegistry {
     pub fn new() -> Self {
@@ -214,13 +267,18 @@ impl ToolRegistry {
 
     /// Execute a tool by name
     pub async fn execute(&self, name: &str, params: Value) -> Result<ToolResult> {
+        self.execute_with(name, params, &Ctx::default()).await
+    }
+
+    /// Execute a tool by name with the request's [`Ctx`]: its cancellation and its progress.
+    pub async fn execute_with(&self, name: &str, params: Value, ctx: &Ctx) -> Result<ToolResult> {
         if !self.allowed(name) {
             return Ok(ToolResult::err(&format!("Unknown tool: {}", name)));
         }
         match name {
             "exec" => {
                 let args: tools::ExecToolArgs = serde_json::from_value(params)?;
-                let result = self.exec.read().await.execute(args).await?;
+                let result = self.exec.read().await.execute_with(args, ctx).await?;
                 Ok(ToolResult::ok(serde_json::from_str(&result)?))
             }
             "fs" => {
@@ -239,7 +297,7 @@ impl ToolRegistry {
                     approve: params.get("approve").and_then(Value::as_bool),
                     ..Default::default()
                 };
-                let result = self.exec.read().await.execute(args).await?;
+                let result = self.exec.read().await.execute_with(args, ctx).await?;
                 Ok(ToolResult::ok(serde_json::from_str(&result)?))
             }
             "plan" => {
@@ -306,7 +364,7 @@ impl ToolRegistry {
             }
             _ => {
                 if let Some(tool) = self.tools.get(name) {
-                    tool.execute(params).await
+                    tool.execute_with(params, ctx).await
                 } else {
                     Ok(ToolResult::err(&format!("Unknown tool: {}", name)))
                 }
@@ -381,8 +439,16 @@ impl ToolRegistry {
 
         definitions.retain(|d| d["name"].as_str().is_some_and(|n| self.allowed(n)));
         for d in &mut definitions {
-            if d["name"].as_str().is_some_and(|n| READ_ONLY.contains(&n)) {
+            let name = d["name"].as_str().unwrap_or_default().to_string();
+            if READ_ONLY.contains(&name.as_str()) {
                 d["annotations"] = json!({ "readOnlyHint": true, "openWorldHint": true });
+            } else if let Some(hints) = built_in_hints(&name) {
+                d["annotations"] = hints;
+            }
+            // `get_mut`, not `d["annotations"]`: indexing would write `"annotations": null` into
+            // every tool without hints, and clients reject the whole list over it.
+            if let (Some(title), Some(a)) = (built_in_title(&name), d.get_mut("annotations").and_then(Value::as_object_mut)) {
+                a.insert("title".into(), json!(title));
             }
         }
         definitions
@@ -515,7 +581,43 @@ mod tests {
         }
         for t in ["exec", "fs", "git", "kai", "code_index", "memory"] {
             let d = defs.iter().find(|d| d["name"] == t).unwrap_or_else(|| panic!("{t} is not listed"));
-            assert!(d.get("annotations").is_none(), "{t} must not claim to be read-only");
+            assert_ne!(d["annotations"]["readOnlyHint"], true, "{t} must not claim to be read-only");
+        }
+        // A tool with no hints carries no annotations key at all.
+        for t in ["kai", "code_index"] {
+            let d = defs.iter().find(|d| d["name"] == t).unwrap();
+            assert!(d.get("annotations").is_none(), "{t}: {:?}", d.get("annotations"));
+        }
+    }
+
+    #[test]
+    fn annotations_are_an_object_or_absent_never_null() {
+        // The MCP SDK rejects the whole tools/list over one `"annotations": null`.
+        for d in ToolRegistry::with_defaults().get_definitions() {
+            if let Some(a) = d.get("annotations") {
+                assert!(a.is_object(), "{}: annotations is {a}", d["name"]);
+            }
+        }
+    }
+
+    #[test]
+    fn every_built_in_tool_is_titled_and_hinted() {
+        let defs = ToolRegistry::with_defaults().get_definitions();
+        let builtins = ["exec", "fs", "code", "git", "fetch", "workspace", "plan", "think", "memory",
+            "computer", "browser", "mode", "tasks", "hanzo", "npx", "uvx"];
+        for t in builtins {
+            let Some(d) = defs.iter().find(|d| d["name"] == t) else { continue };
+            let a = &d["annotations"];
+            assert!(a["title"].is_string(), "{t} has no title");
+            assert!(a["readOnlyHint"].is_boolean(), "{t} has no readOnlyHint");
+            if a["readOnlyHint"] == false {
+                assert!(a["destructiveHint"].is_boolean(), "{t} has no destructiveHint");
+            }
+        }
+        // Anything that can write or delete files, or run commands, must say it is destructive.
+        for t in ["exec", "fs", "code", "git", "memory", "npx", "uvx"] {
+            let d = defs.iter().find(|d| d["name"] == t).unwrap();
+            assert_eq!(d["annotations"]["destructiveHint"], true, "{t}");
         }
     }
 
