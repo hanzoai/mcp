@@ -39,6 +39,8 @@
    "delete_agent_targets_by_id",
    "get_agent",
    "get_agent_activity",
+   "get_agent_briefs",
+   "get_agent_briefs_by_id",
    "get_agent_builds",
    "get_agent_builds_by_org_by_project",
    "get_agent_by_ref",
@@ -49,10 +51,13 @@
    "get_agent_coding_by_session_changes",
    "get_agent_coding_by_session_tree",
    "get_agent_metrics",
+   "get_agent_proposals",
+   "get_agent_roster_templates",
    "get_agent_runs",
    "get_agent_sessions",
    "get_agent_sessions_by_id",
    "get_agent_sessions_by_id_control",
+   "get_agent_sessions_by_id_events",
    "get_agent_sessions_by_id_progress",
    "get_agent_sessions_by_id_tree",
    "get_agent_targets",
@@ -61,9 +66,16 @@
    "patch_agent_sessions_by_id",
    "patch_agent_targets_by_id",
    "post_agent",
+   "post_agent_briefs",
+   "post_agent_briefs_by_id_rerun",
    "post_agent_coding",
+   "post_agent_coding_by_session_extend",
    "post_agent_coding_by_session_merge",
+   "post_agent_coding_by_session_pull",
    "post_agent_coding_by_session_steer",
+   "post_agent_proposals_by_id_decide",
+   "post_agent_proposals_review",
+   "post_agent_roster",
    "post_agent_sessions",
    "post_agent_sessions_by_id_budget",
    "post_agent_sessions_by_id_events",
@@ -80,9 +92,12 @@
   "ops": [
    "aiChat",
    "aiDecide",
+   "aiFrameEdit",
+   "aiFrameGenerate",
    "aiLimits",
    "aiMCPTools",
    "aiModels",
+   "aiRateLimit",
    "decisionsCorrect",
    "decisionsCorrections",
    "decisionsUncorrect"
@@ -179,6 +194,8 @@
    "get_billing_credit-balance_breakdown",
    "get_billing_credits",
    "get_billing_crypto_deposit_by_id",
+   "get_billing_crypto_gateway",
+   "get_billing_crypto_gateway_by_id",
    "get_billing_crypto_options",
    "get_billing_invoices",
    "get_billing_ledger",
@@ -196,7 +213,9 @@
    "patch_billing_alerts_by_id",
    "post_billing_alerts",
    "post_billing_crypto_deposit",
+   "post_billing_crypto_gateway",
    "post_billing_mode",
+   "post_billing_paypal_order",
    "post_billing_recharge_run-all",
    "post_billing_topup",
    "post_billing_usage",
@@ -298,8 +317,8 @@
  },
  "ci": {
   "ops": [
-   "get_ci_fleet",
-   "get_ci_runs"
+   "get_ci_runs",
+   "get_ci_runs_by_owner_by_repo"
   ]
  },
  "cloudflare": {
@@ -491,6 +510,7 @@
    "get_deploy_applications_by_name_syncwindows",
    "get_deploy_clusters",
    "get_deploy_health",
+   "get_deploy_live",
    "get_deploy_projects",
    "get_deploy_session_userinfo",
    "post_deploy_applications_by_name_rollback",
@@ -522,8 +542,10 @@
    "get_email_by_id",
    "get_email_sendgrid_status",
    "get_email_ses_status",
+   "get_email_stats",
    "post_email",
-   "post_email_verify"
+   "post_email_verify",
+   "put_email_provider"
   ]
  },
  "engine": {
@@ -646,6 +668,37 @@
    "post_flow_workflows"
   ]
  },
+ "form": {
+  "ops": [
+   "create_form",
+   "create_form_theme",
+   "create_form_webhook",
+   "delete_form",
+   "delete_form_response",
+   "delete_form_theme",
+   "delete_form_webhook",
+   "export_form_responses",
+   "file_form_response",
+   "get_form",
+   "get_form_response",
+   "get_form_theme",
+   "get_form_webhook",
+   "get_public_form",
+   "import_form_responses",
+   "list_form_deliveries",
+   "list_form_responses",
+   "list_form_themes",
+   "list_form_webhooks",
+   "list_forms",
+   "redeliver_form_webhook",
+   "replace_form",
+   "replace_form_theme",
+   "replace_form_webhook",
+   "submit_form_response",
+   "summarize_form",
+   "update_form"
+  ]
+ },
  "framework": {
   "ops": [
    "delete_framework_by_doctype_by_name",
@@ -733,14 +786,18 @@
  "graph": {
   "ops": [
    "graphAnswer",
+   "graphApple",
    "graphAssert",
    "graphCommunities",
+   "graphConvo",
    "graphDerive",
    "graphDiff",
+   "graphEntity",
    "graphErase",
    "graphExtract",
    "graphIngest",
    "graphNeighbors",
+   "graphOntology",
    "graphPath",
    "graphRead",
    "graphResolve",
@@ -755,14 +812,19 @@
    "get_guide_actions",
    "get_guide_analytics",
    "get_guide_curriculum",
+   "get_guide_portfolio",
    "get_guide_profile",
    "get_guide_strategies",
    "get_guide_suggest",
+   "get_guide_ventures",
+   "get_guide_ventures_by_slug",
    "post_guide_chat",
    "post_guide_steps_by_id_done",
    "post_guide_steps_by_id_reset",
    "post_guide_steps_by_id_skip",
-   "post_guide_steps_by_id_start"
+   "post_guide_steps_by_id_start",
+   "post_guide_ventures",
+   "post_guide_ventures_by_slug_lifecycle"
   ]
  },
  "help": {
@@ -917,7 +979,11 @@
    "get_leaderboard",
    "get_leaderboard_activity",
    "get_leaderboard_beta",
+   "get_leaderboard_bounty",
+   "get_leaderboard_galaxy",
    "get_leaderboard_optin",
+   "get_leaderboard_pulse",
+   "get_leaderboard_standing",
    "put_leaderboard_optin",
    "put_leaderboard_optin_org"
   ]
@@ -993,22 +1059,39 @@
  "marketing": {
   "ops": [
    "delete_marketing_audiences_by_id",
+   "delete_marketing_broadcasts_by_id",
    "delete_marketing_calendar_by_id",
    "delete_marketing_campaigns_by_id",
+   "delete_marketing_lists_by_id",
+   "delete_marketing_lists_by_id_segments_by_sid",
+   "delete_marketing_lists_by_id_subscribers_by_sid",
    "delete_marketing_suppressions",
    "get_marketing_audiences",
    "get_marketing_audiences_by_id",
    "get_marketing_audiences_by_id_preview",
    "get_marketing_beta",
    "get_marketing_beta_invites",
+   "get_marketing_broadcasts",
+   "get_marketing_broadcasts_by_id",
+   "get_marketing_broadcasts_by_id_stats",
    "get_marketing_calendar",
    "get_marketing_calendar_by_id",
    "get_marketing_campaigns",
    "get_marketing_campaigns_by_id",
    "get_marketing_click",
+   "get_marketing_fields",
+   "get_marketing_imports",
+   "get_marketing_imports_by_id",
+   "get_marketing_lists",
+   "get_marketing_lists_by_id",
+   "get_marketing_lists_by_id_segments",
+   "get_marketing_lists_by_id_stats",
+   "get_marketing_lists_by_id_subscribers",
+   "get_marketing_lists_by_id_subscribers_by_sid",
    "get_marketing_promos",
    "get_marketing_promos_by_code_eligibility",
    "get_marketing_promos_by_code_redemption",
+   "get_marketing_sender",
    "get_marketing_sequences",
    "get_marketing_sequences_by_id",
    "get_marketing_sequences_by_id_enrollments",
@@ -1017,15 +1100,29 @@
    "get_marketing_suppressions",
    "get_marketing_suppressions_check",
    "get_marketing_unsubscribe",
+   "patch_marketing_broadcasts_by_id",
+   "patch_marketing_lists_by_id",
+   "patch_marketing_lists_by_id_subscribers_by_sid",
    "post_marketing_audiences",
    "post_marketing_beta_actions",
    "post_marketing_beta_request",
+   "post_marketing_broadcasts",
+   "post_marketing_broadcasts_by_id_cancel",
+   "post_marketing_broadcasts_by_id_send",
+   "post_marketing_broadcasts_by_id_test",
    "post_marketing_calendar",
    "post_marketing_campaigns",
    "post_marketing_campaigns_by_id_schedule",
+   "post_marketing_imports",
+   "post_marketing_imports_by_id_cancel",
+   "post_marketing_imports_by_id_start",
    "post_marketing_leads",
    "post_marketing_leads_esign",
    "post_marketing_leads_resume",
+   "post_marketing_lists",
+   "post_marketing_lists_by_id_segments",
+   "post_marketing_lists_by_id_subscribers",
+   "post_marketing_lists_by_id_subscribers_bulk",
    "post_marketing_mail",
    "post_marketing_promos_by_code_redeem",
    "post_marketing_sequences",
@@ -1039,7 +1136,10 @@
    "post_marketing_unsubscribe",
    "put_marketing_beta",
    "put_marketing_calendar_by_id",
-   "put_marketing_campaigns_by_id"
+   "put_marketing_campaigns_by_id",
+   "put_marketing_fields",
+   "put_marketing_lists_by_id_segments_by_sid",
+   "put_marketing_sender"
   ]
  },
  "marketplace": {
@@ -1064,6 +1164,7 @@
    "post_marketplace_jobs_by_id_refund",
    "post_marketplace_jobs_by_id_release",
    "post_marketplace_listings",
+   "post_marketplace_listings_by_id_verify",
    "post_marketplace_seller_payout",
    "post_marketplace_seller_payout_verify",
    "post_marketplace_uninstall"
@@ -1652,6 +1753,7 @@
    "get_provider_google_user",
    "get_provider_slack_channels",
    "get_provider_slack_messages",
+   "get_provider_whatsapp_groups",
    "post_connection_by_id_refresh",
    "post_connection_by_provider_device",
    "post_connection_by_provider_device_by_flow_poll",
@@ -1673,6 +1775,7 @@
    "post_provider_slack_reactions",
    "post_provider_slack_search",
    "post_provider_telegram_connect",
+   "post_provider_whatsapp_groups",
    "put_provider_github_repos_by_repo_pages",
    "put_provider_slack_messages"
   ]
@@ -1740,6 +1843,17 @@
    "get_registry_tags"
   ]
  },
+ "reward": {
+  "ops": [
+   "get_reward_me_posts",
+   "get_reward_rules",
+   "post_reward_me_github_badge",
+   "post_reward_me_github_check",
+   "post_reward_me_posts",
+   "post_reward_me_posts_by_id_recheck",
+   "post_reward_me_posts_scan"
+  ]
+ },
  "risk": {
   "ops": [
    "riskAdoptModel",
@@ -1756,9 +1870,11 @@
  "s3": {
   "ops": [
    "delete_s3_buckets_by_bucket",
+   "delete_s3_buckets_by_bucket_objects_by_wildcard1",
    "delete_s3_buckets_by_bucket_uploads_by_upload",
    "get_s3_buckets",
    "get_s3_buckets_by_bucket_objects",
+   "get_s3_buckets_by_bucket_objects_by_wildcard1",
    "get_s3_buckets_by_bucket_uploads_by_upload",
    "get_s3_health",
    "post_s3_buckets",
@@ -1775,6 +1891,7 @@
    "get_sandbox",
    "get_sandbox_by_id",
    "get_sandbox_by_id_ports",
+   "get_sandbox_quota",
    "lease_sandbox",
    "post_sandbox",
    "post_sandbox_by_id_exec",
@@ -1791,6 +1908,7 @@
  },
  "sbom": {
   "ops": [
+   "get_sbom_by_wildcard1",
    "get_sbom_health"
   ]
  },
@@ -1854,12 +1972,15 @@
  "space": {
   "ops": [
    "delete_space_by_space_drives_by_drive",
+   "delete_space_by_space_drives_by_drive_files_by_wildcard1",
    "get_space_by_space_drives",
    "get_space_by_space_drives_by_drive_files",
+   "get_space_by_space_drives_by_drive_files_by_wildcard1",
    "get_space_health",
    "get_space_spaces",
    "post_space_by_space_drives",
-   "post_space_spaces"
+   "post_space_spaces",
+   "put_space_by_space_drives_by_drive_files_by_wildcard1"
   ]
  },
  "standing": {
@@ -2043,6 +2164,7 @@
    "get_tool_skills",
    "get_tool_skills_authored",
    "post_tool_call",
+   "post_tool_detect",
    "post_tool_mcp_servers",
    "post_tool_plugins_build",
    "post_tool_skills",

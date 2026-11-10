@@ -113,17 +113,26 @@ Tool names and action schemas are the same in every runtime; [LLM.md](LLM.md) ha
 ### The `hanzo` Cloud Dispatcher
 
 The unified `hanzo` tool gives agents access to all 2,400+ endpoints across the Hanzo Cloud platform:
-- `resource`: Names the subsystem (e.g., `models`, `graph`, `iam`, `kms`, `billing`, `chain`, `network`).
+- `resource`: Names the subsystem (e.g., `ai`, `studio`, `models`, `graph`, `iam`, `kms`, `billing`, `chain`, `network`).
 - `action`: Names the operation. Calling with no action lists available operations.
 - `args`: Arguments passed to the operation.
 
 ```json
 {
-  "resource": "models",
-  "action": "list",
-  "args": {}
+  "resource": "ai",
+  "action": "aiFrameGenerate",
+  "args": {
+    "model": "iro",
+    "prompt": "A white canvas with a soft dot-grid, one dark rounded terminal showing a small diff, thin black contour lines flowing out of it, monochrome",
+    "headline": "Describe the change.",
+    "accent": "Dev ships it.",
+    "layout": "split-left",
+    "theme": "light"
+  }
 }
 ```
+
+Subsequent edits (`aiFrameEdit` on `/v1/frame/edits`) redesign text, swap themes (`light`, `glass`, `dark`), reposition panels (`split-left`, `split-right`, `center-stack`), or patch composable `layers` in ~15ms with zero diffusion cost when `background_b64` is supplied, or re-run background diffusion (`qwen-image-edit`, `iro`) when `edit_background: true`.
 
 ### Kai Decision Primitives & Local Acceleration
 

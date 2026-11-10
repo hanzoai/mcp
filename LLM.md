@@ -15,6 +15,8 @@ The canonical Model Context Protocol server for the Hanzo AI Cloud. Collapses a
 `tasks`, `mode`) over MCP stdio / streamable-http. TypeScript today; Rust runtime
 for latency-sensitive ops; Go runtime under `hanzoai/cloud` (HIP-0106 in flight).
 
+The `ai` subsystem in `src/tools/catalog.json` and `rust/catalog.json` includes `aiFrameGenerate` (`POST /v1/frame/generations`) and `aiFrameEdit` (`POST /v1/frame/edits`) for Hyperframe graphic composites (strictly text-free diffusion backgrounds via `iro`, `qwen-image`, `qwen-image-edit`, `z-image-turbo`, `flux-3` + composable `@hanzo/font` `Zen` and `Zen Mono` typography/terminal/card/HTML layers).
+
 ## `tracker_*` — work items, and why they are not `tasks`
 
 `tracker_boards`, `tracker_issues`, `tracker_create`, `tracker_update`
