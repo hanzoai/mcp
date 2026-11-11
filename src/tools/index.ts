@@ -132,6 +132,8 @@ export { kaiActionTool, kaiActionTools } from './kai-action.js';
 export { llmTools, llmTool } from './llm.js';
 export { browserTools, browserTool, cdpTool } from './browser.js';
 export { packageTools, npxTool, uvxTool, jqTool } from './packages.js';
+export { vaultTools, vaultTool } from './vault.js';
+export { connectorsTools, connectorsTool, CONNECTORS, COMPATIBLE_16_APPS } from './connectors.js';
 export { refactorTools } from './refactor.js';
 export { memoryTools } from './memory.js';
 export { planTools } from './plan.js';

@@ -58,6 +58,8 @@ import { tasksTool } from '../tasks.js';
 import { modeTool } from '../mode-preset.js';
 import { hanzoTool } from './hanzo.js';
 import { kaiCompactTool } from '../compact.js';
+import { vaultTool } from '../vault.js';
+import { connectorsTool } from '../connectors.js';
 
 // The canonical tool surface
 export const coreTools: Tool[] = [
@@ -85,6 +87,8 @@ export const optionalTools: Tool[] = [
   uvxTool,     // Python packages, the same
   jqTool,      // JSON through jq, no shell
   kaiCompactTool, // Typed decision context compaction
+  vaultTool,      // Sovereign credential custody (Hanzo KMS + LastPass + ZAP Auto-Login)
+  connectorsTool, // 16 compatible apps + LastPass + Hanzo Post + 15 socials (KMS API + ZAP fallback)
 ];
 
 export const allUnifiedTools: Tool[] = [
@@ -129,3 +133,5 @@ export { kaiCompactTool } from '../compact.js';
 export { llmTools, llmTool } from '../llm.js';
 export { browserTools, browserTool, cdpTool } from '../browser.js';
 export { packageTools, npxTool, uvxTool, jqTool } from '../packages.js';
+export { vaultTools, vaultTool } from '../vault.js';
+export { connectorsTools, connectorsTool, CONNECTORS, COMPATIBLE_16_APPS } from '../connectors.js';
