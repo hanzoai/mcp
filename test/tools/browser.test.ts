@@ -152,7 +152,99 @@ describe('browser over ZAP', () => {
 
   test('help, unknown actions and unknown args are answered locally', async () => {
     expect(body(await browserTool.handler({ action: 'help', topic: 'tabs' }))).toMatch(/^tabs\n {2}new_tab/);
+    expect(body(await browserTool.handler({ action: 'help', topic: 'webmcp' }))).toContain('webmcp_list');
+    expect(body(await browserTool.handler({ action: 'help', topic: 'lastpass' }))).toContain('lastpass_fill');
     expect(json(await browserTool.handler({ action: 'nope' })).error).toMatch(/^Unknown action "nope"\. Core: navigate, snapshot/);
     expect(json(await browserTool.handler({ action: 'click', args: { bogus: 1 } })).error).toMatch(/^Unknown args/);
+  });
+
+  test('routes WebMCP and LastPass actions over ZAP with exact wire parameters', async () => {
+    const listRes = json(await browserTool.handler({
+      action: 'webmcp_list',
+      tab_id: 'tab-4',
+      args: { tool: 'search_catalog', frame_id: 2 },
+    }));
+    expect(listRes).toMatchObject({
+      success: true,
+      method: 'hanzo.webmcp.list',
+      params: { tabId: '4', tool: 'search_catalog', frameId: '2' },
+    });
+
+    const callRes = json(await browserTool.handler({
+      action: 'webmcp_call',
+      tab_id: '4',
+      args: { tool: 'search_catalog', args: { q: 'sovereign' }, frame_id: 0 },
+    }));
+    expect(callRes).toMatchObject({
+      success: true,
+      method: 'hanzo.webmcp.call',
+      params: { tabId: '4', tool: 'search_catalog', args: '{"q":"sovereign"}', frameId: '0' },
+    });
+
+    const lpStatus = json(await browserTool.handler({ action: 'lastpass_status', tab_id: '9' }));
+    expect(lpStatus).toMatchObject({
+      success: true,
+      method: 'lastpass.status',
+      params: { tabId: '9' },
+    });
+
+    const lpAccounts = json(await browserTool.handler({
+      action: 'lastpass_accounts',
+      url: 'https://x.com/login',
+      args: { username: 'hanzoai', open_vault: true },
+    }));
+    expect(lpAccounts).toMatchObject({
+      success: true,
+      method: 'lastpass.accounts',
+      params: { url: 'https://x.com/login', username: 'hanzoai', openVaultIfNeeded: 'true' },
+    });
+
+    const lpIcon = json(await browserTool.handler({
+      action: 'lastpass_open_icon',
+      selector: 'input[name="text"]',
+      tab_id: '9',
+    }));
+    expect(lpIcon).toMatchObject({
+      success: true,
+      method: 'lastpass.openIcon',
+      params: { selector: 'input[name="text"]', tabId: '9' },
+    });
+
+    const lpFill = json(await browserTool.handler({
+      action: 'lastpass_fill',
+      url: 'https://x.com/login',
+      tab_id: '9',
+      args: { username: 'hanzoai', open_vault: true },
+    }));
+    expect(lpFill).toMatchObject({
+      success: true,
+      method: 'lastpass.fill',
+      params: { url: 'https://x.com/login', tabId: '9', username: 'hanzoai', openVaultIfNeeded: 'true' },
+    });
+  });
+
+  test('carries zero Playwright dependencies in package.json or src/tools/browser.ts and falls back to headless-cdp', async () => {
+    const repoRoot = process.cwd();
+    const pkg = JSON.parse(fs.readFileSync(path.join(repoRoot, 'package.json'), 'utf8'));
+    expect(pkg.dependencies?.playwright).toBeUndefined();
+    expect(pkg.dependencies?.['playwright-core']).toBeUndefined();
+    expect(pkg.optionalDependencies?.playwright).toBeUndefined();
+    expect(pkg.optionalDependencies?.['playwright-core']).toBeUndefined();
+    expect(pkg.scripts['build:lib']).not.toContain('playwright');
+    expect(pkg.scripts['build:cli']).not.toContain('playwright');
+
+    const browserSrc = fs.readFileSync(path.join(repoRoot, 'src/tools/browser.ts'), 'utf8');
+    expect(browserSrc).not.toMatch(/import\s*\(\s*['"]playwright['"]\s*\)/);
+    expect(browserSrc).not.toContain('viaPlaywright');
+    expect(browserSrc).not.toContain('(Playwright)');
+
+    const prevBackend = process.env.BROWSER_BACKEND;
+    process.env.BROWSER_BACKEND = 'cdp';
+    try {
+      const st = json(await browserTool.handler({ action: 'status' }));
+      expect(st).toMatchObject({ success: true, source: 'headless-cdp', running: false, webmcp: true });
+    } finally {
+      process.env.BROWSER_BACKEND = prevBackend;
+    }
   });
 });
