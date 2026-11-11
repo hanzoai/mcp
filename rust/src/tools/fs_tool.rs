@@ -386,17 +386,46 @@ fn patch(a: &FsToolArgs) -> Answer {
                     }
                     PatchOp::Update => {
                         let mut content = std::fs::read_to_string(&p).map_err(|_| format!("File not found: {}", p.display()))?;
-                        for h in &f.hunks {
+                        let mut applied = 0usize;
+                        for (idx, h) in f.hunks.iter().enumerate() {
                             let (old, new) = (h.old_lines.join("\n"), h.new_lines.join("\n"));
-                            if !old.is_empty() && content.contains(&old) {
-                                content = content.replacen(&old, &new, 1);
-                            } else if old.is_empty() && !new.is_empty() {
-                                content.push('\n');
-                                content.push_str(&new);
+                            if !old.is_empty() {
+                                if content.contains(&old) {
+                                    content = content.replacen(&old, &new, 1);
+                                    applied += 1;
+                                } else {
+                                    return Err(format!("Hunk {} failed: context not found in {}", idx + 1, p.display()));
+                                }
+                            } else if !new.is_empty() {
+                                let anchor = h.context.trim_start_matches('@').trim_end_matches('@').trim();
+                                let trailing_nl = content.ends_with('\n');
+                                if !anchor.is_empty() {
+                                    if let Some(pos) = content.find(anchor) {
+                                        let line_end = content[pos..].find('\n').map(|i| pos + i + 1).unwrap_or(content.len());
+                                        let ins = if line_end == content.len() && !content.ends_with('\n') {
+                                            format!("\n{}\n", new)
+                                        } else {
+                                            format!("{}\n", new)
+                                        };
+                                        content.insert_str(line_end, &ins);
+                                        applied += 1;
+                                    } else {
+                                        return Err(format!("Hunk {} failed: anchor '{}' not found in {}", idx + 1, anchor, p.display()));
+                                    }
+                                } else {
+                                    if !content.is_empty() && !content.ends_with('\n') {
+                                        content.push('\n');
+                                    }
+                                    content.push_str(&new);
+                                    if trailing_nl || !content.ends_with('\n') {
+                                        content.push('\n');
+                                    }
+                                    applied += 1;
+                                }
                             }
                         }
                         std::fs::write(&p, &content).map_err(|e| e.to_string())?;
-                        Ok(json!({ "hash": content_hash(content.as_bytes()), "hunks_applied": f.hunks.len() }))
+                        Ok(json!({ "hash": content_hash(content.as_bytes()), "hunks_applied": applied }))
                     }
                     PatchOp::Delete if !p.exists() => Ok(json!({ "message": "File already deleted" })),
                     PatchOp::Delete => std::fs::remove_file(&p).map(|_| json!({})).map_err(|e| e.to_string()),
