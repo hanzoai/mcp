@@ -85,4 +85,24 @@ mod tests {
         assert!(!serves("storage"));
         assert!(serves("platform"));
     }
+
+    #[test]
+    fn social_carries_unified_channel_and_post_operations() {
+        assert!(serves("social"));
+        let ops = actions("social");
+        for op in [
+            "get_channel",
+            "get_channel_groups",
+            "get_channel_providers",
+            "post_channel_connect",
+            "put_channel_by_id_group",
+            "get_channel_by_id_analytics",
+            "get_post",
+            "post_post",
+            "post_post_by_id_publish",
+            "get_post_by_id_analytics",
+        ] {
+            assert!(ops.contains(&op), "missing social op {op}");
+        }
+    }
 }
