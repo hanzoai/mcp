@@ -360,6 +360,52 @@ pub fn parse_patch(text: &str) -> Vec<PatchFile> {
     files
 }
 
+fn apply_update_hunks(original: &str, hunks: &[PatchHunk]) -> std::result::Result<(String, usize), String> {
+    let had_trailing_newline = original.ends_with('\n');
+    let mut content = original.to_string();
+    let mut applied = 0usize;
+
+    for (idx, h) in hunks.iter().enumerate() {
+        let (old, new) = (h.old_lines.join("\n"), h.new_lines.join("\n"));
+        if !old.is_empty() {
+            if content.contains(&old) {
+                content = content.replacen(&old, &new, 1);
+                applied += 1;
+            } else {
+                return Err(format!("Hunk {} failed to apply: context not found ({})", idx + 1, h.context));
+            }
+        } else if !new.is_empty() {
+            let anchor = h.context.strip_prefix("@@").unwrap_or(&h.context).trim();
+            if !anchor.is_empty() {
+                if let Some(pos) = content.find(anchor) {
+                    let line_end = content[pos..].find('\n').map(|i| pos + i + 1).unwrap_or(content.len());
+                    let mut insertion = String::new();
+                    if line_end == content.len() && !content.ends_with('\n') {
+                        insertion.push('\n');
+                    }
+                    insertion.push_str(&new);
+                    insertion.push('\n');
+                    content.insert_str(line_end, &insertion);
+                    applied += 1;
+                } else {
+                    return Err(format!("Hunk {} failed to apply: anchor not found ({})", idx + 1, anchor));
+                }
+            } else {
+                if !content.is_empty() && !content.ends_with('\n') {
+                    content.push('\n');
+                }
+                content.push_str(&new);
+                if had_trailing_newline && !content.ends_with('\n') {
+                    content.push('\n');
+                }
+                applied += 1;
+            }
+        }
+    }
+
+    Ok((content, applied))
+}
+
 fn patch(a: &FsToolArgs) -> Answer {
     let input = a.input.as_deref().filter(|s| !s.trim().is_empty()).ok_or_else(|| invalid("Patch input is required"))?;
     let files = parse_patch(input);
@@ -385,18 +431,10 @@ fn patch(a: &FsToolArgs) -> Answer {
                         Ok(json!({ "hash": content_hash(f.content.as_bytes()) }))
                     }
                     PatchOp::Update => {
-                        let mut content = std::fs::read_to_string(&p).map_err(|_| format!("File not found: {}", p.display()))?;
-                        for h in &f.hunks {
-                            let (old, new) = (h.old_lines.join("\n"), h.new_lines.join("\n"));
-                            if !old.is_empty() && content.contains(&old) {
-                                content = content.replacen(&old, &new, 1);
-                            } else if old.is_empty() && !new.is_empty() {
-                                content.push('\n');
-                                content.push_str(&new);
-                            }
-                        }
+                        let original = std::fs::read_to_string(&p).map_err(|_| format!("File not found: {}", p.display()))?;
+                        let (content, applied) = apply_update_hunks(&original, &f.hunks)?;
                         std::fs::write(&p, &content).map_err(|e| e.to_string())?;
-                        Ok(json!({ "hash": content_hash(content.as_bytes()), "hunks_applied": f.hunks.len() }))
+                        Ok(json!({ "hash": content_hash(content.as_bytes()), "hunks_applied": applied }))
                     }
                     PatchOp::Delete if !p.exists() => Ok(json!({ "message": "File already deleted" })),
                     PatchOp::Delete => std::fs::remove_file(&p).map(|_| json!({})).map_err(|e| e.to_string()),
@@ -586,5 +624,24 @@ mod tests {
     #[test]
     fn hash_is_sha256_hex() {
         assert_eq!(content_hash(b"hello"), "sha256:2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824");
+    }
+
+    #[test]
+    fn patch_update_rejects_unmatched_hunk_without_partial_apply() {
+        let files = parse_patch(
+            "*** Begin Patch\n*** Update File: u.txt\n@@\n-alpha\n+ALPHA\n@@\n-does-not-exist\n+X\n*** End Patch\n",
+        );
+        let res = apply_update_hunks("alpha\nbeta\ngamma\n", &files[0].hunks);
+        assert!(res.is_err());
+    }
+
+    #[test]
+    fn patch_update_honors_anchor_for_pure_insertion() {
+        let files = parse_patch(
+            "*** Begin Patch\n*** Update File: u.txt\n@@ alpha\n+inserted\n*** End Patch\n",
+        );
+        let (updated, applied) = apply_update_hunks("alpha\nbeta\ngamma\n", &files[0].hunks).unwrap();
+        assert_eq!(applied, 1);
+        assert_eq!(updated, "alpha\ninserted\nbeta\ngamma\n");
     }
 }
