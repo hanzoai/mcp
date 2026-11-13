@@ -20,6 +20,7 @@ use tokio::process::Command;
 use tokio::sync::RwLock;
 
 use super::verdict::{refusal, Classify, Verdict};
+use crate::context::Ctx;
 
 /// Auto-background timeout in seconds
 const AUTO_BACKGROUND_TIMEOUT: u64 = 45;
@@ -195,6 +196,12 @@ impl ExecTool {
     }
 
     pub async fn execute(&self, args: ExecToolArgs) -> Result<String> {
+        self.execute_with(args, &Ctx::default()).await
+    }
+
+    /// `execute` with the request's [`Ctx`]: a cancel kills the command's process group, and a
+    /// client that asked for progress hears the seconds elapsed and the last line printed.
+    pub async fn execute_with(&self, args: ExecToolArgs, ctx: &Ctx) -> Result<String> {
         let action: ProcAction = if args.action.is_empty() {
             ProcAction::Help
         } else {
@@ -202,7 +209,7 @@ impl ExecTool {
         };
 
         let result = match action {
-            ProcAction::Exec => self.exec(args).await?,
+            ProcAction::Exec => self.exec(args, ctx).await?,
             ProcAction::Wait => self.wait(args).await?,
             ProcAction::Ps => self.ps(args).await?,
             ProcAction::Kill => self.kill(args).await?,
@@ -213,7 +220,7 @@ impl ExecTool {
         Ok(serde_json::to_string(&result)?)
     }
 
-    async fn exec(&self, args: ExecToolArgs) -> Result<Value> {
+    async fn exec(&self, args: ExecToolArgs, ctx: &Ctx) -> Result<Value> {
         let command = args.command.ok_or_else(|| anyhow!("command required"))?;
 
         // Support both string and array format
@@ -272,6 +279,10 @@ impl ExecTool {
         cmd.arg("-c").arg(&cmd_str);
         cmd.stdout(Stdio::piped());
         cmd.stderr(Stdio::piped());
+        // Its own process group, so a cancel stops what the shell started (`cargo` → `rustc`),
+        // not only the shell.
+        #[cfg(unix)]
+        cmd.process_group(0);
 
         if let Some(ref dir) = cwd {
             cmd.current_dir(dir);
@@ -297,8 +308,9 @@ impl ExecTool {
             .tempfile_in(&dir)?
             .keep()?;
         let sink = Arc::new(std::sync::Mutex::new(file));
-        let out = drain(child.stdout.take(), sink.clone());
-        let err = drain(child.stderr.take(), sink);
+        let tail = ctx.wants_progress().then(|| Arc::new(std::sync::Mutex::new(String::new())));
+        let out = drain(child.stdout.take(), sink.clone(), tail.clone());
+        let err = drain(child.stderr.take(), sink, tail.clone());
 
         self.manager.register(ProcessInfo {
             proc_id: proc_id.clone(),
@@ -321,7 +333,35 @@ impl ExecTool {
             let _ = done.send((code, stdout, stderr));
         });
 
+        // A cancel before this call answers kills the group. The watcher outlives this future,
+        // since the transport drops it on a cancel; `returned` tells it the call answered, and a
+        // command backgrounded on its timeout is left running, as it always was.
+        let (returned, answered) = tokio::sync::oneshot::channel::<()>();
+        if let Some(pid) = pid {
+            let ctx = ctx.clone();
+            tokio::spawn(async move {
+                tokio::select! {
+                    biased;
+                    r = answered => if r.is_err() && ctx.is_cancelled() { kill_tree(pid) },
+                    _ = ctx.cancelled() => kill_tree(pid),
+                }
+            });
+        }
+        let _ticker = tail.map(|tail| {
+            let ctx = ctx.clone();
+            Abort(tokio::spawn(async move {
+                let mut every = tokio::time::interval(Duration::from_secs(1));
+                every.tick().await;
+                for secs in 1u64.. {
+                    every.tick().await;
+                    let line = tail.lock().map(|t| t.clone()).unwrap_or_default();
+                    ctx.progress(secs as f64, None, (!line.is_empty()).then_some(line.as_str()));
+                }
+            }))
+        });
+
         let answer = tokio::time::timeout(Duration::from_secs(timeout), exited).await;
+        let _ = returned.send(());
         if matches!(answer, Ok(Ok(_))) {
             // The caller has the output inline; only a backgrounded run keeps a log.
             let _ = std::fs::remove_file(&log);
@@ -548,8 +588,16 @@ impl ExecTool {
 /// Output a caller still waiting gets back inline; the log keeps all of it.
 const KEEP: usize = 4 << 20;
 
-/// Copy a pipe into the log as it comes, and return what fits inline.
-fn drain<R>(pipe: Option<R>, log: Arc<std::sync::Mutex<std::fs::File>>) -> tokio::task::JoinHandle<Vec<u8>>
+/// The longest line a progress notification carries, in characters.
+const PROGRESS_LINE: usize = 200;
+
+/// Copy a pipe into the log as it comes, and return what fits inline. With `tail`, the last
+/// line printed is kept there for progress notifications.
+fn drain<R>(
+    pipe: Option<R>,
+    log: Arc<std::sync::Mutex<std::fs::File>>,
+    tail: Option<Arc<std::sync::Mutex<String>>>,
+) -> tokio::task::JoinHandle<Vec<u8>>
 where
     R: tokio::io::AsyncRead + Unpin + Send + 'static,
 {
@@ -566,11 +614,57 @@ where
             if let Ok(mut f) = log.lock() {
                 let _ = f.write_all(&buf[..n]);
             }
+            if let Some(tail) = &tail {
+                if let (Some(line), Ok(mut t)) = (last_line(&buf[..n]), tail.lock()) {
+                    *t = line;
+                }
+            }
             let room = KEEP.saturating_sub(kept.len()).min(n);
             kept.extend_from_slice(&buf[..room]);
         }
         kept
     })
+}
+
+/// The last non-blank line in `chunk`, trimmed and cut to [`PROGRESS_LINE`] characters.
+fn last_line(chunk: &[u8]) -> Option<String> {
+    let text = String::from_utf8_lossy(chunk);
+    let line = text.lines().map(str::trim).filter(|l| !l.is_empty()).last()?;
+    Some(line.chars().take(PROGRESS_LINE).collect())
+}
+
+/// Aborts its task when dropped: a ticker that must not outlive the call it reports on.
+struct Abort(tokio::task::JoinHandle<()>);
+
+impl Drop for Abort {
+    fn drop(&mut self) {
+        self.0.abort();
+    }
+}
+
+/// Stop `pid` and everything it started: TERM to its process group, KILL two seconds later to
+/// whatever ignored it.
+fn kill_tree(pid: u32) {
+    #[cfg(unix)]
+    {
+        use nix::sys::signal::{killpg, Signal};
+        use nix::unistd::Pid;
+        let group = Pid::from_raw(pid as i32);
+        if killpg(group, Signal::SIGTERM).is_ok() {
+            tokio::spawn(async move {
+                tokio::time::sleep(Duration::from_secs(2)).await;
+                let _ = killpg(group, Signal::SIGKILL);
+            });
+        }
+    }
+    #[cfg(windows)]
+    {
+        let _ = std::process::Command::new("taskkill")
+            .args(["/T", "/F", "/PID", &pid.to_string()])
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn();
+    }
 }
 
 /// MCP Tool Definition
@@ -639,6 +733,143 @@ Auto-backgrounds commands after {}s."#,
 #[cfg(test)]
 mod tests {
     use super::*;
+    use tokio_util::sync::CancellationToken;
+
+    fn command(cmd: &str, timeout: Option<u64>) -> ExecToolArgs {
+        ExecToolArgs { action: "exec".into(), command: Some(json!(cmd)), timeout, ..Default::default() }
+    }
+
+    /// Whether a process whose command line holds `marker` is running.
+    #[cfg(unix)]
+    fn running(marker: &str) -> bool {
+        let out = std::process::Command::new("pgrep").args(["-f", marker]).output().unwrap();
+        !out.stdout.is_empty()
+    }
+
+    #[cfg(unix)]
+    fn reap(marker: &str) {
+        let _ = std::process::Command::new("pkill").args(["-9", "-f", marker]).status();
+    }
+
+    #[test]
+    fn last_line_is_the_last_non_blank_line_trimmed_and_cut() {
+        assert_eq!(last_line(b"one\ntwo\n").as_deref(), Some("two"));
+        assert_eq!(last_line(b"one\r\ntwo\r\n\r\n  \n").as_deref(), Some("two"));
+        assert_eq!(last_line(b"  padded  ").as_deref(), Some("padded"));
+        assert_eq!(last_line(b"\n\n   \n"), None);
+        assert_eq!(last_line(b""), None);
+        let long = "é".repeat(PROGRESS_LINE + 50);
+        let cut = last_line(long.as_bytes()).unwrap();
+        assert_eq!(cut.chars().count(), PROGRESS_LINE, "cut by characters, never inside one");
+        assert!(last_line(&[0xff, 0xfe, b'\n', b'o', b'k']).as_deref() == Some("ok"), "invalid UTF-8 does not panic");
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn a_library_caller_dropping_the_future_kills_nothing() {
+        // Dev and ffi.rs pass no Ctx: a dropped call leaves its command running, as before.
+        let marker = format!("hanzo-lib-drop-{}", std::process::id());
+        let tool = ExecTool::new();
+        let call = tool.execute(command(&format!("sleep 20; echo {marker}"), None));
+        assert!(tokio::time::timeout(Duration::from_millis(700), call).await.is_err());
+        tokio::time::sleep(Duration::from_millis(300)).await;
+        assert!(running(&marker), "a dropped library call killed its command");
+        reap(&marker);
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn a_cancel_kills_the_group_even_if_the_call_is_still_awaited() {
+        let marker = format!("hanzo-cancel-awaited-{}", std::process::id());
+        let tool = ExecTool::new();
+        let token = CancellationToken::new();
+        let ctx = Ctx::new(token.clone());
+        let started = Instant::now();
+        let canceller = tokio::spawn(async move {
+            tokio::time::sleep(Duration::from_millis(500)).await;
+            token.cancel();
+        });
+        let out: Value = serde_json::from_str(
+            &tool.execute_with(command(&format!("sh -c 'sleep 20; echo {marker}' & wait"), None), &ctx).await.unwrap(),
+        ).unwrap();
+        canceller.await.unwrap();
+        assert!(started.elapsed() < Duration::from_secs(5), "the call waited for the command: {:?}", started.elapsed());
+        assert_ne!(out["exit_code"], 0, "{out}");
+        assert!(!running(&marker), "the shell's child outlived the cancel");
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn a_command_that_ignores_term_is_killed() {
+        let marker = format!("hanzo-ignores-term-{}", std::process::id());
+        let tool = ExecTool::new();
+        let token = CancellationToken::new();
+        let ctx = Ctx::new(token.clone());
+        // A shell that ignores TERM and never ends on its own: only KILL stops it.
+        let call = tool.execute_with(command(&format!("trap '' TERM; while :; do sleep 0.2; done; echo {marker}"), None), &ctx);
+        tokio::pin!(call);
+        assert!(tokio::time::timeout(Duration::from_millis(500), &mut call).await.is_err());
+        assert!(running(&marker));
+        token.cancel();
+        tokio::time::sleep(Duration::from_millis(1000)).await;
+        assert!(running(&marker), "TERM alone stopped a shell that ignores it; the test proves nothing");
+        let done = tokio::time::timeout(Duration::from_secs(5), &mut call).await;
+        assert!(done.is_ok(), "KILL never followed TERM");
+        tokio::time::sleep(Duration::from_millis(300)).await;
+        assert!(!running(&marker), "still running after KILL");
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn a_cancel_after_backgrounding_leaves_the_command_running() {
+        let marker = format!("hanzo-bg-cancel-{}", std::process::id());
+        let tool = ExecTool::new();
+        let token = CancellationToken::new();
+        let ctx = Ctx::new(token.clone());
+        let out: Value = serde_json::from_str(
+            &tool.execute_with(command(&format!("sleep 20; echo {marker}"), Some(1)), &ctx).await.unwrap(),
+        ).unwrap();
+        assert_eq!(out["status"], "running", "{out}");
+        token.cancel();
+        tokio::time::sleep(Duration::from_millis(500)).await;
+        assert!(running(&marker), "a backgrounded command died with a late cancel");
+        reap(&marker);
+    }
+
+    #[tokio::test]
+    async fn progress_ticks_while_running_and_stops_once_answered() {
+        let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
+        let ctx = Ctx::new(CancellationToken::new()).with_progress(json!("t"), tx);
+        let long = "x".repeat(500);
+        let tool = ExecTool::new();
+        tool.execute_with(command(&format!("echo first; sleep 1.3; echo {long}; sleep 1.3"), None), &ctx).await.unwrap();
+        let mut notes = Vec::new();
+        while let Ok(line) = rx.try_recv() {
+            notes.push(serde_json::from_str::<Value>(&line).unwrap()["params"].clone());
+        }
+        assert!(notes.len() >= 2, "{notes:?}");
+        assert!(notes.iter().all(|n| n["message"].as_str().map_or(true, |m| m.chars().count() <= PROGRESS_LINE)));
+        assert!(notes.iter().any(|n| n["message"] == "first"));
+        assert!(notes.iter().any(|n| n["message"].as_str().is_some_and(|m| m.starts_with("xxx"))));
+        tokio::time::sleep(Duration::from_millis(1500)).await;
+        assert!(rx.try_recv().is_err(), "progress kept coming after the answer");
+    }
+
+    #[tokio::test]
+    async fn progress_stops_when_the_command_is_backgrounded() {
+        let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
+        let ctx = Ctx::new(CancellationToken::new()).with_progress(json!(1), tx);
+        let marker = format!("hanzo-bg-progress-{}", std::process::id());
+        let out: Value = serde_json::from_str(
+            &ExecTool::new().execute_with(command(&format!("sleep 6; echo {marker}"), Some(2)), &ctx).await.unwrap(),
+        ).unwrap();
+        assert_eq!(out["status"], "running");
+        while rx.try_recv().is_ok() {}
+        tokio::time::sleep(Duration::from_millis(1500)).await;
+        assert!(rx.try_recv().is_err(), "progress kept coming for a backgrounded command");
+        #[cfg(unix)]
+        reap(&marker);
+    }
 
     #[tokio::test]
     async fn test_exec_simple() {
