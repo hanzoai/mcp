@@ -176,6 +176,8 @@ describe('UrlHelper', () => {
   });
 
   describe('Document ID Parsing', () => {
+    const expectedFilePath = path.resolve('/workspace', 'src/file.ts');
+
     beforeEach(() => {
       urlHelper = new UrlHelper({
         workspaceRoot: '/workspace'
@@ -185,7 +187,7 @@ describe('UrlHelper', () => {
     it('should parse simple file ID', () => {
       const parsed = urlHelper.parseDocumentId('src/file.ts');
 
-      expect(parsed.filePath).toBe('/workspace/src/file.ts');
+      expect(parsed.filePath).toBe(expectedFilePath);
       expect(parsed.lineNumber).toBeUndefined();
       expect(parsed.nodeType).toBeUndefined();
     });
@@ -193,7 +195,7 @@ describe('UrlHelper', () => {
     it('should parse ID with line number', () => {
       const parsed = urlHelper.parseDocumentId('src/file.ts:42');
 
-      expect(parsed.filePath).toBe('/workspace/src/file.ts');
+      expect(parsed.filePath).toBe(expectedFilePath);
       expect(parsed.lineNumber).toBe(42);
       expect(parsed.nodeType).toBeUndefined();
     });
@@ -201,7 +203,7 @@ describe('UrlHelper', () => {
     it('should parse ID with line number and node type', () => {
       const parsed = urlHelper.parseDocumentId('src/file.ts:42:class');
 
-      expect(parsed.filePath).toBe('/workspace/src/file.ts');
+      expect(parsed.filePath).toBe(expectedFilePath);
       expect(parsed.lineNumber).toBe(42);
       expect(parsed.nodeType).toBe('class');
     });
@@ -223,7 +225,7 @@ describe('UrlHelper', () => {
       // So nodeType IS set to 'class'
       const parsed = urlHelper.parseDocumentId('src/file.ts:abc:class');
 
-      expect(parsed.filePath).toBe('/workspace/src/file.ts');
+      expect(parsed.filePath).toBe(expectedFilePath);
       expect(parsed.lineNumber).toBeUndefined();
       expect(parsed.nodeType).toBe('class');
     });
