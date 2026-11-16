@@ -5,8 +5,9 @@
 //!
 //! Every file answer carries its content hash (`sha256:<hex>`), and
 //! `apply_patch` — the one way to edit an existing file — takes that hash as
-//! its precondition, so an edit made against a stale read is refused rather
-//! than applied. `write` only creates.
+//! an optional precondition: sent, an edit made against a stale read is refused
+//! rather than applied; omitted, `old_text` must match the file exactly once,
+//! so one call edits a file without a read first. `write` only creates.
 
 use anyhow::Result;
 use base64::Engine as _;
@@ -23,7 +24,7 @@ const ACTIONS: &[(&str, &str)] = &[
     ("write", "Create new files only"),
     ("stat", "File metadata including hash"),
     ("list", "Directory listing"),
-    ("apply_patch", "Edit with base_hash precondition"),
+    ("apply_patch", "Edit: uri, old_text (must match exactly once), new_text; base_hash optional"),
     ("patch", "Apply Rust-style patch format (Rust parity)"),
     ("search_text", "Text search"),
     ("mv", "Move or rename file/directory"),
@@ -38,7 +39,9 @@ Actions:
 - write: Create new files only
 - stat: File metadata including hash
 - list: Directory listing
-- apply_patch: Edit with base_hash precondition
+- apply_patch: uri, old_text (must match exactly once), new_text. One call edits; no
+  read is needed first. base_hash is optional: pass the hash read/stat returned to
+  refuse the edit if the file changed since.
 - patch: Apply Rust-style patch format (Rust parity)
 - search_text: Text search
 - mkdir: Create directory
@@ -268,13 +271,16 @@ fn apply_patch(a: &FsToolArgs) -> Answer {
     let p = path(a.uri.as_deref())?;
     let old = a.old_text.as_deref().ok_or_else(|| invalid("old_text required"))?;
     let new = a.new_text.as_deref().ok_or_else(|| invalid("new_text required"))?;
-    let base = a.base_hash.as_deref().ok_or_else(|| invalid("base_hash required: read the file first"))?;
+    // base_hash is optional (hanzo-inc/cloud#758): requiring a read first cost a
+    // model a refused call, a read and a retry per edit. Without it, the unique
+    // match below is the guard.
+    let base = a.base_hash.as_deref().filter(|b| !b.is_empty());
     if !p.is_file() {
         return Err(Refused("NOT_FOUND", format!("File not found: {}", p.display())));
     }
     let content = std::fs::read_to_string(&p).map_err(io)?;
     let current = content_hash(content.as_bytes());
-    if current != base {
+    if let Some(base) = base.filter(|b| *b != current) {
         return Err(Refused(
             "CONFLICT",
             format!("File has changed since last read (base_hash mismatch): expected {base}, actual {current}"),
@@ -586,9 +592,9 @@ impl FsToolDefinition {
                     "depth": {"type": "integer", "description": "list: levels", "default": 1},
                     "pattern": {"type": "string", "description": "list: name glob; search_text: regex"},
                     "glob": {"type": "string", "description": "search_text: file glob"},
-                    "old_text": {"type": "string", "description": "apply_patch: the unique text to replace"},
-                    "new_text": {"type": "string", "description": "apply_patch: its replacement"},
-                    "base_hash": {"type": "string", "description": "apply_patch: the hash read returned"},
+                    "old_text": {"type": "string", "description": "apply_patch (required): the text to replace; must match the file exactly once"},
+                    "new_text": {"type": "string", "description": "apply_patch (required): its replacement"},
+                    "base_hash": {"type": "string", "description": "apply_patch (optional): the hash read/stat returned; the edit is refused if the file changed since"},
                     "input": {"type": "string", "description": "patch: *** Begin Patch … *** End Patch"},
                     "destination": {"type": "string", "description": "mv: where to"},
                     "confirm": {"type": "boolean", "description": "rm: required", "default": false}
