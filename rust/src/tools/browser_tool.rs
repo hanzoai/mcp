@@ -58,6 +58,7 @@ pub const ACTIONS: &[Op] = &[
     act("type", "core", "text [selector]: type key by key into the element, or the focused one", "type"),
     act("press", "core", "key [selector]: Enter, Tab, Escape, ArrowDown, Control+a", "press"),
     ext("read", "core", "[outline] [filter]: the page as markdown, as the signed-in user sees it", "hanzo.read"),
+    ext("inspected", "core", "the element the person last picked with the extension's Inspect tool (\"what I clicked\"): selector, HTML, styles, components, and its source file:line to edit", "hanzo.inspected"),
     ext("screenshot", "core", "[annotate] [args.full_page] [args.full_res] [args.path]: the viewport, downscaled unless full_res; annotate boxes each ref, label [N] = @eN, and returns the legend", "hanzo.screenshot"),
     ext("evaluate", "core", "code: run JavaScript in the page and return its value", "Runtime.evaluate"),
     ext("wait", "core", "selector | text [args.state=hidden] | timeout: until it shows (or goes), or for ms", "hanzo.wait"),
@@ -151,7 +152,7 @@ pub const ACTIONS: &[Op] = &[
 ];
 
 /// The extension's page engine answers these as JSON the tool unpacks.
-const ENGINE: &[&str] = &["hanzo.navigate", "hanzo.snapshot", "hanzo.read", "hanzo.act", "hanzo.wait"];
+const ENGINE: &[&str] = &["hanzo.navigate", "hanzo.snapshot", "hanzo.read", "hanzo.act", "hanzo.wait", "hanzo.inspected"];
 
 /// The parameters the schema types; everything else rides in `args`.
 const TYPED: &[&str] = &[
@@ -1823,6 +1824,9 @@ mod tests {
     fn engine_answers_unpack() {
         let tree = json!({"title": "T", "url": "U", "refs": 2, "tree": "- button [ref=e2]"}).to_string();
         assert_eq!(answer("snapshot", "hanzo.snapshot", "p", tree), Value::String("T — U (2 refs)\n- button [ref=e2]".into()));
+        let picked = answer("inspected", "hanzo.inspected", "p", r#"{"picked":true,"selector":"button.cta","source":{"at":"src/Hero.tsx:42:7","via":"react"}}"#.into());
+        assert_eq!(picked["source"]["at"], "src/Hero.tsx:42:7");
+        assert_eq!(picked["selector"], "button.cta");
         assert_eq!(answer("click", "hanzo.act", "p", "ERR:covered by #banner".into())["error"], "covered by #banner");
         assert_eq!(answer("click", "hanzo.act", "p", r#"{"clicked":true}"#.into())["clicked"], true);
     }
