@@ -60,3 +60,4 @@ bun.lockb
 
 # Local symlinks to LLM.md
 CLAUDE.md
+.aider*
