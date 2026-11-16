@@ -632,3 +632,10 @@ Verify a release with `npm view @hanzo/mcp version`, never with a green run.
   - Rust: `hanzo-mcp` v1.1.24 (`~/.cargo/bin/hanzo-mcp`, `~/.local/bin/hanzo-mcp-rs`)
   - Python: `hanzo-mcp` v0.15.16 (`~/.local/bin/hanzo-mcp` via `uv tool`)
 
+
+## fs apply_patch: base_hash is optional (2026-11-16, hanzo-inc/cloud#758)
+- Rust `fs` (`rust/src/tools/fs_tool.rs`, crate 1.1.x): `apply_patch` takes `uri`, `old_text`
+  (must match exactly once), `new_text`; `base_hash` is optional and still refuses a stale edit
+  when sent. Requiring a read first made models loop (refused call, read, retry) and burned
+  hundreds of thousands of cached tokens per edit. The schema now says which fields are required.
+- TS `src/tools/unified/fs.ts` and python-sdk `FsTool` still require `base_hash`: follow-up for parity.
