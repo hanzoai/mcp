@@ -29,6 +29,12 @@ export * from './ui/index.js';
 // Export prompts
 export { getSystemPrompt } from './prompts/system.js';
 
+// Export security guards & risky-tool simulator (HIP-1347)
+export * from './security/index.js';
+
+// Export SWE-agent ACI compact interface (HIP-1347)
+export * from './aci/index.js';
+
 // Import Tool type and tool configuration for use in function signatures
 import { Tool, listed } from './types/index.js';
 import { ToolConfig } from './tools/index.js';
