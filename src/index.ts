@@ -103,6 +103,42 @@ export type {
   SemanticEditBenchmarkReport,
 } from './semantic-edit/index.js';
 
+// Export compiler-aware SCIP + Tree-sitter code knowledge graph (HIP-1346)
+// Namespaced + explicit non-colliding re-exports to avoid SymbolKind / sha256Hex collisions.
+export * as codeGraph from './code-graph/index.js';
+export {
+  ScipSymbolRole,
+  parseScipSymbol,
+  maskCommentsAndStringsPreservingLayout,
+  CodeKnowledgeGraph,
+  createCodeGraphTools,
+  sha256Hex as codeGraphSha256Hex,
+} from './code-graph/index.js';
+export type {
+  SupportedGraphLanguage,
+  SymbolKind as CodeGraphSymbolKind,
+  OccurrenceRole,
+  SourceSpan,
+  SourceBlobIdentity,
+  ScipRelationshipInput,
+  ScipSymbolInformationInput,
+  ScipOccurrenceInput,
+  ScipDocumentInput,
+  ScipIndexInput,
+  AccessContext,
+  ParsedScipSymbol,
+  RepositoryNode,
+  PackageNode,
+  FileNode,
+  SymbolNode,
+  GraphOccurrence,
+  NavigationHit,
+  BugLocalizationHit,
+  CommitDelta,
+  ReindexStats,
+  GraphMemoryStats,
+} from './code-graph/index.js';
+
 // Import Tool type and tool configuration for use in function signatures
 import { Tool, listed } from './types/index.js';
 import { ToolConfig } from './tools/index.js';
