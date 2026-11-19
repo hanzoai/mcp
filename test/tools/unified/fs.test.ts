@@ -1,7 +1,8 @@
 /**
  * fs against python-sdk's contract (the Rust runtime's tests assert the same):
  * `uri` (or `path`), the unified envelope, `sha256:<hex>` hashes, `write` that
- * only creates, and `apply_patch` guarded by the hash a read returned.
+ * only creates, and `apply_patch` that edits in one call, guarded by a unique
+ * match and, when sent, by the hash a read returned.
  */
 
 import { describe, test, expect, beforeEach, afterEach } from '@jest/globals';
@@ -44,6 +45,39 @@ describe('fs', () => {
     const ok = await call({ action: 'apply_patch', uri: at('b.txt'), old_text: 'alpha', new_text: '$& A', base_hash: hash });
     expect(ok.data.previous_hash).toBe(hash);
     expect(fs.readFileSync(at('b.txt'), 'utf8')).toBe('$& A beta beta\n');
+  });
+
+  // hanzo-inc/cloud#758: one call edits a file. A model that sends uri, old_text and
+  // new_text without a prior read is not refused into a read-then-retry loop; the
+  // unique match is the guard, and a base_hash, when sent, is still checked.
+  test('apply_patch edits in one call without a prior read', async () => {
+    fs.writeFileSync(at('c.txt'), 'one\ntwo\nthree\n');
+    const ok = await call({ action: 'apply_patch', uri: at('c.txt'), old_text: 'two', new_text: '2' });
+    expect(ok.ok).toBe(true);
+    expect(fs.readFileSync(at('c.txt'), 'utf8')).toBe('one\n2\nthree\n');
+    expect(ok.data.previous_hash).toMatch(/^sha256:[0-9a-f]{64}$/);
+
+    // Without a hash, an ambiguous or absent match is still refused, and nothing changes.
+    fs.writeFileSync(at('c.txt'), 'x x\n');
+    expect((await call({ action: 'apply_patch', uri: at('c.txt'), old_text: 'x', new_text: 'y' })).error.code).toBe('INVALID_PARAMS');
+    expect((await call({ action: 'apply_patch', uri: at('c.txt'), old_text: 'z', new_text: 'y' })).error.code).toBe('NOT_FOUND');
+    expect(fs.readFileSync(at('c.txt'), 'utf8')).toBe('x x\n');
+  });
+
+  // A patch text sent to apply_patch is pointed at the action that takes one.
+  test('apply_patch names what it takes when sent a patch', async () => {
+    fs.writeFileSync(at('d.txt'), 'one\n');
+    const r = await call({ action: 'apply_patch', uri: at('d.txt'), input: '*** Begin Patch\n*** End Patch' });
+    expect(r.error.code).toBe('INVALID_PARAMS');
+    expect(r.error.message).toMatch(/old_text.*new_text/);
+    expect(r.error.message).toMatch(/action "patch"/);
+  });
+
+  // The schema tells the model what apply_patch takes, so it does not guess.
+  test('the schema says what apply_patch takes', () => {
+    const schema = JSON.stringify({ description: fsTool.description, inputSchema: fsTool.inputSchema });
+    expect(schema).toContain('apply_patch: uri, old_text (must match exactly once), new_text');
+    expect(schema).toMatch(/base_hash[^"]*optional/);
   });
 
   test('list walks to depth, filters and pages', async () => {

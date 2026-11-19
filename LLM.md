@@ -638,4 +638,7 @@ Verify a release with `npm view @hanzo/mcp version`, never with a green run.
   (must match exactly once), `new_text`; `base_hash` is optional and still refuses a stale edit
   when sent. Requiring a read first made models loop (refused call, read, retry) and burned
   hundreds of thousands of cached tokens per edit. The schema now says which fields are required.
-- TS `src/tools/unified/fs.ts` and python-sdk `FsTool` still require `base_hash`: follow-up for parity.
+- TS `src/tools/unified/fs.ts` (@hanzo/mcp 2.4.23) matches: base_hash optional, the same schema
+  words, and an apply_patch sent a `*** Begin Patch` text in `input` is told to use action `patch`.
+  Test: `test/tools/unified/fs.test.ts`. python-sdk `hanzo_tools.fs.FsTool` follows in hanzoai/python-sdk.
+- The Rust fix first ships in hanzo-mcp 1.1.37 (tag `rust-v1.1.37`); 1.1.36 predates it.

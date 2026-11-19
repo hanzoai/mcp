@@ -5,9 +5,11 @@
  * `{ok, data, error, meta}` envelope.
  *
  * Every file answer carries its content hash (`sha256:<hex>`), and
- * `apply_patch` — the one way to edit an existing file — takes that hash as its
- * precondition, so an edit made against a stale read is refused. `write` only
- * creates.
+ * `apply_patch` — the one way to edit an existing file — takes that hash as an
+ * optional precondition: sent, an edit made against a stale read is refused;
+ * omitted, `old_text` must match the file exactly once, so one call edits a file
+ * without a read first (hanzo-inc/cloud#758, as the Rust runtime does). `write`
+ * only creates.
  */
 
 import * as fs from 'fs/promises';
@@ -22,7 +24,7 @@ const ACTIONS: Record<string, string> = {
   write: 'Create new files only',
   stat: 'File metadata including hash',
   list: 'Directory listing',
-  apply_patch: 'Edit with base_hash precondition',
+  apply_patch: 'Edit: uri, old_text (must match exactly once), new_text; base_hash optional',
   patch: 'Apply Rust-style patch format (Rust parity)',
   search_text: 'Text search',
   mv: 'Move or rename file/directory',
@@ -130,11 +132,20 @@ async function list(a: any) {
 
 async function applyPatch(a: any) {
   const p = need(a.uri);
-  if (typeof a.old_text !== 'string' || typeof a.new_text !== 'string') throw new Refused('INVALID_PARAMS', 'old_text and new_text required');
-  if (!a.base_hash) throw new Refused('INVALID_PARAMS', 'base_hash required: read the file first');
+  if (typeof a.old_text !== 'string' || typeof a.new_text !== 'string') {
+    // A model that knows apply_patch as a patch text sends `input`: name the action
+    // that takes one, so the next call lands instead of guessing again.
+    const patchText = typeof a.input === 'string' && a.input.trim().startsWith('*** Begin Patch');
+    throw new Refused('INVALID_PARAMS', patchText
+      ? 'apply_patch takes uri, old_text and new_text; for a *** Begin Patch text use action "patch" with input'
+      : 'apply_patch takes uri, old_text (must match exactly once) and new_text');
+  }
+  // base_hash is optional (hanzo-inc/cloud#758): requiring a read first cost a model
+  // a refused call, a read and a retry per edit. Without it, the unique match below
+  // is the guard.
   const content = await fs.readFile(p, 'utf8').catch(() => { throw new Refused('NOT_FOUND', `File not found: ${p}`); });
   const current = contentHash(content);
-  if (current !== a.base_hash) {
+  if (a.base_hash && current !== a.base_hash) {
     throw new Refused('CONFLICT', `File has changed since last read (base_hash mismatch): expected ${a.base_hash}, actual ${current}`);
   }
   const count = content.split(a.old_text).length - 1;
@@ -301,7 +312,9 @@ Actions:
 - write: Create new files only
 - stat: File metadata including hash
 - list: Directory listing
-- apply_patch: Edit with base_hash precondition
+- apply_patch: uri, old_text (must match exactly once), new_text. One call edits; no
+  read is needed first. base_hash is optional: pass the hash read/stat returned to
+  refuse the edit if the file changed since.
 - patch: Apply Rust-style patch format (Rust parity)
 - search_text: Text search
 - mkdir: Create directory
@@ -321,9 +334,9 @@ patch supports Rust grammar format: *** Begin Patch / *** Update File: / @@ / -o
       depth: { type: 'number', description: 'list: levels', default: 1 },
       pattern: { type: 'string', description: 'list: name glob; search_text: regex' },
       glob: { type: 'string', description: 'search_text: file glob' },
-      old_text: { type: 'string', description: 'apply_patch: the unique text to replace' },
-      new_text: { type: 'string', description: 'apply_patch: its replacement' },
-      base_hash: { type: 'string', description: 'apply_patch: the hash read returned' },
+      old_text: { type: 'string', description: 'apply_patch (required): the text to replace; must match the file exactly once' },
+      new_text: { type: 'string', description: 'apply_patch (required): its replacement' },
+      base_hash: { type: 'string', description: 'apply_patch (optional): the hash read/stat returned; the edit is refused if the file changed since' },
       input: { type: 'string', description: 'patch: *** Begin Patch … *** End Patch' },
       destination: { type: 'string', description: 'mv: where to' },
       confirm: { type: 'boolean', description: 'rm: required', default: false },
