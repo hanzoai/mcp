@@ -1299,6 +1299,7 @@ dependencies = [
  "tempfile",
  "thiserror 1.0.69",
  "tokio",
+ "tokio-util 0.7.16",
  "toml 0.8.23",
  "tree-sitter",
  "tree-sitter-c",

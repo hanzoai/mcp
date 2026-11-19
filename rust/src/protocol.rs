@@ -39,6 +39,31 @@ pub fn negotiate_version(requested: Option<&str>) -> &'static str {
     }
 }
 
+/// What a client puts in the model's system prompt for this server: the rules a model would
+/// otherwise learn by failing a call. Sent once per session, so it stays short.
+pub const INSTRUCTIONS: &str = "\
+Hanzo MCP: local development tools plus Hanzo Cloud. Each tool takes an `action`; `action: \"help\"` lists a tool's actions.
+- Read and search with fs and code, not exec: `fs search_text` and `code search_symbol` are ranked, in process and page with `cursor`.
+- exec asks a safety classifier first. `allow` runs. `ask` is refused until you repeat the same call with `approve: true`, which shows the person the command. `deny` is final: approve never lifts it. Writing outside the project roots is `ask`.
+- A command still running after its timeout (45 s by default) keeps running in the background; read it with `exec action=logs proc_id=...`, and use wait or kill with the same proc_id.
+- Cloud tools use the person's hanzo login. To act as another identity, `hanzo service=auth action=use` changes this session only; `action=switch` changes it for every tool on the machine.";
+
+/// The answer to `initialize` in `version`. Only what is served is advertised: `resources/list`
+/// and `prompts/list` answer, but hold nothing, so neither is a capability.
+pub fn initialize_result(version: &str) -> Value {
+    serde_json::json!({
+        "protocolVersion": version,
+        "serverInfo": {
+            "name": "hanzo-mcp",
+            "version": env!("CARGO_PKG_VERSION")
+        },
+        "capabilities": {
+            "tools": {}
+        },
+        "instructions": INSTRUCTIONS
+    })
+}
+
 /// MCP Request structure
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MCPRequest {
@@ -169,5 +194,19 @@ mod tests {
         // Clients pinned to the original revision must keep working — the point
         // of negotiating is serving both, not trading one break for another.
         assert_eq!(negotiate_version(Some("2024-11-05")), "2024-11-05");
+    }
+
+    #[test]
+    fn initialize_advertises_only_what_it_serves() {
+        let r = initialize_result(PROTOCOL_VERSION);
+        assert_eq!(r["protocolVersion"], PROTOCOL_VERSION);
+        assert_eq!(r["capabilities"], serde_json::json!({ "tools": {} }));
+        assert_eq!(r["instructions"], INSTRUCTIONS);
+    }
+
+    #[test]
+    fn instructions_stay_short() {
+        // Every session pays for them: about 250 tokens at most.
+        assert!(INSTRUCTIONS.len() < 1200, "{} bytes", INSTRUCTIONS.len());
     }
 }
