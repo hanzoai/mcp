@@ -1,10 +1,10 @@
+# The optional peers (lancedb, transformers, jsautogui) are the user's to install, so this workspace does not.
+autoInstallPeers: false
+
 # Install scripts run only for packages listed here.
 allowBuilds:
   '@swc/core': true
   esbuild: true
-  jsautogui: true
-  protobufjs: true
-  sharp: true
   unrs-resolver: true
 
 # Our own scopes skip pnpm's new-release quarantine. Scope glob, not a version
