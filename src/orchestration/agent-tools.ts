@@ -259,7 +259,7 @@ export const llmRouterTool: Tool = {
         type: 'array',
         items: { type: 'string' },
         description: 'Fallback model chain',
-        default: ['claude-3-5-sonnet', 'gpt-4', 'gemini-pro', 'llama-3.2']
+        default: ['zen6', 'zen6-flash', 'llama-3.2']
       }
     },
     required: ['prompt']
