@@ -53,8 +53,8 @@ export const spawnAgentTool: Tool = {
       },
       model: {
         type: 'string',
-        description: 'Model to use (e.g., claude-3-opus, gpt-4, llama-3.2-3b)',
-        default: 'claude-3-5-sonnet-20241022'
+        description: 'Model to use (e.g., zen6, zen6-flash, llama-3.2-3b)',
+        default: 'zen6'
       },
       context: {
         type: 'string',
@@ -348,7 +348,7 @@ async function spawnAgent(args: z.infer<typeof spawnAgentSchema>) {
   
   const config: AgentConfig = {
     id: agentId,
-    model: args.model || 'claude-3-5-sonnet-20241022',
+    model: args.model || 'zen6',
     prompt: args.prompt,
     context: args.context,
     outputGoal: args.outputGoal,
