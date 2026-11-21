@@ -10,12 +10,16 @@ import { Tool } from '../types/index.js';
 let lancedb: any = null;
 let embedder: any = null;
 
+// These are optional peers: not installed with this package, loaded on first use.
+const missing = (pkg: string) =>
+  new Error(`${pkg} is not installed. Install it beside @hanzo/mcp: npm install ${pkg} (under npx, add --package=${pkg})`);
+
 async function getLanceDB() {
-  if (!lancedb) { try { lancedb = await import('@lancedb/lancedb'); } catch { throw new Error('Requires @lancedb/lancedb'); } }
+  if (!lancedb) { try { lancedb = await import('@lancedb/lancedb'); } catch { throw missing('@lancedb/lancedb'); } }
   return lancedb.default || lancedb;
 }
 async function getEmbedder() {
-  if (!embedder) { try { const { pipeline } = await import('@xenova/transformers'); embedder = await pipeline('feature-extraction', 'Xenova/all-MiniLM-L6-v2'); } catch { throw new Error('Requires @xenova/transformers'); } }
+  if (!embedder) { try { const { pipeline } = await import('@xenova/transformers'); embedder = await pipeline('feature-extraction', 'Xenova/all-MiniLM-L6-v2'); } catch { throw missing('@xenova/transformers'); } }
   return embedder;
 }
 

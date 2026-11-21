@@ -36,6 +36,9 @@ importers:
       '@jest/globals':
         specifier: ^30.3.0
         version: 30.3.0(supports-color@8.1.1)
+      '@lancedb/lancedb':
+        specifier: ^0.27.1
+        version: 0.27.1(apache-arrow@18.1.0)
       '@swc/core':
         specifier: ^1.16.1
         version: 1.16.1(@swc/helpers@0.5.19)
@@ -54,12 +57,18 @@ importers:
       '@types/node':
         specifier: ^25.5.0
         version: 25.5.0
+      '@xenova/transformers':
+        specifier: ^2.17.2
+        version: 2.17.2
       esbuild:
         specifier: ^0.28.1
         version: 0.28.1
       jest:
         specifier: ^30.3.0
         version: 30.3.0(@types/node@25.5.0)(supports-color@8.1.1)
+      jsautogui:
+        specifier: ^2.1.3
+        version: 2.1.3(supports-color@8.1.1)
       ts-jest:
         specifier: ^29.4.6
         version: 29.4.6(@babel/core@7.29.0(supports-color@8.1.1))(@jest/transform@30.3.0(supports-color@8.1.1))(@jest/types@30.5.0)(babel-jest@30.3.0(@babel/core@7.29.0(supports-color@8.1.1))(supports-color@8.1.1))(esbuild@0.28.1)(jest-util@30.3.0)(jest@30.3.0(@types/node@25.5.0)(supports-color@8.1.1))(typescript@7.0.2)
@@ -69,16 +78,6 @@ importers:
       typescript:
         specifier: 7.0.2
         version: 7.0.2
-    optionalDependencies:
-      '@lancedb/lancedb':
-        specifier: ^0.27.1
-        version: 0.27.1(apache-arrow@18.1.0)
-      '@xenova/transformers':
-        specifier: ^2.17.2
-        version: 2.17.2
-      jsautogui:
-        specifier: ^2.1.3
-        version: 2.1.3(supports-color@8.1.1)
 
 packages:
 
@@ -3010,8 +3009,7 @@ snapshots:
     dependencies:
       hono: 4.12.8
 
-  '@huggingface/jinja@0.2.2':
-    optional: true
+  '@huggingface/jinja@0.2.2': {}
 
   '@isaacs/cliui@8.0.2':
     dependencies:
@@ -3025,7 +3023,6 @@ snapshots:
   '@isaacs/fs-minipass@4.0.1':
     dependencies:
       minipass: 7.1.3
-    optional: true
 
   '@istanbuljs/load-nyc-config@1.1.0':
     dependencies:
@@ -3289,7 +3286,6 @@ snapshots:
       '@lancedb/lancedb-linux-x64-musl': 0.27.1
       '@lancedb/lancedb-win32-arm64-msvc': 0.27.1
       '@lancedb/lancedb-win32-x64-msvc': 0.27.1
-    optional: true
 
   '@modelcontextprotocol/sdk@1.27.1(supports-color@8.1.1)(zod@4.3.6)':
     dependencies:
@@ -3329,50 +3325,38 @@ snapshots:
       socks-proxy-agent: 8.0.5(supports-color@8.1.1)
     transitivePeerDependencies:
       - supports-color
-    optional: true
 
   '@npmcli/fs@4.0.0':
     dependencies:
       semver: 7.7.4
-    optional: true
 
   '@pkgjs/parseargs@0.11.0':
     optional: true
 
   '@pkgr/core@0.2.9': {}
 
-  '@protobufjs/aspromise@1.1.2':
-    optional: true
+  '@protobufjs/aspromise@1.1.2': {}
 
-  '@protobufjs/base64@1.1.2':
-    optional: true
+  '@protobufjs/base64@1.1.2': {}
 
-  '@protobufjs/codegen@2.0.4':
-    optional: true
+  '@protobufjs/codegen@2.0.4': {}
 
-  '@protobufjs/eventemitter@1.1.0':
-    optional: true
+  '@protobufjs/eventemitter@1.1.0': {}
 
   '@protobufjs/fetch@1.1.0':
     dependencies:
       '@protobufjs/aspromise': 1.1.2
       '@protobufjs/inquire': 1.1.0
-    optional: true
 
-  '@protobufjs/float@1.0.2':
-    optional: true
+  '@protobufjs/float@1.0.2': {}
 
-  '@protobufjs/inquire@1.1.0':
-    optional: true
+  '@protobufjs/inquire@1.1.0': {}
 
-  '@protobufjs/path@1.1.2':
-    optional: true
+  '@protobufjs/path@1.1.2': {}
 
-  '@protobufjs/pool@1.1.0':
-    optional: true
+  '@protobufjs/pool@1.1.0': {}
 
-  '@protobufjs/utf8@1.1.0':
-    optional: true
+  '@protobufjs/utf8@1.1.0': {}
 
   '@sinclair/typebox@0.34.48': {}
 
@@ -3444,7 +3428,6 @@ snapshots:
   '@swc/helpers@0.5.19':
     dependencies:
       tslib: 2.8.1
-    optional: true
 
   '@swc/jest@0.2.39(@swc/core@1.16.1(@swc/helpers@0.5.19))':
     dependencies:
@@ -3483,11 +3466,9 @@ snapshots:
     dependencies:
       '@babel/types': 7.29.0
 
-  '@types/command-line-args@5.2.3':
-    optional: true
+  '@types/command-line-args@5.2.3': {}
 
-  '@types/command-line-usage@5.0.4':
-    optional: true
+  '@types/command-line-usage@5.0.4': {}
 
   '@types/glob@9.0.0':
     dependencies:
@@ -3508,8 +3489,7 @@ snapshots:
       expect: 30.3.0
       pretty-format: 30.3.0
 
-  '@types/long@4.0.2':
-    optional: true
+  '@types/long@4.0.2': {}
 
   '@types/mime-types@3.0.1': {}
 
@@ -3520,7 +3500,6 @@ snapshots:
   '@types/node@20.19.37':
     dependencies:
       undici-types: 6.21.0
-    optional: true
 
   '@types/node@25.5.0':
     dependencies:
@@ -3666,18 +3645,15 @@ snapshots:
       - bare-abort-controller
       - bare-buffer
       - react-native-b4a
-    optional: true
 
-  abbrev@3.0.1:
-    optional: true
+  abbrev@3.0.1: {}
 
   accepts@2.0.0:
     dependencies:
       mime-types: 3.0.2
       negotiator: 1.0.0
 
-  agent-base@7.1.4:
-    optional: true
+  agent-base@7.1.4: {}
 
   ajv-formats@3.0.1(ajv@8.18.0):
     optionalDependencies:
@@ -3722,20 +3698,16 @@ snapshots:
       flatbuffers: 24.12.23
       json-bignum: 0.0.3
       tslib: 2.8.1
-    optional: true
 
   argparse@1.0.10:
     dependencies:
       sprintf-js: 1.0.3
 
-  array-back@3.1.0:
-    optional: true
+  array-back@3.1.0: {}
 
-  array-back@6.2.3:
-    optional: true
+  array-back@6.2.3: {}
 
-  b4a@1.8.0:
-    optional: true
+  b4a@1.8.0: {}
 
   babel-jest@30.3.0(@babel/core@7.29.0(supports-color@8.1.1))(supports-color@8.1.1):
     dependencies:
@@ -3793,8 +3765,7 @@ snapshots:
 
   balanced-match@4.0.4: {}
 
-  bare-events@2.8.2:
-    optional: true
+  bare-events@2.8.2: {}
 
   bare-fs@4.5.6:
     dependencies:
@@ -3806,15 +3777,12 @@ snapshots:
     transitivePeerDependencies:
       - bare-abort-controller
       - react-native-b4a
-    optional: true
 
-  bare-os@3.8.0:
-    optional: true
+  bare-os@3.8.0: {}
 
   bare-path@3.0.0:
     dependencies:
       bare-os: 3.8.0
-    optional: true
 
   bare-stream@2.10.0(bare-events@2.8.2):
     dependencies:
@@ -3825,15 +3793,12 @@ snapshots:
     transitivePeerDependencies:
       - bare-abort-controller
       - react-native-b4a
-    optional: true
 
   bare-url@2.4.0:
     dependencies:
       bare-path: 3.0.0
-    optional: true
 
-  base64-js@1.5.1:
-    optional: true
+  base64-js@1.5.1: {}
 
   baseline-browser-mapping@2.10.10: {}
 
@@ -3842,7 +3807,6 @@ snapshots:
       buffer: 5.7.1
       inherits: 2.0.4
       readable-stream: 3.6.2
-    optional: true
 
   body-parser@2.2.2(supports-color@8.1.1):
     dependencies:
@@ -3893,7 +3857,6 @@ snapshots:
     dependencies:
       base64-js: 1.5.1
       ieee754: 1.2.1
-    optional: true
 
   bytes@3.1.2: {}
 
@@ -3911,7 +3874,6 @@ snapshots:
       ssri: 12.0.0
       tar: 7.5.12
       unique-filename: 4.0.0
-    optional: true
 
   call-bind-apply-helpers@1.0.2:
     dependencies:
@@ -3934,7 +3896,6 @@ snapshots:
   chalk-template@0.4.0:
     dependencies:
       chalk: 4.1.2
-    optional: true
 
   chalk@4.1.2:
     dependencies:
@@ -3943,11 +3904,9 @@ snapshots:
 
   char-regex@1.0.2: {}
 
-  chownr@1.1.4:
-    optional: true
+  chownr@1.1.4: {}
 
-  chownr@3.0.0:
-    optional: true
+  chownr@3.0.0: {}
 
   ci-info@4.4.0: {}
 
@@ -3973,13 +3932,11 @@ snapshots:
     dependencies:
       color-name: 1.1.4
       simple-swizzle: 0.2.4
-    optional: true
 
   color@4.2.3:
     dependencies:
       color-convert: 2.0.1
       color-string: 1.9.1
-    optional: true
 
   command-line-args@5.2.1:
     dependencies:
@@ -3987,7 +3944,6 @@ snapshots:
       find-replace: 3.0.0
       lodash.camelcase: 4.3.0
       typical: 4.0.0
-    optional: true
 
   command-line-usage@7.0.4:
     dependencies:
@@ -3995,7 +3951,6 @@ snapshots:
       chalk-template: 0.4.0
       table-layout: 4.1.1
       typical: 7.3.0
-    optional: true
 
   commander@14.0.3: {}
 
@@ -4031,19 +3986,16 @@ snapshots:
   decompress-response@6.0.0:
     dependencies:
       mimic-response: 3.1.0
-    optional: true
 
   dedent@1.7.2: {}
 
-  deep-extend@0.6.0:
-    optional: true
+  deep-extend@0.6.0: {}
 
   deepmerge@4.3.1: {}
 
   depd@2.0.0: {}
 
-  detect-libc@2.1.2:
-    optional: true
+  detect-libc@2.1.2: {}
 
   detect-newline@3.1.0: {}
 
@@ -4075,13 +4027,10 @@ snapshots:
   end-of-stream@1.4.5:
     dependencies:
       once: 1.4.0
-    optional: true
 
-  env-paths@2.2.1:
-    optional: true
+  env-paths@2.2.1: {}
 
-  err-code@2.0.3:
-    optional: true
+  err-code@2.0.3: {}
 
   error-ex@1.3.4:
     dependencies:
@@ -4139,7 +4088,6 @@ snapshots:
       bare-events: 2.8.2
     transitivePeerDependencies:
       - bare-abort-controller
-    optional: true
 
   eventsource-parser@3.0.6: {}
 
@@ -4161,8 +4109,7 @@ snapshots:
 
   exit-x@0.2.2: {}
 
-  expand-template@2.0.3:
-    optional: true
+  expand-template@2.0.3: {}
 
   expect@30.3.0:
     dependencies:
@@ -4173,8 +4120,7 @@ snapshots:
       jest-mock: 30.3.0
       jest-util: 30.3.0
 
-  exponential-backoff@3.1.3:
-    optional: true
+  exponential-backoff@3.1.3: {}
 
   express-rate-limit@8.3.1(express@5.2.1(supports-color@8.1.1)):
     dependencies:
@@ -4216,8 +4162,7 @@ snapshots:
 
   fast-deep-equal@3.1.3: {}
 
-  fast-fifo@1.3.2:
-    optional: true
+  fast-fifo@1.3.2: {}
 
   fast-json-stable-stringify@2.1.0: {}
 
@@ -4230,7 +4175,6 @@ snapshots:
   fdir@6.5.0(picomatch@4.0.3):
     optionalDependencies:
       picomatch: 4.0.3
-    optional: true
 
   finalhandler@2.1.1(supports-color@8.1.1):
     dependencies:
@@ -4246,18 +4190,15 @@ snapshots:
   find-replace@3.0.0:
     dependencies:
       array-back: 3.1.0
-    optional: true
 
   find-up@4.1.0:
     dependencies:
       locate-path: 5.0.0
       path-exists: 4.0.0
 
-  flatbuffers@1.12.0:
-    optional: true
+  flatbuffers@1.12.0: {}
 
-  flatbuffers@24.12.23:
-    optional: true
+  flatbuffers@24.12.23: {}
 
   foreground-child@3.3.1:
     dependencies:
@@ -4268,13 +4209,11 @@ snapshots:
 
   fresh@2.0.0: {}
 
-  fs-constants@1.0.0:
-    optional: true
+  fs-constants@1.0.0: {}
 
   fs-minipass@3.0.3:
     dependencies:
       minipass: 7.1.3
-    optional: true
 
   fs.realpath@1.0.0: {}
 
@@ -4309,8 +4248,7 @@ snapshots:
 
   get-stream@6.0.1: {}
 
-  github-from-package@0.0.0:
-    optional: true
+  github-from-package@0.0.0: {}
 
   glob@10.5.0:
     dependencies:
@@ -4340,8 +4278,7 @@ snapshots:
 
   graceful-fs@4.2.11: {}
 
-  guid-typescript@1.0.9:
-    optional: true
+  guid-typescript@1.0.9: {}
 
   handlebars@4.7.8:
     dependencies:
@@ -4364,8 +4301,7 @@ snapshots:
 
   html-escaper@2.0.2: {}
 
-  http-cache-semantics@4.2.0:
-    optional: true
+  http-cache-semantics@4.2.0: {}
 
   http-errors@2.0.1:
     dependencies:
@@ -4381,7 +4317,6 @@ snapshots:
       debug: 4.4.3(supports-color@8.1.1)
     transitivePeerDependencies:
       - supports-color
-    optional: true
 
   https-proxy-agent@7.0.6(supports-color@8.1.1):
     dependencies:
@@ -4389,7 +4324,6 @@ snapshots:
       debug: 4.4.3(supports-color@8.1.1)
     transitivePeerDependencies:
       - supports-color
-    optional: true
 
   human-signals@2.1.0: {}
 
@@ -4402,8 +4336,7 @@ snapshots:
     dependencies:
       safer-buffer: 2.1.2
 
-  ieee754@1.2.1:
-    optional: true
+  ieee754@1.2.1: {}
 
   import-local@3.2.0:
     dependencies:
@@ -4419,8 +4352,7 @@ snapshots:
 
   inherits@2.0.4: {}
 
-  ini@1.3.8:
-    optional: true
+  ini@1.3.8: {}
 
   ip-address@10.1.0: {}
 
@@ -4428,8 +4360,7 @@ snapshots:
 
   is-arrayish@0.2.1: {}
 
-  is-arrayish@0.3.4:
-    optional: true
+  is-arrayish@0.3.4: {}
 
   is-fullwidth-code-point@3.0.0: {}
 
@@ -4441,8 +4372,7 @@ snapshots:
 
   isexe@2.0.0: {}
 
-  isexe@3.1.5:
-    optional: true
+  isexe@3.1.5: {}
 
   istanbul-lib-coverage@3.2.2: {}
 
@@ -4808,12 +4738,10 @@ snapshots:
       node-gyp: 11.5.0(supports-color@8.1.1)
     transitivePeerDependencies:
       - supports-color
-    optional: true
 
   jsesc@3.1.0: {}
 
-  json-bignum@0.0.3:
-    optional: true
+  json-bignum@0.0.3: {}
 
   json-parse-even-better-errors@2.3.1: {}
 
@@ -4825,8 +4753,7 @@ snapshots:
 
   jsonc-parser@3.3.1: {}
 
-  jstweening@1.0.1:
-    optional: true
+  jstweening@1.0.1: {}
 
   leven@3.1.0: {}
 
@@ -4836,13 +4763,11 @@ snapshots:
     dependencies:
       p-locate: 4.1.0
 
-  lodash.camelcase@4.3.0:
-    optional: true
+  lodash.camelcase@4.3.0: {}
 
   lodash.memoize@4.1.2: {}
 
-  long@4.0.0:
-    optional: true
+  long@4.0.0: {}
 
   lru-cache@10.4.3: {}
 
@@ -4873,7 +4798,6 @@ snapshots:
       ssri: 12.0.0
     transitivePeerDependencies:
       - supports-color
-    optional: true
 
   makeerror@1.0.12:
     dependencies:
@@ -4895,8 +4819,7 @@ snapshots:
 
   mimic-fn@2.1.0: {}
 
-  mimic-response@3.1.0:
-    optional: true
+  mimic-response@3.1.0: {}
 
   minimatch@10.2.4:
     dependencies:
@@ -4915,7 +4838,6 @@ snapshots:
   minipass-collect@2.0.1:
     dependencies:
       minipass: 7.1.3
-    optional: true
 
   minipass-fetch@4.0.1:
     dependencies:
@@ -4924,42 +4846,34 @@ snapshots:
       minizlib: 3.1.0
     optionalDependencies:
       encoding: 0.1.13
-    optional: true
 
   minipass-flush@1.0.5:
     dependencies:
       minipass: 3.3.6
-    optional: true
 
   minipass-pipeline@1.2.4:
     dependencies:
       minipass: 3.3.6
-    optional: true
 
   minipass-sized@1.0.3:
     dependencies:
       minipass: 3.3.6
-    optional: true
 
   minipass@3.3.6:
     dependencies:
       yallist: 4.0.0
-    optional: true
 
   minipass@7.1.3: {}
 
   minizlib@3.1.0:
     dependencies:
       minipass: 7.1.3
-    optional: true
 
-  mkdirp-classic@0.5.3:
-    optional: true
+  mkdirp-classic@0.5.3: {}
 
   ms@2.1.3: {}
 
-  napi-build-utils@2.0.0:
-    optional: true
+  napi-build-utils@2.0.0: {}
 
   napi-postinstall@0.3.4: {}
 
@@ -4972,10 +4886,8 @@ snapshots:
   node-abi@3.89.0:
     dependencies:
       semver: 7.7.4
-    optional: true
 
-  node-addon-api@6.1.0:
-    optional: true
+  node-addon-api@6.1.0: {}
 
   node-gyp@11.5.0(supports-color@8.1.1):
     dependencies:
@@ -4991,7 +4903,6 @@ snapshots:
       which: 5.0.0
     transitivePeerDependencies:
       - supports-color
-    optional: true
 
   node-int64@0.4.0: {}
 
@@ -5000,7 +4911,6 @@ snapshots:
   nopt@8.1.0:
     dependencies:
       abbrev: 3.0.1
-    optional: true
 
   normalize-path@3.0.0: {}
 
@@ -5027,10 +4937,8 @@ snapshots:
   onnx-proto@4.0.4:
     dependencies:
       protobufjs: 6.11.4
-    optional: true
 
-  onnxruntime-common@1.14.0:
-    optional: true
+  onnxruntime-common@1.14.0: {}
 
   onnxruntime-node@1.14.0:
     dependencies:
@@ -5045,7 +4953,6 @@ snapshots:
       onnx-proto: 4.0.4
       onnxruntime-common: 1.14.0
       platform: 1.3.6
-    optional: true
 
   p-limit@2.3.0:
     dependencies:
@@ -5059,8 +4966,7 @@ snapshots:
     dependencies:
       p-limit: 2.3.0
 
-  p-map@7.0.4:
-    optional: true
+  p-map@7.0.4: {}
 
   p-try@2.2.0: {}
 
@@ -5107,8 +5013,7 @@ snapshots:
     dependencies:
       find-up: 4.1.0
 
-  platform@1.3.6:
-    optional: true
+  platform@1.3.6: {}
 
   prebuild-install@7.1.3:
     dependencies:
@@ -5124,7 +5029,6 @@ snapshots:
       simple-get: 4.0.1
       tar-fs: 2.1.4
       tunnel-agent: 0.6.0
-    optional: true
 
   pretty-format@30.3.0:
     dependencies:
@@ -5132,14 +5036,12 @@ snapshots:
       ansi-styles: 5.2.0
       react-is: 18.3.1
 
-  proc-log@5.0.0:
-    optional: true
+  proc-log@5.0.0: {}
 
   promise-retry@2.0.1:
     dependencies:
       err-code: 2.0.3
       retry: 0.12.0
-    optional: true
 
   protobufjs@6.11.4:
     dependencies:
@@ -5156,7 +5058,6 @@ snapshots:
       '@types/long': 4.0.2
       '@types/node': 25.5.0
       long: 4.0.0
-    optional: true
 
   proxy-addr@2.0.7:
     dependencies:
@@ -5167,7 +5068,6 @@ snapshots:
     dependencies:
       end-of-stream: 1.4.5
       once: 1.4.0
-    optional: true
 
   pure-rand@7.0.1: {}
 
@@ -5190,7 +5090,6 @@ snapshots:
       ini: 1.3.8
       minimist: 1.2.8
       strip-json-comments: 2.0.1
-    optional: true
 
   react-is@18.3.1: {}
 
@@ -5199,10 +5098,8 @@ snapshots:
       inherits: 2.0.4
       string_decoder: 1.3.0
       util-deprecate: 1.0.2
-    optional: true
 
-  reflect-metadata@0.2.2:
-    optional: true
+  reflect-metadata@0.2.2: {}
 
   require-directory@2.1.1: {}
 
@@ -5214,8 +5111,7 @@ snapshots:
 
   resolve-from@5.0.0: {}
 
-  retry@0.12.0:
-    optional: true
+  retry@0.12.0: {}
 
   router@2.2.0(supports-color@8.1.1):
     dependencies:
@@ -5227,8 +5123,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  safe-buffer@5.2.1:
-    optional: true
+  safe-buffer@5.2.1: {}
 
   safer-buffer@2.1.2: {}
 
@@ -5277,7 +5172,6 @@ snapshots:
       - bare-abort-controller
       - bare-buffer
       - react-native-b4a
-    optional: true
 
   shebang-command@2.0.0:
     dependencies:
@@ -5317,25 +5211,21 @@ snapshots:
 
   signal-exit@4.1.0: {}
 
-  simple-concat@1.0.1:
-    optional: true
+  simple-concat@1.0.1: {}
 
   simple-get@4.0.1:
     dependencies:
       decompress-response: 6.0.0
       once: 1.4.0
       simple-concat: 1.0.1
-    optional: true
 
   simple-swizzle@0.2.4:
     dependencies:
       is-arrayish: 0.3.4
-    optional: true
 
   slash@3.0.0: {}
 
-  smart-buffer@4.2.0:
-    optional: true
+  smart-buffer@4.2.0: {}
 
   socks-proxy-agent@8.0.5(supports-color@8.1.1):
     dependencies:
@@ -5344,13 +5234,11 @@ snapshots:
       socks: 2.8.7
     transitivePeerDependencies:
       - supports-color
-    optional: true
 
   socks@2.8.7:
     dependencies:
       ip-address: 10.1.0
       smart-buffer: 4.2.0
-    optional: true
 
   source-map-support@0.5.13:
     dependencies:
@@ -5364,7 +5252,6 @@ snapshots:
   ssri@12.0.0:
     dependencies:
       minipass: 7.1.3
-    optional: true
 
   stack-utils@2.0.6:
     dependencies:
@@ -5380,7 +5267,6 @@ snapshots:
     transitivePeerDependencies:
       - bare-abort-controller
       - react-native-b4a
-    optional: true
 
   string-length@4.0.2:
     dependencies:
@@ -5402,7 +5288,6 @@ snapshots:
   string_decoder@1.3.0:
     dependencies:
       safe-buffer: 5.2.1
-    optional: true
 
   strip-ansi@6.0.1:
     dependencies:
@@ -5416,8 +5301,7 @@ snapshots:
 
   strip-final-newline@2.0.0: {}
 
-  strip-json-comments@2.0.1:
-    optional: true
+  strip-json-comments@2.0.1: {}
 
   strip-json-comments@3.1.1: {}
 
@@ -5437,7 +5321,6 @@ snapshots:
     dependencies:
       array-back: 6.2.3
       wordwrapjs: 5.1.1
-    optional: true
 
   tar-fs@2.1.4:
     dependencies:
@@ -5445,7 +5328,6 @@ snapshots:
       mkdirp-classic: 0.5.3
       pump: 3.0.4
       tar-stream: 2.2.0
-    optional: true
 
   tar-fs@3.1.2:
     dependencies:
@@ -5458,7 +5340,6 @@ snapshots:
       - bare-abort-controller
       - bare-buffer
       - react-native-b4a
-    optional: true
 
   tar-stream@2.2.0:
     dependencies:
@@ -5467,7 +5348,6 @@ snapshots:
       fs-constants: 1.0.0
       inherits: 2.0.4
       readable-stream: 3.6.2
-    optional: true
 
   tar-stream@3.1.8:
     dependencies:
@@ -5479,7 +5359,6 @@ snapshots:
       - bare-abort-controller
       - bare-buffer
       - react-native-b4a
-    optional: true
 
   tar@7.5.12:
     dependencies:
@@ -5488,7 +5367,6 @@ snapshots:
       minipass: 7.1.3
       minizlib: 3.1.0
       yallist: 5.0.0
-    optional: true
 
   teex@1.0.1:
     dependencies:
@@ -5496,7 +5374,6 @@ snapshots:
     transitivePeerDependencies:
       - bare-abort-controller
       - react-native-b4a
-    optional: true
 
   test-exclude@6.0.0:
     dependencies:
@@ -5509,13 +5386,11 @@ snapshots:
       b4a: 1.8.0
     transitivePeerDependencies:
       - react-native-b4a
-    optional: true
 
   tinyglobby@0.2.15:
     dependencies:
       fdir: 6.5.0(picomatch@4.0.3)
       picomatch: 4.0.3
-    optional: true
 
   tmpl@1.0.5: {}
 
@@ -5542,8 +5417,7 @@ snapshots:
       esbuild: 0.28.1
       jest-util: 30.3.0
 
-  tslib@2.8.1:
-    optional: true
+  tslib@2.8.1: {}
 
   tsx@4.23.15:
     dependencies:
@@ -5554,7 +5428,6 @@ snapshots:
   tunnel-agent@0.6.0:
     dependencies:
       safe-buffer: 5.2.1
-    optional: true
 
   type-detect@4.0.8: {}
 
@@ -5591,29 +5464,24 @@ snapshots:
       '@typescript/typescript-win32-arm64': 7.0.2
       '@typescript/typescript-win32-x64': 7.0.2
 
-  typical@4.0.0:
-    optional: true
+  typical@4.0.0: {}
 
-  typical@7.3.0:
-    optional: true
+  typical@7.3.0: {}
 
   uglify-js@3.19.3:
     optional: true
 
-  undici-types@6.21.0:
-    optional: true
+  undici-types@6.21.0: {}
 
   undici-types@7.18.2: {}
 
   unique-filename@4.0.0:
     dependencies:
       unique-slug: 5.0.0
-    optional: true
 
   unique-slug@5.0.0:
     dependencies:
       imurmurhash: 0.1.4
-    optional: true
 
   unpipe@1.0.0: {}
 
@@ -5647,8 +5515,7 @@ snapshots:
       escalade: 3.2.0
       picocolors: 1.1.1
 
-  util-deprecate@1.0.2:
-    optional: true
+  util-deprecate@1.0.2: {}
 
   v8-to-istanbul@9.3.0:
     dependencies:
@@ -5669,12 +5536,10 @@ snapshots:
   which@5.0.0:
     dependencies:
       isexe: 3.1.5
-    optional: true
 
   wordwrap@1.0.0: {}
 
-  wordwrapjs@5.1.1:
-    optional: true
+  wordwrapjs@5.1.1: {}
 
   wrap-ansi@7.0.0:
     dependencies:
@@ -5699,11 +5564,9 @@ snapshots:
 
   yallist@3.1.1: {}
 
-  yallist@4.0.0:
-    optional: true
+  yallist@4.0.0: {}
 
-  yallist@5.0.0:
-    optional: true
+  yallist@5.0.0: {}
 
   yargs-parser@21.1.1: {}
 

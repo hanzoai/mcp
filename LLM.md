@@ -447,6 +447,17 @@ catalog. Two things that list had were worse than stale — it named `paas` and
 the four mapped a caller off the surface the fleet serves. `resolve_service`
 normalises spelling and renames nothing; one thing has one name.
 
+## Calls to the cloud are tried again, and heavy tools are optional peers
+
+`src/tools/retry.ts` is the one retrying fetch for the cloud door (`cloud.ts`): a 429 waits the
+`Retry-After` (seconds or an HTTP date, at most a minute) or backs off with jitter; a 500, 502, 503, 504, a
+timeout, a reset or a refused connection is tried again; four tries; any other answer is the answer. A
+failure is tried again only for a read (`get_*`) or a write that carries a `requestId` (the cloud answers
+it once); `post_agent_coding` is given one per call, the same on every try. `@lancedb/lancedb`,
+`@xenova/transformers` and `jsautogui` are optional peers, never installed with the package and loaded on
+first use; the tool that needs one answers with the install command. An empty-cache `npx -y` start
+answered `initialize` in 52.7s with them as optional dependencies (241 packages) and 8.5s without (101).
+
 ## `browser` and `cdp` — the user's browser over ZAP
 
 The browser is reached the way Python `hanzo-mcp` reaches it: through this

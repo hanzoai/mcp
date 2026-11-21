@@ -184,8 +184,8 @@ export class AutoGUIError extends Error {
 }
 
 export class AutoGUINotAvailableError extends AutoGUIError {
-  constructor(implementation: string, cause?: Error) {
-    super(`AutoGUI implementation '${implementation}' is not available`, implementation, cause);
+  constructor(implementation: string, cause?: Error, install?: string) {
+    super(`AutoGUI implementation '${implementation}' is not available${install ? `; install it with: ${install}` : ''}`, implementation, cause);
     this.name = 'AutoGUINotAvailableError';
   }
 }
