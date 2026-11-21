@@ -33,9 +33,9 @@ export class JSAutoGUIAdapter extends BaseAutoGUIAdapter {
 
   protected async initializeImplementation(): Promise<void> {
     try {
-      // Dynamic import since jsautogui is an optional dependency. The package
-      // ships native bindings and may not be installed (it is listed under
-      // optionalDependencies in package.json). ts-jest type-checks setup files
+      // Dynamic import since jsautogui is an optional peer. The package
+      // ships native bindings and is not installed with this one (package.json
+      // lists it under peerDependenciesMeta as optional). ts-jest type-checks setup files
       // and would emit TS2307 here when jsautogui is absent or its types are
       // missing — suppress that since the runtime failure is already handled
       // by the surrounding try/catch which throws AutoGUINotAvailableError.
@@ -51,7 +51,7 @@ export class JSAutoGUIAdapter extends BaseAutoGUIAdapter {
 
       this.log(`Initialized JSAutoGUI, version: ${this.version}`);
     } catch (error: any) {
-      throw new AutoGUINotAvailableError('js', error);
+      throw new AutoGUINotAvailableError('js', error, 'npm install jsautogui (under npx, add --package=jsautogui)');
     }
   }
 

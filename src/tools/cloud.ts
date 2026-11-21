@@ -19,8 +19,13 @@
  * replaces (iam./kms./platform.) were four addresses for one API.
  */
 
+import { randomUUID } from 'node:crypto';
 import { Tool, ToolResult } from '../types/index.js';
 import catalog from './catalog.json';
+import { send } from './retry.js';
+
+/** The catalog operation that starts a coding run: POST /v1/agent/coding. */
+const STARTS_A_RUN = 'post_agent_coding';
 
 const ENDPOINT = process.env.HANZO_API_URL || process.env.API_URL || 'https://api.hanzo.ai';
 
@@ -48,17 +53,21 @@ let seq = 0;
  * fleet declining, and it is reported with its own message rather than as a
  * generic failure, because a model reads that message to decide what to do next.
  */
-async function call(method: string, params: unknown): Promise<ToolResult> {
+async function call(method: string, params: unknown, repeat = false): Promise<ToolResult> {
   const key = token();
   if (!key) return refuse('HANZO_API_KEY required');
 
   let res: Response;
   try {
-    res = await fetch(`${ENDPOINT}/v1/mcp`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
-      body: JSON.stringify({ jsonrpc: '2.0', id: ++seq, method, params }),
-    });
+    res = await send(
+      `${ENDPOINT}/v1/mcp`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
+        body: JSON.stringify({ jsonrpc: '2.0', id: ++seq, method, params }),
+      },
+      repeat,
+    );
   } catch (e) {
     return refuse(`${ENDPOINT} unreachable: ${(e as Error).message}`);
   }
@@ -99,7 +108,14 @@ function subsystem(name: string, ops: string[]): Tool {
       },
       required: ['op'],
     },
-    handler: (args: any) => call('tools/call', { name, arguments: { op: args?.op, input: args?.input ?? {} } }),
+    handler: (args: any) => {
+      // The write that starts a run names it with a request id, so a try made again answers the run
+      // the first started and never starts a second.
+      const input = { ...args?.input };
+      if (args?.op === STARTS_A_RUN) input.requestId ||= randomUUID();
+      const repeat = String(args?.op).startsWith('get_') || typeof input.requestId === 'string';
+      return call('tools/call', { name, arguments: { op: args?.op, input } }, repeat);
+    },
   };
 }
 
@@ -124,7 +140,7 @@ const describeTool: Tool = {
     required: ['subsystem', 'op'],
   },
   handler: (args: any) =>
-    call('tools/call', { name: 'describe', arguments: { subsystem: args?.subsystem, op: args?.op } }),
+    call('tools/call', { name: 'describe', arguments: { subsystem: args?.subsystem, op: args?.op } }, true),
 };
 
 export const cloudTools: Tool[] = [

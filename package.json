@@ -1,6 +1,6 @@
 {
   "name": "@hanzo/mcp",
-  "version": "2.4.23",
+  "version": "2.4.24",
   "packageManager": "pnpm@11.17.0",
   "description": "Hanzo MCP Server - Unified tool surface with AI, cloud control, vector search, and multi-framework UI",
   "main": "dist/index.js",
@@ -47,10 +47,21 @@
     "zod": "^4.3.6",
     "zod-to-json-schema": "^3.25.1"
   },
-  "optionalDependencies": {
+  "peerDependencies": {
     "@lancedb/lancedb": "^0.27.1",
     "@xenova/transformers": "^2.17.2",
     "jsautogui": "^2.1.3"
+  },
+  "peerDependenciesMeta": {
+    "@lancedb/lancedb": {
+      "optional": true
+    },
+    "@xenova/transformers": {
+      "optional": true
+    },
+    "jsautogui": {
+      "optional": true
+    }
   },
   "devDependencies": {
     "@jest/globals": "^30.3.0",
