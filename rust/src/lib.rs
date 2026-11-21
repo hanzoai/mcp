@@ -413,6 +413,7 @@ impl ToolRegistry {
         registry.register(Box::new(tools::TrackerIssuesTool::new()));
         registry.register(Box::new(tools::TrackerCreateTool::new()));
         registry.register(Box::new(tools::TrackerUpdateTool::new()));
+        registry.register(Box::new(tools::CodingTool::new()));
 
         // Ported tool surface (HIP-0300 parity with python-sdk): config, llm, ui,
         // agent, lsp, refactor, system — all dyn-trait tools via the MCPTool seam.

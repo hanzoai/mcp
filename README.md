@@ -81,6 +81,7 @@ Running `serve` with default flags registers the complete action-routed tool cat
 | **optional** | `think`, `memory`, `hanzo`, `plan`, `tasks`, `mode`, `gimp` | CoT scratchpads, semantic memory, Hanzo Cloud resource dispatch, task coordination, canvas. |
 | **code intelligence** | `code_search`, `code_context`, `code_ask`, `code_index` | Dense vector code search, symbol index lookup, context graph resolution. |
 | **tracker** | `tracker_boards`, `tracker_issues`, `tracker_create`, `tracker_update` | Visible engineering work items and live session status tracking on `hanzo.app`. |
+| **coding** | `coding` (`start`, `progress`, `changes`, `artifacts`, `tree`, `blob`, `steer`, `merge`, `stop`) | Autonomous coding runs: a repo and a task in, a pushed branch out; a pull request when the work is ready (Rust runtime). |
 | **kai (governance)** | `kai_decide`, `kai_choice`, `kai_score`, `kai_noul`, `kai_tool_select`, `kai_next_action`, `kai_command_guard`, `kai_injection_screen`, `kai_extract`, `kai_log_triage`, `kai_recover`, `kai_agent_step` | Typed policy evaluation, behavioral consistency benchmarking, command guards, failure recovery. |
 
 ### The `hanzo` Cloud Dispatcher
@@ -155,7 +156,7 @@ Hanzo AI is co-led by Co-CEOs **Antje Worring** and **Zach Kelling**.
 
 - **Antje Worring**: Co-CEO ([LinkedIn](https://www.linkedin.com/in/antje-worring/) · [GitHub: zooqueen](https://github.com/zooqueen)) — corporate leadership, operations, ecosystem partnerships, and strategic execution.
 - **Zach Kelling**: Co-CEO & Founding CTO ([LinkedIn](https://www.linkedin.com/in/zeekay/) · [GitHub: zeekay](https://github.com/zeekay)) — foundational architecture, engineering, systems, and open-source models.
-- **Corporate Address**: 995 Market St, San Francisco, CA 94103
+- **Corporate Address**: 1 Ferry Building, San Francisco, CA 94105
 - **Inquiries**: [dev@hanzo.ai](mailto:dev@hanzo.ai) · [support@hanzo.ai](mailto:support@hanzo.ai)
 
 ---
