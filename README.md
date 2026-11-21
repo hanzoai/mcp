@@ -2,6 +2,8 @@
 
 # Hanzo MCP
 
+[![Open in Hanzo](https://hanzo.app/badges/open-in-hanzo.svg)](https://hanzo.app/dev/open?repo=github.com/hanzoai/mcp&ref=main&action=open) [![Edit with Hanzo](https://hanzo.app/badges/edit-with-hanzo.svg)](https://hanzo.app/dev/open?repo=github.com/hanzoai/mcp&ref=main&action=edit) [![Deploy with Hanzo](https://hanzo.app/badges/deploy-with-hanzo.svg)](https://hanzo.app/dev/open?repo=github.com/hanzoai/mcp&ref=main&action=deploy)
+
 [![npm](https://img.shields.io/npm/v/hanzo?color=blue&label=hanzo)](https://www.npmjs.com/package/hanzo)
 [![Protocol](https://img.shields.io/badge/MCP%20Protocol-2025--06--18-purple.svg)](https://modelcontextprotocol.io)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
