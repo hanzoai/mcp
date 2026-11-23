@@ -22,18 +22,21 @@
 import { randomUUID } from 'node:crypto';
 import { Tool, ToolResult } from '../types/index.js';
 import catalog from './catalog.json';
+import { resolveHanzoApiBase, resolveHanzoToken } from './hanzo-auth.js';
 import { send } from './retry.js';
 
 /** The catalog operation that starts a coding run: POST /v1/agent/coding. */
 const STARTS_A_RUN = 'post_agent_coding';
 
-const ENDPOINT = process.env.HANZO_API_URL || process.env.API_URL || 'https://api.hanzo.ai';
+function endpoint(): string {
+  return resolveHanzoApiBase();
+}
 
 type Entry = { ops: string[] };
 const fleet = catalog as Record<string, Entry>;
 
 function token(): string {
-  return process.env.HANZO_API_KEY || process.env.API_KEY || process.env.API_TOKEN || process.env.HANZO_TOKEN || '';
+  return resolveHanzoToken();
 }
 
 function text(body: string): ToolResult {
@@ -57,19 +60,22 @@ async function call(method: string, params: unknown, repeat = false): Promise<To
   const key = token();
   if (!key) return refuse('HANZO_API_KEY required');
 
+  const base = endpoint();
   let res: Response;
   try {
+    const headers: Record<string, string> = { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` };
+    if (process.env.HANZO_ORG?.trim()) headers['X-Org-Id'] = process.env.HANZO_ORG.trim();
     res = await send(
-      `${ENDPOINT}/v1/mcp`,
+      `${base}/v1/mcp`,
       {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
+        headers,
         body: JSON.stringify({ jsonrpc: '2.0', id: ++seq, method, params }),
       },
       repeat,
     );
   } catch (e) {
-    return refuse(`${ENDPOINT} unreachable: ${(e as Error).message}`);
+    return refuse(`${base} unreachable: ${(e as Error).message}`);
   }
 
   const raw = await res.text();

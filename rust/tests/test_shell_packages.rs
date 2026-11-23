@@ -16,10 +16,22 @@ async fn npx_runs_its_argv_through_exec() {
     let r = call("npx", json!({"package": "--version", "yes": false, "approve": true})).await;
     assert_eq!(r.content["status"], "success", "{:?}", r.content);
     assert!(r.content["stdout"].as_str().unwrap().trim().chars().next().unwrap().is_ascii_digit());
+
+    // Canonical surface absorbs npx/uvx into exec and jq into code.
+    let via_exec = call("exec", json!({"action": "npx", "package": "--version", "yes": false, "approve": true})).await;
+    assert_eq!(via_exec.content["status"], "success");
+
     let defs = ToolRegistry::with_defaults().get_definitions();
     for t in ["npx", "uvx", "jq"] {
-        assert!(defs.iter().any(|d| d["name"] == t), "{t} is offered");
+        assert!(defs.iter().all(|d| d["name"] != t), "{t} must be hidden from tools/list");
     }
+    let exec_def = defs.iter().find(|d| d["name"] == "exec").unwrap();
+    let exec_actions = exec_def["inputSchema"]["properties"]["action"]["enum"].as_array().unwrap();
+    assert!(exec_actions.contains(&json!("npx")) && exec_actions.contains(&json!("uvx")));
+
+    let code_def = defs.iter().find(|d| d["name"] == "code").unwrap();
+    let code_actions = code_def["inputSchema"]["properties"]["action"]["enum"].as_array().unwrap();
+    assert!(code_actions.contains(&json!("jq")));
 }
 
 #[tokio::test]

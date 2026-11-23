@@ -11,6 +11,9 @@ import { exec } from 'child_process';
 import { promisify } from 'util';
 import { glob } from 'glob';
 import { Tool } from '../../types/index.js';
+import { codeAskTool, codeContextTool, codeIndexTool, codeSearchTool } from '../code-intel.js';
+import { jqTool } from '../packages.js';
+import { refactorTool } from '../refactor.js';
 
 const execAsync = promisify(exec);
 
@@ -27,11 +30,13 @@ const IMPORT_RE = /^(?:import|from|require|use)\b.*/gm;
 
 export const codeTool: Tool = {
   name: 'code',
-  description: 'Semantic code operations: parse, serialize, symbols, outline, definition, search_symbol, references, summarize, metrics, exports, types, hierarchy, rename, grep_replace, transform',
+  description: 'Unified code intelligence: AST symbols (parse, serialize, symbols, outline, definition, search_symbol, references, summarize, metrics, exports, types, hierarchy, rename, grep_replace, transform), LSP (diagnostics, lsp), refactoring (refactor), JSON queries (jq), and Cloud RAG (search/rag_search, context/rag_context, ask/rag_ask, index/rag_index)',
   inputSchema: {
     type: 'object',
     properties: {
-      action: { type: 'string', enum: ['parse', 'serialize', 'symbols', 'outline', 'definition', 'search_symbol', 'references', 'summarize', 'metrics', 'exports', 'types', 'hierarchy', 'rename', 'grep_replace', 'transform'], description: 'Code action' },
+      action: { type: 'string', enum: ['parse', 'serialize', 'symbols', 'outline', 'definition', 'diagnostics', 'search_symbol', 'references', 'summarize', 'metrics', 'exports', 'types', 'hierarchy', 'rename', 'grep_replace', 'transform', 'lsp', 'refactor', 'jq', 'search', 'rag_search', 'context', 'rag_context', 'ask', 'rag_ask', 'index', 'rag_index'], description: 'Code action' },
+      repo: { type: 'string', description: 'Cloud repository slug (LSP / Cloud RAG)' },
+      filter: { type: 'string', description: 'jq filter expression (action=jq)' },
       query: { type: 'string', description: 'Symbol name or search query' },
       uri: { type: 'string', description: 'File or directory path' },
       path: { type: 'string', description: 'File path (alias for uri)' },
@@ -52,6 +57,73 @@ export const codeTool: Tool = {
       const uri = args.uri || args.path || '.';
 
       switch (args.action) {
+        case 'jq':
+          return jqTool.handler(args);
+
+        case 'refactor':
+          return refactorTool.handler({ ...args, action: args.refactor_action || args.sub_action || 'references' });
+
+        case 'rag_search':
+          return codeSearchTool.handler({ ...args, q: args.q || args.query });
+
+        case 'search':
+          if (args.repo || args.cloud === true) {
+            return codeSearchTool.handler({ ...args, q: args.q || args.query });
+          }
+          return codeTool.handler({ ...args, action: 'search_symbol' });
+
+        case 'context':
+        case 'rag_context':
+          return codeContextTool.handler(args);
+
+        case 'ask':
+        case 'rag_ask':
+          return codeAskTool.handler({ ...args, q: args.q || args.query });
+
+        case 'index':
+        case 'rag_index':
+          return codeIndexTool.handler(args);
+
+        case 'diagnostics':
+        case 'lsp': {
+          const lspOp = args.action === 'diagnostics' ? 'diagnostics' : String(args.lsp_action || args.sub_action || 'symbols');
+          if (args.repo) {
+            const base = (process.env.HANZO_API_BASE || process.env.HANZO_API_URL || process.env.API_URL || 'https://api.hanzo.ai').replace(/\/+$/, '').replace(/\/v1$/, '');
+            const tok = process.env.HANZO_API_KEY || process.env.HANZO_USER_KEY || process.env.API_KEY || '';
+            if (!tok) return fail('NO_API_KEY', 'HANZO_API_KEY required for cloud LSP');
+            const routeMap: Record<string, [string, string?]> = {
+              definition: ['/v1/code/lsp/locate', 'definition'],
+              references: ['/v1/code/lsp/locate', 'reference'],
+              type: ['/v1/code/lsp/locate', 'type'],
+              implementation: ['/v1/code/lsp/locate', 'implementation'],
+              hover: ['/v1/code/lsp/hover'],
+              symbols: ['/v1/code/lsp/symbols'],
+              diagnostics: ['/v1/code/lsp/diagnostics'],
+              completion: ['/v1/code/lsp/complete'],
+            };
+            const [endpoint, relation] = routeMap[lspOp] || ['/v1/code/lsp/symbols'];
+            const r = await fetch(`${base}${endpoint}`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tok}` },
+              body: JSON.stringify({
+                repo: args.repo,
+                rev: args.rev,
+                path: args.file || args.path || args.uri,
+                line: Math.max(0, Number(args.line ?? 1) - 1),
+                character: Number(args.character ?? 0),
+                ...(relation ? { relation } : {}),
+              }),
+            });
+            const txt = await r.text();
+            if (!r.ok) return fail('UPSTREAM', `${r.status}: ${txt.slice(0, 200)}`);
+            return envelope(txt ? JSON.parse(txt) : {}, args.action);
+          }
+          if (lspOp === 'diagnostics') {
+            return envelope({ uri, diagnostics: [] }, 'diagnostics');
+          }
+          return codeTool.handler({ ...args, action: lspOp === 'references' ? 'references' : lspOp === 'definition' ? 'definition' : 'symbols' });
+        }
+
         case 'search_symbol': {
           if (!args.query) return fail('INVALID_PARAMS', 'query required');
           const filePattern = args.pattern || '**/*.{ts,js,py,rs,go,java,c,cpp,h}';

@@ -1,37 +1,50 @@
 /**
- * HIP-0300: Unified MCP Tools Architecture
+ * HIP-0300: Canonical 19-Tool MCP Surface ("One and One Way to Do Everything")
  *
- * 8 core tools + optional tools. One canonical way to do everything.
- *
- * Core:    fs, exec, code, git, fetch, workspace, ui
- * Optional: think, llm, memory, hanzo, plan, tasks, mode
+ * Exact same 19 orthogonal tools across Rust (`hanzo-mcp`), TypeScript (`@hanzo/mcp`),
+ * and Python (`hanzo-mcp`):
+ *   fs, exec, code, git, fetch, workspace, browser, computer, ui,
+ *   kai, think, plan, memory, tasks, tracker, coding, research, skills, hanzo
  */
 
 import { Tool } from '../../types/index.js';
 
-// Core HIP-0300 tools
+// Core HIP-0300 local tools
 import { fsTool } from './fs.js';
 import { execTool } from './exec.js';
 import { codeTool } from './code.js';
+import { gitTool } from '../git.js';
 import { fetchTool } from './fetch.js';
 import { workspaceTool } from './workspace.js';
+import { browserTool, cdpTool } from '../browser.js';
+import { computerTool } from '../computer.js';
+import { unifiedUITool } from '../unified-ui.js';
 
-// VCS — already a single action-routed tool
-import { gitTool } from '../git.js';
+// Canonical reasoning, planning, memory & cloud domain tools
+import { kaiActionTool } from '../kai-action.js';
+import { thinkTool } from '../think.js';
+import { planTool } from '../plan.js';
+import { memoryTool } from '../memory.js';
+import { tasksTool } from '../tasks.js';
+import { trackerTool, trackerTools } from '../tracker.js';
+import { codingTool } from '../coding.js';
+import { researchTool } from '../research.js';
+import { skillsTool } from '../skills.js';
+import { hanzoTool } from './hanzo.js';
 
-// GIMP — clean-room BSD-3 bridge, action-routed
+// Absorbed tools kept as silent `tools/call` aliases & library exports (never advertised in `tools/list`)
 import { gimpTool } from '../gimp.js';
-
-// Code intelligence — Hanzo /v1/code/* surface (search, context, ask, index)
 import { codeIntelTools } from '../code-intel.js';
-// Work items — Hanzo /v1/tracker (the ONE work-item primitive; boards, issues)
-import { trackerTools } from '../tracker.js';
-// Decisions — Kai on Hanzo /v1/decisions (choice, score, noul, and 8 purpose-built tools)
 import {
   kaiTools,
   kaiAgentTools,
   kaiPurposeBuiltTools,
   kai8Tools,
+  kaiDecideTool,
+  kaiChoiceTool,
+  kaiScoreTool,
+  kaiNoulTool,
+  kaiAgentStepTool,
   kaiToolSelectTool,
   kaiNextActionTool,
   kaiCommandGuardTool,
@@ -41,66 +54,159 @@ import {
   kaiRecoverTool,
 } from '../kai.js';
 import { kaiActionTools } from '../kai-action.js';
-// The user's browser through the Hanzo extension, over the ZAP router
-import { browserTool, cdpTool } from '../browser.js';
-// Package runners and JSON, as python-sdk's shell tools
 import { npxTool, uvxTool, jqTool } from '../packages.js';
-
-// UI — already unified
-import { unifiedUITool } from '../unified-ui.js';
-
-// Optional tools
-import { thinkTool } from '../think.js';
 import { llmTool } from '../llm.js';
-import { memoryTool } from '../memory.js';
-import { planTool } from '../plan.js';
-import { tasksTool } from '../tasks.js';
 import { modeTool } from '../mode-preset.js';
-import { hanzoTool } from './hanzo.js';
 import { kaiCompactTool } from '../compact.js';
 import { vaultTool } from '../vault.js';
 import { connectorsTool } from '../connectors.js';
+import { refactorTool } from '../refactor.js';
+import { researchPlaneTools } from '../research-plane.js';
 
-// The canonical tool surface
+export const CANONICAL_TOOL_NAMES = [
+  'fs',
+  'exec',
+  'code',
+  'git',
+  'fetch',
+  'workspace',
+  'browser',
+  'computer',
+  'ui',
+  'kai',
+  'think',
+  'plan',
+  'memory',
+  'tasks',
+  'tracker',
+  'coding',
+  'research',
+  'skills',
+  'hanzo',
+] as const;
+
+// Core local group (`--core-only`)
 export const coreTools: Tool[] = [
-  fsTool,           // Bytes + Paths
-  execTool,         // Execution
-  codeTool,         // Symbols + Semantics
-  gitTool,          // Diffs + History
-  fetchTool,        // HTTP/API
-  workspaceTool,    // Project Context
-  unifiedUITool,    // UI Components
+  fsTool,
+  execTool,
+  codeTool,
+  gitTool,
+  fetchTool,
+  workspaceTool,
+  unifiedUITool,
 ];
 
+// Extended canonical domain tools
 export const optionalTools: Tool[] = [
-  thinkTool,   // Structured reasoning
-  llmTool,     // Models through Hanzo: completions routed by Enso, the catalog, feedback
-  memoryTool,  // Persistent storage
-  hanzoTool,   // Hanzo Cloud: every fleet subsystem, by resource and action
-  planTool,    // Task planning
-  tasksTool,   // Task tracking
-  modeTool,    // Developer modes
-  gimpTool,    // GIMP automation (clean-room BSD-3 PDB bridge)
-  browserTool, // The user's browser via the extension (Playwright fallback)
-  cdpTool,     // Raw CDP methods to the same browser
-  npxTool,     // Node packages, auto-backgrounded after 2 minutes
-  uvxTool,     // Python packages, the same
-  jqTool,      // JSON through jq, no shell
-  kaiCompactTool, // Typed decision context compaction
-  vaultTool,      // Sovereign credential custody (Hanzo KMS + LastPass + ZAP Auto-Login)
-  connectorsTool, // 16 compatible apps + LastPass + Hanzo Post + 15 socials (KMS API + ZAP fallback)
+  browserTool,
+  computerTool,
+  kaiActionTool,
+  thinkTool,
+  planTool,
+  memoryTool,
+  tasksTool,
+  trackerTool,
+  codingTool,
+  researchTool,
+  skillsTool,
+  hanzoTool,
 ];
 
+// The exact 19-tool canonical surface, ordered identically to Rust CANONICAL_TOOLS
 export const allUnifiedTools: Tool[] = [
-  ...coreTools,
-  ...optionalTools,
-  ...codeIntelTools,       // code_search, code_context, code_ask, code_index
-  ...trackerTools,         // tracker_boards, tracker_issues, tracker_create, tracker_update
-  ...kaiTools,             // kai_decide, kai_choice, kai_score, kai_noul
-  ...kaiActionTools,       // kai: Kai Actions (run, plan, list, triggers); the executor is the Rust runtime's
-  ...kaiPurposeBuiltTools, // kai_tool_select, kai_next_action, kai_command_guard, kai_injection_screen, kai_extract, kai_log_triage, kai_recover
-  ...kaiAgentTools,        // kai_agent_step
+  fsTool,
+  execTool,
+  codeTool,
+  gitTool,
+  fetchTool,
+  workspaceTool,
+  browserTool,
+  computerTool,
+  unifiedUITool,
+  kaiActionTool,
+  thinkTool,
+  planTool,
+  memoryTool,
+  tasksTool,
+  trackerTool,
+  codingTool,
+  researchTool,
+  skillsTool,
+  hanzoTool,
 ];
+
+// Silent `tools/call` dispatch aliases for backward compatibility (hidden from `tools/list`)
+const webSearchAlias: Tool = {
+  name: 'web_search',
+  description: 'Silent alias -> fetch(action="search")',
+  inputSchema: { type: 'object', properties: { query: { type: 'string' }, q: { type: 'string' } } },
+  handler: (args: any) => fetchTool.handler({ ...args, action: 'search', query: args?.query ?? args?.q }),
+};
+const webReadAlias: Tool = {
+  name: 'web_read',
+  description: 'Silent alias -> fetch(action="read")',
+  inputSchema: { type: 'object', properties: { url: { type: 'string' } } },
+  handler: (args: any) => fetchTool.handler({ ...args, action: 'read' }),
+};
+const visionAlias: Tool = {
+  name: 'vision',
+  description: 'Silent alias -> fetch(action="vision")',
+  inputSchema: { type: 'object', properties: { image: { type: 'string' }, prompt: { type: 'string' } } },
+  handler: (args: any) => fetchTool.handler({ ...args, action: 'vision' }),
+};
+const agentAlias: Tool = {
+  name: 'agent',
+  description: 'Silent alias -> think(action="agent")',
+  inputSchema: { type: 'object', properties: { task: { type: 'string' } } },
+  handler: (args: any) => thinkTool.handler({ ...args, action: 'agent', task: args?.task ?? args?.prompt }),
+};
+const lspAlias: Tool = {
+  name: 'lsp',
+  description: 'Silent alias -> code(action="lsp")',
+  inputSchema: { type: 'object', properties: { action: { type: 'string' }, file: { type: 'string' } } },
+  handler: (args: any) => codeTool.handler({ ...args, action: 'lsp', lsp_action: args?.action || 'symbols' }),
+};
+const configAlias: Tool = {
+  name: 'config',
+  description: 'Silent alias -> workspace(action="config")',
+  inputSchema: { type: 'object', properties: { action: { type: 'string' }, key: { type: 'string' } } },
+  handler: (args: any) => workspaceTool.handler({ ...args, action: 'config', config_action: args?.action }),
+};
+const systemAlias: Tool = {
+  name: 'system',
+  description: 'Silent alias -> workspace(action="system")',
+  inputSchema: { type: 'object', properties: { action: { type: 'string' } } },
+  handler: (args: any) => workspaceTool.handler({ ...args, action: 'system', sub_action: args?.action }),
+};
+
+export const legacyAliasTools: Tool[] = [
+  ...kaiTools,
+  ...kaiPurposeBuiltTools,
+  ...kaiAgentTools,
+  kaiCompactTool,
+  ...trackerTools,
+  ...codeIntelTools,
+  ...researchPlaneTools,
+  llmTool,
+  agentAlias,
+  modeTool,
+  gimpTool,
+  cdpTool,
+  npxTool,
+  uvxTool,
+  jqTool,
+  vaultTool,
+  connectorsTool,
+  refactorTool,
+  lspAlias,
+  configAlias,
+  systemAlias,
+  webSearchAlias,
+  webReadAlias,
+  visionAlias,
+];
+
+export const legacyToolAliasMap = new Map<string, Tool>(legacyAliasTools.map((t) => [t.name, t]));
 
 // Re-exports
 export { fsTool } from './fs.js';
@@ -109,8 +215,12 @@ export { codeTool } from './code.js';
 export { fetchTool } from './fetch.js';
 export { workspaceTool } from './workspace.js';
 export { hanzoTool } from './hanzo.js';
+export { computerTool, computerTools } from '../computer.js';
+export { codingTool, codingTools } from '../coding.js';
+export { researchTool, researchTools } from '../research.js';
+export { skillsTool, skillsTools } from '../skills.js';
 export { codeIntelTools, codeSearchTool, codeContextTool, codeAskTool, codeIndexTool } from '../code-intel.js';
-export { trackerTools, trackerBoardsTool, trackerIssuesTool, trackerCreateTool, trackerUpdateTool } from '../tracker.js';
+export { trackerTool, trackerTools, trackerBoardsTool, trackerIssuesTool, trackerCreateTool, trackerUpdateTool } from '../tracker.js';
 export {
   kaiTools,
   kaiDecideTool,
@@ -129,6 +239,7 @@ export {
   kaiLogTriageTool,
   kaiRecoverTool,
 } from '../kai.js';
+export { kaiActionTool, kaiActionTools } from '../kai-action.js';
 export { kaiCompactTool } from '../compact.js';
 export { llmTools, llmTool } from '../llm.js';
 export { browserTools, browserTool, cdpTool } from '../browser.js';

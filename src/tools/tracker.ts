@@ -25,11 +25,16 @@
  */
 
 import { Tool } from '../types/index.js';
+import { applyHanzoOrgHeader, resolveHanzoApiBase, resolveHanzoToken } from './hanzo-auth.js';
 
 // Resolved at call time (like code-intel's) so the endpoint is overridable for
 // tests and self-hosted gateways without a rebuild.
-function apiBase(): string { return process.env.API_URL || 'https://api.hanzo.ai'; }
-function token(): string { return process.env.HANZO_API_KEY || process.env.API_KEY || process.env.API_TOKEN || process.env.HANZO_TOKEN || ''; }
+function apiBase(): string {
+  return resolveHanzoApiBase();
+}
+function token(): string {
+  return resolveHanzoToken();
+}
 
 // track() is the ONE request path: Bearer auth, JSON in and out. A non-2xx throws
 // `${status}: ${body}` exactly as hanzo-cloud's api(), so cloud's own refusal
@@ -40,7 +45,7 @@ async function track(path: string, opts: RequestInit = {}): Promise<unknown> {
   if (!t) throw new Error('HANZO_API_KEY required');
   const r = await fetch(`${apiBase()}${path}`, {
     ...opts,
-    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'Authorization': `Bearer ${t}`, ...(opts.headers || {}) },
+    headers: applyHanzoOrgHeader({ 'Content-Type': 'application/json', 'Accept': 'application/json', 'Authorization': `Bearer ${t}`, ...(opts.headers as Record<string, string> || {}) }),
   });
   if (!r.ok) { const b = await r.text().catch(() => ''); throw new Error(`${r.status}: ${b.substring(0, 200)}`); }
   const txt = await r.text();
@@ -210,6 +215,50 @@ export const trackerUpdateTool: Tool = {
       return ok(await track(`${issues(args.key)}/${encodeURIComponent(String(args.number))}`, { method: 'PATCH', body: JSON.stringify(body) }));
     } catch (e: any) {
       return fail(e.message);
+    }
+  },
+};
+
+export const trackerTool: Tool = {
+  name: 'tracker',
+  description:
+    'Hanzo Cloud work-item tracker (/v1/tracker): boards (list org boards), issues (list/filter board issues), create (open a work item; defaults source=agent and links session:<id>), update (move status, assign, or relink).',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      action: {
+        type: 'string',
+        enum: ['boards', 'issues', 'create', 'update'],
+        description: 'Tracker action: boards | issues | create | update',
+      },
+      key: { type: 'string', description: 'Board key, e.g. ENG (required for issues, create, update)' },
+      number: { type: 'number', description: 'Issue number within the board, e.g. 14 for ENG-14 (required for update)' },
+      title: { type: 'string', description: 'Work item title (required for create)' },
+      description: { type: 'string', description: 'Work item description' },
+      status: { type: 'string', enum: STATUS },
+      priority: { type: 'string', enum: PRIORITY },
+      assignee: { type: 'string' },
+      labels: { type: 'array', items: { type: 'string' } },
+      kind: { type: 'string', enum: KIND },
+      source: { type: 'string', enum: SOURCE },
+      repo: { type: 'string', description: 'Git repository slug' },
+      session: { type: 'string', description: 'Agent session ID to link via extRef session:<id>' },
+      extRef: { type: 'string', description: 'External anchor when not a session' },
+    },
+    required: ['action'],
+  },
+  handler: async (args: any = {}) => {
+    switch (args.action) {
+      case 'boards':
+        return trackerBoardsTool.handler(args);
+      case 'issues':
+        return trackerIssuesTool.handler(args);
+      case 'create':
+        return trackerCreateTool.handler(args);
+      case 'update':
+        return trackerUpdateTool.handler(args);
+      default:
+        return fail('action must be one of: boards, issues, create, update');
     }
   },
 };

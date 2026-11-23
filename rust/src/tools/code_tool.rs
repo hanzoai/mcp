@@ -110,15 +110,17 @@ impl CodeToolDefinition {
     pub fn schema() -> Value {
         json!({
             "name": "code",
-            "description": "Code semantics: parse, serialize, symbols, outline, definition, references, search_symbol, transform, summarize, metrics, exports, types, hierarchy, rename, grep_replace",
+            "description": "Unified code intelligence: AST symbols (parse, serialize, symbols, outline, definition, references, search_symbol, transform, summarize, metrics, exports, types, hierarchy, rename, grep_replace), LSP (diagnostics, lsp), refactoring (refactor), JSON queries (jq), and Cloud RAG (search/rag_search, context/rag_context, ask/rag_ask, index/rag_index)",
             "inputSchema": {
                 "type": "object",
                 "properties": {
                     "action": {
                         "type": "string",
-                        "enum": ["parse", "serialize", "symbols", "outline", "definition", "references", "search_symbol", "transform", "summarize", "metrics", "exports", "types", "hierarchy", "rename", "grep_replace", "help"],
+                        "enum": ["parse", "serialize", "symbols", "outline", "definition", "references", "diagnostics", "search_symbol", "transform", "summarize", "metrics", "exports", "types", "hierarchy", "rename", "grep_replace", "lsp", "refactor", "jq", "search", "rag_search", "context", "rag_context", "ask", "rag_ask", "index", "rag_index", "help"],
                         "description": "Code action"
                     },
+                    "repo": { "type": "string", "description": "Cloud repository slug (LSP / Cloud RAG)" },
+                    "filter": { "type": "string", "description": "jq filter expression (action=jq)" },
                     "uri": { "type": "string", "description": "File path" },
                     "path": { "type": "string", "description": "File or directory path (alias for uri)" },
                     "symbol": { "type": "string", "description": "Symbol name" },

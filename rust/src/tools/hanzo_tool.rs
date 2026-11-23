@@ -30,14 +30,15 @@ use crate::hanzo_api::{self, Credential, HanzoApi, Source};
 /// `auth` is answered locally from credential state; every other name comes from
 /// the generated catalog, so this list cannot describe an API that has moved.
 fn services() -> Vec<&'static str> {
-    let mut v = vec!["auth"];
+    let mut v = vec!["auth", "vault", "connectors"];
     v.extend(crate::catalog::services());
     v.sort_unstable();
+    v.dedup();
     v
 }
 
 fn serves(service: &str) -> bool {
-    service == "auth" || crate::catalog::serves(service)
+    matches!(service, "auth" | "vault" | "connectors" | "connection") || crate::catalog::serves(service)
 }
 
 /// resolve_service normalises spelling only. It no longer renames: the aliases it
@@ -237,6 +238,24 @@ impl HanzoTool {
             return Ok(self.auth(&action, &args));
         }
 
+        // `vault` (and `kms` vault operations) route to Sovereign KMS VaultTool.
+        if service == "vault"
+            || (service == "kms" && ["status", "list", "seal", "sync_lastpass", "totp", "browser_login"].contains(&action.as_str()))
+        {
+            let mut vp = p.clone();
+            vp.insert("action".into(), json!(action));
+            let res = crate::MCPTool::execute(&super::VaultTool::new(), Value::Object(vp)).await?;
+            return Ok(res.content);
+        }
+
+        // `connectors` (and `connection`) route to Cloud OAuth & App ConnectorsTool.
+        if service == "connectors" || service == "connection" {
+            let mut cp = p.clone();
+            cp.insert("action".into(), json!(action));
+            let res = crate::MCPTool::execute(&super::ConnectorsTool::new(), Value::Object(cp)).await?;
+            return Ok(res.content);
+        }
+
         let org = args.org.as_deref().map(str::trim).filter(|o| !o.is_empty());
         if let Some(o) = org {
             if !org_ok(o) {
@@ -413,7 +432,12 @@ impl HanzoTool {
 /// rather than listed here — a subsystem that gains an operation gains it the
 /// day the catalog is regenerated.
 fn actions_for(service: &str) -> Vec<&'static str> {
-    crate::catalog::actions(service)
+    match service {
+        "auth" => vec!["whoami", "status", "list", "use", "switch", "logout", "refresh"],
+        "vault" => vec!["status", "list", "seal", "sync_lastpass", "totp", "browser_login"],
+        "connectors" | "connection" => vec!["list", "request", "view", "act", "configure"],
+        _ => crate::catalog::actions(service),
+    }
 }
 
 /// An org slug, as it is sent in a header.

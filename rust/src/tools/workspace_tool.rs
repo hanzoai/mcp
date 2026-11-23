@@ -49,16 +49,20 @@ impl WorkspaceToolDefinition {
     pub fn schema() -> Value {
         json!({
             "name": "workspace",
-            "description": "Workspace context: detect, capabilities, schema, help",
+            "description": "Workspace discovery, roots, config, mode & host system info: detect, projects, config, system, mode, capabilities, schema, help",
             "inputSchema": {
                 "type": "object",
                 "properties": {
                     "action": {
                         "type": "string",
-                        "enum": ["detect", "capabilities", "schema", "help"],
+                        "enum": ["detect", "projects", "config", "system", "mode", "version", "capabilities", "schema", "help"],
                         "description": "Workspace action"
                     },
-                    "path": { "type": "string", "description": "Project root", "default": "." }
+                    "path": { "type": "string", "description": "Project root", "default": "." },
+                    "sub_action": { "type": "string", "description": "Sub-action when routing to config, system, or mode" },
+                    "key": { "type": "string", "description": "Configuration key (action=config)" },
+                    "value": { "description": "Configuration value (action=config)" },
+                    "name": { "type": "string", "description": "Mode name (action=mode)" }
                 },
                 "required": ["action"]
             }

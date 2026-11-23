@@ -95,15 +95,17 @@ pub struct ThinkToolDefinition {
 impl ThinkToolDefinition {
     pub fn new() -> Self {
         Self {
-            description: "LLM reasoning: think, critic, review, consensus, agent, summarize, classify, explain, translate, compare, chain, embed".to_string(),
+            description: "Structured reasoning, multi-voice consensus, Enso LLM routing & sub-agent delegation: think, critic, review, consensus, llm, query, models, limits, feedback, agent, summarize, classify, explain, translate, compare, chain, embed".to_string(),
             input_schema: json!({
                 "type": "object",
                 "properties": {
                     "action": {
                         "type": "string",
-                        "enum": ["think", "critic", "review", "consensus", "agent", "summarize", "classify", "explain", "translate", "compare", "chain", "embed", "help"],
-                        "description": "LLM action"
+                        "enum": ["think", "critic", "review", "consensus", "llm", "query", "models", "limits", "feedback", "agent", "summarize", "classify", "explain", "translate", "compare", "chain", "embed", "help"],
+                        "description": "Reasoning or LLM action"
                     },
+                    "prompt": { "type": "string", "description": "Prompt for llm/query" },
+                    "model": { "type": "string", "description": "Model ID (default enso-auto for llm, zen6 for agent)" },
                     "thought": { "type": "string", "description": "What to think about / critique" },
                     "context": { "type": "string", "description": "Additional context" },
                     "code": { "type": "string", "description": "Code to analyze (critic/review)" },

@@ -98,15 +98,37 @@ try {
   ok(`initialize → hanzo-mcp ${init.serverInfo.version} (protocol ${init.protocolVersion})`);
 
   // 2
+  const CANONICAL = [
+    "fs", "exec", "code", "git", "fetch", "workspace", "browser", "computer", "ui",
+    "kai", "think", "plan", "memory", "tasks", "tracker", "coding", "research", "skills", "hanzo",
+  ];
   const list = await call("tools/list", {});
-  if (!Array.isArray(list?.tools) || list.tools.length < 5) {
-    die(`tools/list returned ${list?.tools?.length ?? 0} tools`);
+  if (!Array.isArray(list?.tools) || list.tools.length !== CANONICAL.length) {
+    die(`tools/list returned ${list?.tools?.length ?? 0} tools, expected ${CANONICAL.length}`);
   }
   const names = new Set(list.tools.map((t) => t.name));
-  for (const required of ["fs"]) {
-    if (!names.has(required)) die(`missing required tool: ${required}`);
+  for (const required of CANONICAL) {
+    if (!names.has(required)) die(`missing required canonical tool: ${required}`);
   }
-  ok(`tools/list → ${list.tools.length} tools (${[...names].slice(0, 6).join(", ")}…)`);
+  for (const forbidden of ["kai_decide", "kai_choice", "tracker_boards", "vault", "connectors", "llm", "npx"]) {
+    if (names.has(forbidden)) die(`legacy alias leaked into tools/list: ${forbidden}`);
+  }
+  // Verify both canonical kai(action=command_guard) and silent legacy alias kai_command_guard work on tools/call
+  const guardCanonical = await call("tools/call", {
+    name: "kai",
+    arguments: { action: "command_guard", command: "git status" },
+  });
+  if (!JSON.stringify(guardCanonical).includes("allow")) {
+    die(`canonical kai command_guard failed: ${JSON.stringify(guardCanonical)}`);
+  }
+  const guardAlias = await call("tools/call", {
+    name: "kai_command_guard",
+    arguments: { command: "git status" },
+  });
+  if (!JSON.stringify(guardAlias).includes("allow")) {
+    die(`silent alias kai_command_guard failed: ${JSON.stringify(guardAlias)}`);
+  }
+  ok(`tools/list → ${list.tools.length} canonical tools (${[...names].slice(0, 6).join(", ")}…) + silent legacy aliases verified`);
 
   // 3 — read the probe file we just created
   const read = await call("tools/call", {

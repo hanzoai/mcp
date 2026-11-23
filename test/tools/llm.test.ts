@@ -9,7 +9,7 @@
 
 import { describe, test, expect, beforeAll, afterAll, beforeEach } from '@jest/globals';
 import { llmTool } from '../../src/tools/llm.js';
-import { allUnifiedTools, optionalTools } from '../../src/tools/unified/index.js';
+import { allUnifiedTools, legacyToolAliasMap } from '../../src/tools/unified/index.js';
 
 interface Sent {
   url: string;
@@ -124,9 +124,11 @@ beforeEach(() => {
 });
 
 describe('llm surface', () => {
-  test('is one HIP-0300 tool on the default surface', () => {
-    expect(optionalTools.filter((t) => t.name === 'llm')).toHaveLength(1);
-    expect(allUnifiedTools.filter((t) => t.name === 'llm')).toHaveLength(1);
+  test('is absorbed into canonical think tool while keeping silent tools/call alias', () => {
+    const think = allUnifiedTools.find((t) => t.name === 'think')!;
+    expect(think.inputSchema.properties.action.enum).toEqual(expect.arrayContaining(['llm', 'query', 'models', 'limits', 'feedback']));
+    expect(allUnifiedTools.filter((t) => t.name === 'llm')).toHaveLength(0);
+    expect(legacyToolAliasMap.get('llm')).toBe(llmTool);
     expect(llmTool.inputSchema.properties.action.enum).toEqual(['query', 'models', 'limits', 'feedback']);
   });
 });

@@ -178,9 +178,21 @@ const RESEARCH: &str = "research";
 
 #[derive(Debug, Default, Deserialize)]
 struct ResearchArgs {
+    action: Option<String>,
     #[serde(alias = "q")]
     query: Option<String>,
     mode: Option<String>,
+    id: Option<String>,
+    #[serde(alias = "run_id")]
+    run_id: Option<String>,
+    benchmark: Option<String>,
+    system: Option<String>,
+    completion: Option<String>,
+    project: Option<String>,
+    sha256: Option<String>,
+    content_b64: Option<String>,
+    kind: Option<String>,
+    body: Option<Value>,
 }
 
 /// Resolve the requested mode to the one this door opens. Absent, `research` and
@@ -267,19 +279,33 @@ impl ResearchTool {
     pub fn schema() -> Value {
         json!({
             "name": "research",
-            "description": "Deep research via api.hanzo.ai: plans sub-queries, reads the top pages over several rounds, and returns one report with inline [title](url) citations plus the sources behind it.",
+            "description": "Hanzo Science & Research tool (/v1/research evidence plane + /v1/ask deep cited synthesis): studies, runs, start, status, ledger, artifacts, and search.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
-                    "query": { "type": "string", "description": "Question to research" },
+                    "action": {
+                        "type": "string",
+                        "enum": ["studies", "runs", "start", "status", "ledger", "artifacts", "search"],
+                        "default": "search",
+                        "description": "Research action: studies | runs | start | status | ledger | artifacts | search"
+                    },
+                    "query": { "type": "string", "description": "Question to research (action=search; alias: q)" },
                     "mode": {
                         "type": "string",
                         "enum": ["research", "deep"],
                         "default": "research",
-                        "description": "Answer mode. Only research (and its retired name deep); use web_search for a fast answer."
-                    }
-                },
-                "required": ["query"]
+                        "description": "Answer mode for action=search (research or retired deep)"
+                    },
+                    "id": { "type": "string", "description": "Study, experiment, or run ID (status, runs, studies)" },
+                    "benchmark": { "type": "string", "description": "Filter runs/ledger by benchmark ID" },
+                    "system": { "type": "string", "description": "Filter runs by system under test" },
+                    "completion": { "type": "string", "enum": ["complete", "partial", "inconsistent", "unknown"] },
+                    "project": { "type": "string", "description": "Project sub-scope" },
+                    "sha256": { "type": "string", "description": "Content-addressed artifact SHA-256 (artifacts)" },
+                    "content_b64": { "type": "string", "description": "Base64-encoded artifact bytes to upload (artifacts)" },
+                    "kind": { "type": "string", "description": "Target kind for start/artifacts (study, experiment, run, snapshot, report)" },
+                    "body": { "type": "object", "description": "Payload for start or ledger write" }
+                }
             }
         })
     }
@@ -297,35 +323,142 @@ impl MCPTool for ResearchTool {
         "research"
     }
     fn description(&self) -> &str {
-        "Deep research via api.hanzo.ai — a source-cited report"
+        "Hanzo Science & Research (/v1/research studies, runs, ledger, artifacts + /v1/ask deep cited search)"
     }
     fn parameters(&self) -> Value {
         Self::schema()["inputSchema"].clone()
     }
     async fn execute(&self, params: Value) -> Result<ToolResult> {
-        if let Some(r) = require_key(&self.api, "research", RESEARCH) {
-            return r;
+        let args: ResearchArgs = serde_json::from_value(params.clone()).unwrap_or_default();
+        let action = args
+            .action
+            .as_deref()
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .unwrap_or("search")
+            .to_lowercase();
+
+        if !self.api.has_key() {
+            return Ok(ToolResult::ok(envelope_err(
+                "research",
+                &action,
+                "NO_API_KEY",
+                crate::hanzo_api::NO_KEY,
+            )));
         }
-        let args: ResearchArgs = serde_json::from_value(params).unwrap_or_default();
-        let query = match args.query.filter(|q| !q.trim().is_empty()) {
-            Some(q) => q,
-            None => return Ok(ToolResult::ok(envelope_err("research", RESEARCH, "INVALID_ARGS", "query required"))),
-        };
-        let mode = match mode(args.mode.as_deref()) {
-            Ok(m) => m,
-            Err(e) => return Ok(ToolResult::ok(envelope_err("research", RESEARCH, "INVALID_ARGS", e))),
-        };
-        let body = json!({ "q": query, "mode": mode });
-        Ok(match self.api.events("/v1/ask", body).await {
-            Ok(events) => match fold(&events) {
-                Ok(mut data) => {
-                    data["query"] = json!(query);
-                    ToolResult::ok(envelope_ok("research", RESEARCH, data))
+
+        let mut qparams: Vec<(&str, String)> = Vec::new();
+        if let Some(v) = &args.id { qparams.push(("id", v.clone())); }
+        if let Some(v) = &args.benchmark { qparams.push(("benchmark", v.clone())); }
+        if let Some(v) = &args.system { qparams.push(("system", v.clone())); }
+        if let Some(v) = &args.completion { qparams.push(("completion", v.clone())); }
+        if let Some(v) = &args.project { qparams.push(("project", v.clone())); }
+
+        match action.as_str() {
+            "studies" => Ok(match self.api.get("/v1/research/studies", &qparams).await {
+                Ok(b) => ToolResult::ok(envelope_ok("research", "studies", b)),
+                Err(e) => ToolResult::ok(envelope_err("research", "studies", "UPSTREAM", e.to_string())),
+            }),
+
+            "runs" => Ok(match self.api.get("/v1/research/runs", &qparams).await {
+                Ok(b) => ToolResult::ok(envelope_ok("research", "runs", b)),
+                Err(e) => ToolResult::ok(envelope_err("research", "runs", "UPSTREAM", e.to_string())),
+            }),
+
+            "status" => {
+                let target_id = args.id.or(args.run_id);
+                let Some(id) = target_id.filter(|s| !s.trim().is_empty()) else {
+                    return Ok(ToolResult::ok(envelope_err("research", "status", "INVALID_ARGS", "id required")));
+                };
+                let mut q = vec![("id", id)];
+                if let Some(p) = args.project { q.push(("project", p)); }
+                Ok(match self.api.get("/v1/research/runs", &q).await {
+                    Ok(b) => ToolResult::ok(envelope_ok("research", "status", b)),
+                    Err(e) => ToolResult::ok(envelope_err("research", "status", "UPSTREAM", e.to_string())),
+                })
+            }
+
+            "start" => {
+                let endpoint = match args.kind.as_deref().unwrap_or("run") {
+                    "study" => "/v1/research/studies",
+                    "experiment" => "/v1/research/experiments",
+                    _ => "/v1/research/runs",
+                };
+                let payload = args.body.unwrap_or_else(|| params.clone());
+                Ok(match self.api.post(endpoint, payload).await {
+                    Ok(b) => ToolResult::ok(envelope_ok("research", "start", b)),
+                    Err(e) => ToolResult::ok(envelope_err("research", "start", "UPSTREAM", e.to_string())),
+                })
+            }
+
+            "ledger" => {
+                if let Some(payload) = args.body {
+                    Ok(match self.api.post("/v1/research/evidence", payload).await {
+                        Ok(b) => ToolResult::ok(envelope_ok("research", "ledger", b)),
+                        Err(e) => ToolResult::ok(envelope_err("research", "ledger", "UPSTREAM", e.to_string())),
+                    })
+                } else {
+                    Ok(match self.api.get("/v1/research/evidence", &qparams).await {
+                        Ok(b) => ToolResult::ok(envelope_ok("research", "ledger", b)),
+                        Err(e) => ToolResult::ok(envelope_err("research", "ledger", "UPSTREAM", e.to_string())),
+                    })
                 }
-                Err(e) => ToolResult::ok(envelope_err("research", RESEARCH, "UPSTREAM", e)),
-            },
-            Err(e) => ToolResult::ok(envelope_err("research", RESEARCH, "UPSTREAM", e.to_string())),
-        })
+            }
+
+            "artifacts" => {
+                if let Some(b64) = args.content_b64.filter(|s| !s.is_empty()) {
+                    let payload = json!({
+                        "content": b64,
+                        "kind": args.kind.unwrap_or_else(|| "report".into()),
+                        "run_id": args.run_id.or(args.id).unwrap_or_else(|| "standalone".into()),
+                    });
+                    Ok(match self.api.post("/v1/research/artifacts", payload).await {
+                        Ok(b) => ToolResult::ok(envelope_ok("research", "artifacts", b)),
+                        Err(e) => ToolResult::ok(envelope_err("research", "artifacts", "UPSTREAM", e.to_string())),
+                    })
+                } else if let Some(sha) = args.sha256.filter(|s| !s.is_empty()) {
+                    let path = format!("/v1/research/artifacts/{sha}");
+                    Ok(match self.api.get(&path, &[]).await {
+                        Ok(b) => ToolResult::ok(envelope_ok("research", "artifacts", b)),
+                        Err(e) => ToolResult::ok(envelope_err("research", "artifacts", "UPSTREAM", e.to_string())),
+                    })
+                } else {
+                    Ok(match self.api.get("/v1/research/artifacts", &qparams).await {
+                        Ok(b) => ToolResult::ok(envelope_ok("research", "artifacts", b)),
+                        Err(e) => ToolResult::ok(envelope_err("research", "artifacts", "UPSTREAM", e.to_string())),
+                    })
+                }
+            }
+
+            "search" => {
+                let query = match args.query.filter(|q| !q.trim().is_empty()) {
+                    Some(q) => q,
+                    None => return Ok(ToolResult::ok(envelope_err("research", RESEARCH, "INVALID_ARGS", "query required"))),
+                };
+                let mode = match mode(args.mode.as_deref()) {
+                    Ok(m) => m,
+                    Err(e) => return Ok(ToolResult::ok(envelope_err("research", RESEARCH, "INVALID_ARGS", e))),
+                };
+                let body = json!({ "q": query, "mode": mode });
+                Ok(match self.api.events("/v1/ask", body).await {
+                    Ok(events) => match fold(&events) {
+                        Ok(mut data) => {
+                            data["query"] = json!(query);
+                            ToolResult::ok(envelope_ok("research", RESEARCH, data))
+                        }
+                        Err(e) => ToolResult::ok(envelope_err("research", RESEARCH, "UPSTREAM", e)),
+                    },
+                    Err(e) => ToolResult::ok(envelope_err("research", RESEARCH, "UPSTREAM", e.to_string())),
+                })
+            }
+
+            _ => Ok(ToolResult::ok(envelope_err(
+                "research",
+                &action,
+                "INVALID_ARGS",
+                "action must be one of: studies, runs, start, status, ledger, artifacts, search",
+            ))),
+        }
     }
 }
 
@@ -340,8 +473,8 @@ mod tests {
         assert_eq!(WebReadTool::schema()["name"], "web_read");
         assert_eq!(WebReadTool::schema()["inputSchema"]["required"][0], "url");
         assert_eq!(ResearchTool::schema()["name"], "research");
-        assert_eq!(ResearchTool::schema()["inputSchema"]["required"][0], "query");
         assert_eq!(ResearchTool::schema()["inputSchema"]["properties"]["mode"]["default"], "research");
+        assert_eq!(ResearchTool::schema()["inputSchema"]["properties"]["action"]["default"], "search");
     }
 
     #[test]

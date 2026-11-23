@@ -132,7 +132,7 @@ async fn research_is_advertised_with_its_schema() {
         .into_iter()
         .find(|d| d["name"] == "research")
         .expect("research is advertised to tools/list");
-    assert_eq!(def["inputSchema"]["required"], json!(["query"]));
     assert_eq!(def["inputSchema"]["properties"]["query"]["type"], "string");
     assert_eq!(def["inputSchema"]["properties"]["mode"]["default"], "research");
+    assert_eq!(def["inputSchema"]["properties"]["action"]["default"], "search");
 }

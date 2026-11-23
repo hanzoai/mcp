@@ -21,15 +21,19 @@ export interface RecipeResult {
  */
 export async function createRecipeClient() {
   // Kai is reached as every client reaches it: api.hanzo.ai with HANZO_API_KEY, or LOCAL_KAI_URL for a local `kai serve`.
-  const server = await createMCPServer({ name: "kai-cookbook-server", version: "2.4.20" });
+  const server = await createMCPServer({ name: "kai-cookbook-server", version: "2.4.25" });
   // Call tools directly via server handlers or in-memory transport
   return {
     server,
     async callTool(name: string, args: Record<string, any>) {
-      const tool = server.tools.find((t: any) => t.name === name);
-      if (!tool) throw new Error(`Tool '${name}' not found on server`);
       const start = performance.now();
-      const res = await tool.handler(args);
+      const res = typeof server.callTool === "function"
+        ? await server.callTool(name, args)
+        : await (() => {
+            const tool = server.tools.find((t: any) => t.name === name);
+            if (!tool) throw new Error(`Tool '${name}' not found on server`);
+            return tool.handler(args);
+          })();
       const elapsed = performance.now() - start;
       if (res.isError) {
         return {

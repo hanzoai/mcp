@@ -16,11 +16,12 @@
  */
 
 import { Tool } from '../types/index.js';
+import { applyHanzoOrgHeader, resolveHanzoApiBase, resolveHanzoToken } from './hanzo-auth.js';
 
 // Resolved at call time (like token()) so the endpoint is overridable for tests
 // and self-hosted gateways without a rebuild.
-function apiBase(): string { return process.env.API_URL || 'https://api.hanzo.ai'; }
-function token(): string { return process.env.HANZO_API_KEY || process.env.API_KEY || process.env.API_TOKEN || process.env.HANZO_TOKEN || ''; }
+function apiBase(): string { return resolveHanzoApiBase(); }
+function token(): string { return resolveHanzoToken(); }
 
 // code() is the ONE request path: Bearer auth + markdown negotiation. It always
 // asks for markdown (?format=md AND Accept), so a successful body is the agent-
@@ -29,7 +30,7 @@ async function code(path: string, opts: RequestInit = {}): Promise<string> {
   const t = token();
   if (!t) throw new Error('HANZO_API_KEY required');
   const url = `${apiBase()}${path}${path.includes('?') ? '&' : '?'}format=md`;
-  const r = await fetch(url, { ...opts, headers: { 'Content-Type': 'application/json', 'Accept': 'text/markdown', 'Authorization': `Bearer ${t}`, ...(opts.headers || {}) } });
+  const r = await fetch(url, { ...opts, headers: applyHanzoOrgHeader({ 'Content-Type': 'application/json', 'Accept': 'text/markdown', 'Authorization': `Bearer ${t}`, ...(opts.headers as Record<string, string> || {}) }) });
   if (!r.ok) { const b = await r.text().catch(() => ''); throw new Error(`${r.status}: ${b.substring(0, 200)}`); }
   return (await r.text()).trim();
 }

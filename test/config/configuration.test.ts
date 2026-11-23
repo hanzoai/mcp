@@ -2,16 +2,10 @@ import { describe, test, expect } from '@jest/globals';
 import { getConfiguredTools, ToolConfig } from '../../src/tools/index.js';
 import { createMCPServer } from '../../src/index.js';
 
-// HIP-0300 unified tool surface
+// HIP-0300 canonical 19-tool surface ("one and one way to do everything")
 const UNIFIED_TOOLSET = [
-  'fs', 'exec', 'code', 'git', 'fetch', 'workspace', 'ui',              // core
-  'think', 'llm', 'memory', 'hanzo', 'plan', 'tasks', 'mode', 'gimp', 'browser', 'cdp', 'npx', 'uvx', 'jq', 'kai_compact', 'vault', 'connectors', // optional
-  'code_search', 'code_context', 'code_ask', 'code_index',             // code intelligence
-  'tracker_boards', 'tracker_issues', 'tracker_create', 'tracker_update', // work items
-  'kai_decide', 'kai_choice', 'kai_score', 'kai_noul',                  // decisions
-  'kai',                                                               // Kai Actions
-  'kai_tool_select', 'kai_next_action', 'kai_command_guard', 'kai_injection_screen', 'kai_extract', 'kai_log_triage', 'kai_recover', // 7 purpose-built
-  'kai_agent_step',                                                    // agent step
+  'fs', 'exec', 'code', 'git', 'fetch', 'workspace', 'browser', 'computer', 'ui',
+  'kai', 'think', 'plan', 'memory', 'tasks', 'tracker', 'coding', 'research', 'skills', 'hanzo',
 ];
 
 describe('Configuration System', () => {
@@ -20,10 +14,11 @@ describe('Configuration System', () => {
       const tools = getConfiguredTools();
       const names = tools.map((t) => t.name);
 
-      expect(names).toHaveLength(UNIFIED_TOOLSET.length);
-      expect(new Set(names).size).toBe(names.length);
-      for (const name of UNIFIED_TOOLSET) {
-        expect(names).toContain(name);
+      expect(names).toEqual(UNIFIED_TOOLSET);
+      expect(names).toHaveLength(19);
+      expect(new Set(names).size).toBe(19);
+      for (const legacy of ['kai_decide', 'kai_choice', 'tracker_boards', 'code_search', 'web_search', 'vault', 'connectors', 'llm', 'npx', 'uvx']) {
+        expect(names).not.toContain(legacy);
       }
     });
 

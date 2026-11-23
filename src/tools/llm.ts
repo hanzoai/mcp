@@ -12,10 +12,11 @@
  */
 
 import { Tool, ToolResult } from '../types/index.js';
+import { applyHanzoOrgHeader, resolveHanzoApiBase, resolveHanzoToken } from './hanzo-auth.js';
 import { Refusal, refusal } from './refusal.js';
 
-function apiBase(): string { return process.env.API_URL || 'https://api.hanzo.ai'; }
-function token(): string { return process.env.HANZO_API_KEY || process.env.API_KEY || process.env.API_TOKEN || process.env.HANZO_TOKEN || ''; }
+function apiBase(): string { return resolveHanzoApiBase(); }
+function token(): string { return resolveHanzoToken(); }
 
 // reason is the sentence in an error body: the gateway's error.message or msg, else the body.
 function reason(body: string): string {
@@ -32,7 +33,7 @@ async function send(method: 'GET' | 'POST', path: string, body?: unknown, extra:
   if (!t) throw new Error('HANZO_API_KEY required');
   const r = await fetch(`${apiBase()}${path}`, {
     method,
-    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'Authorization': `Bearer ${t}`, ...extra },
+    headers: applyHanzoOrgHeader({ 'Content-Type': 'application/json', 'Accept': 'application/json', 'Authorization': `Bearer ${t}`, ...extra }),
     body: body === undefined ? undefined : JSON.stringify(body),
   });
   const txt = await r.text().catch(() => '');

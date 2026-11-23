@@ -73,15 +73,17 @@ impl FetchToolDefinition {
     pub fn schema() -> Value {
         json!({
             "name": "fetch",
-            "description": "Network operations: request, fetch, head, download, open, search, crawl",
+            "description": "Network, live web search, markdown web reader & multimodal vision: get, request, fetch, head, download, open, search, read, crawl, vision",
             "inputSchema": {
                 "type": "object",
                 "properties": {
                     "action": {
                         "type": "string",
-                        "enum": ["request", "fetch", "head", "download", "open", "search", "crawl", "help"],
+                        "enum": ["get", "request", "fetch", "head", "download", "open", "search", "read", "crawl", "vision", "help"],
                         "description": "Network action"
                     },
+                    "image": { "type": "string", "description": "Image path or URL (action=vision)" },
+                    "prompt": { "type": "string", "description": "Vision prompt (action=vision)" },
                     "url": { "type": "string", "description": "URL" },
                     "method": { "type": "string", "description": "HTTP method", "default": "GET" },
                     "headers": { "type": "object", "description": "HTTP headers" },

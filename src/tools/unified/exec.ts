@@ -8,6 +8,7 @@
 import { exec, spawn } from 'child_process';
 import { promisify } from 'util';
 import { Tool } from '../../types/index.js';
+import { npxTool, uvxTool } from '../packages.js';
 
 const execAsync = promisify(exec);
 
@@ -66,11 +67,13 @@ function fail(code: string, message: string) {
 
 export const execTool: Tool = {
   name: 'exec',
-  description: 'Process execution: exec, ps, kill, logs, wait',
+  description: 'Process execution, background jobs & package runners: exec, ps, kill, logs, wait, npx, uvx',
   inputSchema: {
     type: 'object',
     properties: {
-      action: { type: 'string', enum: ['exec', 'ps', 'kill', 'logs', 'wait'], description: 'Process action' },
+      action: { type: 'string', enum: ['exec', 'ps', 'kill', 'logs', 'wait', 'npx', 'uvx'], description: 'Process action' },
+      package: { type: 'string', description: 'Package specifier for npx / uvx' },
+      args: { type: 'array', items: { type: 'string' }, description: 'Package arguments for npx / uvx' },
       command: { type: 'string', description: 'Command to execute' },
       cwd: { type: 'string', description: 'Working directory' },
       env: { type: 'object', description: 'Environment variables' },
@@ -85,6 +88,10 @@ export const execTool: Tool = {
   handler: async (args) => {
     try {
       switch (args.action) {
+        case 'npx':
+          return npxTool.handler(args);
+        case 'uvx':
+          return uvxTool.handler(args);
         case 'exec': {
           if (!args.command) return fail('INVALID_PARAMS', 'command required');
 

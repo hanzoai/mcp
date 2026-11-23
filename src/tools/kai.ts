@@ -12,15 +12,17 @@
  */
 
 import { Tool } from '../types/index.js';
+import { applyHanzoOrgHeader, resolveHanzoToken } from './hanzo-auth.js';
 import { Refusal, refusal } from './refusal.js';
 
 function apiBase(): string {
-  return process.env.LOCAL_KAI_URL || process.env.KAI_URL || process.env.API_URL || 'https://api.hanzo.ai';
+  const raw = process.env.LOCAL_KAI_URL || process.env.KAI_URL || process.env.HANZO_API_BASE || process.env.HANZO_API_URL || process.env.HANZO_CLOUD_API || process.env.API_URL || 'https://api.hanzo.ai';
+  return raw.replace(/\/+$/, '').replace(/\/v1$/, '');
 }
 function isLocalEndpoint(url: string): boolean {
   return url.includes('127.0.0.1') || url.includes('localhost');
 }
-function token(): string { return process.env.HANZO_API_KEY || process.env.API_KEY || process.env.API_TOKEN || process.env.HANZO_TOKEN || ''; }
+function token(): string { return resolveHanzoToken(); }
 
 // reason is the sentence in an error body — decision's error.message, the gateway's msg — else the body.
 function reason(body: string): string {
@@ -36,10 +38,10 @@ async function decide(body: Record<string, unknown>): Promise<any> {
   const base = apiBase();
   const t = token();
   if (!t && !isLocalEndpoint(base)) throw new Error('HANZO_API_KEY required');
-  const headers: Record<string, string> = {
+  const headers: Record<string, string> = applyHanzoOrgHeader({
     'Content-Type': 'application/json',
     'Accept': 'application/json',
-  };
+  });
   if (t) headers['Authorization'] = `Bearer ${t}`;
   const r = await fetch(`${base}/v1/decisions`, {
     method: 'POST',

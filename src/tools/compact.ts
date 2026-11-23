@@ -10,14 +10,15 @@
  */
 
 import { Tool, ToolResult } from '../types/index.js';
+import { resolveHanzoToken } from './hanzo-auth.js';
 import { Refusal, refusal } from './refusal.js';
 
 function apiBase(): string {
-  return process.env.API_URL || 'https://api.hanzo.ai';
+  return (process.env.LOCAL_KAI_URL || process.env.HANZO_API_BASE || process.env.HANZO_API_URL || process.env.HANZO_CLOUD_API || process.env.API_URL || 'https://api.hanzo.ai').replace(/\/+$/, '').replace(/\/v1$/, '');
 }
 
 function token(): string {
-  return process.env.HANZO_API_KEY || process.env.API_KEY || process.env.API_TOKEN || process.env.HANZO_TOKEN || '';
+  return resolveHanzoToken();
 }
 
 interface Message {

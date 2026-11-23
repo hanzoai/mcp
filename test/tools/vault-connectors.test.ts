@@ -26,7 +26,7 @@ import {
   CONNECTORS,
   COMPATIBLE_16_APPS,
 } from '../../src/tools/connectors.js';
-import { allUnifiedTools, optionalTools } from '../../src/tools/unified/index.js';
+import { allUnifiedTools, hanzoTool, legacyToolAliasMap } from '../../src/tools/unified/index.js';
 
 // ── In-process ZAP mock router over a 0700 Unix domain socket ────────────────
 
@@ -243,11 +243,13 @@ describe('vault and connectors MCP tools', () => {
     globalThis.fetch = origFetch;
   });
 
-  test('registers vault and connectors in HIP-0300 optionalTools and allUnifiedTools', () => {
-    expect(optionalTools.some((t) => t.name === 'vault')).toBe(true);
-    expect(optionalTools.some((t) => t.name === 'connectors')).toBe(true);
-    expect(allUnifiedTools.some((t) => t.name === 'vault')).toBe(true);
-    expect(allUnifiedTools.some((t) => t.name === 'connectors')).toBe(true);
+  test('absorbs vault and connectors into canonical hanzo tool while keeping silent tools/call aliases', () => {
+    expect(allUnifiedTools.some((t) => t.name === 'hanzo')).toBe(true);
+    expect(allUnifiedTools.some((t) => t.name === 'vault')).toBe(false);
+    expect(allUnifiedTools.some((t) => t.name === 'connectors')).toBe(false);
+    expect(hanzoTool.inputSchema.properties.resource.enum).toEqual(expect.arrayContaining(['vault', 'connectors']));
+    expect(legacyToolAliasMap.get('vault')).toBe(vaultTool);
+    expect(legacyToolAliasMap.get('connectors')).toBe(connectorsTool);
     expect(vaultTool.inputSchema.required).toEqual(['action']);
     expect(connectorsTool.inputSchema.required).toEqual(['action']);
   });

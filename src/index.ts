@@ -56,7 +56,7 @@ export async function createMCPServer(config?: {
   } = config || {};
   
   // Import tools
-  const { getConfiguredTools } = await import('./tools/index.js');
+  const { getConfiguredTools, legacyToolAliasMap } = await import('./tools/index.js');
   
   // Get configured tools based on toolConfig
   const configuredTools = getConfiguredTools({
@@ -65,6 +65,8 @@ export async function createMCPServer(config?: {
   });
   
   const combinedToolMap = new Map(configuredTools.map(t => [t.name, t]));
+  const disabledSet = new Set(toolConfig.disabledTools || []);
+  const allowLegacyCallAliases = !toolConfig.coreOnly && !toolConfig.betaSafe;
   
   const server = new Server(
     { name, version },
@@ -83,7 +85,9 @@ export async function createMCPServer(config?: {
   });
 
   const callToolHandler = async (params: { name: string; arguments?: Record<string, unknown> }) => {
-    const tool = combinedToolMap.get(params.name);
+    const tool =
+      combinedToolMap.get(params.name) ||
+      (allowLegacyCallAliases && !disabledSet.has(params.name) ? legacyToolAliasMap.get(params.name) : undefined);
     if (!tool) {
       return {
         content: [{ type: 'text', text: `Unknown tool: ${params.name}` }],
@@ -132,6 +136,10 @@ export async function createMCPServer(config?: {
     server,
     tools: configuredTools,
     
+    async callTool(toolName: string, args: Record<string, unknown> = {}) {
+      return callToolHandler({ name: toolName, arguments: args });
+    },
+
     async start() {
       const transport = new StdioServerTransport();
       await server.connect(transport);

@@ -416,11 +416,18 @@ export const browserTool: Tool = {
       tab_id: { type: 'string', description: 'Tab from tabs; default the active tab' },
       target_browser: { type: 'string', description: 'chrome | firefox, when several are connected' },
       topic: { type: 'string', description: 'help: one topic' },
+      method: { type: 'string', description: 'cdp: raw Chrome DevTools Protocol method name' },
+      params: { type: 'object', description: 'cdp: raw CDP method parameters' },
       args: { type: 'object', description: 'Parameters of non-core actions (webmcp_*, lastpass_*, etc.), as help names them' },
     },
     required: ['action'],
   },
-  handler: run,
+  handler: async (args: Record<string, any>) => {
+    if (args?.action === 'cdp') {
+      return cdpTool.handler({ ...args, action: args.cdp_action || 'send' });
+    }
+    return run(args);
+  },
 };
 
 /** Sugared cdp actions → the bare CDP method they map to. */

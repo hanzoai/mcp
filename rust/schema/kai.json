@@ -1,35 +1,67 @@
 {
   "name": "kai",
-  "description": "Kai Actions: run a request as a saved, typed, verified action. A chore that recurs (find where a name is used, run the suite and count, commit named paths and push, wait for a rollout to finish, create a worktree, rebuild a pinned copy from a commit, compare two arms of a results file, add a line to a section of a document) runs with no model call: the request is matched to an action or workflow by trigger, its inputs are bound from the request and from values read out of the repository (Kai is asked only when several remain, and may abstain; it never writes a command), the preconditions are read again just before it runs, and the action's own verifier says whether it worked. action=run does it and returns the ledger: outcome done, failed or declined, and one record per step with its source (rule or kai), revision, preconditions, authorization, cache use, steps, timing and verdict. A declined request (nothing fits, an input is missing or ambiguous, a precondition fails, the action is unproven here, approval is missing) is yours to do the usual way. An action that writes outside the workspace, reaches a remote or stops a process runs only with approve=true: ask the user first, then call again. action=plan binds without running; list shows the catalog; triggers shows which actions a request fires. Reports and files named in the request (\"write ... to answer.txt\") are written for you.",
+  "description": "Kai — Hanzo's unified decision model and verified action engine. One tool for calibrated decisions (/v1/decisions: decide, choice, score, noul), verified zero-LLM repository actions (run, plan, list, triggers), typed context compaction (compact), deterministic tool & candidate ranking (tool_select, next_action), pre-execution command policy (command_guard), prompt-injection screening (injection_screen), structured field extraction (extract), build/CI failure classification & loop-breaking recovery (log_triage, recover), and single-pass trajectory steps (agent_step).",
   "inputSchema": {
     "type": "object",
     "properties": {
       "action": {
         "type": "string",
         "enum": [
+          "decide",
+          "choice",
+          "score",
+          "noul",
           "run",
           "plan",
           "list",
-          "triggers"
+          "triggers",
+          "compact",
+          "tool_select",
+          "next_action",
+          "command_guard",
+          "injection_screen",
+          "extract",
+          "log_triage",
+          "recover",
+          "agent_step"
         ],
         "default": "run",
-        "description": "run: execute the request as an action or workflow; plan: bind it and say what would run; list: the catalog; triggers: the actions and workflows whose triggers fit the request"
+        "description": "Kai operation: decide | choice | score | noul | run | plan | list | triggers | compact | tool_select | next_action | command_guard | injection_screen | extract | log_triage | recover | agent_step"
+      },
+      "state": {
+        "type": ["string", "object", "array"],
+        "items": {},
+        "description": "The case to decide about (decide, choice, score, noul, next_action)"
+      },
+      "questions": {
+        "type": "object",
+        "description": "decide: Question name -> {type: choice|score|noul, instructions?, criteria?}; 1 to 100 questions"
+      },
+      "instructions": {
+        "type": ["string", "object", "array"],
+        "items": {},
+        "description": "choice / score / noul: What Kai answers"
+      },
+      "criteria": {
+        "type": ["object", "array"],
+        "items": {},
+        "description": "choice: {label: desc} or [label, ...]; score: [level0, level1, ...]; noul: {\"true\": ..., \"false\": ...}"
       },
       "request": {
         "type": "string",
-        "description": "The chore in the user's words, as you would give it to an agent (required for run, plan and triggers)"
+        "description": "run / plan / triggers: The chore in the user's words"
       },
       "cwd": {
         "type": "string",
-        "description": "The directory the request is made in (default: the server's working directory)"
+        "description": "run / plan: Working directory (default: server cwd)"
       },
       "approve": {
         "type": "boolean",
-        "description": "Grant the approval a consequential action needs (a push or fetch, a write outside the workspace, stopping a process). Default false: such a request is declined with its reason."
+        "description": "run / plan: Grant approval for consequential actions (push, remote, outside workspace, stop process)"
       },
       "ask": {
         "type": "boolean",
-        "description": "Ask Kai when several actions or values remain (default true). false declines them instead."
+        "description": "run / plan: Ask Kai when several actions or values remain (default true)"
       },
       "model": {
         "type": "string",
@@ -37,23 +69,101 @@
       },
       "cache": {
         "type": "string",
-        "description": "A directory for the cache: proofs that an action has worked here, and results it can reuse while what they read is unchanged"
+        "description": "run / plan: Directory for action proofs and reusable memos"
       },
       "prove": {
         "type": "boolean",
-        "description": "Record a proof for each action whose verifier passes, and do not require one (a proving workspace)"
+        "description": "run / plan: Record a proof for each action whose verifier passes"
       },
       "min_margin": {
         "type": "number",
-        "description": "The least lead of Kai's pick over the next option, among the real options (default 0.1)"
+        "description": "run / plan: Least lead of Kai's pick over the next real option (default 0.1)"
       },
       "min_p": {
         "type": "number",
-        "description": "The least probability of Kai's pick among the real options (default 0)"
+        "description": "run / plan: Least probability of Kai's pick among real options (default 0)"
       },
       "max_abstain": {
         "type": "number",
-        "description": "The most probability Kai may give to abstaining (default 0.6)"
+        "description": "run / plan: Most probability Kai may give to abstaining (default 0.6)"
+      },
+      "messages": {
+        "type": "array",
+        "items": { "type": "object" },
+        "description": "compact: Conversation messages to compact"
+      },
+      "preserve_recent": {
+        "type": "number",
+        "description": "compact: Number of recent messages to keep verbatim (default 4)"
+      },
+      "keep_threshold": {
+        "type": "number",
+        "description": "compact: Confidence threshold for keeping tool outputs (default 0.5)"
+      },
+      "truncate_chars": {
+        "type": "number",
+        "description": "compact: Max characters retained for truncated outputs (default 400)"
+      },
+      "task": {
+        "type": "string",
+        "description": "tool_select: What the agent is about to do"
+      },
+      "tools": {
+        "type": "array",
+        "items": { "type": "object" },
+        "description": "tool_select: Candidate tools [{name, description?, parameters?}]"
+      },
+      "limit": {
+        "type": "number",
+        "description": "tool_select: Maximum ranked tools to return (default 5)"
+      },
+      "goal": {
+        "type": "string",
+        "description": "next_action / agent_step: Overall task objective"
+      },
+      "candidates": {
+        "type": "array",
+        "items": { "type": "object" },
+        "description": "next_action: Candidate actions [{action_id, tool, description, parameters?, preconditions_satisfied?}]"
+      },
+      "command": {
+        "type": "string",
+        "description": "command_guard: Shell command line to classify (allow | ask | deny)"
+      },
+      "policy": {
+        "type": "string",
+        "enum": ["allow", "ask", "deny"],
+        "description": "command_guard: Floor verdict (default allow)"
+      },
+      "text": {
+        "type": ["string", "object"],
+        "description": "injection_screen / extract: Untrusted text or evidence object"
+      },
+      "schema": {
+        "type": "object",
+        "description": "extract: Field extraction schema {field: {type: choice|score|noul, description?, options?, levels?}}"
+      },
+      "logs": {
+        "type": "string",
+        "description": "log_triage: Build, test, or CI log tail"
+      },
+      "error_category": {
+        "type": "string",
+        "description": "recover: Failure class from log_triage"
+      },
+      "failure_fingerprint": {
+        "type": "object",
+        "description": "recover: {tool, error_snippet, attempt_count, last_action?}"
+      },
+      "trajectory": {
+        "type": "array",
+        "items": { "type": "object" },
+        "description": "agent_step: Prior steps [{step_index, action, tool_name, arguments, observation, is_error}]"
+      },
+      "available_tools": {
+        "type": "array",
+        "items": { "type": "object" },
+        "description": "agent_step: Candidate tool specifications [{name, description, parameters}]"
       }
     }
   }

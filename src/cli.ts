@@ -31,6 +31,7 @@ const __dirname = dirname(__filename);
 import {
   getConfiguredTools, ToolConfig, coreTools, optionalTools, codeIntelTools, trackerTools, kaiTools, uiTools,
   autoguiTools, orchestrationTools, uiRegistryTools, githubUITools, desktopTools, cryptuonCommunityTools,
+  legacyToolAliasMap,
 } from './tools/index.js';
 import { Tool, listed } from './types/index.js';
 import { getSystemPrompt } from './prompts/system.js';
@@ -679,6 +680,7 @@ function surface(options: any): ToolConfig {
 function registerHandlers(
   server: Server,
   options: any,
+  toolConfig: ToolConfig,
   configuredTools: any[],
   toolMap: Map<string, any>,
 ) {
@@ -689,10 +691,12 @@ function registerHandlers(
   });
 
   server.setRequestHandler(CallToolRequestSchema, async (request) => {
-    const tool = toolMap.get(request.params.name);
+    const name = request.params.name;
+    const allowAliases = !toolConfig.coreOnly && !toolConfig.betaSafe && !(toolConfig.disabledTools || []).includes(name);
+    const tool = toolMap.get(name) || (allowAliases ? legacyToolAliasMap.get(name) : undefined);
     if (!tool) {
       return {
-        content: [{ type: 'text', text: `Unknown tool: ${request.params.name}` }],
+        content: [{ type: 'text', text: `Unknown tool: ${name}` }],
         isError: true,
       };
     }
@@ -752,7 +756,7 @@ async function startHttpServer(options: any, toolConfig: ToolConfig) {
       { name: 'hanzo-mcp', version: packageJson.version },
       { capabilities: { tools: {}, resources: {} } },
     );
-    registerHandlers(server, options, configuredTools, toolMap);
+    registerHandlers(server, options, toolConfig, configuredTools, toolMap);
     const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
     res.on('close', () => { void transport.close(); void server.close(); });
     try {
@@ -792,7 +796,7 @@ async function startStdioServer(options: any, toolConfig: ToolConfig) {
   // Register all tools
   console.error(`Registering ${configuredTools.length} tools...`);
 
-  registerHandlers(server, options, configuredTools, toolMap);
+  registerHandlers(server, options, toolConfig, configuredTools, toolMap);
 
   // Start the MCP stdio server
   const transport = new StdioServerTransport();

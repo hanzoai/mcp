@@ -208,29 +208,34 @@ async fn file_alone_stays_on_the_local_plane() {
     assert!(out["error"].as_str().unwrap().starts_with("file is required"));
 }
 
-/// One tool, one schema — the cloud plane is two more properties, not a
-/// second tool.
+/// LSP is absorbed into `code` (`action: "lsp" | "diagnostics"`), keeping
+/// `tools/list` canonical while `lsp` remains a silent `tools/call` alias.
 #[tokio::test]
-async fn lsp_is_one_tool_advertising_both_planes() {
+async fn lsp_is_absorbed_into_code_and_callable_by_alias() {
     let registry = ToolRegistry::with_defaults();
     let names = registry.list();
-    assert_eq!(
-        names.iter().filter(|n| n.starts_with("lsp")).collect::<Vec<_>>(),
-        vec![&"lsp".to_string()],
-        "`lsp` is the only lsp tool"
+    assert!(
+        names.iter().all(|n| !n.starts_with("lsp")),
+        "standalone `lsp` must not appear in canonical tools/list"
     );
 
     let def = registry
         .get_definitions()
         .into_iter()
-        .find(|d| d["name"] == "lsp")
-        .expect("lsp is advertised to tools/list");
+        .find(|d| d["name"] == "code")
+        .expect("code is advertised to tools/list");
     let props = &def["inputSchema"]["properties"];
     assert_eq!(props["repo"]["type"], "string");
-    assert_eq!(props["rev"]["type"], "string");
-    assert_eq!(def["inputSchema"]["required"], json!(["action", "file"]));
     let actions = props["action"]["enum"].as_array().expect("action enum");
-    for action in ["definition", "references", "type", "implementation", "symbols", "hover", "completion", "diagnostics"] {
-        assert!(actions.contains(&json!(action)), "{action} is advertised");
+    for action in ["definition", "references", "symbols", "diagnostics", "lsp"] {
+        assert!(actions.contains(&json!(action)), "{action} is advertised on code");
     }
+
+    // `code(action="lsp", lsp_action="definition", uri="notes.txt")` routes to the same LSP engine.
+    let via_code = registry
+        .execute("code", json!({ "action": "lsp", "lsp_action": "definition", "uri": "notes.txt" }))
+        .await
+        .expect("code action=lsp executes")
+        .content;
+    assert!(via_code["supported_languages"].as_array().unwrap().contains(&json!("go")));
 }

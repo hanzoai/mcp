@@ -396,6 +396,103 @@ impl MCPTool for TrackerUpdateTool {
     }
 }
 
+// ---------------------------------------------------------------------------
+// tracker — Unified Hanzo Cloud /v1/tracker work-item tool (HIP-0300)
+// ---------------------------------------------------------------------------
+
+pub struct TrackerTool {
+    boards: TrackerBoardsTool,
+    issues: TrackerIssuesTool,
+    create: TrackerCreateTool,
+    update: TrackerUpdateTool,
+}
+
+impl TrackerTool {
+    pub fn new() -> Self {
+        Self {
+            boards: TrackerBoardsTool::new(),
+            issues: TrackerIssuesTool::new(),
+            create: TrackerCreateTool::new(),
+            update: TrackerUpdateTool::new(),
+        }
+    }
+
+    pub fn schema() -> Value {
+        json!({
+            "name": "tracker",
+            "description": "Hanzo Cloud work-item tracker (/v1/tracker): boards (list org boards), issues (list/filter board issues), create (open a work item; defaults source=agent and links session:<id>), update (move status, assign, or relink).",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "action": {
+                        "type": "string",
+                        "enum": ["boards", "issues", "create", "update"],
+                        "description": "Tracker action: boards | issues | create | update"
+                    },
+                    "key": { "type": "string", "description": "Board key, e.g. ENG (required for issues, create, update)" },
+                    "number": { "type": "number", "description": "Issue number within the board, e.g. 14 for ENG-14 (required for update)" },
+                    "title": { "type": "string", "description": "Work item title (required for create)" },
+                    "description": { "type": "string", "description": "Work item description" },
+                    "status": { "type": "string", "enum": ["backlog", "todo", "in_progress", "done", "canceled"] },
+                    "priority": { "type": "string", "enum": ["none", "urgent", "high", "medium", "low"] },
+                    "assignee": { "type": "string" },
+                    "labels": { "type": "array", "items": { "type": "string" } },
+                    "kind": { "type": "string", "enum": ["issue", "pr", "epic"] },
+                    "source": { "type": "string", "enum": ["team", "git", "crm", "helpdesk", "cms", "agent"] },
+                    "repo": { "type": "string", "description": "Git repository slug" },
+                    "session": { "type": "string", "description": "Agent session ID to link via extRef session:<id>" },
+                    "extRef": { "type": "string", "description": "External anchor when not a session" }
+                },
+                "required": ["action"]
+            }
+        })
+    }
+}
+
+impl Default for TrackerTool {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+#[async_trait]
+impl MCPTool for TrackerTool {
+    fn name(&self) -> &str {
+        "tracker"
+    }
+
+    fn description(&self) -> &str {
+        "Hanzo Cloud work-item tracker (/v1/tracker): boards, issues, create, update"
+    }
+
+    fn parameters(&self) -> Value {
+        Self::schema()["inputSchema"].clone()
+    }
+
+    async fn execute(&self, params: Value) -> Result<ToolResult> {
+        let action = params.get("action").and_then(Value::as_str).unwrap_or("").to_string();
+        let mut out = match action.as_str() {
+            "boards" => self.boards.execute(params).await?,
+            "issues" => self.issues.execute(params).await?,
+            "create" => self.create.execute(params).await?,
+            "update" => self.update.execute(params).await?,
+            _ => {
+                return Ok(ToolResult::ok(envelope_err(
+                    "tracker",
+                    &action,
+                    "INVALID_ARGS",
+                    "action must be one of: boards, issues, create, update",
+                )))
+            }
+        };
+        if out.content.get("meta").is_some() {
+            out.content["meta"]["tool"] = json!("tracker");
+            out.content["meta"]["action"] = json!(action);
+        }
+        Ok(out)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

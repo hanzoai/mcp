@@ -364,10 +364,18 @@ async fn llm_feedback_refuses_a_shape_the_server_would_before_sending() {
 }
 
 #[tokio::test]
-async fn both_tools_are_advertised() {
+async fn canonical_kai_and_think_are_advertised_while_legacy_names_remain_callable() {
     let defs = ToolRegistry::with_defaults().get_definitions();
-    let kai = defs.iter().find(|d| d["name"] == "kai_decide").expect("kai_decide in tools/list");
-    assert_eq!(kai["inputSchema"]["required"], json!(["state", "questions"]));
-    let llm = defs.iter().find(|d| d["name"] == "llm").expect("llm in tools/list");
-    assert_eq!(llm["inputSchema"]["properties"]["action"]["enum"], json!(["query", "consensus", "list", "models", "limits", "feedback"]));
+    let kai = defs.iter().find(|d| d["name"] == "kai").expect("kai in tools/list");
+    assert!(kai["inputSchema"]["properties"]["action"]["enum"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("decide")));
+    assert!(defs.iter().all(|d| d["name"] != "kai_decide"), "kai_decide must not appear in tools/list");
+    assert!(defs.iter().all(|d| d["name"] != "llm"), "llm must not appear in tools/list");
+    let think = defs.iter().find(|d| d["name"] == "think").expect("think in tools/list");
+    assert!(think["inputSchema"]["properties"]["action"]["enum"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("llm")));
 }

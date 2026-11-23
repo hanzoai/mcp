@@ -4,18 +4,20 @@
  */
 
 import { Tool } from '../types/index.js';
+import { llmTool } from './llm.js';
 
 export const thinkTool: Tool = {
   name: 'think',
-  description: 'LLM reasoning & intelligence: think (structured reasoning), critic (code review), consensus (multi-model), agent (delegate), summarize, classify, embed, explain, translate, compare, chain (multi-step)',
+  description: 'Structured reasoning, multi-voice consensus, Enso LLM routing & sub-agent delegation: think, critic, review, consensus, llm, query, models, limits, feedback, agent, summarize, classify, embed, explain, translate, compare, chain',
   inputSchema: {
     type: 'object',
     properties: {
       action: { type: 'string', enum: [
-        'think', 'critic', 'consensus', 'agent',
+        'think', 'critic', 'review', 'consensus', 'llm', 'query', 'models', 'limits', 'feedback', 'agent',
         'summarize', 'classify', 'embed', 'explain',
         'translate', 'compare', 'chain'
-      ], description: 'AI action' },
+      ], description: 'Reasoning or LLM action' },
+      prompt: { type: 'string', description: 'Prompt for llm/query' },
       // think/critic
       thought: { type: 'string', description: 'What to think about / critique' },
       context: { type: 'string', description: 'Additional context' },
@@ -46,8 +48,13 @@ export const thinkTool: Tool = {
     required: ['action']
   },
   handler: async (args) => {
-    const apiKey = process.env.HANZO_API_KEY || process.env.API_KEY || process.env.OPENAI_API_KEY;
-    const baseUrl = (process.env.API_URL || 'https://api.hanzo.ai') + '/v1';
+    const apiKey = process.env.HANZO_API_KEY || process.env.HANZO_USER_KEY || process.env.API_KEY || process.env.OPENAI_API_KEY;
+    const baseUrl = ((process.env.HANZO_API_BASE || process.env.HANZO_API_URL || process.env.HANZO_CLOUD_API || process.env.API_URL || 'https://api.hanzo.ai').replace(/\/+$/, '').replace(/\/v1$/, '')) + '/v1';
+
+    if (['llm', 'query', 'models', 'limits', 'feedback'].includes(args?.action)) {
+      const sub = args.action === 'llm' ? (args.llm_action || args.sub_action || 'query') : args.action;
+      return llmTool.handler({ ...args, action: sub });
+    }
 
     async function llm(prompt: string, opts: { model?: string; system?: string; maxTokens?: number; temperature?: number } = {}): Promise<string> {
       if (!apiKey) throw new Error('HANZO_API_KEY required');
@@ -68,6 +75,7 @@ export const thinkTool: Tool = {
           return { content: [{ type: 'text', text: `Thinking: ${args.thought || args.question || ''}\n${args.context ? `Context: ${args.context}` : ''}\n\nUse this tool to structure reasoning, break down problems, evaluate tradeoffs, and plan before acting. Not an LLM call — a scratchpad for the agent's own reasoning.` }] };
 
         case 'critic':
+        case 'review':
           return { content: [{ type: 'text', text: `Critical Analysis: ${args.thought || ''}\n${args.code ? `\nCode:\n\`\`\`${args.language || ''}\n${args.code}\n\`\`\`\n` : ''}\nConsider: edge cases, security, error handling, performance, readability, patterns, tests, simplicity, OWASP, race conditions, resource leaks.` }] };
 
         case 'consensus': {

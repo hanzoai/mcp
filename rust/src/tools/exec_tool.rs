@@ -604,10 +604,12 @@ Auto-backgrounds commands after {}s."#,
                 "properties": {
                     "action": {
                         "type": "string",
-                        "enum": ["exec", "wait", "ps", "kill", "logs", "help"],
+                        "enum": ["exec", "wait", "ps", "kill", "logs", "npx", "uvx", "help"],
                         "default": "help",
-                        "description": "Action to perform"
+                        "description": "Action to perform (exec, wait, ps, kill, logs, npx, uvx)"
                     },
+                    "package": {"type": "string", "description": "Package specifier for npx / uvx"},
+                    "args": {"type": "array", "items": {"type": "string"}, "description": "Package arguments for npx / uvx"},
                     "command": {
                         "oneOf": [
                             {"type": "string"},

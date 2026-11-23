@@ -25,7 +25,41 @@ use crate::hanzo_api::HanzoApi;
 use crate::{MCPTool, ToolResult};
 
 const SCHEMA: &str = include_str!("../../schema/kai.json");
-const ACTIONS: &[&str] = &["run", "plan", "list", "triggers"];
+const ACTION_VERBS: &[&str] = &["run", "plan", "list", "triggers"];
+const SUITE_VERBS: &[&str] = &[
+    "decide",
+    "choice",
+    "score",
+    "noul",
+    "compact",
+    "tool_select",
+    "next_action",
+    "command_guard",
+    "injection_screen",
+    "extract",
+    "log_triage",
+    "recover",
+    "agent_step",
+];
+const ACTIONS: &[&str] = &[
+    "decide",
+    "choice",
+    "score",
+    "noul",
+    "run",
+    "plan",
+    "list",
+    "triggers",
+    "compact",
+    "tool_select",
+    "next_action",
+    "command_guard",
+    "injection_screen",
+    "extract",
+    "log_triage",
+    "recover",
+    "agent_step",
+];
 
 pub struct ActionsTool {
     api: HanzoApi,
@@ -117,14 +151,17 @@ impl MCPTool for ActionsTool {
         "kai"
     }
     fn description(&self) -> &str {
-        "Kai Actions: run a request as a saved, typed, verified action, with no model call when one fits"
+        "Kai: Hanzo's unified decision model (/v1/decisions), verified action engine, context compactor, command guard, and recovery suite"
     }
     fn parameters(&self) -> Value {
         Self::schema()["inputSchema"].clone()
     }
     async fn execute(&self, params: Value) -> Result<ToolResult> {
         let action = params.get("action").and_then(Value::as_str).unwrap_or("run").to_string();
-        if !ACTIONS.contains(&action.as_str()) {
+        if SUITE_VERBS.contains(&action.as_str()) {
+            return super::kai_suite_tool::dispatch(&self.api, "kai", &action, &params).await;
+        }
+        if !ACTION_VERBS.contains(&action.as_str()) {
             return Ok(ToolResult::ok(envelope_err("kai", &action, "INVALID_ARGS", format!("action must be one of {}", ACTIONS.join(", ")))));
         }
         let api = self.api.clone();

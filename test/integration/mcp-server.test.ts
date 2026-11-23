@@ -6,16 +6,10 @@ import {
 } from '../setup.js';
 import * as path from 'path';
 
-// HIP-0300 unified tool names
+// HIP-0300 canonical 19-tool set ("one and one way to do everything")
 const UNIFIED_TOOLS = [
-  'fs', 'exec', 'code', 'git', 'fetch', 'workspace', 'ui',
-  'think', 'llm', 'memory', 'hanzo', 'plan', 'tasks', 'mode', 'gimp', 'browser', 'cdp', 'npx', 'uvx', 'jq', 'kai_compact', 'vault', 'connectors',
-  'code_search', 'code_context', 'code_ask', 'code_index',
-  'tracker_boards', 'tracker_issues', 'tracker_create', 'tracker_update',
-  'kai_decide', 'kai_choice', 'kai_score', 'kai_noul',
-  'kai',
-  'kai_tool_select', 'kai_next_action', 'kai_command_guard', 'kai_injection_screen', 'kai_extract', 'kai_log_triage', 'kai_recover',
-  'kai_agent_step'
+  'fs', 'exec', 'code', 'git', 'fetch', 'workspace', 'browser', 'computer', 'ui',
+  'kai', 'think', 'plan', 'memory', 'tasks', 'tracker', 'coding', 'research', 'skills', 'hanzo',
 ];
 
 describe('MCP Server Integration', () => {

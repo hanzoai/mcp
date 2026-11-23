@@ -128,16 +128,13 @@ pub struct HanzoApi {
 }
 
 impl HanzoApi {
-    /// Build a client from the environment: `HANZO_API_BASE` / `HANZO_API_KEY`,
+    /// Build a client from the environment: `HANZO_API_BASE` / `HANZO_API_URL` /
+    /// `HANZO_CLOUD_API`, `HANZO_API_KEY` / `HANZO_USER_KEY` / `API_KEY` / `HANZO_TOKEN`,
     /// the `hanzo` CLI beside this binary, `~/.hanzo/config.json`, and the
-    /// default base URL.
+    /// default base URL (`https://api.hanzo.ai`).
     pub fn from_env() -> Self {
-        let base_url = std::env::var("HANZO_API_BASE")
-            .ok()
-            .filter(|s| !s.trim().is_empty())
-            .map(|s| s.trim().trim_end_matches('/').to_string())
-            .unwrap_or_else(|| DEFAULT_BASE_URL.to_string());
-        let env_key = std::env::var("HANZO_API_KEY").ok().map(|k| k.trim().to_string()).filter(|k| !k.is_empty());
+        let base_url = env_base_url(|k| std::env::var(k).ok());
+        let env_key = env_api_key(|k| std::env::var(k).ok());
         let beside = std::env::current_exe()
             .ok()
             .and_then(|e| e.canonicalize().ok().or(Some(e)))
@@ -315,10 +312,14 @@ impl HanzoApi {
             .unwrap_or_else(|_| json!({ "status": status, "body": text })))
     }
 
-    /// Attach the bearer key. The one place credentials meet a request.
+    /// Attach the bearer key (and optional `HANZO_ORG` header). The one place credentials meet a request.
     fn auth(&self, req: reqwest::RequestBuilder) -> reqwest::RequestBuilder {
-        match self.key() {
+        let req = match self.key() {
             Some(key) => req.bearer_auth(key),
+            None => req,
+        };
+        match std::env::var("HANZO_ORG").ok().map(|o| o.trim().to_string()).filter(|o| !o.is_empty()) {
+            Some(org) => req.header("X-Org-Id", org),
             None => req,
         }
     }
@@ -582,6 +583,26 @@ pub fn api_key_from_config_json(content: &str) -> Option<String> {
         .map(str::trim)
         .filter(|s| !s.is_empty())
         .map(str::to_string)
+}
+
+/// Resolve the Hanzo Cloud base URL from environment variables in priority order:
+/// `HANZO_API_BASE` -> `HANZO_API_URL` -> `HANZO_CLOUD_API` -> `DEFAULT_BASE_URL`.
+/// Strips any trailing `/v1` so `/v1/...` routes never double-prefix.
+pub fn env_base_url<F: Fn(&str) -> Option<String>>(var: F) -> String {
+    ["HANZO_API_BASE", "HANZO_API_URL", "HANZO_CLOUD_API"]
+        .into_iter()
+        .find_map(|k| var(k).map(|s| s.trim().trim_end_matches('/').to_string()).filter(|s| !s.is_empty()))
+        .map(|s| s.strip_suffix("/v1").map(str::to_string).unwrap_or(s))
+        .unwrap_or_else(|| DEFAULT_BASE_URL.to_string())
+}
+
+/// Resolve the explicit bearer key from environment variables in priority order:
+/// `HANZO_API_KEY` -> `HANZO_USER_KEY` (set by `hanzo` / `hanzo-gen` coding sessions) ->
+/// `API_KEY` -> `HANZO_TOKEN`.
+pub fn env_api_key<F: Fn(&str) -> Option<String>>(var: F) -> Option<String> {
+    ["HANZO_API_KEY", "HANZO_USER_KEY", "API_KEY", "HANZO_TOKEN"]
+        .into_iter()
+        .find_map(|k| var(k).map(|s| s.trim().to_string()).filter(|s| !s.is_empty()))
 }
 
 /// Join a base URL and a path with exactly one separating slash.
@@ -879,5 +900,39 @@ esac
         let f = frames("data: {\"type\":\"done\",\"answer\":\"ok\"}\r\n");
         assert_eq!(f.len(), 1);
         assert_eq!(f[0]["answer"], "ok");
+    }
+
+    #[test]
+    fn unified_env_auth_resolves_user_key_and_cloud_api_urls() {
+        assert_eq!(
+            env_api_key(|k| match k {
+                "HANZO_USER_KEY" => Some(" hk-session-123 ".into()),
+                _ => None,
+            }),
+            Some("hk-session-123".into())
+        );
+        assert_eq!(
+            env_api_key(|k| match k {
+                "HANZO_API_KEY" => Some("sk-primary".into()),
+                "HANZO_USER_KEY" => Some("hk-session-123".into()),
+                _ => None,
+            }),
+            Some("sk-primary".into())
+        );
+        assert_eq!(
+            env_base_url(|k| match k {
+                "HANZO_API_URL" => Some("https://api.hanzo.ai/v1/".into()),
+                _ => None,
+            }),
+            "https://api.hanzo.ai"
+        );
+        assert_eq!(
+            env_base_url(|k| match k {
+                "HANZO_CLOUD_API" => Some("http://127.0.0.1:8080/".into()),
+                _ => None,
+            }),
+            "http://127.0.0.1:8080"
+        );
+        assert_eq!(env_base_url(|_| None), DEFAULT_BASE_URL);
     }
 }

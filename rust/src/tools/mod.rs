@@ -41,6 +41,11 @@ pub mod refactor_tool;
 pub mod system_tool;
 pub mod tracker_tool;
 pub mod coding_tool;
+pub mod skills_tool;
+pub mod gimp_tool;
+pub mod vault_tool;
+pub mod connectors_tool;
+pub mod kai_suite_tool;
 
 // Re-export tools — HIP-0300 canonical names
 pub use fs_tool::{FsTool, FsToolArgs, FsToolDefinition};
@@ -65,8 +70,12 @@ pub use personality::{ToolPersonality, PersonalityRegistry};
 // Cloud-backed tools (api.hanzo.ai) — registered via the generic MCPTool seam.
 pub use cloud_code::{CodeSearchTool, CodeContextTool, CodeAskTool, CodeIndexTool};
 pub use cloud_web::{WebSearchTool, WebReadTool, ResearchTool};
-pub use tracker_tool::{TrackerBoardsTool, TrackerIssuesTool, TrackerCreateTool, TrackerUpdateTool};
+pub use tracker_tool::{TrackerTool, TrackerBoardsTool, TrackerIssuesTool, TrackerCreateTool, TrackerUpdateTool};
 pub use coding_tool::CodingTool;
+pub use skills_tool::SkillsTool;
+pub use gimp_tool::GimpTool;
+pub use vault_tool::VaultTool;
+pub use connectors_tool::ConnectorsTool;
 pub use vision_tool::VisionTool;
 pub use config_tool::ConfigTool;
 pub use llm_tool::LlmTool;
@@ -103,23 +112,27 @@ pub(crate) fn refused(tool: &str, action: &str, e: &anyhow::Error) -> Option<cra
 /// Tool category for organization
 #[derive(Debug, Clone, PartialEq)]
 pub enum ToolCategory {
-    /// Core tools
+    /// Core & Canonical HIP-0300 tools (19 orthogonal tools)
     FileSystem,    // fs
     Execution,     // exec
     Semantics,     // code
     VersionControl,// git
     Network,       // fetch
     Workspace,     // workspace
+    Browser,       // browser
     Computer,      // computer
-    /// Optional tools
+    Ui,            // ui
+    Decision,      // kai
     Reasoning,     // think
-    Memory,        // memory
-    Platform,      // hanzo
     Planning,      // plan
+    Memory,        // memory
     Tasks,         // tasks
-    Configuration, // mode
-    /// Extensions
-    Browser,       // browser (extension)
+    Tracker,       // tracker
+    Coding,        // coding
+    Research,      // research
+    Skills,        // skills
+    Platform,      // hanzo
+    Configuration, // legacy alias category
 }
 
 /// Tool registry entry
@@ -129,55 +142,44 @@ pub struct ToolEntry {
     pub category: ToolCategory,
 }
 
-/// Get all available tools (HIP-0300 canonical surface)
+/// Get all available tools (HIP-0300 canonical 19-tool surface)
 pub fn list_tools() -> Vec<ToolEntry> {
     vec![
-        // Core (8)
-        ToolEntry { name: "fs".into(), description: "Filesystem operations".into(), category: ToolCategory::FileSystem },
-        ToolEntry { name: "exec".into(), description: "Process execution".into(), category: ToolCategory::Execution },
-        ToolEntry { name: "code".into(), description: "Code semantics + AST + LSP".into(), category: ToolCategory::Semantics },
-        ToolEntry { name: "git".into(), description: "Version control".into(), category: ToolCategory::VersionControl },
-        ToolEntry { name: "fetch".into(), description: "Network operations".into(), category: ToolCategory::Network },
-        ToolEntry { name: "workspace".into(), description: "Project context".into(), category: ToolCategory::Workspace },
-        ToolEntry { name: "computer".into(), description: "Native OS control".into(), category: ToolCategory::Computer },
-        // Optional (7)
-        ToolEntry { name: "think".into(), description: "Structured reasoning".into(), category: ToolCategory::Reasoning },
-        ToolEntry { name: "memory".into(), description: "Knowledge persistence".into(), category: ToolCategory::Memory },
-        ToolEntry { name: "hanzo".into(), description: "Hanzo platform".into(), category: ToolCategory::Platform },
-        ToolEntry { name: "plan".into(), description: "Task planning".into(), category: ToolCategory::Planning },
-        ToolEntry { name: "tasks".into(), description: "Task tracking".into(), category: ToolCategory::Tasks },
-        ToolEntry { name: "mode".into(), description: "Development modes".into(), category: ToolCategory::Configuration },
+        ToolEntry { name: "fs".into(), description: "Local filesystem & native tgrep search".into(), category: ToolCategory::FileSystem },
+        ToolEntry { name: "exec".into(), description: "Process execution, background jobs & npx/uvx runners".into(), category: ToolCategory::Execution },
+        ToolEntry { name: "code".into(), description: "AST symbols, LSP, refactoring, jq & Cloud RAG".into(), category: ToolCategory::Semantics },
+        ToolEntry { name: "git".into(), description: "Git operations".into(), category: ToolCategory::VersionControl },
+        ToolEntry { name: "fetch".into(), description: "HTTP requests, web search, markdown reader & vision".into(), category: ToolCategory::Network },
+        ToolEntry { name: "workspace".into(), description: "Project discovery, config, mode & host system info".into(), category: ToolCategory::Workspace },
+        ToolEntry { name: "browser".into(), description: "Web browser & CDP automation over ZAP".into(), category: ToolCategory::Browser },
+        ToolEntry { name: "computer".into(), description: "Native OS desktop GUI & GIMP control".into(), category: ToolCategory::Computer },
+        ToolEntry { name: "ui".into(), description: "@hanzo/ui & @hanzo/gui component registry".into(), category: ToolCategory::Ui },
+        ToolEntry { name: "kai".into(), description: "Calibrated decisions, verified actions, compaction & guards".into(), category: ToolCategory::Decision },
+        ToolEntry { name: "think".into(), description: "Structured reasoning, consensus, LLM & sub-agent delegation".into(), category: ToolCategory::Reasoning },
+        ToolEntry { name: "plan".into(), description: "Execution plan creation & step tracking".into(), category: ToolCategory::Planning },
+        ToolEntry { name: "memory".into(), description: "Persistent memory & recall".into(), category: ToolCategory::Memory },
+        ToolEntry { name: "tasks".into(), description: "Local private session todo list".into(), category: ToolCategory::Tasks },
+        ToolEntry { name: "tracker".into(), description: "Cloud /v1/tracker boards & work items".into(), category: ToolCategory::Tracker },
+        ToolEntry { name: "coding".into(), description: "Cloud /v1/agent/coding autonomous runs".into(), category: ToolCategory::Coding },
+        ToolEntry { name: "research".into(), description: "Hanzo Science /v1/research studies, runs, ledger & cited search".into(), category: ToolCategory::Research },
+        ToolEntry { name: "skills".into(), description: "Hanzo Skills search, detection & SKILL.md installer".into(), category: ToolCategory::Skills },
+        ToolEntry { name: "hanzo".into(), description: "Unified Hanzo Cloud router (auth, iam, kms/vault, connectors, 120+ services)".into(), category: ToolCategory::Platform },
     ]
 }
 
 /// Tool parity status across implementations
 pub fn parity_status() -> serde_json::Value {
+    let names: Vec<&str> = crate::CANONICAL_TOOLS.to_vec();
     serde_json::json!({
         "hip": "0300",
         "rust_version": env!("CARGO_PKG_VERSION"),
-        "tools_implemented": 13,
-        "surface": ["fs", "exec", "code", "git", "fetch", "workspace", "computer", "think", "memory", "hanzo", "plan", "tasks", "mode"],
-        "parity": {
-            "fs": "full",
-            "exec": "full",
-            "code": "basic (regex, no tree-sitter yet)",
-            "git": "full",
-            "fetch": "full (reqwest)",
-            "workspace": "full",
-            "computer": "full",
-            "think": "full (reasoning journal)",
-            "memory": "full",
-            "hanzo": "stub (progressive reveal only)",
-            "plan": "full",
-            "tasks": "full",
-            "mode": "full"
-        },
+        "tools_implemented": names.len(),
+        "surface": names,
         "cloud": {
-            "backend": "api.hanzo.ai",
-            "tools": ["code_search", "code_context", "code_ask", "code_index", "web_search", "web_read", "research", "vision", "tracker_boards", "tracker_issues", "tracker_create", "tracker_update", "coding"],
-            "auth": "pk-/sk- bearer from HANZO_API_KEY, else the hanzo login (hanzo auth token), else ~/.hanzo/config.json .apiKey"
+            "backend": "https://api.hanzo.ai",
+            "auth": "HANZO_API_KEY / HANZO_USER_KEY, else hanzo auth token, else ~/.hanzo/config.json .apiKey"
         },
-        "notes": "Local tree-sitter AST engine for single-file ops; cloud tools for cross-repo search/index, web, vision, tracker work items, and autonomous coding runs. Browser tool available as extension."
+        "notes": "Canonical 19-tool HIP-0300 surface (one and one way to do everything) identical across Rust, TypeScript, and Python."
     })
 }
 
@@ -188,30 +190,16 @@ mod tests {
     #[test]
     fn test_list_tools() {
         let tools = list_tools();
-        assert_eq!(tools.len(), 13);
+        assert_eq!(tools.len(), 19);
 
         let names: Vec<&str> = tools.iter().map(|t| t.name.as_str()).collect();
-        // Core
-        assert!(names.contains(&"fs"));
-        assert!(names.contains(&"exec"));
-        assert!(names.contains(&"code"));
-        assert!(names.contains(&"git"));
-        assert!(names.contains(&"fetch"));
-        assert!(names.contains(&"workspace"));
-        assert!(names.contains(&"computer"));
-        // Optional
-        assert!(names.contains(&"think"));
-        assert!(names.contains(&"memory"));
-        assert!(names.contains(&"hanzo"));
-        assert!(names.contains(&"plan"));
-        assert!(names.contains(&"tasks"));
-        assert!(names.contains(&"mode"));
+        assert_eq!(names.as_slice(), crate::CANONICAL_TOOLS);
     }
 
     #[test]
     fn test_parity_status() {
         let status = parity_status();
-        assert_eq!(status["tools_implemented"], 13);
+        assert_eq!(status["tools_implemented"], 19);
         assert_eq!(status["hip"], "0300");
     }
 }
