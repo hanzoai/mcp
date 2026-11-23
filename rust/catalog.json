@@ -36,7 +36,10 @@
  "agent": {
   "ops": [
    "delete_agent_by_ref",
+   "delete_agent_groups_by_ref",
+   "delete_agent_sessions_by_id",
    "delete_agent_targets_by_id",
+   "delete_agent_targets_by_id_folders",
    "get_agent",
    "get_agent_activity",
    "get_agent_briefs",
@@ -50,6 +53,8 @@
    "get_agent_coding_by_session_blob",
    "get_agent_coding_by_session_changes",
    "get_agent_coding_by_session_tree",
+   "get_agent_groups",
+   "get_agent_groups_by_ref",
    "get_agent_metrics",
    "get_agent_proposals",
    "get_agent_roster_templates",
@@ -62,10 +67,13 @@
    "get_agent_sessions_by_id_tree",
    "get_agent_targets",
    "get_agent_targets_by_id",
+   "get_agent_targets_by_id_folders",
    "patch_agent_by_ref",
+   "patch_agent_groups_by_ref",
    "patch_agent_sessions_by_id",
    "patch_agent_targets_by_id",
    "post_agent",
+   "post_agent_bootstrap",
    "post_agent_briefs",
    "post_agent_briefs_by_id_rerun",
    "post_agent_coding",
@@ -73,10 +81,13 @@
    "post_agent_coding_by_session_merge",
    "post_agent_coding_by_session_pull",
    "post_agent_coding_by_session_steer",
+   "post_agent_groups",
+   "post_agent_groups_by_ref_run",
    "post_agent_proposals_by_id_decide",
    "post_agent_proposals_review",
    "post_agent_roster",
    "post_agent_sessions",
+   "post_agent_sessions_by_id_answer",
    "post_agent_sessions_by_id_budget",
    "post_agent_sessions_by_id_events",
    "post_agent_sessions_by_id_message",
@@ -85,7 +96,9 @@
    "post_agent_sessions_by_id_stop",
    "post_agent_targets",
    "post_agent_targets_by_id_claim",
-   "post_agent_targets_by_id_runs_by_runid_report"
+   "post_agent_targets_by_id_folders",
+   "post_agent_targets_by_id_runs_by_runid_report",
+   "post_agent_turns"
   ]
  },
  "ai": {
@@ -190,6 +203,8 @@
    "get_billing_accounts_by_id_members",
    "get_billing_alerts",
    "get_billing_alerts_authorize",
+   "get_billing_balance",
+   "get_billing_checkouts_by_id",
    "get_billing_credit-balance",
    "get_billing_credit-balance_breakdown",
    "get_billing_credits",
@@ -199,11 +214,14 @@
    "get_billing_crypto_options",
    "get_billing_invoices",
    "get_billing_ledger",
+   "get_billing_orders_by_id",
    "get_billing_payouts",
+   "get_billing_quote",
    "get_billing_recharge",
    "get_billing_settings",
    "get_billing_subscriptions",
    "get_billing_tier",
+   "get_billing_topup_intent_by_id",
    "get_billing_transactions",
    "get_billing_transactions_by_id",
    "get_billing_usage_accounts",
@@ -211,14 +229,23 @@
    "get_billing_wire",
    "issueInvoice",
    "patch_billing_alerts_by_id",
+   "patch_billing_checkouts_by_id",
+   "payInvoice",
    "post_billing_alerts",
+   "post_billing_checkouts",
+   "post_billing_checkouts_by_id_complete",
    "post_billing_crypto_deposit",
    "post_billing_crypto_gateway",
    "post_billing_mode",
    "post_billing_paypal_order",
    "post_billing_recharge_run-all",
+   "post_billing_route",
    "post_billing_topup",
+   "post_billing_topup_crypto",
+   "post_billing_topup_intent",
+   "post_billing_topup_intent_by_id_cancel",
    "post_billing_usage",
+   "post_billing_wire_reconcile",
    "put_billing_recharge",
    "raiseInvoice",
    "reactivateSubscription",
@@ -317,12 +344,12 @@
  },
  "ci": {
   "ops": [
-   "get_ci_runs",
-   "get_ci_runs_by_owner_by_repo"
+   "get_ci_runs"
   ]
  },
  "cloudflare": {
   "ops": [
+   "delete_cloudflare_ai-search_instances_by_instance",
    "delete_cloudflare_d1_databases_by_database",
    "delete_cloudflare_kv_namespaces_by_namespace",
    "delete_cloudflare_kv_namespaces_by_namespace_values_by_key",
@@ -331,17 +358,23 @@
    "delete_cloudflare_r2_buckets_by_bucket",
    "delete_cloudflare_workers_scripts_by_script",
    "delete_cloudflare_workers_zones_by_zone_routes_by_route",
+   "get_cloudflare_ai-search_instances",
+   "get_cloudflare_ai-search_instances_by_instance",
+   "get_cloudflare_ai-search_namespace",
    "get_cloudflare_d1_databases",
    "get_cloudflare_kv_namespaces",
    "get_cloudflare_pages_projects",
    "get_cloudflare_pages_projects_by_project",
    "get_cloudflare_r2_buckets",
+   "get_cloudflare_spend-limits",
    "get_cloudflare_workers_scripts",
    "get_cloudflare_workers_subdomain",
    "get_cloudflare_workers_zones_by_zone_routes",
    "get_cloudflare_zones",
    "get_cloudflare_zones_by_zone",
    "get_cloudflare_zones_by_zone_analytics",
+   "post_cloudflare_ai-search_instances",
+   "post_cloudflare_ai-search_namespace",
    "post_cloudflare_d1_databases",
    "post_cloudflare_d1_databases_by_database_query",
    "post_cloudflare_kv_namespaces",
@@ -351,6 +384,7 @@
    "post_cloudflare_workers_scripts_by_script_subdomain",
    "post_cloudflare_workers_zones_by_zone_routes",
    "post_cloudflare_zones_by_zone_purge",
+   "put_cloudflare_ai-search_instances_by_instance",
    "put_cloudflare_workers_scripts_by_script"
   ]
  },
@@ -362,14 +396,18 @@
    "get_code_tree",
    "post_code_ask",
    "post_code_context",
-   "post_code_index"
+   "post_code_index",
+   "post_code_reindex"
   ]
  },
  "commerce": {
   "ops": [
+   "backfillCustomers",
    "discardCart",
    "getCart",
    "get_commerce_health",
+   "listCarts",
+   "listOrders",
    "openCart",
    "setCartItem"
   ]
@@ -431,6 +469,7 @@
    "deleteMachine",
    "deleteNodePool",
    "detachCluster",
+   "getFleetJob",
    "getKubernetesCluster",
    "getMachine",
    "getMachineAgent",
@@ -449,6 +488,7 @@
    "listMachines",
    "recordFleetSample",
    "scaleNodePool",
+   "submitFleetJob",
    "unbindMachineAgent"
   ]
  },
@@ -464,7 +504,8 @@
  },
  "crawl": {
   "ops": [
-   "read_page"
+   "read_page",
+   "render_page"
   ]
  },
  "dataroom": {
@@ -512,8 +553,8 @@
    "get_deploy_health",
    "get_deploy_live",
    "get_deploy_projects",
+   "get_deploy_release",
    "get_deploy_session_userinfo",
-   "post_deploy_applications_by_name_rollback",
    "post_deploy_logout"
   ]
  },
@@ -743,12 +784,15 @@
    "delete_git_repos_by_name",
    "delete_git_repos_by_name_subscriptions_by_id",
    "delete_git_repos_by_name_targets_by_id",
+   "get_git",
    "get_git_activity",
+   "get_git_keys",
    "get_git_pools",
    "get_git_repos",
    "get_git_repos_by_name",
    "get_git_repos_by_name_blob",
    "get_git_repos_by_name_commits",
+   "get_git_repos_by_name_commits_by_sha_statuses",
    "get_git_repos_by_name_files",
    "get_git_repos_by_name_pulls",
    "get_git_repos_by_name_pulls_by_number",
@@ -760,12 +804,14 @@
    "get_git_runners",
    "get_git_runs",
    "get_git_runs_by_id",
+   "get_git_runs_by_id_logs",
    "get_git_usage",
    "get_git_workflows",
    "patch_git_repos_by_name",
    "post_git_link",
    "post_git_pools",
    "post_git_repos",
+   "post_git_repos_by_name_commits_by_sha_statuses",
    "post_git_repos_by_name_gc",
    "post_git_repos_by_name_home",
    "post_git_repos_by_name_link",
@@ -1152,6 +1198,7 @@
    "get_marketplace_seller",
    "get_marketplace_shop",
    "get_marketplace_shop_by_id",
+   "get_marketplace_shop_by_id_weights",
    "patch_marketplace_listings_by_id",
    "post_marketplace_install",
    "post_marketplace_jobs",
@@ -1612,6 +1659,7 @@
    "delete_platform_projects_by_project_apps_by_app",
    "delete_platform_projects_by_project_apps_by_app_domains_by_host",
    "get_build_by_id",
+   "get_build_by_id_logs",
    "get_platform_apps",
    "get_platform_apps_by_app",
    "get_platform_apps_by_app_cd",
@@ -1843,6 +1891,57 @@
    "get_registry_tags"
   ]
  },
+ "research": {
+  "ops": [
+   "get_research_actions",
+   "get_research_artifacts",
+   "get_research_benchmarks",
+   "get_research_candidates",
+   "get_research_candidates_frontier",
+   "get_research_claims",
+   "get_research_commitments",
+   "get_research_compare",
+   "get_research_decisions",
+   "get_research_evaluations",
+   "get_research_evidence",
+   "get_research_evidence_by_id",
+   "get_research_evidence_dependents",
+   "get_research_experiments",
+   "get_research_experiments_by_id_versions",
+   "get_research_experiments_versions",
+   "get_research_hypotheses",
+   "get_research_papers",
+   "get_research_projects",
+   "get_research_regressions",
+   "get_research_runs",
+   "get_research_standard",
+   "get_research_studies",
+   "get_research_totals",
+   "get_research_xp",
+   "post_research_actions",
+   "post_research_actions_by_id_authorize",
+   "post_research_artifacts",
+   "post_research_benchmarks",
+   "post_research_candidates",
+   "post_research_candidates_by_id_qualify",
+   "post_research_candidates_by_id_retract",
+   "post_research_claims",
+   "post_research_claims_by_id_replicate",
+   "post_research_claims_by_id_retract",
+   "post_research_commitments",
+   "post_research_decisions",
+   "post_research_evaluations",
+   "post_research_evidence",
+   "post_research_evidence_sysml",
+   "post_research_experiments",
+   "post_research_grants",
+   "post_research_hypotheses",
+   "post_research_papers",
+   "post_research_regressions",
+   "post_research_runs",
+   "post_research_studies"
+  ]
+ },
  "reward": {
   "ops": [
    "get_reward_me_posts",
@@ -1886,13 +1985,20 @@
  },
  "sandbox": {
   "ops": [
+   "computer_in_sandbox",
+   "delete_dev_sessions_by_id",
    "delete_sandbox_by_id",
    "end_sandbox",
+   "get_dev_health",
    "get_sandbox",
    "get_sandbox_by_id",
    "get_sandbox_by_id_ports",
    "get_sandbox_quota",
    "lease_sandbox",
+   "post_dev_sessions",
+   "post_dev_sessions_by_id_interrupt",
+   "post_dev_sessions_by_id_resume",
+   "post_dev_sessions_by_id_suspend",
    "post_sandbox",
    "post_sandbox_by_id_exec",
    "post_sandbox_by_id_pause",
@@ -1983,6 +2089,21 @@
    "put_post_by_id",
    "put_social_accounts_by_id",
    "put_social_posts_by_id"
+  ]
+ },
+ "sources": {
+  "ops": [
+   "delete_sources_accounts_by_id",
+   "delete_sources_by_id",
+   "delete_sources_by_id_dispatch_by_lease",
+   "get_sources",
+   "get_sources_accounts",
+   "get_sources_by_id",
+   "get_sources_usage",
+   "post_sources",
+   "post_sources_accounts",
+   "post_sources_by_id_dispatch",
+   "post_sources_by_id_heartbeat"
   ]
  },
  "space": {
@@ -2201,6 +2322,7 @@
    "capabilitiesRollback",
    "capabilitiesSetCapture",
    "capabilitiesTrain",
+   "capabilitiesWeights",
    "delete_train_artifacts_by_sha256",
    "delete_train_clients_by_id",
    "get_train_artifacts",
@@ -2336,6 +2458,8 @@
  },
  "x402": {
   "ops": [
+   "get_x402_prices",
+   "get_x402_prices_by_product",
    "get_x402_settlements",
    "get_x402_settlements_by_id"
   ]

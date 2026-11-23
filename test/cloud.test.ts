@@ -136,6 +136,48 @@ describe('the graph is on the surface', () => {
   });
 });
 
+describe('research, fleet dispatch, billing balance, and security are on the surface', () => {
+  it('exposes the full GA research ledger including pre-registration version history', async () => {
+    const researchOps = [
+      'get_research_experiments',
+      'post_research_experiments',
+      'get_research_experiments_versions',
+      'get_research_experiments_by_id_versions',
+      'get_research_artifacts',
+      'post_research_artifacts',
+      'get_research_hypotheses',
+      'post_research_hypotheses',
+    ];
+    const research = cloudTools.find((t) => t.name === 'research')!;
+    expect(research).toBeDefined();
+    expect(research.inputSchema.properties.op.enum).toEqual(expect.arrayContaining(researchOps));
+
+    const hanzo = getConfiguredTools({}).find((t) => t.name === 'hanzo')!;
+    const input = { id: 'policy-eval:kai:rt/2026-11-22' };
+    const calls = await sent(async () => {
+      await hanzo.handler({ resource: 'research', action: 'get_research_experiments_versions', args: input });
+    });
+    expect(calls).toEqual([{ name: 'research', arguments: { op: 'get_research_experiments_versions', input } }]);
+  });
+
+  it('exposes compute fleet job submission, polling, billing balance, and security scanning', async () => {
+    const compute = cloudTools.find((t) => t.name === 'compute')!;
+    expect(compute.inputSchema.properties.op.enum).toEqual(
+      expect.arrayContaining(['submitFleetJob', 'getFleetJob', 'listFleetJobs', 'cancelFleetJob', 'listFleetWorkers']),
+    );
+
+    const billing = cloudTools.find((t) => t.name === 'billing')!;
+    expect(billing.inputSchema.properties.op.enum).toEqual(
+      expect.arrayContaining(['get_billing_balance', 'get_billing_credit-balance', 'get_billing_credit-balance_breakdown']),
+    );
+
+    const security = cloudTools.find((t) => t.name === 'security')!;
+    expect(security.inputSchema.properties.op.enum).toEqual(
+      expect.arrayContaining(['get_security_rules', 'post_security_scans', 'get_security_findings']),
+    );
+  });
+});
+
 describe('a refusal is reported as one', () => {
   const key = process.env.HANZO_API_KEY;
   afterEach(() => {
