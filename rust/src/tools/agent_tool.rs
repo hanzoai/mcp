@@ -283,6 +283,7 @@ async fn exec_agent(
     let argv = build_argv(&cfg, &prompt);
     let mut cmd = Command::new(&argv[0]);
     cmd.args(&argv[1..]);
+    cmd.stdin(Stdio::null());
     cmd.stdout(Stdio::piped());
     cmd.stderr(Stdio::piped());
     cmd.kill_on_drop(true);
@@ -362,6 +363,7 @@ async fn exec_agent(
 async fn available(cmd: &str) -> bool {
     let mut c = Command::new(resolve_cmd(cmd));
     c.arg("--version");
+    c.stdin(Stdio::null());
     c.stdout(Stdio::null());
     c.stderr(Stdio::null());
     c.kill_on_drop(true);
@@ -381,6 +383,7 @@ async fn available(cmd: &str) -> bool {
 #[derive(Debug, Default, Deserialize)]
 struct AgentArgs {
     action: Option<String>,
+    #[serde(alias = "agent")]
     name: Option<String>,
     prompt: Option<String>,
     cwd: Option<String>,
@@ -1425,5 +1428,13 @@ mod tests {
         let t = AgentTool::new();
         let out = t.execute(json!({ "action": "nope" })).await.unwrap();
         assert_eq!(out.content["ok"], false);
+    }
+
+    #[test]
+    fn agent_args_accepts_agent_alias_for_name() {
+        let by_name: AgentArgs = serde_json::from_value(json!({ "action": "run", "name": "muse", "prompt": "hi" })).unwrap();
+        assert_eq!(by_name.name.as_deref(), Some("muse"));
+        let by_agent: AgentArgs = serde_json::from_value(json!({ "action": "run", "agent": "muse", "prompt": "hi" })).unwrap();
+        assert_eq!(by_agent.name.as_deref(), Some("muse"));
     }
 }
