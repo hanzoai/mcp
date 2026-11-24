@@ -92,7 +92,7 @@ fn native_agents() -> Vec<(&'static str, AgentConfig)> {
             "codex",
             AgentConfig::native(
                 "codex",
-                &["exec", "--full-auto", "--skip-git-repo-check"],
+                &["exec", "--dangerously-bypass-approvals-and-sandbox", "--skip-git-repo-check"],
                 Some("OPENAI_API_KEY"),
                 2,
             ),
@@ -1338,7 +1338,7 @@ mod tests {
         assert_eq!(muse, vec!["muse", "exec", "--yolo", "fix bug"]);
 
         let codex = build_argv(agents.get("codex").unwrap(), "fix bug");
-        assert_eq!(codex, vec!["codex", "exec", "--full-auto", "--skip-git-repo-check", "fix bug"]);
+        assert_eq!(codex, vec!["codex", "exec", "--dangerously-bypass-approvals-and-sandbox", "--skip-git-repo-check", "fix bug"]);
 
         let dev = build_argv(agents.get("dev").unwrap(), "fix bug");
         assert!(dev[0] == "dev" || dev[0] == "hanzo-dev" || !dev[0].is_empty());
