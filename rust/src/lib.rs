@@ -538,9 +538,28 @@ impl ToolRegistry {
                         return t.execute(Value::Object(p)).await;
                     }
                 }
-                if act == "agent" && (params.get("cli").is_some() || params.get("agent").is_some()) {
+                if matches!(act, "dispatch" | "dag" | "swarm")
+                    || (act == "agent"
+                        && (params.get("cli").is_some()
+                            || params.get("agent").is_some()
+                            || params.get("agent_action").is_some()
+                            || params.get("sub_action").is_some()))
+                {
                     if let Some(t) = self.tools.get("agent") {
-                        return t.execute(params).await;
+                        let mut p = params.as_object().cloned().unwrap_or_else(Map::new);
+                        if act == "agent" {
+                            let sub = p
+                                .get("agent_action")
+                                .or_else(|| p.get("sub_action"))
+                                .and_then(Value::as_str)
+                                .unwrap_or("run")
+                                .to_string();
+                            p.insert("action".into(), json!(sub));
+                            if let Some(cli) = p.get("cli").cloned() {
+                                p.entry("name").or_insert(cli);
+                            }
+                        }
+                        return t.execute(Value::Object(p)).await;
                     }
                 }
                 let args: tools::ThinkToolArgs = serde_json::from_value(params)?;
@@ -813,6 +832,26 @@ mod tests {
         for legacy in LEGACY_ALIASES {
             assert!(!names.contains(legacy), "legacy alias {legacy} must not appear in tools/list");
         }
+    }
+
+    #[tokio::test]
+    async fn think_delegates_agent_sub_actions_to_agent_tool() {
+        let registry = ToolRegistry::with_defaults();
+        let res = registry
+            .execute("think", json!({ "action": "agent", "sub_action": "list" }))
+            .await
+            .unwrap();
+        assert_eq!(res.content["ok"], true, "{}", res.content);
+        assert_eq!(res.content["meta"]["tool"], "agent");
+        assert!(res.content["data"]["native"].as_array().unwrap().iter().any(|a| a["name"] == "muse"));
+
+        let missing = registry
+            .execute("think", json!({ "action": "agent", "agent": "muse" }))
+            .await
+            .unwrap();
+        assert_eq!(missing.content["meta"]["tool"], "agent");
+        assert_eq!(missing.content["meta"]["action"], "run");
+        assert_eq!(missing.content["error"]["code"], "INVALID_ARGS");
     }
 
     #[test]

@@ -101,7 +101,7 @@ impl ThinkToolDefinition {
                 "properties": {
                     "action": {
                         "type": "string",
-                        "enum": ["think", "critic", "review", "consensus", "llm", "query", "models", "limits", "feedback", "agent", "summarize", "classify", "explain", "translate", "compare", "chain", "embed", "help"],
+                        "enum": ["think", "critic", "review", "consensus", "llm", "query", "models", "limits", "feedback", "agent", "dispatch", "dag", "swarm", "summarize", "classify", "explain", "translate", "compare", "chain", "embed", "help"],
                         "description": "Reasoning or LLM action"
                     },
                     "prompt": { "type": "string", "description": "Prompt for llm/query" },

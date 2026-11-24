@@ -670,6 +670,7 @@ mod tests {
         });
 
         let tmp = tempfile::tempdir().unwrap();
+        std::env::set_var("HANZO_API_URL", "http://127.0.0.1:1");
         std::env::set_var("HANZOSKILLS_API_URL", format!("http://{addr}"));
         std::env::set_var("HANZO_SKILLS_DIR", tmp.path());
 
