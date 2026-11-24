@@ -17,6 +17,14 @@ import * as path from 'node:path';
 
 let cachedCliToken: string | null = null;
 
+/**
+ * Clears the in-memory CLI token cache.
+ * For test isolation so the cached token doesn't leak across tests.
+ */
+export function clearHanzoCliTokenCache(): void {
+  cachedCliToken = null;
+}
+
 function resolveCliBinary(): string | null {
   const envBin = process.env.HANZO_BIN?.trim();
   if (envBin && path.resolve(envBin) !== '/usr/bin/hanzo' && path.resolve(envBin) !== '/bin/hanzo') {

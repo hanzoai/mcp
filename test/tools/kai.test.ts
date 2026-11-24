@@ -6,7 +6,7 @@
  * made of the answer or the refusal. No socket is opened.
  */
 
-import { describe, test, expect, beforeAll, afterAll, beforeEach } from '@jest/globals';
+import { describe, test, expect, beforeAll, afterAll, beforeEach, afterEach } from '@jest/globals';
 import {
   kaiDecideTool,
   kaiChoiceTool,
@@ -14,6 +14,7 @@ import {
   kaiNoulTool,
   kaiTools,
 } from '../../src/tools/kai.js';
+import { clearHanzoCliTokenCache } from '../../src/tools/hanzo-auth.js';
 
 interface Sent {
   url: string;
@@ -50,7 +51,7 @@ function decision(body: any) {
 }
 
 const realFetch = globalThis.fetch;
-const ENV = ['API_URL', 'LOCAL_KAI_URL', 'KAI_URL', 'HANZO_API_KEY', 'API_KEY', 'API_TOKEN', 'HANZO_TOKEN'];
+const ENV = ['API_URL', 'LOCAL_KAI_URL', 'KAI_URL', 'HANZO_API_KEY', 'HANZO_USER_KEY', 'API_KEY', 'API_TOKEN', 'HANZO_TOKEN'];
 const saved: Record<string, string | undefined> = {};
 
 const last = () => sent[sent.length - 1];
@@ -76,6 +77,10 @@ afterAll(() => {
 beforeEach(() => {
   sent.length = 0;
   reply = (body) => ({ status: 200, text: JSON.stringify(decision(body)) });
+});
+
+afterEach(() => {
+  clearHanzoCliTokenCache();
 });
 
 describe('the kai tool surface', () => {
@@ -350,26 +355,41 @@ describe('what comes back is checked', () => {
 
 describe('auth', () => {
   test('a missing key fails with a clear error and no call', async () => {
-    delete process.env.HANZO_API_KEY;
+    const saved = {
+      HANZO_API_KEY: process.env.HANZO_API_KEY,
+      HANZO_USER_KEY: process.env.HANZO_USER_KEY,
+      API_KEY: process.env.API_KEY,
+      API_TOKEN: process.env.API_TOKEN,
+      HANZO_TOKEN: process.env.HANZO_TOKEN,
+    };
+    for (const k of Object.keys(saved)) delete process.env[k];
     try {
       const result = await kaiNoulTool.handler({ state: 'x', instructions: 'y' });
       expect(result.isError).toBe(true);
       expect(text(result)).toContain('HANZO_API_KEY required');
       expect(sent).toHaveLength(0);
     } finally {
-      process.env.HANZO_API_KEY = 'test-key';
+      for (const [k, v] of Object.entries(saved)) if (v !== undefined) process.env[k] = v;
+      clearHanzoCliTokenCache();
     }
   });
 
   test('the key is read from the same variables the tracker tools read', async () => {
-    delete process.env.HANZO_API_KEY;
+    const saved = {
+      HANZO_API_KEY: process.env.HANZO_API_KEY,
+      HANZO_USER_KEY: process.env.HANZO_USER_KEY,
+      API_KEY: process.env.API_KEY,
+      API_TOKEN: process.env.API_TOKEN,
+      HANZO_TOKEN: process.env.HANZO_TOKEN,
+    };
+    for (const k of Object.keys(saved)) delete process.env[k];
     process.env.API_KEY = 'other-key';
     try {
       await kaiNoulTool.handler({ state: 'x', instructions: 'y' });
       expect(last().headers['Authorization']).toBe('Bearer other-key');
     } finally {
-      delete process.env.API_KEY;
-      process.env.HANZO_API_KEY = 'test-key';
+      for (const [k, v] of Object.entries(saved)) if (v !== undefined) process.env[k] = v;
+      clearHanzoCliTokenCache();
     }
   });
 });

@@ -23,6 +23,7 @@
     "build:cli": "esbuild src/cli.ts --bundle --platform=node --target=node18 --format=esm --outfile=dist/cli.js --external:@modelcontextprotocol/sdk --external:glob --external:commander --external:zod --external:zod-to-json-schema --external:mime-types --external:@lancedb/lancedb --external:@xenova/transformers --external:jsautogui --external:path --external:fs --external:fs/promises --external:os --external:url && node -e \"if (process.platform !== 'win32') fs.chmodSync('dist/cli.js', 0o755)\"",
     "dev": "tsc --watch",
     "smoke": "node scripts/smoke-mcp.mjs",
+    "pretest": "pnpm build",
     "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
     "lint": "echo 'No linter configured'",
     "prepublishOnly": "pnpm build"
