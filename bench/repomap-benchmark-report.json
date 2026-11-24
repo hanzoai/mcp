@@ -1,0 +1,101 @@
+{
+  "benchmarkDateUtc": "2026-11-23T23:07:59.746Z",
+  "corpus": "@hanzo/mcp",
+  "corpusFilesIndexed": 333,
+  "rawFullRepoTokens": 991872,
+  "avgRepoMapTokens": 985,
+  "tokenReductionBeforeFirstEditPct": 99.9,
+  "recallAt5Pct": 100,
+  "latencyP50Ms": 104.441,
+  "latencyP95Ms": 123.19,
+  "tenantIsolationOverhead": "0 cross-tenant edges (pre-filtered prior to graph build)",
+  "tasks": [
+    {
+      "id": "T1_unified_search_strategies",
+      "expected": [
+        "src/search/search-engine.ts",
+        "src/search/strategies/symbol-search.ts"
+      ],
+      "top5NonActive": [
+        "src/search/types.ts",
+        "src/types/index.ts",
+        "src/search/search-engine.ts",
+        "src/search/strategies/symbol-search.ts",
+        "src/search/strategies/ast-search.ts"
+      ],
+      "recallHitCount": "2/2",
+      "tokensUsed": 987,
+      "tokenReductionPct": 99.9,
+      "latencyMs": 109.419
+    },
+    {
+      "id": "T2_mcp_server_tool_registry",
+      "expected": [
+        "src/tools/index.ts",
+        "src/tools/tool-registry.ts"
+      ],
+      "top5NonActive": [
+        "src/types/index.ts",
+        "src/tools/index.ts",
+        "rust/src/tools/git_tool.rs",
+        "src/tools/tool-registry.ts",
+        "rust/actions/src/action.rs"
+      ],
+      "recallHitCount": "2/2",
+      "tokensUsed": 1003,
+      "tokenReductionPct": 99.9,
+      "latencyMs": 111.073
+    },
+    {
+      "id": "T3_aci_compact_window_navigation",
+      "expected": [
+        "src/aci/compact-response.ts"
+      ],
+      "top5NonActive": [
+        "src/aci/compact-response.ts",
+        "src/types/index.ts",
+        "test/aci/compact-response.test.ts",
+        "rust/shell/src/python.rs",
+        "rust/actions/src/action.rs"
+      ],
+      "recallHitCount": "1/1",
+      "tokensUsed": 995,
+      "tokenReductionPct": 99.9,
+      "latencyMs": 113.825
+    },
+    {
+      "id": "T4_code_intel_cloud_surface",
+      "expected": [
+        "src/tools/code-intel.ts"
+      ],
+      "top5NonActive": [
+        "src/types/index.ts",
+        "src/tools/code-intel.ts",
+        "src/tools/unified/index.ts",
+        "rust/actions/src/action.rs",
+        "rust/shell/src/walk.rs"
+      ],
+      "recallHitCount": "1/1",
+      "tokensUsed": 990,
+      "tokenReductionPct": 99.9,
+      "latencyMs": 106.644
+    },
+    {
+      "id": "T5_repomap_tenant_acl_pagerank",
+      "expected": [
+        "src/search/repomap.ts"
+      ],
+      "top5NonActive": [
+        "src/types/index.ts",
+        "src/search/repomap.ts",
+        "src/search/types.ts",
+        "rust/actions/src/tests.rs",
+        "rust/actions/src/action.rs"
+      ],
+      "recallHitCount": "1/1",
+      "tokensUsed": 949,
+      "tokenReductionPct": 99.9,
+      "latencyMs": 131.576
+    }
+  ]
+}

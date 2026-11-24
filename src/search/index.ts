@@ -175,3 +175,4 @@ export { createFileSearchStrategy } from './strategies/file-search.js';
 export * from './url-helper.js';
 export * from './file-server.js';
 export * from './secure-tunnel.js';
+export * from './repomap.js';
