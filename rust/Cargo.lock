@@ -1280,6 +1280,7 @@ dependencies = [
  "hanzo-actions",
  "hanzo-shell",
  "hanzo-trigram",
+ "ignore 0.4.34",
  "jsonrpc-core",
  "jsonrpc-derive",
  "jsonrpc-http-server",
@@ -1649,6 +1650,22 @@ dependencies = [
 name = "ignore"
 version = "0.4.25"
 source = "git+https://github.com/hanzoai/tgrep?rev=68555338dfd28a28aaf0fae21dc812780fa94ab7#68555338dfd28a28aaf0fae21dc812780fa94ab7"
+dependencies = [
+ "crossbeam-deque",
+ "globset",
+ "log",
+ "memchr",
+ "regex-automata",
+ "same-file",
+ "walkdir",
+ "winapi-util",
+]
+
+[[package]]
+name = "ignore"
+version = "0.4.34"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "484be5657551d7868d67587df967fb4fcbe9d266a761cc855aaa148fda0b3cc7"
 dependencies = [
  "crossbeam-deque",
  "globset",
@@ -3246,7 +3263,7 @@ dependencies = [
  "fs2",
  "getrandom 0.4.3",
  "globset",
- "ignore",
+ "ignore 0.4.25",
  "libc",
  "lopdf",
  "memchr",
