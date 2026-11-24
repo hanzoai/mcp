@@ -88,7 +88,15 @@ fn native_agents() -> Vec<(&'static str, AgentConfig)> {
                 1,
             ),
         ),
-        ("codex", AgentConfig::native("codex", &["--full-auto"], Some("OPENAI_API_KEY"), 2)),
+        (
+            "codex",
+            AgentConfig::native(
+                "codex",
+                &["exec", "--full-auto", "--skip-git-repo-check"],
+                Some("OPENAI_API_KEY"),
+                2,
+            ),
+        ),
         ("gemini", AgentConfig::native("gemini", &["-y", "-q"], Some("GOOGLE_API_KEY"), 3)),
         ("grok", AgentConfig::native("grok", &["-y"], Some("XAI_API_KEY"), 4)),
         (
@@ -96,7 +104,19 @@ fn native_agents() -> Vec<(&'static str, AgentConfig)> {
             AgentConfig::native("qwen", &["--approval-mode", "yolo", "-p"], Some("DASHSCOPE_API_KEY"), 5),
         ),
         ("vibe", AgentConfig::native("vibe", &["--auto-approve", "--max-turns", "999", "-p"], None, 6)),
-        ("dev", AgentConfig::native("hanzo-dev", &["-y"], None, 8)),
+        (
+            "muse",
+            AgentConfig::native("muse", &["exec", "--yolo"], Some("META_API_KEY"), 7),
+        ),
+        (
+            "dev",
+            AgentConfig::native(
+                "dev",
+                &["exec", "--dangerously-bypass-approvals-and-sandbox", "--skip-git-repo-check"],
+                Some("HANZO_API_KEY"),
+                8,
+            ),
+        ),
     ]
 }
 
@@ -173,6 +193,8 @@ const KEY_ENVS: &[&str] = &[
     "OPENAI_API_KEY",
     "GOOGLE_API_KEY",
     "XAI_API_KEY",
+    "META_API_KEY",
+    "HANZO_API_KEY",
     "DASHSCOPE_API_KEY",
     "DEEPSEEK_API_KEY",
     "MINIMAX_API_KEY",
@@ -182,6 +204,30 @@ const KEY_ENVS: &[&str] = &[
     "BAICHUAN_API_KEY",
     "STEPFUN_API_KEY",
 ];
+
+/// Resolve the executable path/name for an agent, supporting `HANZO_DEV_BIN` and
+/// falling back from `dev` to `hanzo-dev` when needed.
+fn resolve_cmd(cmd: &str) -> String {
+    if cmd == "dev" {
+        if let Ok(explicit) = std::env::var("HANZO_DEV_BIN") {
+            let trimmed = explicit.trim();
+            if !trimmed.is_empty() {
+                return trimmed.to_string();
+            }
+        }
+        if std::env::var_os("PATH").is_some_and(|paths| {
+            std::env::split_paths(&paths).any(|dir| dir.join("dev").is_file())
+        }) {
+            return "dev".to_string();
+        }
+        if std::env::var_os("PATH").is_some_and(|paths| {
+            std::env::split_paths(&paths).any(|dir| dir.join("hanzo-dev").is_file())
+        }) {
+            return "hanzo-dev".to_string();
+        }
+    }
+    cmd.to_string()
+}
 
 // ---------------------------------------------------------------------------
 // Execution
@@ -207,7 +253,7 @@ impl AgentResult {
 
 /// Build the argv for one agent, mirroring the Python `_exec` CLI builder.
 fn build_argv(cfg: &AgentConfig, prompt: &str) -> Vec<String> {
-    let mut argv: Vec<String> = vec![cfg.cmd.to_string()];
+    let mut argv: Vec<String> = vec![resolve_cmd(cfg.cmd)];
     if cfg.cmd == "claude" {
         argv.push("--output-format".into());
         argv.push("text".into());
@@ -314,7 +360,7 @@ async fn exec_agent(
 
 /// Probe whether an agent's CLI is installed (`<cmd> --version`, 5s bound).
 async fn available(cmd: &str) -> bool {
-    let mut c = Command::new(cmd);
+    let mut c = Command::new(resolve_cmd(cmd));
     c.arg("--version");
     c.stdout(Stdio::null());
     c.stderr(Stdio::null());
@@ -381,7 +427,7 @@ impl MCPTool for AgentTool {
     }
 
     fn description(&self) -> &str {
-        "Multi-agent orchestration: run/dag/swarm/consensus/dispatch across claude/codex/gemini/grok/qwen/dev CLIs, plus zen (oracle) and review. Consensus: https://github.com/luxfi/consensus"
+        "Multi-agent orchestration: run/dag/swarm/consensus/dispatch across claude/codex/gemini/grok/qwen/vibe/muse/dev CLIs, plus zen (oracle) and review. Consensus: https://github.com/luxfi/consensus"
     }
 
     fn parameters(&self) -> Value {
@@ -394,7 +440,7 @@ impl MCPTool for AgentTool {
                     "description": "Agent action",
                     "default": "run"
                 },
-                "name": { "type": "string", "description": "Agent: claude, codex, gemini, grok, qwen, dev, or a compat provider" },
+                "name": { "type": "string", "description": "Agent: claude, codex, gemini, grok, qwen, vibe, muse, dev, or a compat provider" },
                 "prompt": { "type": "string", "description": "Prompt for run" },
                 "cwd": { "type": "string", "description": "Working directory" },
                 "timeout": { "type": "integer", "description": "Per-agent timeout seconds", "default": 300 },
@@ -1273,12 +1319,27 @@ mod tests {
     #[test]
     fn catalog_has_native_and_compat() {
         let a = all_agents();
-        for n in ["claude", "codex", "gemini", "grok", "qwen", "vibe", "dev"] {
+        for n in ["claude", "codex", "gemini", "grok", "qwen", "vibe", "muse", "dev"] {
             assert!(a.contains_key(n), "missing native {n}");
         }
         for n in ["minimax", "kimi", "deepseek", "glm"] {
             assert!(a.contains_key(n), "missing compat {n}");
         }
+    }
+
+    #[test]
+    fn muse_dev_and_codex_argv_use_headless_exec() {
+        let agents = all_agents();
+
+        let muse = build_argv(agents.get("muse").unwrap(), "fix bug");
+        assert_eq!(muse, vec!["muse", "exec", "--yolo", "fix bug"]);
+
+        let codex = build_argv(agents.get("codex").unwrap(), "fix bug");
+        assert_eq!(codex, vec!["codex", "exec", "--full-auto", "--skip-git-repo-check", "fix bug"]);
+
+        let dev = build_argv(agents.get("dev").unwrap(), "fix bug");
+        assert!(dev[0] == "dev" || dev[0] == "hanzo-dev" || !dev[0].is_empty());
+        assert_eq!(&dev[1..], &["exec", "--dangerously-bypass-approvals-and-sandbox", "--skip-git-repo-check", "fix bug"]);
     }
 
     #[test]
