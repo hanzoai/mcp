@@ -791,19 +791,25 @@ impl ToolRegistry {
         Self::with_shell(Arc::new(tools::Shell::new()))
     }
 
+
     /// The default tools with `shell` as the classifier behind `exec` and `git`.
     pub fn with_shell(shell: Arc<tools::Shell>) -> Self {
         let mut registry = Self::new();
-        registry.git = Arc::new(RwLock::new(GitTool::new().classified(shell.clone())));
-        registry.with_classifier(shell)
-    }
-}
+        let approver = Arc::new(tools::verdict::CompositeApprover::new()
+            .add(Box::new(tools::verdict::NoApprover))
+        );
+        registry.exec = Arc::new(RwLock::new(ExecTool::with_classifier(shell.clone()).with_approver(approver.clone())));
+        registry.git = Arc::new(RwLock::new(GitTool::new().classified(shell.clone()).with_approver(approver)));
+        registry
 
-impl Default for ToolRegistry {
-    fn default() -> Self {
-        Self::with_defaults()
     }
-}
+    }
+
+    impl Default for ToolRegistry {
+        fn default() -> Self {
+            Self::with_defaults()
+        }
+    }
 
 /// Get version information
 pub fn version() -> Value {

@@ -51,6 +51,7 @@ chrono = { version = "0.4", features = ["serde"] }
 tempfile = "3.10"
 which = "6.0"
 shell-escape = "0.1"
+uuid = { version = "1.0", features = ["v4", "serde"] }
 # The ZAP router every Hanzo process embeds (one per login, elected by lock),
 # and this process's seat on it; from 1.1.7 on Unix and Windows alike.
 zapd = "1.1.9"

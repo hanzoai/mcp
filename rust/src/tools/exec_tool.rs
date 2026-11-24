@@ -19,7 +19,7 @@ use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::Command;
 use tokio::sync::RwLock;
 
-use super::verdict::{refusal, Classify, Verdict};
+use super::verdict::{refusal, refusal_legacy, Approver, Classify, Verdict};
 
 /// Auto-background timeout in seconds
 const AUTO_BACKGROUND_TIMEOUT: u64 = 45;
@@ -139,9 +139,13 @@ pub struct ExecToolArgs {
     pub tail: Option<usize>,
     /// Filter for ps
     pub filter: Option<String>,
-    /// The person approved a command the classifier asks about. The client's own permission
-    /// prompt shows this flag beside the command; it never lifts a `deny`.
+    /// DEPRECATED: The model-supplied approve flag alone never satisfies an Ask verdict.
+    /// Use approval_id from an out-of-band approval (token, operator policy, MCP elicitation).
+    #[deprecated]
     pub approve: Option<bool>,
+    /// An approval token issued by the server on a previous Ask refusal, or a pre-approved
+    /// operator policy key. This is the only way to satisfy an Ask verdict.
+    pub approval_id: Option<String>,
 }
 
 /// Shell execution tool
@@ -149,6 +153,7 @@ pub struct ExecTool {
     manager: Arc<ProcessManager>,
     shell: String,
     classifier: Option<Arc<dyn Classify>>,
+    approver: Option<Arc<dyn Approver>>,
 }
 
 impl ExecTool {
@@ -157,6 +162,7 @@ impl ExecTool {
             manager: Arc::new(ProcessManager::new()),
             shell: Self::resolve_shell(),
             classifier: None,
+            approver: None,
         }
     }
 
@@ -164,6 +170,12 @@ impl ExecTool {
     /// refused, and every answer carries the verdict.
     pub fn with_classifier(classifier: Arc<dyn Classify>) -> Self {
         Self { classifier: Some(classifier), ..Self::new() }
+    }
+
+    /// Set the approver for out-of-band approval validation.
+    pub fn with_approver(mut self, approver: Arc<dyn Approver>) -> Self {
+        self.approver = Some(approver);
+        self
     }
 
     /// The installed classifier's verdict on `command` as it would run in `cwd`, or `None`
@@ -192,6 +204,16 @@ impl ExecTool {
         }
 
         "sh".to_string()
+    }
+
+    /// Compute a hash of the environment variables for approval binding.
+    fn env_hash(env: Option<&HashMap<String, String>>) -> Option<String> {
+        env.map(|e| {
+            let mut pairs: Vec<_> = e.iter().map(|(k, v)| format!("{}={}", k, v)).collect();
+            pairs.sort();
+            let joined = pairs.join("\n");
+            blake3::hash(joined.as_bytes()).to_hex().to_string()
+        })
     }
 
     pub async fn execute(&self, args: ExecToolArgs) -> Result<String> {
@@ -238,7 +260,6 @@ impl ExecTool {
         // Before anything is spawned or registered: a refused command leaves no process. The
         // interpreter and the environment are part of the command: the classifier reads shell, so
         // only a shell may run it, and what the environment loads is read beside the text.
-        let approved = args.approve.unwrap_or(false);
         let mut verdict = self.verdict(&cmd_str, cwd.as_deref().map(std::path::Path::new));
         if let (Some(v), Some(c)) = (verdict.take(), self.classifier.as_ref()) {
             let mut v = v;
@@ -253,9 +274,18 @@ impl ExecTool {
             }
             verdict = Some(v);
         }
-        if let Some(why) = verdict.as_ref().and_then(|v| refusal(v, approved)) {
-            return Err(anyhow!(why));
+        
+        // Compute env hash for approval binding
+        let env_hash = Self::env_hash(args.env.as_ref());
+        
+        // Check refusal using the new approval system
+        if let Some(v) = verdict.as_ref() {
+            let approval_id = args.approval_id.as_deref();
+            if let Some(why) = refusal(v, self.approver.as_deref(), &cmd_str, cwd.as_deref().map(std::path::Path::new), env_hash.as_deref(), approval_id) {
+                return Err(anyhow!(why));
+            }
         }
+        
         let verdict = verdict.map(|v| {
             let mut j = v.json();
             if v.risk == super::verdict::Risk::Ask {
@@ -631,7 +661,8 @@ Auto-backgrounds commands after {}s."#,
                     "signal": {"type": "string", "description": "Kill signal"},
                     "tail": {"type": "integer", "description": "Number of log lines"},
                     "filter": {"type": "string", "description": "Filter for ps"},
-                    "approve": {"type": "boolean", "description": "Run a command the server classified `ask` (it reaches past the workspace, or cannot be read). Set it only after the person has approved this exact command; it never lifts a refusal."}
+                    "approve": {"type": "boolean", "description": "DEPRECATED: The model-supplied approve flag alone never satisfies an Ask verdict. Use approval_id from an out-of-band approval (token, operator policy, MCP elicitation)."},
+                    "approval_id": {"type": "string", "description": "An approval token issued by the server on a previous Ask refusal, or a pre-approved operator policy key. This is the only way to satisfy an Ask verdict."}
                 }
             }),
         }
