@@ -24,6 +24,8 @@ serde_yaml = "0.9"
 toml = "0.8"
 sha2 = "0.10"
 blake3 = "1.5"
+getrandom = "0.2"
+constant_time_eq = "0.3"
 
 # MCP Protocol
 jsonrpc-core = "18.0"

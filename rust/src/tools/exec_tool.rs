@@ -19,7 +19,9 @@ use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::Command;
 use tokio::sync::RwLock;
 
-use super::verdict::{refusal, Classify, Verdict};
+use super::verdict::{
+    is_ask_approved, refusal, CompositeApprover, Classify, Risk, TokenApprover, Verdict,
+};
 
 /// Auto-background timeout in seconds
 const AUTO_BACKGROUND_TIMEOUT: u64 = 45;
@@ -139,9 +141,12 @@ pub struct ExecToolArgs {
     pub tail: Option<usize>,
     /// Filter for ps
     pub filter: Option<String>,
-    /// The person approved a command the classifier asks about. The client's own permission
-    /// prompt shows this flag beside the command; it never lifts a `deny`.
+    /// DEPRECATED: Model self-approval flag. Never satisfies `Ask` or `Deny` on its own;
+    /// use an out-of-band `approval_token` or operator policy instead.
     pub approve: Option<bool>,
+    /// Out-of-band single-use approval token minted by the host/operator after human approval,
+    /// cryptographically bound to the exact `(command, cwd, env)` tuple.
+    pub approval_token: Option<String>,
 }
 
 /// Shell execution tool
@@ -149,6 +154,8 @@ pub struct ExecTool {
     manager: Arc<ProcessManager>,
     shell: String,
     classifier: Option<Arc<dyn Classify>>,
+    token_approver: Arc<TokenApprover>,
+    composite_approver: CompositeApprover,
 }
 
 impl ExecTool {
@@ -157,6 +164,8 @@ impl ExecTool {
             manager: Arc::new(ProcessManager::new()),
             shell: Self::resolve_shell(),
             classifier: None,
+            token_approver: Arc::new(TokenApprover::new()),
+            composite_approver: CompositeApprover::new().with_operator_policy(),
         }
     }
 
@@ -166,10 +175,27 @@ impl ExecTool {
         Self { classifier: Some(classifier), ..Self::new() }
     }
 
+    /// Install a custom composite out-of-band approver (e.g., operator policy rules).
+    pub fn with_approver(mut self, approver: CompositeApprover) -> Self {
+        self.composite_approver = approver;
+        self
+    }
+
     /// The installed classifier's verdict on `command` as it would run in `cwd`, or `None`
     /// when no classifier is installed. This is the call Dev makes; `exec` makes the same one.
     pub fn verdict(&self, command: &str, cwd: Option<&std::path::Path>) -> Option<Verdict> {
         self.classifier.as_ref().map(|c| c.classify(command, cwd))
+    }
+
+    /// Out-of-band token approver used by the host/operator to approve pending `Ask` requests
+    /// or mint single-use approval tokens.
+    pub fn token_approver(&self) -> Arc<TokenApprover> {
+        self.token_approver.clone()
+    }
+
+    /// Out-of-band composite approver (operator policy allowlist).
+    pub fn composite_approver(&self) -> &CompositeApprover {
+        &self.composite_approver
     }
 
     fn resolve_shell() -> String {
@@ -251,7 +277,10 @@ impl ExecTool {
         // Before anything is spawned or registered: a refused command leaves no process. The
         // interpreter and the environment are part of the command: the classifier reads shell, so
         // only a shell may run it, and what the environment loads is read beside the text.
-        let approved = args.approve.unwrap_or(false);
+        let model_approved = args.approve.unwrap_or(false);
+        let approval_token = args.approval_token.clone();
+        let env_vars = args.env.clone().unwrap_or_default();
+
         let mut verdict = self.verdict(&cmd_str, cwd.as_deref().map(std::path::Path::new));
         if let (Some(v), Some(c)) = (verdict.take(), self.classifier.as_ref()) {
             let mut v = v;
@@ -273,7 +302,7 @@ impl ExecTool {
                         | "powershell.exe"
                 );
                 if !allowed {
-                    v = v.merge(Verdict::new(super::verdict::Risk::Deny, [format!("shell {base:?} is not one this server reads: only sh, bash, dash, zsh, ksh, ash, pwsh and powershell run a classified command")]));
+                    v = v.merge(Verdict::new(Risk::Deny, [format!("shell {base:?} is not one this server reads: only sh, bash, dash, zsh, ksh, ash, pwsh and powershell run a classified command")]));
                 }
             }
             if let Some(env) = args.env.as_ref() {
@@ -281,13 +310,52 @@ impl ExecTool {
             }
             verdict = Some(v);
         }
-        if let Some(why) = verdict.as_ref().and_then(|v| refusal(v, approved)) {
+
+        // Evaluate out-of-band approval for Ask verdicts. Model self-approval (approve: true)
+        // never satisfies Ask, and Deny is never lifted by any approval source.
+        let (is_approved, approval_source) = if let Some(ref v) = verdict {
+            is_ask_approved(
+                v,
+                model_approved,
+                approval_token.as_deref(),
+                Some(&self.token_approver),
+                Some(&self.composite_approver),
+                &cmd_str,
+                cwd.as_deref().map(std::path::Path::new),
+                &env_vars,
+            )
+        } else {
+            (false, None)
+        };
+
+        if let Some(why) = verdict.as_ref().and_then(|v| {
+            if v.risk == Risk::Ask && is_approved {
+                None
+            } else {
+                refusal(v, model_approved)
+            }
+        }) {
+            // For Ask refusals, register a non-secret pending request ID that the host/operator
+            // can approve out-of-band via TokenApprover::approve_request. NEVER return a live
+            // approval_token in the tool error message (otherwise the model could self-approve).
+            if verdict.as_ref().is_some_and(|v| v.risk == Risk::Ask) {
+                let req = self.token_approver.register_pending(
+                    &cmd_str,
+                    cwd.as_deref().map(std::path::Path::new),
+                    &env_vars,
+                    300,
+                );
+                return Err(anyhow!("{why}; approval_request_id: {}", req.request_id));
+            }
             return Err(anyhow!(why));
         }
         let verdict = verdict.map(|v| {
             let mut j = v.json();
-            if v.risk == super::verdict::Risk::Ask {
+            if v.risk == Risk::Ask {
                 j["approved"] = json!(true);
+                if let Some(source) = approval_source {
+                    j["approval_source"] = json!(source);
+                }
             }
             j
         });
@@ -639,7 +707,9 @@ Actions:
 - logs: Get process logs
 
 Returns: {{proc_id, exit_code, stdout, stderr}}
-Auto-backgrounds commands after {}s."#,
+Auto-backgrounds commands after {}s.
+
+Ask-level commands require out-of-band approval (a single-use approval_token issued by the host/operator or a matching operator policy). Model self-approval (approve: true) is not sufficient."#,
                 AUTO_BACKGROUND_TIMEOUT
             ),
             input_schema: json!({
@@ -674,7 +744,8 @@ Auto-backgrounds commands after {}s."#,
                     "signal": {"type": "string", "description": "Kill signal"},
                     "tail": {"type": "integer", "description": "Number of log lines"},
                     "filter": {"type": "string", "description": "Filter for ps"},
-                    "approve": {"type": "boolean", "description": "Run a command the server classified `ask` (it reaches past the workspace, or cannot be read). Set it only after the person has approved this exact command; it never lifts a refusal."}
+                    "approve": {"type": "boolean", "description": "DEPRECATED: Model self-approval never satisfies Ask-level commands. Use an out-of-band approval_token instead."},
+                    "approval_token": {"type": "string", "description": "Out-of-band single-use approval token minted by the host/operator, bound to the exact command + cwd + env."}
                 }
             }),
         }
