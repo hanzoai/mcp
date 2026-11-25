@@ -194,3 +194,23 @@ Hanzo AI is led by CEO **Antje Worring** and CTO **Zach Kelling**.
 ## License
 
 MIT — see [LICENSE](LICENSE).
+
+
+### Share a browser page through a private MCP tunnel
+
+Run the tunnel client as the same OS user as the Hanzo browser extension. Set
+its stdio command to the native MCP binary with the browser ID, tab ID, and
+exact URL you want to share:
+
+```sh
+hanzo-mcp share --browser browser/device/chrome-1234 --tab tab-42 --url 'https://example.com/'
+```
+
+Use the local `browser` tool's `browsers` and `tabs` actions to find those IDs.
+The tunnel exposes one tool, `read_shared_page`. It can read the chosen Chrome
+tab while it displays the approved URL. Stop the tunnel to end access. Anyone
+authorized to use the tunnel can read the shared page.
+
+In ChatGPT, select the tunnel when adding a custom MCP server. Follow
+[OpenAI's Secure MCP Tunnel setup](https://developers.openai.com/api/docs/guides/secure-mcp-tunnels)
+to create and restrict access to the tunnel.

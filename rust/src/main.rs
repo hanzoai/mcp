@@ -1,3 +1,5 @@
+mod share;
+
 use anyhow::Result;
 use clap::{Parser, Subcommand, ValueEnum};
 use hanzo_mcp::{Config, MCPServer};
@@ -52,6 +54,15 @@ struct Args {
 
 #[derive(Subcommand, Debug)]
 enum Cmd {
+    /// Serve a single explicitly shared browser page over stdio for a private MCP tunnel.
+    Share {
+        #[clap(long)]
+        browser: String,
+        #[clap(long)]
+        tab: String,
+        #[clap(long)]
+        url: reqwest::Url,
+    },
     /// Build tgrep's trigram index for a directory, in DIR/.tgrep, and say what it holds.
     /// Searches under DIR then read it instead of every file; what changed after the build is
     /// still read from disk, so results do not go stale. Optional, about two thirds the size of
@@ -98,6 +109,14 @@ async fn main() -> Result<()> {
         let p = if reset { zapd::pair::reset()? } else { zapd::pair::load()? };
         println!("{}", p.code());
         return Ok(());
+    }
+
+    if let Some(Cmd::Share { browser, tab, url }) = args.command {
+        let share = share::Share::new(browser, tab, url)?;
+        let server = MCPServer::new(Config::default(), args.port)?;
+        server.add_tool(Box::new(share)).await;
+        server.only(&[share::Share::NAME.into()]).await?;
+        return server.run_stdio().await;
     }
 
     // On stdio, logs must never pollute the JSON-RPC stream on stdout.
