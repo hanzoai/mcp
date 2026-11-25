@@ -3,8 +3,8 @@
 //! Method-oriented where `browser` is action-oriented: the CDP method goes on
 //! the wire verbatim (`Target.getTargets`, `Page.navigate`, …) to the browser
 //! node on this user's ZAP router, whose CDP dispatch handles it directly. The
-//! same transport as `browser` ([`crate::zap`]) and no Playwright fallback, as
-//! in python-sdk `hanzo_tools.browser.cdp_tool`.
+//! same native ZAP transport as `browser` ([`crate::zap`]), as in
+//! python-sdk `hanzo_tools.browser.cdp_tool`.
 
 use anyhow::Result;
 use async_trait::async_trait;

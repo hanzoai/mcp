@@ -69,7 +69,13 @@ fn install_registers_once_and_leaves_a_working_host_alone() {
     std::fs::create_dir_all(home.join(".config/google-chrome")).unwrap();
     let taken = home.join(".config/chromium/NativeMessagingHosts");
     std::fs::create_dir_all(&taken).unwrap();
-    let theirs = json!({ "name": native::NAME, "path": "/bin/sh", "type": "stdio" }).to_string();
+    let theirs = json!({
+        "name": native::NAME,
+        "path": "/bin/sh",
+        "type": "stdio",
+        "allowed_origins": native::ORIGINS,
+    })
+    .to_string();
     std::fs::write(taken.join("ai.hanzo.zap.json"), &theirs).unwrap();
 
     let written = native::install().unwrap();

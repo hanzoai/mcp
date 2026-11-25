@@ -72,6 +72,29 @@ enum Cmd {
         dir: PathBuf,
     },
 
+    /// Diagnose MCP client registration, ZAP router, native messaging host,
+    /// and live browser extension connectivity.
+    Doctor {
+        /// Output machine-readable JSON instead of human-readable text.
+        #[clap(long)]
+        json: bool,
+        /// Self-repair missing or broken browser native messaging registrations before checking.
+        #[clap(long)]
+        fix: bool,
+    },
+    /// Configure Hanzo MCP for an AI client (`codex`, `antigravity`, `cursor`, `claude`)
+    /// and ensure Chrome/Firefox native messaging is registered.
+    Install {
+        /// Target client: codex, antigravity, cursor, or claude
+        target: String,
+        /// Optional path to the hanzo-mcp binary to register (defaults to this executable)
+        #[clap(long)]
+        binary: Option<PathBuf>,
+        /// Preview changes without writing any files
+        #[clap(long)]
+        dry_run: bool,
+    },
+
     /// Print this user's browser pairing code, for a browser that cannot start
     /// the native host and is not admitted by origin (snap or Flatpak Firefox,
     /// Safari): paste it into the extension's popup.
@@ -104,6 +127,23 @@ async fn main() -> Result<()> {
     if let Some(Cmd::Kai { args }) = args.command {
         let code = tokio::task::spawn_blocking(move || hanzo_mcp::actions::cli::main(&args)).await?;
         std::process::exit(code);
+    }
+    if let Some(Cmd::Doctor { json, fix }) = args.command {
+        let report = hanzo_mcp::doctor::run_doctor(fix).await?;
+        if json {
+            println!("{}", serde_json::to_string_pretty(&report)?);
+        } else {
+            println!("{}", hanzo_mcp::doctor::format_doctor(&report));
+        }
+        if !report.healthy {
+            std::process::exit(1);
+        }
+        return Ok(());
+    }
+    if let Some(Cmd::Install { target, binary, dry_run }) = args.command {
+        let res = hanzo_mcp::doctor::run_install(&target, binary, dry_run)?;
+        println!("{}", serde_json::to_string_pretty(&res)?);
+        return Ok(());
     }
     if let Some(Cmd::Pair { reset }) = args.command {
         let p = if reset { zapd::pair::reset()? } else { zapd::pair::load()? };

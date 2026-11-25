@@ -24,15 +24,36 @@ use std::time::{Duration, Instant};
 
 use anyhow::{anyhow, Result};
 use base64::Engine as _;
+use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
 /// The host's name, as manifests and the extension know it.
 pub const NAME: &str = "ai.hanzo.zap";
 /// The name this binary answers to as the host.
 pub const BIN: &str = "hanzo-zap-host";
-const ORIGINS: &[&str] = &["chrome-extension://biingenefmanpecedoafkfajbnlgdmbl/"];
+pub const ORIGINS: &[&str] = &["chrome-extension://biingenefmanpecedoafkfajbnlgdmbl/"];
 /// Firefox names an extension by its gecko id, not an origin.
-const GECKO: &[&str] = &["hanzo-ai@hanzo.ai"];
+pub const GECKO: &[&str] = &["hanzo-ai@hanzo.ai"];
+
+/// Diagnostic state for one browser's native messaging registration.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct NativeHostStatus {
+    pub browser: String,
+    pub manifest_path: String,
+    /// One of: `ok`, `missing`, `invalid_manifest`, `missing_origin`, `broken_target`, `not_executable`
+    pub status: String,
+    pub host_path: Option<String>,
+    pub detail: String,
+}
+
+/// Summary returned by [`repair`].
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct RepairReport {
+    pub repaired: Vec<PathBuf>,
+    pub already_ok: Vec<PathBuf>,
+    pub skipped_not_installed: usize,
+    pub errors: Vec<String>,
+}
 
 /// The router's door as this process reads and writes it.
 #[cfg(unix)]
@@ -43,25 +64,27 @@ type Door = std::fs::File;
 /// Where each Chromium-family browser keeps a user's host manifests, and
 /// Firefox's host directory (present once Firefox has a profile).
 #[cfg(target_os = "macos")]
-const CHROMIUM: &[&str] = &[
-    "Library/Application Support/Google/Chrome",
-    "Library/Application Support/Google/Chrome Beta",
-    "Library/Application Support/Chromium",
-    "Library/Application Support/BraveSoftware/Brave-Browser",
-    "Library/Application Support/Microsoft Edge",
-    "Library/Application Support/Vivaldi",
+const CHROMIUM: &[(&str, &str)] = &[
+    ("Chrome", "Library/Application Support/Google/Chrome"),
+    ("Chrome Beta", "Library/Application Support/Google/Chrome Beta"),
+    ("Chrome Dev", "Library/Application Support/Google/Chrome Dev"),
+    ("Chrome Canary", "Library/Application Support/Google/Chrome Canary"),
+    ("Chromium", "Library/Application Support/Chromium"),
+    ("Brave", "Library/Application Support/BraveSoftware/Brave-Browser"),
+    ("Edge", "Library/Application Support/Microsoft Edge"),
+    ("Vivaldi", "Library/Application Support/Vivaldi"),
 ];
 #[cfg(target_os = "macos")]
 const FIREFOX: &str = "Library/Application Support/Mozilla/NativeMessagingHosts";
 #[cfg(all(unix, not(target_os = "macos")))]
-const CHROMIUM: &[&str] = &[
-    ".config/google-chrome",
-    ".config/google-chrome-beta",
-    ".config/google-chrome-unstable",
-    ".config/chromium",
-    ".config/BraveSoftware/Brave-Browser",
-    ".config/microsoft-edge",
-    ".config/vivaldi",
+const CHROMIUM: &[(&str, &str)] = &[
+    ("Chrome", ".config/google-chrome"),
+    ("Chrome Beta", ".config/google-chrome-beta"),
+    ("Chrome Unstable", ".config/google-chrome-unstable"),
+    ("Chromium", ".config/chromium"),
+    ("Brave", ".config/BraveSoftware/Brave-Browser"),
+    ("Edge", ".config/microsoft-edge"),
+    ("Vivaldi", ".config/vivaldi"),
 ];
 #[cfg(all(unix, not(target_os = "macos")))]
 const FIREFOX: &str = ".mozilla/native-messaging-hosts";
@@ -80,13 +103,170 @@ const CHROMIUM: &[(&str, &str)] = &[
 #[cfg(windows)]
 const FIREFOX: (&str, &str) = (r"Software\Mozilla\NativeMessagingHosts", r"Mozilla\Firefox");
 
-/// Register the host with every browser installed for this user. A browser
-/// that is not installed is skipped, and a manifest whose program exists is
-/// left as it is: another runtime's helper (Python hanzo-mcp's) serves the same
-/// extension, and two runtimes rewriting one file would trade it forever.
+/// Inspect a single native messaging manifest file on disk.
+pub fn inspect_manifest(browser: &str, manifest: &Path, is_firefox: bool) -> NativeHostStatus {
+    let manifest_path = manifest.display().to_string();
+    let raw = match std::fs::read_to_string(manifest) {
+        Ok(s) => s,
+        Err(_) => {
+            return NativeHostStatus {
+                browser: browser.to_string(),
+                manifest_path,
+                status: "missing".into(),
+                host_path: None,
+                detail: "native messaging manifest not found".into(),
+            };
+        }
+    };
+    let parsed: Value = match serde_json::from_str(&raw) {
+        Ok(v) => v,
+        Err(e) => {
+            return NativeHostStatus {
+                browser: browser.to_string(),
+                manifest_path,
+                status: "invalid_manifest".into(),
+                host_path: None,
+                detail: format!("invalid JSON: {e}"),
+            };
+        }
+    };
+
+    let host_path = parsed.get("path").and_then(Value::as_str).map(String::from);
+    let Some(ref path_str) = host_path else {
+        return NativeHostStatus {
+            browser: browser.to_string(),
+            manifest_path,
+            status: "invalid_manifest".into(),
+            host_path: None,
+            detail: "manifest missing \"path\" field".into(),
+        };
+    };
+
+    let target = Path::new(path_str);
+    if !target.exists() {
+        let detail = format!("host binary does not exist: {path_str}");
+        return NativeHostStatus {
+            browser: browser.to_string(),
+            manifest_path,
+            status: "broken_target".into(),
+            host_path,
+            detail,
+        };
+    }
+
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        if let Ok(meta) = std::fs::metadata(target) {
+            if meta.permissions().mode() & 0o111 == 0 {
+                let detail = format!("host binary is not executable: {path_str}");
+                return NativeHostStatus {
+                    browser: browser.to_string(),
+                    manifest_path,
+                    status: "not_executable".into(),
+                    host_path,
+                    detail,
+                };
+            }
+        }
+    }
+
+    let (field, expected) = if is_firefox {
+        ("allowed_extensions", GECKO[0])
+    } else {
+        ("allowed_origins", ORIGINS[0])
+    };
+    let has_origin = parsed
+        .get(field)
+        .and_then(Value::as_array)
+        .is_some_and(|arr| arr.iter().any(|v| v.as_str() == Some(expected)));
+    if !has_origin {
+        return NativeHostStatus {
+            browser: browser.to_string(),
+            manifest_path,
+            status: "missing_origin".into(),
+            host_path,
+            detail: format!("manifest {field} missing {expected}"),
+        };
+    }
+
+    NativeHostStatus {
+        browser: browser.to_string(),
+        manifest_path,
+        status: "ok".into(),
+        host_path,
+        detail: "registered and executable".into(),
+    }
+}
+
+/// Diagnose native messaging host registration for every installed browser under `home`.
 #[cfg(unix)]
-pub fn install() -> Result<Vec<PathBuf>> {
+pub fn diagnose_in(home: &Path) -> Vec<NativeHostStatus> {
+    let mut out = Vec::new();
+    for (label, rel) in CHROMIUM {
+        let base = home.join(rel);
+        if !base.is_dir() {
+            continue;
+        }
+        let target = base.join("NativeMessagingHosts").join(format!("{NAME}.json"));
+        out.push(inspect_manifest(label, &target, false));
+    }
+    let firefox_dir = home.join(FIREFOX);
+    if firefox_dir.parent().is_some_and(Path::is_dir) {
+        let target = firefox_dir.join(format!("{NAME}.json"));
+        out.push(inspect_manifest("Firefox", &target, true));
+    }
+    out
+}
+
+/// Diagnose native messaging host registration for every installed browser for the current user.
+#[cfg(unix)]
+pub fn diagnose() -> Result<Vec<NativeHostStatus>> {
     let home = dirs::home_dir().ok_or_else(|| anyhow!("no home directory"))?;
+    Ok(diagnose_in(&home))
+}
+
+#[cfg(windows)]
+pub fn diagnose() -> Result<Vec<NativeHostStatus>> {
+    let local = dirs::data_local_dir().ok_or_else(|| anyhow!("no local app data"))?;
+    let roaming = dirs::data_dir().ok_or_else(|| anyhow!("no app data"))?;
+    let mut out = Vec::new();
+    for (key, data) in CHROMIUM {
+        if !local.join(data).is_dir() {
+            continue;
+        }
+        let reg_key = format!(r"HKCU\{key}\{NAME}");
+        match registered(&reg_key) {
+            Some(p) => out.push(inspect_manifest(data, &p, false)),
+            None => out.push(NativeHostStatus {
+                browser: (*data).into(),
+                manifest_path: reg_key,
+                status: "missing".into(),
+                host_path: None,
+                detail: "registry key not found".into(),
+            }),
+        }
+    }
+    if roaming.join(FIREFOX.1).is_dir() {
+        let reg_key = format!(r"HKCU\{}\{NAME}", FIREFOX.0);
+        match registered(&reg_key) {
+            Some(p) => out.push(inspect_manifest("Firefox", &p, true)),
+            None => out.push(NativeHostStatus {
+                browser: "Firefox".into(),
+                manifest_path: reg_key,
+                status: "missing".into(),
+                host_path: None,
+                detail: "registry key not found".into(),
+            }),
+        }
+    }
+    Ok(out)
+}
+
+/// Self-repair missing, corrupt, stale, or broken native messaging registrations under `home`,
+/// linking `~/.hanzo/zap/hanzo-zap-host` to `host_exe`.
+#[cfg(unix)]
+pub fn repair_in(home: &Path, host_exe: &Path) -> Result<RepairReport> {
     let exe = home.join(".hanzo/zap").join(BIN);
     let manifest = |allowed: (&str, Value)| {
         let mut m = json!({
@@ -101,30 +281,61 @@ pub fn install() -> Result<Vec<PathBuf>> {
     let chromium = manifest(("allowed_origins", json!(ORIGINS)))?;
     let firefox = manifest(("allowed_extensions", json!(GECKO)))?;
     let firefox_dir = home.join(FIREFOX);
-    let targets = CHROMIUM
+    let targets: Vec<(&str, PathBuf, PathBuf, &str, bool)> = CHROMIUM
         .iter()
-        .map(|b| (home.join(b), home.join(b).join("NativeMessagingHosts"), &chromium))
-        .chain([(firefox_dir.parent().unwrap_or(&home).to_path_buf(), firefox_dir.clone(), &firefox)]);
+        .map(|(label, b)| (*label, home.join(b), home.join(b).join("NativeMessagingHosts"), chromium.as_str(), false))
+        .chain([(
+            "Firefox",
+            firefox_dir.parent().unwrap_or(home).to_path_buf(),
+            firefox_dir.clone(),
+            firefox.as_str(),
+            true,
+        )])
+        .collect();
 
-    let mut written = Vec::new();
-    for (base, hosts, body) in targets {
-        let target = hosts.join(format!("{NAME}.json"));
-        if !base.is_dir() || serves(&target) {
+    let mut report = RepairReport::default();
+    for (label, base, hosts, body, is_firefox) in targets {
+        if !base.is_dir() {
+            report.skipped_not_installed += 1;
             continue;
         }
-        link(&exe)?;
-        std::fs::create_dir_all(&hosts)?;
-        std::fs::write(&target, body)?;
-        written.push(target);
+        let target = hosts.join(format!("{NAME}.json"));
+        let check = inspect_manifest(label, &target, is_firefox);
+        if check.status == "ok" {
+            report.already_ok.push(target);
+            continue;
+        }
+        match link_to(&exe, host_exe)
+            .and_then(|()| Ok(std::fs::create_dir_all(&hosts)?))
+            .and_then(|()| Ok(std::fs::write(&target, body)?))
+        {
+            Ok(()) => report.repaired.push(target),
+            Err(e) => report.errors.push(format!("{label} ({}): {e}", target.display())),
+        }
     }
-    Ok(written)
+    Ok(report)
+}
+
+/// Self-repair missing or broken native messaging registrations for the current user.
+#[cfg(unix)]
+pub fn repair() -> Result<RepairReport> {
+    let home = dirs::home_dir().ok_or_else(|| anyhow!("no home directory"))?;
+    let exe = std::env::current_exe()?;
+    repair_in(&home, &exe)
+}
+
+/// Register the host with every browser installed for this user, repairing any
+/// missing, corrupt, or broken manifest while preserving healthy manifests.
+#[cfg(unix)]
+pub fn install() -> Result<Vec<PathBuf>> {
+    Ok(repair()?.repaired)
 }
 
 /// Register the host with every browser installed for this user: a manifest
 /// per family in `~/.hanzo/zap`, named by each browser's registry key. A key
 /// whose manifest names a program that exists is left as it is, as on Unix.
 #[cfg(windows)]
-pub fn install() -> Result<Vec<PathBuf>> {
+pub fn repair() -> Result<RepairReport> {
     let home = dirs::home_dir().ok_or_else(|| anyhow!("no home directory"))?;
     let local = dirs::data_local_dir().ok_or_else(|| anyhow!("no local app data"))?;
     let roaming = dirs::data_dir().ok_or_else(|| anyhow!("no app data"))?;
@@ -144,13 +355,18 @@ pub fn install() -> Result<Vec<PathBuf>> {
     let firefox = (dir.join(format!("{NAME}.firefox.json")), manifest(("allowed_extensions", json!(GECKO)))?);
     let targets = CHROMIUM
         .iter()
-        .map(|(key, data)| (local.join(data), *key, &chromium))
-        .chain([(roaming.join(FIREFOX.1), FIREFOX.0, &firefox)]);
+        .map(|(key, data)| (local.join(data), *key, &chromium, false))
+        .chain([(roaming.join(FIREFOX.1), FIREFOX.0, &firefox, true)]);
 
-    let mut written = Vec::new();
-    for (installed, key, (file, body)) in targets {
+    let mut report = RepairReport::default();
+    for (installed, key, (file, body), is_firefox) in targets {
         let key = format!(r"HKCU\{key}\{NAME}");
-        if !installed.is_dir() || registered(&key).is_some_and(|m| serves(&m)) {
+        if !installed.is_dir() {
+            report.skipped_not_installed += 1;
+            continue;
+        }
+        if registered(&key).is_some_and(|m| inspect_manifest(&key, &m, is_firefox).status == "ok") {
+            report.already_ok.push(PathBuf::from(&key));
             continue;
         }
         link(&exe)?;
@@ -165,9 +381,14 @@ pub fn install() -> Result<Vec<PathBuf>> {
         if !status.success() {
             return Err(anyhow!("reg add {key} failed ({status})"));
         }
-        written.push(PathBuf::from(key));
+        report.repaired.push(PathBuf::from(key));
     }
-    Ok(written)
+    Ok(report)
+}
+
+#[cfg(windows)]
+pub fn install() -> Result<Vec<PathBuf>> {
+    Ok(repair()?.repaired)
 }
 
 /// The manifest path a host key names, read with `reg query`.
@@ -179,27 +400,17 @@ fn registered(key: &str) -> Option<PathBuf> {
     Some(PathBuf::from(line.split("REG_SZ").nth(1)?.trim()))
 }
 
-/// A manifest is there and the program it names exists.
-fn serves(manifest: &Path) -> bool {
-    std::fs::read_to_string(manifest)
-        .ok()
-        .and_then(|s| serde_json::from_str::<Value>(&s).ok())
-        .and_then(|m| m.get("path").and_then(Value::as_str).map(|p| Path::new(p).exists()))
-        .unwrap_or(false)
-}
-
-/// `~/.hanzo/zap/hanzo-zap-host` -> this binary.
+/// `~/.hanzo/zap/hanzo-zap-host` -> `exe`.
 #[cfg(unix)]
-fn link(at: &Path) -> Result<()> {
-    let exe = std::env::current_exe()?;
-    if std::fs::read_link(at).ok().as_deref() == Some(exe.as_path()) {
+fn link_to(at: &Path, exe: &Path) -> Result<()> {
+    if std::fs::read_link(at).ok().as_deref() == Some(exe) && at.exists() {
         return Ok(());
     }
     if let Some(dir) = at.parent() {
         std::fs::create_dir_all(dir)?;
     }
     let _ = std::fs::remove_file(at);
-    std::os::unix::fs::symlink(&exe, at)?;
+    std::os::unix::fs::symlink(exe, at)?;
     Ok(())
 }
 
@@ -313,4 +524,41 @@ fn open() -> std::io::Result<Door> {
         return Err(std::io::Error::new(std::io::ErrorKind::ConnectionRefused, "the pipe is not served by the router lock holder"));
     }
     Ok(pipe)
+}
+
+#[cfg(all(test, unix))]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn diagnose_and_repair_fixes_missing_and_broken_manifests() {
+        let tmp = tempfile::tempdir().unwrap();
+        let home = tmp.path();
+        let chrome_dir = home.join(CHROMIUM[0].1);
+        std::fs::create_dir_all(&chrome_dir).unwrap();
+
+        // 1. Missing manifest detected
+        let d1 = diagnose_in(home);
+        assert_eq!(d1.len(), 1);
+        assert_eq!(d1[0].status, "missing");
+
+        // 2. Repair creates manifest + symlink to current executable
+        let exe = std::env::current_exe().unwrap();
+        let rep = repair_in(home, &exe).unwrap();
+        assert_eq!(rep.repaired.len(), 1);
+        assert!(rep.errors.is_empty());
+
+        let d2 = diagnose_in(home);
+        assert_eq!(d2[0].status, "ok");
+
+        // 3. Corrupt / broken target manifest is detected and self-repaired
+        let manifest_path = chrome_dir.join("NativeMessagingHosts").join(format!("{NAME}.json"));
+        std::fs::write(&manifest_path, r#"{"name":"ai.hanzo.zap","path":"/nonexistent/host","allowed_origins":[]}"#).unwrap();
+        let d3 = diagnose_in(home);
+        assert_eq!(d3[0].status, "broken_target");
+
+        let rep2 = repair_in(home, &exe).unwrap();
+        assert_eq!(rep2.repaired.len(), 1);
+        assert_eq!(diagnose_in(home)[0].status, "ok");
+    }
 }

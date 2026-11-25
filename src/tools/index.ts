@@ -152,7 +152,7 @@ export {
 export { kaiCompactTool } from './compact.js';
 export { kaiActionTool, kaiActionTools } from './kai-action.js';
 export { llmTools, llmTool } from './llm.js';
-export { browserTools, browserTool, cdpTool } from './browser.js';
+export { browserTools, browserTool, browserReadTool, cdpTool, diagnoseBrowserError } from './browser.js';
 export { packageTools, npxTool, uvxTool, jqTool } from './packages.js';
 export { vaultTools, vaultTool } from './vault.js';
 export { connectorsTools, connectorsTool, CONNECTORS, COMPATIBLE_16_APPS } from './connectors.js';

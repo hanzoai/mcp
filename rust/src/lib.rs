@@ -8,6 +8,7 @@ pub mod catalog;
 pub mod brain;
 pub mod config;
 pub mod context;
+pub mod doctor;
 pub mod ffi;
 pub mod hanzo_api;
 pub mod server;
@@ -142,6 +143,7 @@ pub const LEGACY_ALIASES: &[&str] = &[
     "lsp",
     "refactor",
     "system",
+    "browser_read",
     "cdp",
     "jq",
     "gimp",
@@ -167,6 +169,7 @@ pub const LEGACY_ALIASES: &[&str] = &[
 pub const READ_ONLY: &[&str] = &["think"];
 
 const LEGACY_READ_ONLY: &[&str] = &[
+    "browser_read",
     "kai_decide",
     "kai_choice",
     "kai_score",
@@ -205,6 +208,7 @@ pub struct ToolRegistry {
     memory: Arc<RwLock<MemoryTool>>,
     computer: Arc<RwLock<ComputerTool>>,
     browser: Arc<RwLock<BrowserTool>>,
+    browser_read: Arc<RwLock<tools::BrowserReadTool>>,
     mode: Arc<RwLock<ModeTool>>,
     tasks: Arc<RwLock<TasksTool>>,
     hanzo: Arc<RwLock<HanzoTool>>,
@@ -277,6 +281,7 @@ fn built_in_title(name: &str) -> Option<&'static str> {
         "memory" => "Memory",
         "computer" => "Computer control",
         "browser" => "Browser",
+        "browser_read" => "Browser (read-only)",
         "mode" => "Mode",
         "tasks" => "Todo list",
         "hanzo" => "Hanzo Cloud",
@@ -302,6 +307,7 @@ impl ToolRegistry {
             memory: Arc::new(RwLock::new(MemoryTool::new())),
             computer: Arc::new(RwLock::new(ComputerTool::new())),
             browser: Arc::new(RwLock::new(BrowserTool::new())),
+            browser_read: Arc::new(RwLock::new(tools::BrowserReadTool::new())),
             mode: Arc::new(RwLock::new(ModeTool::new())),
             tasks: Arc::new(RwLock::new(TasksTool::new())),
             hanzo: Arc::new(RwLock::new(HanzoTool::new())),
@@ -433,6 +439,11 @@ impl ToolRegistry {
                 "name": "browser",
                 "description": tools::BrowserToolDefinition::new().description,
                 "inputSchema": tools::BrowserToolDefinition::new().input_schema
+            })),
+            "browser_read" => Some(json!({
+                "name": "browser_read",
+                "description": tools::BrowserReadToolDefinition::new().description,
+                "inputSchema": tools::BrowserReadToolDefinition::new().input_schema
             })),
             "computer" => Some(json!({
                 "name": "computer",
@@ -669,6 +680,11 @@ impl ToolRegistry {
                 }
                 let args: tools::BrowserToolArgs = serde_json::from_value(params)?;
                 let result = self.browser.read().await.execute(args).await?;
+                Ok(ToolResult::ok(serde_json::from_str(&result).unwrap_or(Value::String(result))))
+            }
+            "browser_read" => {
+                let args: tools::BrowserToolArgs = serde_json::from_value(params)?;
+                let result = self.browser_read.read().await.execute(args).await?;
                 Ok(ToolResult::ok(serde_json::from_str(&result).unwrap_or(Value::String(result))))
             }
             "mode" => {

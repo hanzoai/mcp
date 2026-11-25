@@ -16,7 +16,7 @@ import { codeTool } from './code.js';
 import { gitTool } from '../git.js';
 import { fetchTool } from './fetch.js';
 import { workspaceTool } from './workspace.js';
-import { browserTool, cdpTool } from '../browser.js';
+import { browserTool, browserReadTool, cdpTool } from '../browser.js';
 import { computerTool } from '../computer.js';
 import { unifiedUITool } from '../unified-ui.js';
 
@@ -191,6 +191,7 @@ export const legacyAliasTools: Tool[] = [
   agentAlias,
   modeTool,
   gimpTool,
+  browserReadTool,
   cdpTool,
   npxTool,
   uvxTool,
@@ -242,7 +243,7 @@ export {
 export { kaiActionTool, kaiActionTools } from '../kai-action.js';
 export { kaiCompactTool } from '../compact.js';
 export { llmTools, llmTool } from '../llm.js';
-export { browserTools, browserTool, cdpTool } from '../browser.js';
+export { browserTools, browserTool, browserReadTool, cdpTool, diagnoseBrowserError } from '../browser.js';
 export { packageTools, npxTool, uvxTool, jqTool } from '../packages.js';
 export { vaultTools, vaultTool } from '../vault.js';
 export { connectorsTools, connectorsTool, CONNECTORS, COMPATIBLE_16_APPS } from '../connectors.js';

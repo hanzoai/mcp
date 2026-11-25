@@ -493,4 +493,80 @@ Use \`browser\` for high-level verbs (navigate, click, screenshot).`,
   },
 };
 
-export const browserTools: Tool[] = [browserTool, cdpTool];
+const READ_ONLY_ACTIONS = new Set([
+  'tabs', 'browsers', 'status', 'url', 'title', 'read', 'inspected', 'snapshot',
+  'get_text', 'get_attribute', 'get_html', 'count', 'screenshot', 'webmcp_list', 'help',
+]);
+
+export function diagnoseBrowserError(err: string): { category: string; hint: string } {
+  const lower = err.toLowerCase();
+  if (/read-only|permission|not allowed|cannot access a chrome:\/\/|cannot access contents|activetab|approval required|user declined|denied|forbidden/.test(lower)) {
+    return {
+      category: 'permission',
+      hint: 'Permission or scope restriction: use `browser_read` for read-only inspection, or approve host permission in Chrome.',
+    };
+  }
+  if (/native messaging|native host|ai\.hanzo\.zap|hanzo-zap-host/.test(lower)) {
+    return {
+      category: 'native_host',
+      hint: 'Browser native messaging host is missing or broken: run `hanzo mcp doctor --fix`.',
+    };
+  }
+  if (/no browser on the zap router|unpaired|no browser connected/.test(lower)) {
+    return {
+      category: 'extension_unpaired',
+      hint: 'ZAP router is running, but no browser extension is connected: open Chrome with the Hanzo Browser Extension enabled.',
+    };
+  }
+  if (/timeout|timed out|connection refused|broken pipe|no router door|socket|zapd|eof|closed/.test(lower)) {
+    return {
+      category: 'transport',
+      hint: 'Local ZAP transport error: run `hanzo mcp doctor` to inspect router and extension connectivity.',
+    };
+  }
+  return {
+    category: 'page',
+    hint: 'Browser extension returned a page-level error (e.g. stale ref or covered element): run `snapshot` again.',
+  };
+}
+
+export const browserReadTool: Tool = {
+  name: 'browser_read',
+  description: `Read-only browser inspection through the Hanzo Browser Extension over native ZAP.
+
+Enumerates tabs, inspects page markdown/accessibility snapshots/DOM, captures screenshots,
+and checks connection status without modifying browser state, navigating, clicking, typing,
+or executing arbitrary page scripts. Safe to auto-approve in read-only clients.
+
+Actions: tabs (default), browsers, status, url, title, read, inspected, snapshot, get_text,
+get_attribute, get_html, count, screenshot, webmcp_list, help.`,
+  inputSchema: {
+    type: 'object',
+    properties: {
+      action: { type: 'string', enum: [...READ_ONLY_ACTIONS], default: 'tabs', description: 'Read-only action (default: tabs)' },
+      selector: { type: 'string', description: 'Optional snapshot ref (@e2) or CSS selector' },
+      interactive: { type: 'boolean', description: 'snapshot: interactive elements only, flat' },
+      compact: { type: 'boolean', description: 'snapshot: drop empty structure' },
+      depth: { type: 'integer', description: 'snapshot: tree depth limit' },
+      outline: { type: 'boolean', description: 'read: headings only' },
+      filter: { type: 'string', description: 'read: only sections that mention this' },
+      annotate: { type: 'boolean', description: 'screenshot: box every ref, label [N] = @eN' },
+      tab_id: { type: 'string', description: 'Tab from tabs; default the active tab' },
+      target_browser: { type: 'string', description: 'chrome | firefox, when several are connected' },
+      args: { type: 'object', description: 'Optional read-only parameters' },
+    },
+  },
+  async handler(inputArgs: Record<string, any>): Promise<ToolResult> {
+    const action = String(inputArgs?.action || 'tabs');
+    if (action === 'help') {
+      return text(`browser_read — strictly read-only browser inspection over native ZAP.\nAllowed actions: ${[...READ_ONLY_ACTIONS].join(', ')}.\nUse \`browser\` for mutating actions.`);
+    }
+    if (!READ_ONLY_ACTIONS.has(action)) {
+      const msg = `Action "${action}" is not permitted on read-only tool \`browser_read\` (allowed: ${[...READ_ONLY_ACTIONS].join(', ')}).`;
+      return text({ error: msg, action, read_only: true, diagnostic: diagnoseBrowserError(msg) }, true);
+    }
+    return run({ ...inputArgs, action });
+  },
+};
+
+export const browserTools: Tool[] = [browserTool, browserReadTool, cdpTool];

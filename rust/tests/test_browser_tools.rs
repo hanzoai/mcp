@@ -132,10 +132,18 @@ async fn snapshot_answers_text_and_a_refusal_is_an_error() {
 }
 
 #[tokio::test]
-async fn a_ref_never_falls_back_to_playwright() {
+async fn unpaired_target_returns_zap_error_without_playwright() {
     joined().await;
     let v = parse(&browser(json!({"action": "click", "selector": "@e1", "target_browser": "firefox"})).await);
     assert!(v["error"].as_str().unwrap().starts_with("no browser on the ZAP router"), "{v}");
+
+    let status = parse(&browser(json!({"action": "status", "target_browser": "firefox"})).await);
+    assert_eq!(status["connected"], false);
+    assert_eq!(status["source"], "extension");
+    assert_eq!(status["transport"], "native-zap");
+
+    let def = hanzo_mcp::tools::BrowserToolDefinition::new();
+    assert!(!def.description.to_lowercase().contains("playwright"), "{}", def.description);
 }
 
 #[tokio::test]
@@ -160,4 +168,63 @@ async fn help_and_unknown_are_local() {
     assert!(v["error"].as_str().unwrap().starts_with("Unknown action \"nope\". Core: navigate, snapshot"));
     let v = parse(&browser(json!({"action": "click", "args": {"bogus": 1}})).await);
     assert!(v["error"].as_str().unwrap().starts_with("Unknown args"));
+}
+
+#[tokio::test]
+async fn browser_read_allows_discovery_blocks_mutations_and_sets_readonly_hint() {
+    joined().await;
+    let reader = hanzo_mcp::tools::BrowserReadTool::new();
+
+    // Default action is `tabs` — succeeds without write approval
+    let tabs = parse(&reader.execute(BrowserToolArgs::default()).await.unwrap());
+    assert_eq!(tabs["success"], true);
+    assert_eq!(parse(tabs["result"].as_str().unwrap())["method"], "Target.getTargets");
+
+    // Snapshot also works read-only
+    let snap = reader
+        .execute(serde_json::from_value(json!({"action": "snapshot", "interactive": true})).unwrap())
+        .await
+        .unwrap();
+    assert_eq!(snap, "Example — https://example.com/ (1 refs)\n- button \"Go\" [ref=e1]");
+
+    // Mutating actions are blocked and classified as permission failures
+    for bad in ["click", "navigate", "fill", "evaluate", "close_tab", "lastpass_fill"] {
+        let v = parse(
+            &reader
+                .execute(serde_json::from_value(json!({"action": bad})).unwrap())
+                .await
+                .unwrap(),
+        );
+        assert_eq!(v["read_only"], true, "{bad}: {v}");
+        assert_eq!(v["diagnostic"]["category"], "permission", "{bad}: {v}");
+    }
+
+    // ToolRegistry executes `browser_read` silently on default surface (preserving 19 canonical tools),
+    // and exposes `browser_read` with readOnlyHint=true when explicitly requested via `--tools`.
+    let reg = hanzo_mcp::ToolRegistry::with_defaults();
+    let call_res = reg.execute("browser_read", json!({"action": "tabs"})).await.unwrap();
+    assert!(call_res.success);
+    let defs = reg.get_definitions();
+    let write_def = defs.iter().find(|d| d["name"] == "browser").expect("browser listed");
+    assert_eq!(write_def["annotations"]["readOnlyHint"], false);
+    assert_eq!(write_def["annotations"]["destructiveHint"], true);
+
+    let mut read_only_reg = hanzo_mcp::ToolRegistry::with_defaults();
+    read_only_reg.restrict(["browser_read"]).unwrap();
+    let ro_defs = read_only_reg.get_definitions();
+    let read_def = ro_defs.iter().find(|d| d["name"] == "browser_read").expect("browser_read listed");
+    assert_eq!(read_def["annotations"]["readOnlyHint"], true);
+    assert_eq!(read_def["annotations"]["title"], "Browser (read-only)");
+}
+
+#[test]
+fn diagnostics_distinguish_permission_from_transport_and_native_host() {
+    use hanzo_mcp::tools::browser_tool::diagnose_error;
+    assert_eq!(diagnose_error("Cannot access a chrome:// URL").category, "permission");
+    assert_eq!(diagnose_error("User declined host permission").category, "permission");
+    assert_eq!(diagnose_error("Specified native messaging host ai.hanzo.zap not found").category, "native_host");
+    assert_eq!(diagnose_error("no browser on the ZAP router: open Chrome").category, "extension_unpaired");
+    assert_eq!(diagnose_error("connection refused on zapd socket").category, "transport");
+    assert_eq!(diagnose_error("request timed out after 30s").category, "transport");
+    assert_eq!(diagnose_error("@e9 is stale: snapshot again").category, "page");
 }

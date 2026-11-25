@@ -66,7 +66,9 @@ pub use hanzo_tool::{HanzoTool, HanzoToolArgs, HanzoToolDefinition};
 pub use plan_tool::{PlanTool, PlanToolArgs, PlanToolDefinition};
 pub use tasks_tool::{TasksTool, TasksToolArgs, TasksToolDefinition};
 pub use mode_tool::{ModeTool, ModeToolArgs, ModeToolDefinition};
-pub use browser_tool::{BrowserTool, BrowserToolArgs, BrowserToolDefinition};
+pub use browser_tool::{
+    BrowserReadTool, BrowserReadToolDefinition, BrowserTool, BrowserToolArgs, BrowserToolDefinition,
+};
 pub use cdp_tool::CdpTool;
 pub use jq_tool::JqTool;
 pub use personality::{ToolPersonality, PersonalityRegistry};
