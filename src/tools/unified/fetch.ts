@@ -10,6 +10,7 @@ import * as path from 'path';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import { Tool } from '../../types/index.js';
+import { resolveHanzoToken, resolveHanzoApiBase } from '../hanzo-auth.js';
 
 const execAsync = promisify(exec);
 
@@ -190,9 +191,8 @@ export const fetchTool: Tool = {
            * and base URL come from the same env the tracker tool reads, so the
            * MCP has ONE way to reach cloud rather than a second one here.
            */
-          const base = (process.env.HANZO_API_BASE || process.env.HANZO_API_URL || process.env.HANZO_CLOUD_API || process.env.API_URL || 'https://api.hanzo.ai').replace(/\/+$/, '').replace(/\/v1$/, '');
-          const key =
-            process.env.HANZO_API_KEY || process.env.HANZO_USER_KEY || process.env.API_KEY || process.env.API_TOKEN || process.env.HANZO_TOKEN || '';
+          const base = resolveHanzoApiBase();
+          const key = resolveHanzoToken();
           // Refuse LOUDLY without a credential. Returning an empty result list
           // here would reproduce the exact defect this replaced: the caller
           // cannot distinguish "the web has nothing" from "we never asked".
@@ -245,8 +245,8 @@ export const fetchTool: Tool = {
 
         case 'read': {
           if (!args.url) return fail('INVALID_PARAMS', 'url required');
-          const base = (process.env.HANZO_API_BASE || process.env.HANZO_API_URL || process.env.HANZO_CLOUD_API || process.env.API_URL || 'https://api.hanzo.ai').replace(/\/+$/, '').replace(/\/v1$/, '');
-          const key = process.env.HANZO_API_KEY || process.env.HANZO_USER_KEY || process.env.API_KEY || process.env.API_TOKEN || process.env.HANZO_TOKEN || '';
+          const base = resolveHanzoApiBase();
+          const key = resolveHanzoToken();
           if (!key) return fail('NO_CREDENTIAL', 'HANZO_API_KEY required for markdown web read (/v1/crawl)');
           const resp = await fetch(`${base}/v1/crawl`, {
             method: 'POST',
@@ -262,8 +262,8 @@ export const fetchTool: Tool = {
         case 'vision': {
           const img = args.image || args.image_url || args.url;
           if (!img) return fail('INVALID_PARAMS', 'image or url required');
-          const base = (process.env.HANZO_API_BASE || process.env.HANZO_API_URL || process.env.HANZO_CLOUD_API || process.env.API_URL || 'https://api.hanzo.ai').replace(/\/+$/, '').replace(/\/v1$/, '');
-          const key = process.env.HANZO_API_KEY || process.env.HANZO_USER_KEY || process.env.API_KEY || process.env.API_TOKEN || process.env.HANZO_TOKEN || '';
+          const base = resolveHanzoApiBase();
+          const key = resolveHanzoToken();
           if (!key) return fail('NO_CREDENTIAL', 'HANZO_API_KEY required for vision');
           let imageUrl = String(img);
           if (!imageUrl.startsWith('http://') && !imageUrl.startsWith('https://') && !imageUrl.startsWith('data:')) {

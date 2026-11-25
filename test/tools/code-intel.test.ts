@@ -18,6 +18,7 @@ import {
   codeIndexTool,
   codeIntelTools,
 } from '../../src/tools/code-intel.js';
+import { clearHanzoCliTokenCache } from '../../src/tools/hanzo-auth.js';
 
 interface RecordedRequest {
   method: string;
@@ -75,6 +76,9 @@ afterAll(async () => {
   process.env.API_URL = prevApiUrl;
   process.env.HANZO_API_KEY = prevKey;
   await new Promise<void>((resolve) => server.close(() => resolve()));
+});
+afterEach(() => {
+  clearHanzoCliTokenCache();
 });
 
 const last = () => recorded[recorded.length - 1];
@@ -168,8 +172,14 @@ describe('code-intelligence tools', () => {
   });
 
   test('missing token fails with a clear error', async () => {
-    const saved = process.env.HANZO_API_KEY;
-    delete process.env.HANZO_API_KEY;
+    const saved = {
+      HANZO_API_KEY: process.env.HANZO_API_KEY,
+      HANZO_USER_KEY: process.env.HANZO_USER_KEY,
+      API_KEY: process.env.API_KEY,
+      API_TOKEN: process.env.API_TOKEN,
+      HANZO_TOKEN: process.env.HANZO_TOKEN,
+    };
+    for (const k of Object.keys(saved)) delete process.env[k];
     try {
       const before = recorded.length;
       const result = await codeAskTool.handler({ q: 'anything' });
@@ -177,7 +187,8 @@ describe('code-intelligence tools', () => {
       expect(result.content[0].text).toContain('HANZO_API_KEY required');
       expect(recorded.length).toBe(before);
     } finally {
-      process.env.HANZO_API_KEY = saved;
+      for (const [k, v] of Object.entries(saved)) if (v !== undefined) process.env[k] = v;
+      clearHanzoCliTokenCache();
     }
   });
 });

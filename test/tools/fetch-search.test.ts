@@ -18,7 +18,7 @@ function body(res: any) {
   return JSON.parse(res.content[0].text);
 }
 
-const KEYS = ['HANZO_API_KEY', 'API_KEY', 'API_TOKEN', 'HANZO_TOKEN', 'API_URL'];
+const KEYS = ['HANZO_API_KEY', 'HANZO_USER_KEY', 'API_KEY', 'API_TOKEN', 'HANZO_TOKEN', 'API_URL'];
 let saved: Record<string, string | undefined>;
 
 beforeEach(() => {

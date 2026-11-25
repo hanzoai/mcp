@@ -7,9 +7,10 @@
  * made of the answer. No socket is opened.
  */
 
-import { describe, test, expect, beforeAll, afterAll, beforeEach } from '@jest/globals';
+import { describe, test, expect, beforeAll, afterAll, beforeEach, afterEach } from '@jest/globals';
 import { llmTool } from '../../src/tools/llm.js';
 import { allUnifiedTools, legacyToolAliasMap } from '../../src/tools/unified/index.js';
+import { clearHanzoCliTokenCache } from '../../src/tools/hanzo-auth.js';
 
 interface Sent {
   url: string;
@@ -82,7 +83,7 @@ const REFUSALS: [string, number, unknown][] = [
 ];
 
 const realFetch = globalThis.fetch;
-const ENV = ['API_URL', 'HANZO_API_KEY', 'API_KEY', 'API_TOKEN', 'HANZO_TOKEN'];
+const ENV = ['API_URL', 'HANZO_API_KEY', 'HANZO_USER_KEY', 'API_KEY', 'API_TOKEN', 'HANZO_TOKEN'];
 const saved: Record<string, string | undefined> = {};
 
 const last = () => sent[sent.length - 1];
@@ -121,6 +122,10 @@ beforeEach(() => {
     }
     return { status: 200, text: JSON.stringify(COMPLETION), headers: { 'X-Routed-Model': 'enso-free' } };
   };
+});
+
+afterEach(() => {
+  clearHanzoCliTokenCache();
 });
 
 describe('llm surface', () => {
@@ -226,13 +231,21 @@ describe('query', () => {
   });
 
   test('needs a key', async () => {
-    delete process.env.HANZO_API_KEY;
+    const saved = {
+      HANZO_API_KEY: process.env.HANZO_API_KEY,
+      HANZO_USER_KEY: process.env.HANZO_USER_KEY,
+      API_KEY: process.env.API_KEY,
+      API_TOKEN: process.env.API_TOKEN,
+      HANZO_TOKEN: process.env.HANZO_TOKEN,
+    };
+    for (const k of Object.keys(saved)) delete process.env[k];
     try {
       const r = await llmTool.handler({ prompt: 'hi' });
       expect(text(r)).toBe('Error: HANZO_API_KEY required');
       expect(sent).toHaveLength(0);
     } finally {
-      process.env.HANZO_API_KEY = 'test-key';
+      for (const [k, v] of Object.entries(saved)) if (v !== undefined) process.env[k] = v;
+      clearHanzoCliTokenCache();
     }
   });
 });

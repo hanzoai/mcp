@@ -19,6 +19,7 @@ import {
   trackerUpdateTool,
   trackerTools,
 } from '../../src/tools/tracker.js';
+import { clearHanzoCliTokenCache } from '../../src/tools/hanzo-auth.js';
 
 interface RecordedRequest {
   method: string;
@@ -77,6 +78,9 @@ afterAll(async () => {
 });
 
 beforeEach(() => { recorded.length = 0; });
+afterEach(() => {
+  clearHanzoCliTokenCache();
+});
 
 describe('the tracker tool surface', () => {
   test('is four tools, each uniquely named', () => {
@@ -205,15 +209,22 @@ describe('failures surface honestly', () => {
   });
 
   test('missing token fails with a clear error and no call', async () => {
-    const prev = process.env.HANZO_API_KEY;
-    delete process.env.HANZO_API_KEY;
+    const saved = {
+      HANZO_API_KEY: process.env.HANZO_API_KEY,
+      HANZO_USER_KEY: process.env.HANZO_USER_KEY,
+      API_KEY: process.env.API_KEY,
+      API_TOKEN: process.env.API_TOKEN,
+      HANZO_TOKEN: process.env.HANZO_TOKEN,
+    };
+    for (const k of Object.keys(saved)) delete process.env[k];
     try {
       const result = await trackerBoardsTool.handler({});
       expect(result.isError).toBe(true);
       expect(result.content[0].text).toContain('HANZO_API_KEY required');
       expect(recorded).toHaveLength(0);
     } finally {
-      process.env.HANZO_API_KEY = prev;
+      for (const [k, v] of Object.entries(saved)) if (v !== undefined) process.env[k] = v;
+      clearHanzoCliTokenCache();
     }
   });
 });
