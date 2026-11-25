@@ -142,6 +142,7 @@ export type {
 // Import Tool type and tool configuration for use in function signatures
 import { Tool, listed } from './types/index.js';
 import { ToolConfig } from './tools/index.js';
+import type { ActionAuthorizationGrant, KaiPolicyGate } from './security/action-authorization-guard.js';
 
 // Main server factory
 export async function createMCPServer(config?: {
@@ -150,13 +151,19 @@ export async function createMCPServer(config?: {
   projectPath?: string;
   customTools?: Tool[];
   toolConfig?: ToolConfig;
+  /** Optional opt-in HIP-1348 KaiPolicyGate enforcing action authorization & nonce-isolated tool results. */
+  actionGuard?: KaiPolicyGate;
+  /** Optional default HMAC-signed ActionAuthorizationGrant applied to guarded tool calls. */
+  defaultAuthGrant?: ActionAuthorizationGrant;
 }) {
   const { 
     name = 'hanzo-mcp',
     version = '1.0.0',
     projectPath = process.cwd(),
     customTools = [],
-    toolConfig = { enableCore: true, enableUI: false }
+    toolConfig = { enableCore: true, enableUI: false },
+    actionGuard,
+    defaultAuthGrant,
   } = config || {};
   
   // Import tools
@@ -198,8 +205,57 @@ export async function createMCPServer(config?: {
         isError: true,
       };
     }
+    const rawArgs = params.arguments || {};
+    if (actionGuard) {
+      const { __authGrant, ...cleanArgs } = rawArgs as Record<string, unknown> & {
+        __authGrant?: ActionAuthorizationGrant;
+      };
+      const action = typeof cleanArgs.action === 'string' ? cleanArgs.action : 'invoke';
+      const decision = actionGuard.authorizeInvocation({
+        tool: tool.name,
+        action,
+        args: cleanArgs,
+        grant: __authGrant ?? defaultAuthGrant,
+      });
+      if (!decision.allowed) {
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(
+                {
+                  ok: false,
+                  data: null,
+                  error: {
+                    code: 'ACTION_AUTHORIZATION_DENIED',
+                    message: decision.reasons.join('; ') || 'Action denied by KaiPolicyGate',
+                    violatedPolicies: decision.violatedPolicies,
+                    privilegeClass: decision.privilegeClass,
+                  },
+                  meta: { tool: tool.name, action, securityBlock: true },
+                },
+                null,
+                2
+              ),
+            },
+          ],
+          isError: true,
+          _meta: { securityBlock: true, decision },
+        };
+      }
+      try {
+        const rawResult = await tool.handler(cleanArgs);
+        const { result } = actionGuard.processToolResult(tool.name, action, rawResult);
+        return result;
+      } catch (error: any) {
+        return {
+          content: [{ type: 'text', text: `Error executing ${tool.name}: ${error.message}` }],
+          isError: true,
+        };
+      }
+    }
     try {
-      return await tool.handler(params.arguments || {});
+      return await tool.handler(rawArgs);
     } catch (error: any) {
       return {
         content: [{ type: 'text', text: `Error executing ${tool.name}: ${error.message}` }],
