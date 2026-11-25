@@ -41,6 +41,68 @@ export * from './repomap/index.js';
 // Export RepoGraph architectural reasoning & change-impact tools (HIP-1347)
 export * from './repograph/index.js';
 
+// Export AST-aware semantic change planner & incremental test selector (HIP-1347)
+// Namespaced + explicit non-colliding re-exports to avoid SymbolKind / normalizeRepoPath collisions with repomap.
+export * as semanticEdit from './semantic-edit/index.js';
+export {
+  SemanticPlannerError,
+  DerivedSemanticIndex,
+  SemanticChangePlanner,
+  createCanonicalBlobRecord,
+  checkBlobAccess,
+  inferLanguage,
+  inferPackageName,
+  inferIsTestFile,
+  tokenizeCodeLexical,
+  validateStructuralSyntax,
+  renderAstReplacement,
+  findStructuralMatchesInBlob,
+  applyRulesToBlob,
+  buildDerivedFileEntry,
+  computeSemanticDiff,
+  selectIncrementalTests,
+  createSemanticEditTools,
+  evaluateSemanticEditBenchmark,
+  normalizeRepoPath as normalizeSemanticRepoPath,
+  sha256Hex as semanticSha256Hex,
+} from './semantic-edit/index.js';
+export type {
+  SupportedAstLanguage,
+  SemanticErrorCode,
+  TenantAccessContext,
+  SourceBlobInput,
+  CanonicalBlobRecord,
+  AstLexToken,
+  StructuralValidationResult,
+  MetavarConstraintKind,
+  AstRewriteRule,
+  StructuralMatch,
+  ConstrainedFileEdit,
+  SymbolParameterSpec,
+  SymbolKind as SemanticSymbolKind,
+  ExtractedSymbol,
+  ExtractedCallSite,
+  ExtractedImport,
+  DerivedFileEntry,
+  SemanticChangeKind,
+  SemanticSymbolDelta,
+  IncompatibleCrossPackageChange,
+  SemanticDiffReport,
+  TestSelectionTier,
+  IncrementalTestSelection,
+  ExternalVerificationOutcome,
+  VerificationRunner,
+  SemanticChangePlanResult,
+  PlannerThresholds,
+  LexScanOutput,
+  SemanticEditToolsOptions,
+  BenchmarkStrategyName,
+  TaskCaseEvaluation,
+  StrategyAggregateSummary,
+  NegativeControlSummary,
+  SemanticEditBenchmarkReport,
+} from './semantic-edit/index.js';
+
 // Import Tool type and tool configuration for use in function signatures
 import { Tool, listed } from './types/index.js';
 import { ToolConfig } from './tools/index.js';
