@@ -178,20 +178,33 @@ impl ExecTool {
             return shell;
         }
 
-        // Prefer zsh, fallback to others
-        for shell in ["zsh", "bash", "fish", "dash", "sh"] {
-            for prefix in ["/opt/homebrew/bin", "/usr/local/bin", "/bin", "/usr/bin"] {
-                let path = format!("{}/{}", prefix, shell);
-                if std::path::Path::new(&path).exists() {
-                    return path;
+        #[cfg(windows)]
+        {
+            for ps in ["pwsh.exe", "powershell.exe"] {
+                if let Ok(found) = which::which(ps) {
+                    return found.to_string_lossy().to_string();
                 }
             }
-            if let Ok(found) = which::which(shell) {
-                return found.to_string_lossy().to_string();
-            }
+            return "powershell.exe".to_string();
         }
 
-        "sh".to_string()
+        #[cfg(not(windows))]
+        {
+            // Prefer zsh, fallback to others
+            for shell in ["zsh", "bash", "fish", "dash", "sh"] {
+                for prefix in ["/opt/homebrew/bin", "/usr/local/bin", "/bin", "/usr/bin"] {
+                    let path = format!("{}/{}", prefix, shell);
+                    if std::path::Path::new(&path).exists() {
+                        return path;
+                    }
+                }
+                if let Ok(found) = which::which(shell) {
+                    return found.to_string_lossy().to_string();
+                }
+            }
+
+            "sh".to_string()
+        }
     }
 
     pub async fn execute(&self, args: ExecToolArgs) -> Result<String> {
@@ -243,9 +256,24 @@ impl ExecTool {
         if let (Some(v), Some(c)) = (verdict.take(), self.classifier.as_ref()) {
             let mut v = v;
             if let Some(over) = shell_override.as_deref() {
-                let base = std::path::Path::new(over).file_name().and_then(|n| n.to_str()).unwrap_or(over);
-                if !matches!(base, "sh" | "bash" | "dash" | "zsh" | "ksh" | "ash") {
-                    v = v.merge(Verdict::new(super::verdict::Risk::Deny, [format!("shell {base:?} is not one this server reads: only sh, bash, dash, zsh, ksh and ash run a classified command")]));
+                let base = std::path::Path::new(over)
+                    .file_name()
+                    .and_then(|n| n.to_str())
+                    .unwrap_or(over);
+                let allowed = matches!(
+                    base.to_ascii_lowercase().as_str(),
+                    "sh" | "bash"
+                        | "dash"
+                        | "zsh"
+                        | "ksh"
+                        | "ash"
+                        | "pwsh"
+                        | "pwsh.exe"
+                        | "powershell"
+                        | "powershell.exe"
+                );
+                if !allowed {
+                    v = v.merge(Verdict::new(super::verdict::Risk::Deny, [format!("shell {base:?} is not one this server reads: only sh, bash, dash, zsh, ksh, ash, pwsh and powershell run a classified command")]));
                 }
             }
             if let Some(env) = args.env.as_ref() {
@@ -267,9 +295,24 @@ impl ExecTool {
         let proc_id = self.manager.next_id().await;
         let started = chrono::Utc::now().to_rfc3339();
 
-        // Build command
+        // Build command (encode PowerShell scripts with UTF-16LE -EncodedCommand so
+        // quotes, newlines, `$vars`, and here-strings never corrupt or truncate files).
         let mut cmd = Command::new(&shell);
-        cmd.arg("-c").arg(&cmd_str);
+        if is_powershell_shell(&shell) {
+            let encoded = encode_powershell_encoded_command(&cmd_str);
+            cmd.args([
+                "-NoProfile",
+                "-NonInteractive",
+                "-InputFormat",
+                "Text",
+                "-OutputFormat",
+                "Text",
+                "-EncodedCommand",
+                &encoded,
+            ]);
+        } else {
+            cmd.arg("-c").arg(&cmd_str);
+        }
         cmd.stdout(Stdio::piped());
         cmd.stderr(Stdio::piped());
 
@@ -722,4 +765,50 @@ mod tests {
         assert!(output.contains("exec"));
         assert!(output.contains("exec"));
     }
+
+    #[test]
+    fn test_powershell_encoded_command_roundtrip() {
+        assert!(is_powershell_shell("pwsh.exe"));
+        assert!(is_powershell_shell(r"C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe"));
+        assert!(!is_powershell_shell("/bin/bash"));
+
+        let py = "class LLMClient:\n    \"\"\"doc \"quotes\" 'single' $env:KEY\"\"\"\n";
+        let b64 = encode_powershell_encoded_command(py);
+        use base64::Engine as _;
+        let bytes = base64::engine::general_purpose::STANDARD.decode(b64).unwrap();
+        let units: Vec<u16> = bytes.chunks_exact(2).map(|p| u16::from_le_bytes([p[0], p[1]])).collect();
+        let decoded = String::from_utf16(&units).unwrap();
+        assert!(decoded.contains(py));
+        assert!(decoded.contains("[System.Text.UTF8Encoding]::new($false)"));
+    }
+}
+
+fn is_powershell_shell(shell: &str) -> bool {
+    let base = shell
+        .rsplit(['/', '\\'])
+        .next()
+        .unwrap_or(shell)
+        .to_ascii_lowercase();
+    matches!(
+        base.as_str(),
+        "pwsh" | "pwsh.exe" | "powershell" | "powershell.exe"
+    )
+}
+
+fn encode_powershell_encoded_command(script: &str) -> String {
+    use base64::Engine as _;
+    let wrapped = format!(
+        "$ProgressPreference = 'SilentlyContinue'\n\
+         if ($PSStyle) {{ $PSStyle.OutputRendering = 'PlainText' }}\n\
+         try {{ $OutputEncoding = [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false) }} catch {{}}\n\
+         {script}\n\n\
+         $__ok = $?; $__code = $LASTEXITCODE\n\
+         if (-not $__ok) {{ if ($__code) {{ exit $__code }} else {{ exit 1 }} }}\n\
+         exit 0\n"
+    );
+    let mut utf16le = Vec::with_capacity(wrapped.len() * 2);
+    for unit in wrapped.encode_utf16() {
+        utf16le.extend_from_slice(&unit.to_le_bytes());
+    }
+    base64::engine::general_purpose::STANDARD.encode(utf16le)
 }
