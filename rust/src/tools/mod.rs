@@ -50,7 +50,10 @@ pub mod kai_suite_tool;
 // Re-export tools — HIP-0300 canonical names
 pub use fs_tool::{FsTool, FsToolArgs, FsToolDefinition};
 pub use exec_tool::{ExecTool, ExecToolArgs, ExecToolDefinition};
-pub use verdict::{Classify, Risk, Verdict};
+pub use verdict::{
+    ApprovalRequest, ApprovalSource, ApprovalToken, Approver, Classify, CompositeApprover,
+    OperatorPolicyApprover, Risk, TokenApprover, Verdict,
+};
 pub use shell::Shell;
 pub use code_tool::{CodeTool, CodeToolArgs, CodeToolDefinition};
 pub use git_tool::{GitTool, GitToolArgs, GitToolDefinition};

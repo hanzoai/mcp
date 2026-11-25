@@ -474,6 +474,17 @@ impl ToolRegistry {
         definitions
     }
 
+    /// Out-of-band host/operator hook: approve a pending `exec` Ask request by its
+    /// `approval_request_id` and mint a single-use approval token bound to that exact call.
+    pub async fn approve_exec_request(&self, request_id: &str) -> Option<tools::ApprovalToken> {
+        self.exec.read().await.token_approver().approve_request(request_id, 300)
+    }
+
+    /// Out-of-band token approver handle for the registry's `exec` tool.
+    pub async fn exec_token_approver(&self) -> Arc<tools::TokenApprover> {
+        self.exec.read().await.token_approver()
+    }
+
     /// Execute a tool by canonical name (including absorbed sub-actions) or silent legacy `tools/call` alias.
     pub async fn execute(&self, name: &str, params: Value) -> Result<ToolResult> {
         if !self.allowed(name) {
@@ -490,6 +501,7 @@ impl ToolRegistry {
                         cwd: params.get("cwd").and_then(Value::as_str).map(String::from),
                         timeout: Some(tools::runner::BACKGROUND),
                         approve: params.get("approve").and_then(Value::as_bool),
+                        approval_token: params.get("approval_token").and_then(Value::as_str).map(String::from),
                         ..Default::default()
                     };
                     let result = self.exec.read().await.execute(args).await?;
@@ -511,6 +523,7 @@ impl ToolRegistry {
                     cwd: params.get("cwd").and_then(Value::as_str).map(String::from),
                     timeout: Some(tools::runner::BACKGROUND),
                     approve: params.get("approve").and_then(Value::as_bool),
+                    approval_token: params.get("approval_token").and_then(Value::as_str).map(String::from),
                     ..Default::default()
                 };
                 let result = self.exec.read().await.execute(args).await?;

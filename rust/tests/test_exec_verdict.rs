@@ -1,10 +1,13 @@
-//! `exec` and the classifier seam: a `deny` runs nothing, an `ask` runs only with `approve: true`
-//! and says so, and with no classifier installed `exec` answers as it always has.
+//! `exec` and the classifier seam: a `deny` runs nothing, an `ask` runs only with out-of-band
+//! approval (single-use token or operator policy — never model self-approval) and says so, and
+//! with no classifier installed `exec` answers as it always has.
 
 use std::path::Path;
 use std::sync::{Arc, Mutex};
 
-use hanzo_mcp::tools::{Classify, ExecTool, ExecToolArgs, Risk, Verdict};
+use hanzo_mcp::tools::{
+    Classify, CompositeApprover, ExecTool, ExecToolArgs, OperatorPolicyApprover, Risk, Verdict,
+};
 use hanzo_mcp::ToolRegistry;
 use serde_json::{json, Value};
 use tempfile::TempDir;
@@ -32,18 +35,29 @@ impl Classify for ByWord {
 }
 
 async fn run(tool: &ExecTool, command: Value, cwd: Option<&Path>) -> anyhow::Result<Value> {
-    run_with(tool, command, cwd, None).await
+    run_with(tool, command, cwd, None, None).await
 }
 
-async fn run_with(tool: &ExecTool, command: Value, cwd: Option<&Path>, approve: Option<bool>) -> anyhow::Result<Value> {
+async fn run_with(
+    tool: &ExecTool,
+    command: Value,
+    cwd: Option<&Path>,
+    approve: Option<bool>,
+    approval_token: Option<String>,
+) -> anyhow::Result<Value> {
     let args = ExecToolArgs {
         action: "exec".into(),
         command: Some(command),
         cwd: cwd.map(|c| c.display().to_string()),
         approve,
+        approval_token,
         ..Default::default()
     };
     Ok(serde_json::from_str(&tool.execute(args).await?)?)
+}
+
+fn extract_request_id(err: &str) -> Option<String> {
+    err.split("approval_request_id: ").nth(1).map(|s| s.trim().to_string())
 }
 
 #[tokio::test]
@@ -60,7 +74,7 @@ async fn a_deny_runs_nothing_and_registers_no_process() {
 }
 
 #[tokio::test]
-async fn an_allow_runs_and_an_ask_runs_only_when_approved() {
+async fn an_allow_runs_and_an_ask_runs_only_when_approved_out_of_band() {
     let dir = TempDir::new().unwrap();
     let tool = ExecTool::with_classifier(ByWord::new());
 
@@ -70,15 +84,65 @@ async fn an_allow_runs_and_an_ask_runs_only_when_approved() {
 
     // `git --version` runs offline; the verdict is what the classifier said of the word.
     let refused = run(&tool, json!("git --version"), Some(dir.path())).await.unwrap_err().to_string();
-    assert!(refused.starts_with("approval required: reaches a remote") && refused.contains("approve: true"), "{refused}");
-    let no = run_with(&tool, json!("git --version"), Some(dir.path()), Some(false)).await.unwrap_err().to_string();
-    assert!(no.starts_with("approval required"), "{no}");
+    assert!(
+        refused.starts_with("approval required: reaches a remote")
+            && refused.contains("approval_request_id: req_")
+            && !refused.contains("appr_"),
+        "refusal must expose only request_id, never a live token: {refused}"
+    );
 
-    let ask = run_with(&tool, json!("git --version"), Some(dir.path()), Some(true)).await.unwrap();
-    assert_eq!(ask["verdict"], json!({"risk": "ask", "reasons": ["reaches a remote"], "approved": true}));
+    // Passing the request_id directly as approval_token MUST fail (model cannot self-approve).
+    let req_id = extract_request_id(&refused).expect("refusal must include approval_request_id");
+    let self_replay = run_with(&tool, json!("git --version"), Some(dir.path()), None, Some(req_id.clone()))
+        .await
+        .unwrap_err()
+        .to_string();
+    assert!(self_replay.contains("approval required"), "{self_replay}");
+
+    // Model self-approval (approve: true) is NOT sufficient.
+    let self_flag = run_with(&tool, json!("git --version"), Some(dir.path()), Some(true), None)
+        .await
+        .unwrap_err()
+        .to_string();
+    assert!(self_flag.contains("Model self-approval is not sufficient"), "{self_flag}");
+
+    // Out-of-band host/operator approves the pending request and hands back a single-use token.
+    let token = tool.token_approver().approve_request(&req_id, 60).expect("valid pending request");
+    let ask = run_with(&tool, json!("git --version"), Some(dir.path()), None, Some(token.token.clone()))
+        .await
+        .unwrap();
+    assert_eq!(
+        ask["verdict"],
+        json!({"risk": "ask", "reasons": ["reaches a remote"], "approved": true, "approval_source": "token"})
+    );
     assert!(ask["exit_code"].is_number(), "an approved ask runs: {ask}");
-    // An approval buys an ask and nothing else.
-    let deny = run_with(&tool, json!("rm x"), Some(dir.path()), Some(true)).await.unwrap_err().to_string();
+
+    // Single-use: replaying the consumed token fails.
+    let replay = run_with(&tool, json!("git --version"), Some(dir.path()), None, Some(token.token))
+        .await
+        .unwrap_err()
+        .to_string();
+    assert!(replay.contains("approval required"), "{replay}");
+
+    // Operator policy allows exact/prefix match without shell chaining, rejects bypasses.
+    let policy_tool = ExecTool::with_classifier(ByWord::new()).with_approver(
+        CompositeApprover::new()
+            .add_approver(Box::new(OperatorPolicyApprover::new(vec!["git --version".into()]))),
+    );
+    let ok_policy = run(&policy_tool, json!("git --version"), Some(dir.path())).await.unwrap();
+    assert_eq!(ok_policy["verdict"]["approval_source"], json!("operator_policy"));
+    let chained = run(&policy_tool, json!("git --version && echo pwned"), Some(dir.path()))
+        .await
+        .unwrap_err()
+        .to_string();
+    assert!(chained.contains("approval required"), "chained command must bypass policy: {chained}");
+
+    // Deny is never lifted by model flag, token, or operator policy.
+    let deny_tok = tool.token_approver().issue_token("rm x", Some(dir.path()), &Default::default(), 60);
+    let deny = run_with(&tool, json!("rm x"), Some(dir.path()), Some(true), Some(deny_tok.token))
+        .await
+        .unwrap_err()
+        .to_string();
     assert_eq!(deny, "refused: rm is never run from here");
 }
 

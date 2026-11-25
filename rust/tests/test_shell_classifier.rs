@@ -36,16 +36,36 @@ async fn a_read_runs_a_workspace_write_runs_and_a_deny_leaves_no_process() {
 }
 
 #[tokio::test]
-async fn an_ask_names_why_and_runs_after_approval() {
+async fn an_ask_names_why_and_runs_after_out_of_band_approval() {
     let dir = TempDir::new().unwrap();
     let t = tool();
     // A POST sends data over the network: asked about. Nothing listens on port 1, so it fails once approved.
     let cmd = "curl -s -m 2 -X POST http://127.0.0.1:1/ -d x";
     let e = exec(&t, cmd, dir.path(), false).await.unwrap_err().to_string();
-    assert!(e.starts_with("approval required: network: curl sends data to http://127.0.0.1:1/") && e.contains("approve: true"), "{e}");
-    let ok = exec(&t, cmd, dir.path(), true).await.unwrap();
+    assert!(
+        e.starts_with("approval required: network: curl sends data to http://127.0.0.1:1/")
+            && e.contains("approval_request_id: req_")
+            && !e.contains("appr_"),
+        "{e}"
+    );
+    // Model self-approval (approve: true) must NOT lift Ask.
+    let self_err = exec(&t, cmd, dir.path(), true).await.unwrap_err().to_string();
+    assert!(self_err.contains("Model self-approval is not sufficient"), "{self_err}");
+
+    // Host/operator approves the pending request out-of-band.
+    let req_id = e.split("approval_request_id: ").nth(1).unwrap().trim();
+    let tok = t.token_approver().approve_request(req_id, 60).expect("valid request");
+    let args = ExecToolArgs {
+        action: "exec".into(),
+        command: Some(json!(cmd)),
+        cwd: Some(dir.path().display().to_string()),
+        approval_token: Some(tok.token),
+        ..Default::default()
+    };
+    let ok: Value = serde_json::from_str(&t.execute(args).await.unwrap()).unwrap();
     assert_eq!(ok["verdict"]["risk"], json!("ask"));
     assert_eq!(ok["verdict"]["approved"], json!(true));
+    assert_eq!(ok["verdict"]["approval_source"], json!("token"));
     assert_eq!(ok["status"], json!("failed"), "the approved command ran: {ok}");
 }
 
