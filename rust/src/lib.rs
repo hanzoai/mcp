@@ -150,6 +150,7 @@ pub const LEGACY_ALIASES: &[&str] = &[
     "gimp",
     "vault",
     "connectors",
+    "crm",
     "kai_decide",
     "kai_choice",
     "kai_score",
@@ -350,6 +351,7 @@ impl ToolRegistry {
         self.register(Box::new(tools::GimpTool::new()));
         self.register(Box::new(tools::VaultTool::new()));
         self.register(Box::new(tools::ConnectorsTool::new()));
+        self.register(Box::new(tools::CrmTool::new()));
     }
 
     /// The registry with `classifier` asked about every `exec` command before it runs.

@@ -156,6 +156,7 @@ export { browserTools, browserTool, browserReadTool, cdpTool, diagnoseBrowserErr
 export { packageTools, npxTool, uvxTool, jqTool } from './packages.js';
 export { vaultTools, vaultTool } from './vault.js';
 export { connectorsTools, connectorsTool, CONNECTORS, COMPATIBLE_16_APPS } from './connectors.js';
+export { crmTools, crmTool, CRM_OBJECTS, CRM_ACTIONS, resolveCrmObject } from './crm.js';
 export { refactorTools } from './refactor.js';
 export { memoryTools } from './memory.js';
 export { planTools } from './plan.js';

@@ -30,7 +30,7 @@ use crate::hanzo_api::{self, Credential, HanzoApi, Source};
 /// `auth` is answered locally from credential state; every other name comes from
 /// the generated catalog, so this list cannot describe an API that has moved.
 fn services() -> Vec<&'static str> {
-    let mut v = vec!["auth", "vault", "connectors"];
+    let mut v = vec!["auth", "vault", "connectors", "crm"];
     v.extend(crate::catalog::services());
     v.sort_unstable();
     v.dedup();
@@ -38,7 +38,7 @@ fn services() -> Vec<&'static str> {
 }
 
 fn serves(service: &str) -> bool {
-    matches!(service, "auth" | "vault" | "connectors" | "connection") || crate::catalog::serves(service)
+    matches!(service, "auth" | "vault" | "connectors" | "connection" | "crm") || crate::catalog::serves(service)
 }
 
 /// resolve_service normalises spelling only. It no longer renames: the aliases it
@@ -256,6 +256,17 @@ impl HanzoTool {
             return Ok(res.content);
         }
 
+        // `crm` routes to the native Hanzo Cloud CRM tool (`/v1/crm` + Base fallback).
+        if service == "crm" {
+            let mut cp = p.clone();
+            cp.insert("action".into(), json!(action));
+            if let Some(o) = args.org.as_deref().map(str::trim).filter(|o| !o.is_empty()) {
+                cp.entry("org").or_insert_with(|| json!(o));
+            }
+            let res = crate::MCPTool::execute(&super::CrmTool::new(), Value::Object(cp)).await?;
+            return Ok(res.content);
+        }
+
         let org = args.org.as_deref().map(str::trim).filter(|o| !o.is_empty());
         if let Some(o) = org {
             if !org_ok(o) {
@@ -436,6 +447,7 @@ fn actions_for(service: &str) -> Vec<&'static str> {
         "auth" => vec!["whoami", "status", "list", "use", "switch", "logout", "refresh"],
         "vault" => vec!["status", "list", "seal", "sync_lastpass", "totp", "browser_login"],
         "connectors" | "connection" => vec!["list", "request", "view", "act", "configure"],
+        "crm" => super::crm_tool::CRM_ACTIONS.to_vec(),
         _ => crate::catalog::actions(service),
     }
 }

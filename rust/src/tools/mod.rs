@@ -45,6 +45,7 @@ pub mod skills_tool;
 pub mod gimp_tool;
 pub mod vault_tool;
 pub mod connectors_tool;
+pub mod crm_tool;
 pub mod kai_suite_tool;
 
 // Re-export tools — HIP-0300 canonical names
@@ -81,6 +82,7 @@ pub use skills_tool::SkillsTool;
 pub use gimp_tool::GimpTool;
 pub use vault_tool::VaultTool;
 pub use connectors_tool::ConnectorsTool;
+pub use crm_tool::CrmTool;
 pub use vision_tool::VisionTool;
 pub use config_tool::ConfigTool;
 pub use llm_tool::LlmTool;

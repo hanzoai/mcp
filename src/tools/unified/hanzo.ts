@@ -8,6 +8,7 @@
 import { Tool } from '../../types/index.js';
 import { cloudTools } from '../cloud.js';
 import { connectorsTool } from '../connectors.js';
+import { crmTool, CRM_ACTIONS } from '../crm.js';
 import { vaultTool } from '../vault.js';
 
 const cloudToolMap = new Map(cloudTools.map((t) => [t.name, t]));
@@ -15,7 +16,7 @@ const VAULT_ACTIONS = ['status', 'list', 'seal', 'sync_lastpass', 'totp', 'brows
 const CONNECTOR_ACTIONS = ['list', 'request', 'view', 'act', 'configure'];
 const AUTH_ACTIONS = ['whoami', 'status', 'list'];
 
-const RESOURCES = [...new Set(['auth', 'vault', 'connectors', ...cloudTools.map((t) => t.name)])].sort();
+const RESOURCES = [...new Set(['auth', 'vault', 'connectors', 'crm', ...cloudTools.map((t) => t.name)])].sort();
 
 function envelope(data: any, action: string) {
   return { content: [{ type: 'text' as const, text: JSON.stringify({ ok: true, data, error: null, meta: { tool: 'hanzo', action } }, null, 2) }] };
@@ -95,6 +96,13 @@ export const hanzoTool: Tool = {
           return envelope({ resource: 'connectors', actions: CONNECTOR_ACTIONS }, 'help');
         }
         return connectorsTool.handler({ ...(typeof args === 'object' && args ? args : {}), action });
+      }
+
+      if (normalized === 'crm') {
+        if (!action) {
+          return envelope({ resource: 'crm', actions: [...CRM_ACTIONS] }, 'help');
+        }
+        return crmTool.handler({ ...(typeof args === 'object' && args ? args : {}), action });
       }
 
       const tool = cloudToolMap.get(normalized);

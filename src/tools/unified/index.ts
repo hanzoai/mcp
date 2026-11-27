@@ -60,6 +60,7 @@ import { modeTool } from '../mode-preset.js';
 import { kaiCompactTool } from '../compact.js';
 import { vaultTool } from '../vault.js';
 import { connectorsTool } from '../connectors.js';
+import { crmTool } from '../crm.js';
 import { refactorTool } from '../refactor.js';
 import { researchPlaneTools } from '../research-plane.js';
 
@@ -198,6 +199,7 @@ export const legacyAliasTools: Tool[] = [
   jqTool,
   vaultTool,
   connectorsTool,
+  crmTool,
   refactorTool,
   lspAlias,
   configAlias,
@@ -247,3 +249,4 @@ export { browserTools, browserTool, browserReadTool, cdpTool, diagnoseBrowserErr
 export { packageTools, npxTool, uvxTool, jqTool } from '../packages.js';
 export { vaultTools, vaultTool } from '../vault.js';
 export { connectorsTools, connectorsTool, CONNECTORS, COMPATIBLE_16_APPS } from '../connectors.js';
+export { crmTools, crmTool, CRM_OBJECTS, CRM_ACTIONS, resolveCrmObject } from '../crm.js';
