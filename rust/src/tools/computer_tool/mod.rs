@@ -15,15 +15,22 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::sync::Arc;
+use std::time::Duration;
+
+pub mod health;
+pub mod mac_apps;
 
 #[cfg(target_os = "macos")]
-mod macos;
+pub(crate) mod macos;
 
 #[cfg(target_os = "linux")]
 mod linux;
 
 #[cfg(target_os = "windows")]
 mod windows;
+
+const DEFAULT_OP_TIMEOUT_MS: u64 = 15_000;
+const DEFAULT_SLOW_OP_TIMEOUT_MS: u64 = 30_000;
 
 /// Platform-independent action types
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -49,14 +56,29 @@ pub enum UiAction {
     // Screen
     Screenshot,
     ScreenshotRegion,
-    // Window
+    GetPixel,
+    // Window & App
     GetActiveWindow,
     ListWindows,
     FocusWindow,
+    MinimizeWindow,
+    MaximizeWindow,
+    ResizeWindow,
+    MoveWindow,
+    CloseWindow,
+    OpenApp,
     // Screen info
     GetScreens,
     ScreenSize,
     Position,
+    // Health & macOS native apps
+    Health,
+    MacCalendar,
+    MacReminders,
+    MacNotes,
+    MacMailDraft,
+    MacContacts,
+    MacShortcuts,
     // Settings
     Sleep,
     SetPause,
@@ -95,12 +117,26 @@ impl std::str::FromStr for UiAction {
             "hotkey" => Ok(Self::Hotkey),
             "screenshot" => Ok(Self::Screenshot),
             "screenshot_region" | "screenshotregion" => Ok(Self::ScreenshotRegion),
+            "get_pixel" | "getpixel" | "pixel" => Ok(Self::GetPixel),
             "get_active_window" | "getactivewindow" => Ok(Self::GetActiveWindow),
             "list_windows" | "listwindows" => Ok(Self::ListWindows),
             "focus_window" | "focuswindow" => Ok(Self::FocusWindow),
+            "minimize_window" | "minimizewindow" => Ok(Self::MinimizeWindow),
+            "maximize_window" | "maximizewindow" => Ok(Self::MaximizeWindow),
+            "resize_window" | "resizewindow" => Ok(Self::ResizeWindow),
+            "move_window" | "movewindow" => Ok(Self::MoveWindow),
+            "close_window" | "closewindow" => Ok(Self::CloseWindow),
+            "open_app" | "openapp" | "launch_app" => Ok(Self::OpenApp),
             "get_screens" | "getscreens" => Ok(Self::GetScreens),
             "screen_size" | "screensize" => Ok(Self::ScreenSize),
             "position" => Ok(Self::Position),
+            "health" => Ok(Self::Health),
+            "mac_calendar" | "calendar" => Ok(Self::MacCalendar),
+            "mac_reminders" | "reminders" => Ok(Self::MacReminders),
+            "mac_notes" | "notes" => Ok(Self::MacNotes),
+            "mac_mail_draft" | "mail_draft" => Ok(Self::MacMailDraft),
+            "mac_contacts" | "contacts" => Ok(Self::MacContacts),
+            "mac_shortcuts" | "shortcuts" => Ok(Self::MacShortcuts),
             "sleep" => Ok(Self::Sleep),
             "set_pause" | "setpause" => Ok(Self::SetPause),
             "set_failsafe" | "setfailsafe" => Ok(Self::SetFailsafe),
@@ -119,6 +155,8 @@ pub struct ComputerToolArgs {
     // Coordinates
     pub x: Option<i32>,
     pub y: Option<i32>,
+    pub start_x: Option<i32>,
+    pub start_y: Option<i32>,
     pub dx: Option<i32>,
     pub dy: Option<i32>,
     pub end_x: Option<i32>,
@@ -138,15 +176,30 @@ pub struct ComputerToolArgs {
     pub region: Option<Vec<i32>>,
     #[serde(default)]
     pub clear: bool,
-    // Window
+    // Window / App
     pub title: Option<String>,
-    // Name (for screenshot file)
+    pub app: Option<String>,
+    // Name (for screenshot file or shortcut)
     pub name: Option<String>,
     // Width/height
     pub width: Option<i32>,
     pub height: Option<i32>,
     // Value for settings
     pub value: Option<f64>,
+    // macOS native app connector fields
+    pub op: Option<String>,
+    pub query: Option<String>,
+    pub calendar: Option<String>,
+    pub list: Option<String>,
+    pub folder: Option<String>,
+    pub start: Option<String>,
+    pub end: Option<String>,
+    pub to: Option<String>,
+    pub cc: Option<String>,
+    pub days: Option<i32>,
+    pub limit: Option<usize>,
+    // Bounded execution timeout (ms)
+    pub timeout_ms: Option<u64>,
     // Batch
     pub actions: Option<Vec<Value>>,
 }
@@ -262,6 +315,59 @@ pub trait NativeControl: Send + Sync {
 
     /// Close window by title
     fn close_window(&self, title: &str) -> Result<bool>;
+
+    /// Launch or activate an application by name or bundle ID
+    fn open_app(&self, app: &str) -> Result<bool>;
+}
+
+/// Probe native computer control platform capabilities for diagnostics (`hanzo-mcp doctor`).
+pub fn probe_capabilities() -> (PlatformInfo, Option<(i32, i32)>) {
+    let ctrl = get_native_control();
+    let info = ctrl.platform_info();
+    let size = ctrl.screen_size().ok();
+    (info, size)
+}
+
+/// Resolve drag start and end coordinates cleanly:
+/// - If `start_x/start_y` + `end_x/end_y` are set: explicit start -> end.
+/// - If `x/y` + `end_x/end_y` are set: explicit `(x, y)` -> `(end_x, end_y)`.
+/// - Otherwise: current cursor position -> `(end_x/x, end_y/y)`.
+pub(crate) fn resolve_drag_coords(
+    x: Option<i32>,
+    y: Option<i32>,
+    start_x: Option<i32>,
+    start_y: Option<i32>,
+    end_x: Option<i32>,
+    end_y: Option<i32>,
+    current: (i32, i32),
+) -> Result<((i32, i32), (i32, i32))> {
+    if let (Some(sx), Some(sy), Some(ex), Some(ey)) = (start_x, start_y, end_x, end_y) {
+        return Ok(((sx, sy), (ex, ey)));
+    }
+    if let (Some(sx), Some(sy), Some(ex), Some(ey)) = (x, y, end_x, end_y) {
+        return Ok(((sx, sy), (ex, ey)));
+    }
+    let ex = end_x.or(x).ok_or_else(|| anyhow!("end_x or x required for drag"))?;
+    let ey = end_y.or(y).ok_or_else(|| anyhow!("end_y or y required for drag"))?;
+    let sx = start_x.unwrap_or(current.0);
+    let sy = start_y.unwrap_or(current.1);
+    Ok(((sx, sy), (ex, ey)))
+}
+
+async fn run_blocking<T, F>(timeout_ms: u64, f: F) -> Result<Option<T>>
+where
+    T: Send + 'static,
+    F: FnOnce() -> Result<T> + Send + 'static,
+{
+    match tokio::time::timeout(
+        Duration::from_millis(timeout_ms.clamp(500, 120_000)),
+        tokio::task::spawn_blocking(f),
+    )
+    .await
+    {
+        Ok(joined) => Ok(Some(joined??)),
+        Err(_) => Ok(None),
+    }
 }
 
 /// Get the native control implementation for current platform
@@ -367,20 +473,46 @@ impl ComputerTool {
             }
 
             UiAction::Drag => {
-                let x = args.x.ok_or_else(|| anyhow!("x required"))?;
-                let y = args.y.ok_or_else(|| anyhow!("y required"))?;
-                let (start_x, start_y) = tokio::task::spawn_blocking({
-                    let ctrl = Arc::clone(&ctrl);
-                    move || ctrl.mouse_position()
-                }).await??;
-                let end_x = args.end_x.unwrap_or(x);
-                let end_y = args.end_y.unwrap_or(y);
+                let current = if (args.start_x.is_some() && args.start_y.is_some() && args.end_x.is_some() && args.end_y.is_some())
+                    || (args.x.is_some() && args.y.is_some() && args.end_x.is_some() && args.end_y.is_some())
+                {
+                    (0, 0)
+                } else {
+                    tokio::task::spawn_blocking({
+                        let ctrl = Arc::clone(&ctrl);
+                        move || ctrl.mouse_position()
+                    })
+                    .await??
+                };
+                let ((start_x, start_y), (end_x, end_y)) = resolve_drag_coords(
+                    args.x,
+                    args.y,
+                    args.start_x,
+                    args.start_y,
+                    args.end_x,
+                    args.end_y,
+                    current,
+                )?;
                 let button = args.button.clone();
-                // Drag has internal sleeps - must use spawn_blocking
-                tokio::task::spawn_blocking(move || {
+                let timeout_ms = args.timeout_ms.unwrap_or(DEFAULT_OP_TIMEOUT_MS);
+                match run_blocking(timeout_ms, move || {
                     ctrl.drag(start_x, start_y, end_x, end_y, &button)
-                }).await??;
-                json!({"success": true, "dragged_to": [end_x, end_y]})
+                })
+                .await?
+                {
+                    Some(()) => json!({
+                        "success": true,
+                        "dragged_from": [start_x, start_y],
+                        "dragged_to": [end_x, end_y],
+                        "button": args.button
+                    }),
+                    None => json!({
+                        "success": false,
+                        "outcome_unknown": true,
+                        "timed_out": true,
+                        "error": format!("drag timed out after {timeout_ms}ms")
+                    }),
+                }
             }
 
             UiAction::DragRelative => {
@@ -518,13 +650,145 @@ impl ComputerTool {
             }
 
             UiAction::FocusWindow => {
-                let title = args.title.or(args.text).ok_or_else(|| anyhow!("title required"))?;
+                let title = args.title.or(args.app).or(args.text).ok_or_else(|| anyhow!("title required"))?;
                 let title_clone = title.clone();
-                // Uses osascript/xdotool - must use spawn_blocking
-                let success = tokio::task::spawn_blocking(move || {
-                    ctrl.focus_window(&title_clone)
-                }).await??;
-                json!({"success": success, "focused": title})
+                let timeout_ms = args.timeout_ms.unwrap_or(DEFAULT_OP_TIMEOUT_MS);
+                match run_blocking(timeout_ms, move || ctrl.focus_window(&title_clone)).await? {
+                    Some(success) => json!({"success": success, "focused": title}),
+                    None => json!({"success": false, "outcome_unknown": true, "timed_out": true, "error": format!("focus_window timed out after {timeout_ms}ms")}),
+                }
+            }
+
+            UiAction::MinimizeWindow => {
+                let title = args.title.or(args.app).or(args.text).ok_or_else(|| anyhow!("title required"))?;
+                let title_clone = title.clone();
+                let success = tokio::task::spawn_blocking(move || ctrl.minimize_window(&title_clone)).await??;
+                json!({"success": success, "minimized": title})
+            }
+
+            UiAction::MaximizeWindow => {
+                let title = args.title.or(args.app).or(args.text).ok_or_else(|| anyhow!("title required"))?;
+                let title_clone = title.clone();
+                let success = tokio::task::spawn_blocking(move || ctrl.maximize_window(&title_clone)).await??;
+                json!({"success": success, "maximized": title})
+            }
+
+            UiAction::ResizeWindow => {
+                let title = args.title.or(args.app).or(args.text).ok_or_else(|| anyhow!("title required"))?;
+                let width = args.width.ok_or_else(|| anyhow!("width required"))?;
+                let height = args.height.ok_or_else(|| anyhow!("height required"))?;
+                let title_clone = title.clone();
+                let success = tokio::task::spawn_blocking(move || ctrl.resize_window(&title_clone, width, height)).await??;
+                json!({"success": success, "resized": title, "width": width, "height": height})
+            }
+
+            UiAction::MoveWindow => {
+                let title = args.title.or(args.app).or(args.text).ok_or_else(|| anyhow!("title required"))?;
+                let x = args.x.ok_or_else(|| anyhow!("x required"))?;
+                let y = args.y.ok_or_else(|| anyhow!("y required"))?;
+                let title_clone = title.clone();
+                let success = tokio::task::spawn_blocking(move || ctrl.move_window(&title_clone, x, y)).await??;
+                json!({"success": success, "moved": title, "x": x, "y": y})
+            }
+
+            UiAction::CloseWindow => {
+                let title = args.title.or(args.app).or(args.text).ok_or_else(|| anyhow!("title required"))?;
+                let title_clone = title.clone();
+                let success = tokio::task::spawn_blocking(move || ctrl.close_window(&title_clone)).await??;
+                json!({"success": success, "closed": title})
+            }
+
+            UiAction::OpenApp => {
+                let app = args.app.or(args.title).or(args.name).or(args.text)
+                    .ok_or_else(|| anyhow!("app (name or bundle ID) required"))?;
+                let app_clone = app.clone();
+                let timeout_ms = args.timeout_ms.unwrap_or(DEFAULT_OP_TIMEOUT_MS);
+                match run_blocking(timeout_ms, move || ctrl.open_app(&app_clone)).await? {
+                    Some(success) => json!({"success": success, "opened": app}),
+                    None => json!({"success": false, "outcome_unknown": true, "timed_out": true, "error": format!("open_app timed out after {timeout_ms}ms")}),
+                }
+            }
+
+            UiAction::GetPixel => {
+                let x = args.x.ok_or_else(|| anyhow!("x required"))?;
+                let y = args.y.ok_or_else(|| anyhow!("y required"))?;
+                let (r, g, b) = tokio::task::spawn_blocking(move || ctrl.get_pixel(x, y)).await??;
+                json!({"success": true, "x": x, "y": y, "rgb": [r, g, b], "hex": format!("#{:02x}{:02x}{:02x}", r, g, b)})
+            }
+
+            UiAction::Health => {
+                let reap = args.clear;
+                let timeout_ms = args.timeout_ms.unwrap_or(DEFAULT_OP_TIMEOUT_MS);
+                match run_blocking(timeout_ms, move || {
+                    let front = ctrl.get_active_window().ok().and_then(|w| w.app);
+                    Ok(health::run_health(front.as_deref(), reap))
+                })
+                .await?
+                {
+                    Some(v) => v,
+                    None => json!({"success": false, "outcome_unknown": true, "timed_out": true, "error": format!("health probe timed out after {timeout_ms}ms")}),
+                }
+            }
+
+            UiAction::MacCalendar
+            | UiAction::MacReminders
+            | UiAction::MacNotes
+            | UiAction::MacMailDraft
+            | UiAction::MacContacts
+            | UiAction::MacShortcuts => {
+                let kind = match action {
+                    UiAction::MacCalendar => "mac_calendar",
+                    UiAction::MacReminders => "mac_reminders",
+                    UiAction::MacNotes => "mac_notes",
+                    UiAction::MacMailDraft => "mac_mail_draft",
+                    UiAction::MacContacts => "mac_contacts",
+                    UiAction::MacShortcuts => "mac_shortcuts",
+                    _ => unreachable!(),
+                };
+                let timeout_ms = args.timeout_ms.unwrap_or(DEFAULT_SLOW_OP_TIMEOUT_MS);
+                let op = args.op.unwrap_or_default();
+                let title = args.title;
+                let text = args.text;
+                let name = args.name;
+                let query = args.query;
+                let calendar = args.calendar;
+                let list = args.list;
+                let folder = args.folder;
+                let start = args.start;
+                let end = args.end;
+                let to = args.to;
+                let cc = args.cc;
+                let days = args.days.unwrap_or(7);
+                let limit = args.limit.unwrap_or(50);
+                match run_blocking(timeout_ms, move || {
+                    let req = mac_apps::MacAppRequest {
+                        op: &op,
+                        title: title.as_deref(),
+                        text: text.as_deref(),
+                        name: name.as_deref(),
+                        query: query.as_deref(),
+                        calendar: calendar.as_deref(),
+                        list: list.as_deref(),
+                        folder: folder.as_deref(),
+                        start: start.as_deref(),
+                        end: end.as_deref(),
+                        to: to.as_deref(),
+                        cc: cc.as_deref(),
+                        days,
+                        limit,
+                    };
+                    mac_apps::dispatch(kind, &req)
+                })
+                .await?
+                {
+                    Some(v) => v,
+                    None => json!({
+                        "success": false,
+                        "outcome_unknown": true,
+                        "timed_out": true,
+                        "error": format!("{kind} timed out after {timeout_ms}ms (check macOS Automation permission)")
+                    }),
+                }
             }
 
             UiAction::GetScreens => {
@@ -664,30 +928,21 @@ KEYBOARD (< 2ms native):
 - hotkey(keys): Key combination ["command", "c"]
 
 SCREEN (< 50ms native):
-- screenshot() / screenshot_region(region)
-- get_screens(): List displays
-- screen_size() / position()
+- screenshot() / screenshot_region(region) / get_pixel(x, y)
+- get_screens() / screen_size() / position()
 
-WINDOWS:
-- get_active_window(): Frontmost window info
-- list_windows(): All windows with bounds
-- focus_window(title): Activate window
+WINDOWS & APPS:
+- open_app(app): Launch/activate app by name or bundle ID
+- get_active_window() / list_windows() / focus_window(title)
+- minimize_window / maximize_window / resize_window / move_window / close_window
 
-BATCH:
-- batch(actions): Execute multiple actions
+HEALTH & MACOS NATIVE APPS:
+- health(clear=false): Memory pressure, local model RAM, leaked headless browsers (clear=true safely reaps leaked headless browsers only)
+- mac_calendar(op=list|create) / mac_reminders(op=list|create) / mac_notes(op=list|read|create)
+- mac_mail_draft(to, title, text) [draft-only, never sends] / mac_contacts(query) / mac_shortcuts(op=list|run)
 
-INFO:
-- info()
-
-Examples:
-    ui(action="click", x=100, y=200)
-    ui(action="type", text="Hello")
-    ui(action="hotkey", keys=["command", "c"])
-    ui(action="screenshot")
-    ui(action="batch", actions=[
-        {{"action": "click", "x": 100, "y": 200}},
-        {{"action": "type", "text": "test"}}
-    ])"#,
+BATCH & INFO:
+- batch(actions) / info()"#,
                 platform, backend
             ),
             input_schema: json!({
@@ -695,16 +950,18 @@ Examples:
                 "properties": {
                     "action": {
                         "type": "string",
-                        "description": "Action to perform",
+                        "description": "Action: click, double_click, right_click, middle_click, move, move_relative, drag, drag_relative, scroll, type, write, press, key_down, key_up, hotkey, screenshot, screenshot_region, get_pixel, get_active_window, list_windows, focus_window, minimize_window, maximize_window, resize_window, move_window, close_window, open_app, get_screens, screen_size, position, health, mac_calendar, mac_reminders, mac_notes, mac_mail_draft, mac_contacts, mac_shortcuts, sleep, batch, info",
                         "default": "info"
                     },
-                    "x": {"type": "integer", "description": "X coordinate"},
-                    "y": {"type": "integer", "description": "Y coordinate"},
+                    "x": {"type": "integer", "description": "X coordinate (or drag start X when end_x is set)"},
+                    "y": {"type": "integer", "description": "Y coordinate (or drag start Y when end_y is set)"},
+                    "start_x": {"type": "integer", "description": "Explicit drag start X"},
+                    "start_y": {"type": "integer", "description": "Explicit drag start Y"},
                     "dx": {"type": "integer", "description": "Delta X"},
                     "dy": {"type": "integer", "description": "Delta Y"},
                     "end_x": {"type": "integer", "description": "End X for drag"},
                     "end_y": {"type": "integer", "description": "End Y for drag"},
-                    "text": {"type": "string", "description": "Text to type"},
+                    "text": {"type": "string", "description": "Text to type, note/email body, or shortcut input"},
                     "key": {"type": "string", "description": "Key to press"},
                     "keys": {
                         "type": "array",
@@ -724,10 +981,25 @@ Examples:
                         "items": {"type": "integer"},
                         "description": "Region [x,y,w,h]"
                     },
-                    "clear": {"type": "boolean", "description": "Clear before write", "default": false},
-                    "title": {"type": "string", "description": "Window title"},
-                    "name": {"type": "string", "description": "Screenshot filename"},
-                    "value": {"type": "number", "description": "Value for settings"},
+                    "clear": {"type": "boolean", "description": "write: clear first; health: safely reap leaked headless browsers", "default": false},
+                    "title": {"type": "string", "description": "Window title, event/note/reminder title, or mail subject"},
+                    "app": {"type": "string", "description": "Application name or bundle ID (e.g. 'Safari' or 'com.apple.Safari')"},
+                    "name": {"type": "string", "description": "Screenshot filename or macOS Shortcut name"},
+                    "width": {"type": "integer", "description": "Window width"},
+                    "height": {"type": "integer", "description": "Window height"},
+                    "value": {"type": "number", "description": "Value for settings/sleep"},
+                    "op": {"type": "string", "description": "Sub-operation for mac_* actions (list, create, read, run)"},
+                    "query": {"type": "string", "description": "Search query for mac_contacts or mac_notes"},
+                    "calendar": {"type": "string", "description": "Calendar name for mac_calendar"},
+                    "list": {"type": "string", "description": "List name for mac_reminders"},
+                    "folder": {"type": "string", "description": "Folder name for mac_notes"},
+                    "start": {"type": "string", "description": "Start date/time string for mac_calendar create"},
+                    "end": {"type": "string", "description": "End date/time string for mac_calendar create"},
+                    "to": {"type": "string", "description": "Recipient email for mac_mail_draft"},
+                    "cc": {"type": "string", "description": "CC email for mac_mail_draft"},
+                    "days": {"type": "integer", "description": "Days ahead for mac_calendar list (default 7)"},
+                    "limit": {"type": "integer", "description": "Max items for mac_* list/search"},
+                    "timeout_ms": {"type": "integer", "description": "Per-action timeout in milliseconds"},
                     "actions": {
                         "type": "array",
                         "items": {"type": "object"},
@@ -786,5 +1058,46 @@ mod tests {
         let output = result.unwrap();
         assert!(output.contains("width"));
         assert!(output.contains("height"));
+    }
+
+    #[tokio::test]
+    async fn test_health_action_is_readonly_by_default() {
+        let mut tool = ComputerTool::new();
+        let args = ComputerToolArgs {
+            action: "health".to_string(),
+            ..Default::default()
+        };
+        let out: Value = serde_json::from_str(&tool.execute(args).await.unwrap()).unwrap();
+        assert_eq!(out["success"], true);
+        assert!(out["memory"]["total_mb"].is_number());
+        assert_eq!(out["leaked_browsers"]["reaped_pids"].as_array().unwrap().len(), 0);
+    }
+
+    #[test]
+    fn test_drag_coord_resolution() {
+        assert_eq!(
+            resolve_drag_coords(Some(10), Some(20), None, None, Some(100), Some(200), (5, 5)).unwrap(),
+            ((10, 20), (100, 200))
+        );
+        assert_eq!(
+            resolve_drag_coords(None, None, Some(1), Some(2), Some(3), Some(4), (9, 9)).unwrap(),
+            ((1, 2), (3, 4))
+        );
+        assert_eq!(
+            resolve_drag_coords(Some(80), Some(90), None, None, None, None, (12, 34)).unwrap(),
+            ((12, 34), (80, 90))
+        );
+    }
+
+    #[test]
+    fn test_new_actions_parse() {
+        for name in [
+            "open_app", "minimize_window", "maximize_window", "resize_window",
+            "move_window", "close_window", "get_pixel", "health",
+            "mac_calendar", "mac_reminders", "mac_notes", "mac_mail_draft",
+            "mac_contacts", "mac_shortcuts",
+        ] {
+            assert!(name.parse::<UiAction>().is_ok(), "failed to parse {name}");
+        }
     }
 }

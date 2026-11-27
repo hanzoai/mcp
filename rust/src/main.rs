@@ -82,10 +82,11 @@ enum Cmd {
         #[clap(long)]
         fix: bool,
     },
-    /// Configure Hanzo MCP for an AI client (`codex`, `antigravity`, `cursor`, `claude`)
-    /// and ensure Chrome/Firefox native messaging is registered.
+    /// Configure Hanzo MCP for one or all AI clients (`all`, `hanzo`, `codex`,
+    /// `claude`, `claude-desktop`, `cursor`, `gemini`, `antigravity`) and ensure
+    /// browser native messaging is registered.
     Install {
-        /// Target client: codex, antigravity, cursor, or claude
+        /// Target client: all, hanzo, codex, claude, claude-desktop, cursor, gemini, or antigravity
         target: String,
         /// Optional path to the hanzo-mcp binary to register (defaults to this executable)
         #[clap(long)]
@@ -109,6 +110,27 @@ enum Cmd {
     Kai {
         #[clap(trailing_var_arg = true, allow_hyphen_values = true)]
         args: Vec<String>,
+    },
+
+    /// Connect this machine to Hanzo Cloud (`wss://api.hanzo.ai/v1/node/connect`) so mobile,
+    /// Hanzo Cloud Agents, and third-party MCP clients (e.g. Muse, Claude, Codex) can invoke
+    /// local computer, browser, and MCP tools under your IAM-validated org.
+    Connect {
+        /// Cloud WebSocket node endpoint (defaults to wss://api.hanzo.ai/v1/node/connect)
+        #[clap(long)]
+        url: Option<String>,
+        /// Stable node identifier within your org (defaults to `<hostname>-mcp`)
+        #[clap(long)]
+        node_id: Option<String>,
+        /// Human-readable display name shown in mobile/console
+        #[clap(long)]
+        name: Option<String>,
+        /// Hanzo IAM bearer token (defaults to HANZO_TOKEN / HANZO_API_KEY / `hanzo auth token`)
+        #[clap(long)]
+        token: Option<String>,
+        /// Verify handshake (`hello-ok`), print connected node info, and exit
+        #[clap(long)]
+        once: bool,
     },
 }
 
@@ -157,6 +179,35 @@ async fn main() -> Result<()> {
         server.add_tool(Box::new(share)).await;
         server.only(&[share::Share::NAME.into()]).await?;
         return server.run_stdio().await;
+    }
+
+    if let Some(Cmd::Connect { url, node_id, name, token, once }) = args.command {
+        let filter = if args.debug { "debug" } else { "info" };
+        env_logger::Builder::from_env(env_logger::Env::default().default_filter_or(filter))
+            .target(env_logger::Target::Stderr)
+            .init();
+        hanzo_mcp::zap::seat();
+        let _ = hanzo_mcp::native::install();
+        let config = if args.config.exists() {
+            Config::from_file(&args.config)?
+        } else {
+            Config::default()
+        };
+        let mut server = MCPServer::new(config, args.port)?;
+        for root in args.project_dir {
+            server.allow_root(root);
+        }
+        if !args.tools.is_empty() {
+            server.only(&args.tools).await?;
+        }
+        let opts = hanzo_mcp::bridge::BridgeOptions {
+            url: url.unwrap_or_else(hanzo_mcp::bridge::BridgeOptions::default_url),
+            node_id: node_id.unwrap_or_else(hanzo_mcp::bridge::BridgeOptions::default_node_id),
+            display_name: name.unwrap_or_else(hanzo_mcp::bridge::BridgeOptions::default_display_name),
+            token,
+            once,
+        };
+        return hanzo_mcp::bridge::run_bridge(server.registry(), opts).await;
     }
 
     // On stdio, logs must never pollute the JSON-RPC stream on stdout.

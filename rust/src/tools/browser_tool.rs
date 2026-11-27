@@ -57,6 +57,7 @@ pub const ACTIONS: &[Op] = &[
     // interact: more ways to act on a ref or CSS selector
     act("dblclick", "interact", "selector", "dblclick"),
     act("hover", "interact", "selector", "hover"),
+    act("drag", "interact", "selector + args.target_selector, or args.start_x/start_y + args.end_x/end_y [args.steps]: drag element or coordinates", "drag"),
     act("focus", "interact", "selector", "focus"),
     act("select", "interact", "selector, args.value: choose a <select> option by value or label", "select"),
     act("check", "interact", "selector: check a checkbox or radio (no-op when already checked)", "check"),
@@ -321,9 +322,15 @@ pub struct BrowserToolArgs {
     #[serde(default)]
     pub annotate: bool,
     pub topic: Option<String>,
-    // Scroll deltas
+    // Scroll / drag coordinates
     pub delta_x: Option<i32>,
     pub delta_y: Option<i32>,
+    pub target_selector: Option<String>,
+    pub start_x: Option<i32>,
+    pub start_y: Option<i32>,
+    pub end_x: Option<i32>,
+    pub end_y: Option<i32>,
+    pub steps: Option<i32>,
     // Options
     pub timeout: Option<i32>,
     pub full_page: Option<bool>,
@@ -495,6 +502,12 @@ impl BrowserToolArgs {
             ("filter", self.filter.clone()),
             ("dx", self.delta_x.map(|i| i.to_string())),
             ("dy", self.delta_y.map(|i| i.to_string())),
+            ("targetSelector", self.target_selector.clone()),
+            ("startX", self.start_x.map(|i| i.to_string())),
+            ("startY", self.start_y.map(|i| i.to_string())),
+            ("endX", self.end_x.map(|i| i.to_string())),
+            ("endY", self.end_y.map(|i| i.to_string())),
+            ("steps", self.steps.map(|i| i.to_string())),
         ] {
             if let Some(v) = v {
                 put(k, v);
@@ -696,13 +709,18 @@ impl BrowserTool {
             }
             Err(e) => {
                 let diag = diagnose_error(&e);
-                Ok(json!({
+                let outcome_unknown = diag.category == "transport" && !READ_ONLY_ACTIONS.contains(&name.as_str());
+                let mut err_obj = json!({
                     "error": e,
                     "action": name,
                     "backend": backend,
                     "transport": "native-zap",
                     "diagnostic": diag,
-                }))
+                });
+                if outcome_unknown {
+                    err_obj["outcome_unknown"] = json!(true);
+                }
+                Ok(err_obj)
             }
         }
     }
@@ -990,6 +1008,15 @@ mod tests {
         assert_eq!(
             map(BrowserToolArgs::default().wire("screenshot", None, None)),
             json!({"format": "jpeg", "quality": "70", "maxWidth": "1280"})
+        );
+        let drag_args = BrowserToolArgs {
+            target_selector: Some("@e9".into()),
+            steps: Some(8),
+            ..Default::default()
+        };
+        assert_eq!(
+            map(drag_args.wire("drag", Some("@e3"), Some("drag"))),
+            json!({"selector": "@e3", "op": "drag", "targetSelector": "@e9", "steps": "8"})
         );
     }
 

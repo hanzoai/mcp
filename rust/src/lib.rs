@@ -6,6 +6,7 @@
 
 pub mod catalog;
 pub mod brain;
+pub mod bridge;
 pub mod config;
 pub mod context;
 pub mod doctor;

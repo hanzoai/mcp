@@ -468,4 +468,15 @@ impl NativeControl for WindowsControl {
 
         Ok(false)
     }
+
+    fn open_app(&self, app: &str) -> Result<bool> {
+        let target = app.trim();
+        if target.is_empty() {
+            return Err(anyhow!("app name required"));
+        }
+        let status = std::process::Command::new("cmd")
+            .args(["/C", "start", "", target])
+            .status()?;
+        Ok(status.success())
+    }
 }

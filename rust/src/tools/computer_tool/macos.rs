@@ -7,11 +7,61 @@
 
 use anyhow::{anyhow, Result};
 use std::collections::HashMap;
-use std::process::Command;
+use std::io::Write;
+use std::process::{Command, Output, Stdio};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::thread;
 use std::time::Duration;
 
 use super::{NativeControl, PlatformInfo, WindowInfo};
+
+static TMP_SEQ: AtomicU64 = AtomicU64::new(1);
+
+fn unique_tmp_png(prefix: &str) -> String {
+    let seq = TMP_SEQ.fetch_add(1, Ordering::Relaxed);
+    format!(
+        "{}/hanzo_{}_{}_{}.png",
+        std::env::temp_dir().display(),
+        prefix,
+        std::process::id(),
+        seq
+    )
+}
+
+/// Execute AppleScript safely by streaming script source on stdin (`osascript -`)
+/// and passing all untrusted inputs as positional `argv` parameters (`on run argv`).
+/// Zero string interpolation into AppleScript source.
+pub(crate) fn run_osascript(script: &str, args: &[&str]) -> Result<Output> {
+    let mut child = Command::new("osascript")
+        .arg("-")
+        .args(args)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()?;
+    if let Some(mut stdin) = child.stdin.take() {
+        stdin.write_all(script.as_bytes())?;
+    }
+    Ok(child.wait_with_output()?)
+}
+
+/// Check macOS Accessibility and Screen Recording permissions natively via Quartz / AX.
+pub fn macos_permissions() -> (bool, bool) {
+    unsafe {
+        let ax = cg::AXIsProcessTrusted();
+        let screen = cg::CGPreflightScreenCaptureAccess();
+        (ax, screen)
+    }
+}
+
+/// Returns true if `target` looks like a reverse-DNS bundle identifier (e.g. `com.apple.Safari`).
+fn looks_like_bundle_id(target: &str) -> bool {
+    let t = target.trim();
+    t.split('.').count() >= 3
+        && !t.contains('/')
+        && !t.contains(char::is_whitespace)
+        && t.bytes().all(|b| b.is_ascii_alphanumeric() || matches!(b, b'.' | b'-' | b'_'))
+}
 
 // CoreGraphics types and functions
 mod cg {
@@ -47,6 +97,9 @@ mod cg {
 
     #[link(name = "CoreGraphics", kind = "framework")]
     extern "C" {
+        pub fn CGEventCreate(source: *const c_void) -> CGEventRef;
+        pub fn CGEventGetLocation(event: CGEventRef) -> CGPoint;
+
         pub fn CGEventCreateMouseEvent(
             source: *const c_void,
             mouseType: u32,
@@ -72,6 +125,12 @@ mod cg {
         pub fn CGDisplayPixelsWide(display: u32) -> usize;
         pub fn CGDisplayPixelsHigh(display: u32) -> usize;
         pub fn CGMainDisplayID() -> u32;
+        pub fn CGPreflightScreenCaptureAccess() -> bool;
+    }
+
+    #[link(name = "ApplicationServices", kind = "framework")]
+    extern "C" {
+        pub fn AXIsProcessTrusted() -> bool;
     }
 
     // CFRelease is in CoreFoundation, not CoreGraphics
@@ -159,8 +218,11 @@ impl MacOSControl {
 
 impl NativeControl for MacOSControl {
     fn platform_info(&self) -> PlatformInfo {
+        let (ax_trusted, screen_recording) = macos_permissions();
         let mut backends = HashMap::new();
         backends.insert("quartz".to_string(), true);
+        backends.insert("accessibility".to_string(), ax_trusted);
+        backends.insert("screen_recording".to_string(), screen_recording);
         backends.insert("xdotool".to_string(), false);
         backends.insert("scrot".to_string(), false);
         backends.insert("win32".to_string(), false);
@@ -173,244 +235,190 @@ impl NativeControl for MacOSControl {
     }
 
     fn get_pixel(&self, x: i32, y: i32) -> Result<(u8, u8, u8)> {
-        // Use screencapture to get a 1x1 pixel and extract color
-        let tmp_path = format!("/tmp/hanzo_pixel_{}.png", std::process::id());
-
-        Command::new("screencapture")
+        let tmp_path = unique_tmp_png("pixel");
+        let capture = Command::new("screencapture")
             .arg("-x")
-            .arg("-t").arg("png")
-            .arg("-R").arg(format!("{},{},1,1", x, y))
+            .arg("-t")
+            .arg("png")
+            .arg("-R")
+            .arg(format!("{x},{y},1,1"))
             .arg(&tmp_path)
             .output()?;
-
-        let data = std::fs::read(&tmp_path)?;
-        let _ = std::fs::remove_file(&tmp_path);
-
-        // PNG header is 8 bytes, then IHDR chunk, then IDAT
-        // For a 1x1 PNG, we can parse the raw pixel data
-        // Simpler: use sips to get pixel info
-        let output = Command::new("sips")
-            .arg("-g").arg("pixelWidth")
-            .arg("-g").arg("pixelHeight")
-            .arg(&tmp_path)
-            .output();
-
-        // Fallback: extract from PNG data directly
-        // PNG 1x1 with RGB will have pixel data after headers
-        if data.len() > 50 {
-            // Simple extraction - for 1x1 PNG the RGB values are typically around byte 50-60
-            // This is a simplified approach; a proper PNG decoder would be better
-            // For now, use Python/osascript for accurate pixel reading
-            let script = format!(
-                r#"
-                use framework "AppKit"
-                set img to current application's NSImage's alloc()'s initWithContentsOfFile:"{}"
-                if img is missing value then return "0,0,0"
-                set bitmapRep to current application's NSBitmapImageRep's imageRepWithData:(img's TIFFRepresentation())
-                set pixelColor to bitmapRep's colorAtX:0 y:0
-                if pixelColor is missing value then return "0,0,0"
-                set r to (pixelColor's redComponent()) * 255 as integer
-                set g to (pixelColor's greenComponent()) * 255 as integer
-                set b to (pixelColor's blueComponent()) * 255 as integer
-                return (r as text) & "," & (g as text) & "," & (b as text)
-                "#,
-                tmp_path
-            );
-
-            // Re-capture for the script
-            Command::new("screencapture")
-                .arg("-x")
-                .arg("-t").arg("png")
-                .arg("-R").arg(format!("{},{},1,1", x, y))
-                .arg(&tmp_path)
-                .output()?;
-
-            let output = Command::new("osascript")
-                .arg("-e")
-                .arg(&script)
-                .output()?;
-
+        if !capture.status.success() {
             let _ = std::fs::remove_file(&tmp_path);
+            return Err(anyhow!("screencapture failed for pixel ({x}, {y})"));
+        }
 
-            let stdout = String::from_utf8_lossy(&output.stdout);
-            let parts: Vec<&str> = stdout.trim().split(',').collect();
-            if parts.len() == 3 {
-                let r: u8 = parts[0].parse().unwrap_or(0);
-                let g: u8 = parts[1].parse().unwrap_or(0);
-                let b: u8 = parts[2].parse().unwrap_or(0);
-                return Ok((r, g, b));
-            }
+        let script = r#"
+on run argv
+    use framework "AppKit"
+    set filePath to item 1 of argv
+    set img to current application's NSImage's alloc()'s initWithContentsOfFile:filePath
+    if img is missing value then return "0,0,0"
+    set bitmapRep to current application's NSBitmapImageRep's imageRepWithData:(img's TIFFRepresentation())
+    if bitmapRep is missing value then return "0,0,0"
+    set pixelColor to bitmapRep's colorAtX:0 y:0
+    if pixelColor is missing value then return "0,0,0"
+    set rgbColor to pixelColor's colorUsingColorSpace:(current application's NSColorSpace's sRGBColorSpace())
+    if rgbColor is missing value then set rgbColor to pixelColor
+    set r to (rgbColor's redComponent()) * 255 as integer
+    set g to (rgbColor's greenComponent()) * 255 as integer
+    set b to (rgbColor's blueComponent()) * 255 as integer
+    return (r as text) & "," & (g as text) & "," & (b as text)
+end run
+"#;
+        let output = run_osascript(script, &[&tmp_path]);
+        let _ = std::fs::remove_file(&tmp_path);
+        let output = output?;
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let parts: Vec<&str> = stdout.trim().split(',').collect();
+        if parts.len() == 3 {
+            let r: u8 = parts[0].parse().unwrap_or(0);
+            let g: u8 = parts[1].parse().unwrap_or(0);
+            let b: u8 = parts[2].parse().unwrap_or(0);
+            return Ok((r, g, b));
         }
 
         Ok((0, 0, 0))
     }
 
     fn minimize_window(&self, title: &str) -> Result<bool> {
-        let script = format!(
-            r#"
-            tell application "System Events"
-                set targetApp to first application process whose name contains "{}"
-                tell targetApp
-                    set frontmost to true
-                    try
-                        click button 2 of window 1
-                        return true
-                    on error
-                        try
-                            set miniaturized of window 1 to true
-                            return true
-                        end try
-                    end try
-                end tell
-            end tell
-            return false
-            "#,
-            title
-        );
-
-        let output = Command::new("osascript")
-            .arg("-e")
-            .arg(&script)
-            .output()?;
-
-        Ok(output.status.success())
+        let script = r#"
+on run argv
+    set needle to item 1 of argv
+    tell application "System Events"
+        set targetApp to first application process whose name contains needle
+        tell targetApp
+            set frontmost to true
+            try
+                click button 2 of window 1
+                return "true"
+            on error
+                try
+                    set value of attribute "AXMinimized" of window 1 to true
+                    return "true"
+                end try
+            end try
+        end tell
+    end tell
+    return "false"
+end run
+"#;
+        let output = run_osascript(script, &[title])?;
+        Ok(output.status.success() && String::from_utf8_lossy(&output.stdout).trim() == "true")
     }
 
     fn maximize_window(&self, title: &str) -> Result<bool> {
-        let script = format!(
-            r#"
-            tell application "System Events"
-                set targetApp to first application process whose name contains "{}"
-                tell targetApp
-                    set frontmost to true
-                    try
-                        click button 1 of window 1
-                        return true
-                    on error
-                        try
-                            set value of attribute "AXFullScreen" of window 1 to true
-                            return true
-                        end try
-                    end try
-                end tell
-            end tell
-            return false
-            "#,
-            title
-        );
-
-        let output = Command::new("osascript")
-            .arg("-e")
-            .arg(&script)
-            .output()?;
-
-        Ok(output.status.success())
+        let script = r#"
+on run argv
+    set needle to item 1 of argv
+    tell application "System Events"
+        set targetApp to first application process whose name contains needle
+        tell targetApp
+            set frontmost to true
+            try
+                set value of attribute "AXFullScreen" of window 1 to true
+                return "true"
+            on error
+                try
+                    click button 2 of window 1
+                    return "true"
+                end try
+            end try
+        end tell
+    end tell
+    return "false"
+end run
+"#;
+        let output = run_osascript(script, &[title])?;
+        Ok(output.status.success() && String::from_utf8_lossy(&output.stdout).trim() == "true")
     }
 
     fn resize_window(&self, title: &str, width: i32, height: i32) -> Result<bool> {
-        let script = format!(
-            r#"
-            tell application "System Events"
-                set targetApp to first application process whose name contains "{}"
-                tell targetApp
-                    try
-                        set size of window 1 to {{{}, {}}}
-                        return true
-                    end try
-                end tell
-            end tell
-            return false
-            "#,
-            title, width, height
-        );
-
-        let output = Command::new("osascript")
-            .arg("-e")
-            .arg(&script)
-            .output()?;
-
-        Ok(output.status.success())
+        let w = width.to_string();
+        let h = height.to_string();
+        let script = r#"
+on run argv
+    set needle to item 1 of argv
+    set w to (item 2 of argv) as integer
+    set h to (item 3 of argv) as integer
+    tell application "System Events"
+        set targetApp to first application process whose name contains needle
+        tell targetApp
+            try
+                set size of window 1 to {w, h}
+                return "true"
+            end try
+        end tell
+    end tell
+    return "false"
+end run
+"#;
+        let output = run_osascript(script, &[title, &w, &h])?;
+        Ok(output.status.success() && String::from_utf8_lossy(&output.stdout).trim() == "true")
     }
 
     fn move_window(&self, title: &str, x: i32, y: i32) -> Result<bool> {
-        let script = format!(
-            r#"
-            tell application "System Events"
-                set targetApp to first application process whose name contains "{}"
-                tell targetApp
-                    try
-                        set position of window 1 to {{{}, {}}}
-                        return true
-                    end try
-                end tell
-            end tell
-            return false
-            "#,
-            title, x, y
-        );
-
-        let output = Command::new("osascript")
-            .arg("-e")
-            .arg(&script)
-            .output()?;
-
-        Ok(output.status.success())
+        let xs = x.to_string();
+        let ys = y.to_string();
+        let script = r#"
+on run argv
+    set needle to item 1 of argv
+    set px to (item 2 of argv) as integer
+    set py to (item 3 of argv) as integer
+    tell application "System Events"
+        set targetApp to first application process whose name contains needle
+        tell targetApp
+            try
+                set position of window 1 to {px, py}
+                return "true"
+            end try
+        end tell
+    end tell
+    return "false"
+end run
+"#;
+        let output = run_osascript(script, &[title, &xs, &ys])?;
+        Ok(output.status.success() && String::from_utf8_lossy(&output.stdout).trim() == "true")
     }
 
     fn close_window(&self, title: &str) -> Result<bool> {
-        let script = format!(
-            r#"
-            tell application "System Events"
-                set targetApp to first application process whose name contains "{}"
-                tell targetApp
-                    try
-                        click button 1 of window 1
-                        return true
-                    on error
-                        try
-                            keystroke "w" using command down
-                            return true
-                        end try
-                    end try
-                end tell
-            end tell
-            return false
-            "#,
-            title
-        );
-
-        let output = Command::new("osascript")
-            .arg("-e")
-            .arg(&script)
-            .output()?;
-
-        Ok(output.status.success())
+        let script = r#"
+on run argv
+    set needle to item 1 of argv
+    tell application "System Events"
+        set targetApp to first application process whose name contains needle
+        tell targetApp
+            set frontmost to true
+            try
+                click button 1 of window 1
+                return "true"
+            on error
+                try
+                    keystroke "w" using command down
+                    return "true"
+                end try
+            end try
+        end tell
+    end tell
+    return "false"
+end run
+"#;
+        let output = run_osascript(script, &[title])?;
+        Ok(output.status.success() && String::from_utf8_lossy(&output.stdout).trim() == "true")
     }
 
     fn mouse_position(&self) -> Result<(i32, i32)> {
-        // Use NSEvent to get mouse location
-        let output = Command::new("osascript")
-            .arg("-e")
-            .arg(r#"
-                use framework "AppKit"
-                set mousePos to current application's NSEvent's mouseLocation()
-                set screenHeight to (current application's NSScreen's mainScreen()'s frame()'s |size|()'s height) as integer
-                set x to (mousePos's x) as integer
-                set y to screenHeight - ((mousePos's y) as integer)
-                return (x as text) & "," & (y as text)
-            "#)
-            .output()?;
-
-        let stdout = String::from_utf8_lossy(&output.stdout);
-        let parts: Vec<&str> = stdout.trim().split(',').collect();
-        if parts.len() == 2 {
-            let x: i32 = parts[0].parse().unwrap_or(0);
-            let y: i32 = parts[1].parse().unwrap_or(0);
-            return Ok((x, y));
+        // Native CoreGraphics cursor query (<0.1ms, no subprocess).
+        unsafe {
+            let ev = cg::CGEventCreate(std::ptr::null());
+            if !ev.is_null() {
+                let pt = cg::CGEventGetLocation(ev);
+                cg::CFRelease(ev);
+                return Ok((pt.x.round() as i32, pt.y.round() as i32));
+            }
         }
-
-        // Fallback
-        Ok((0, 0))
+        Err(anyhow!("CGEventCreate returned null while reading mouse position"))
     }
 
     fn screen_size(&self) -> Result<(i32, i32)> {
@@ -480,20 +488,44 @@ impl NativeControl for MacOSControl {
             ),
         };
 
+        // Always guarantee mouse-up on exit so the pointer button never sticks down.
+        struct ReleaseGuard<'a> {
+            ctrl: &'a MacOSControl,
+            up_type: u32,
+            btn: u32,
+            x: i32,
+            y: i32,
+        }
+        impl Drop for ReleaseGuard<'_> {
+            fn drop(&mut self) {
+                self.ctrl.send_mouse_event(self.up_type, self.x, self.y, self.btn);
+            }
+        }
+
         // Mouse down
         self.send_mouse_event(down_type, start_x, start_y, btn);
+        let mut guard = ReleaseGuard {
+            ctrl: self,
+            up_type,
+            btn,
+            x: start_x,
+            y: start_y,
+        };
 
         // Drag in steps
-        let steps = ((end_x - start_x).abs().max((end_y - start_y).abs()) / 10).max(1);
+        let steps = ((end_x - start_x).abs().max((end_y - start_y).abs()) / 10).clamp(1, 100);
         for i in 1..=steps {
             let cx = start_x + (end_x - start_x) * i / steps;
             let cy = start_y + (end_y - start_y) * i / steps;
+            guard.x = cx;
+            guard.y = cy;
             self.send_mouse_event(drag_type, cx, cy, btn);
-            thread::sleep(Duration::from_millis(1));
+            thread::sleep(Duration::from_millis(2));
         }
 
-        // Mouse up
-        self.send_mouse_event(up_type, end_x, end_y, btn);
+        guard.x = end_x;
+        guard.y = end_y;
+        drop(guard);
         Ok(())
     }
 
@@ -582,7 +614,7 @@ impl NativeControl for MacOSControl {
     }
 
     fn screenshot(&self, region: Option<&[i32]>) -> Result<Vec<u8>> {
-        let tmp_path = format!("/tmp/hanzo_screenshot_{}.png", std::process::id());
+        let tmp_path = unique_tmp_png("screenshot");
 
         let mut cmd = Command::new("screencapture");
         cmd.arg("-x").arg("-t").arg("png");
@@ -594,7 +626,12 @@ impl NativeControl for MacOSControl {
         }
 
         cmd.arg(&tmp_path);
-        cmd.output()?;
+        let out = cmd.output()?;
+        if !out.status.success() {
+            let _ = std::fs::remove_file(&tmp_path);
+            let err = String::from_utf8_lossy(&out.stderr).trim().to_string();
+            return Err(anyhow!("screencapture failed (check Screen Recording permission): {err}"));
+        }
 
         let data = std::fs::read(&tmp_path)?;
         let _ = std::fs::remove_file(&tmp_path);
@@ -691,39 +728,77 @@ impl NativeControl for MacOSControl {
     }
 
     fn focus_window(&self, title: &str) -> Result<bool> {
-        // First try direct app activation
-        let script = format!(r#"tell application "{}" to activate"#, title);
-        let result = Command::new("osascript")
-            .arg("-e")
-            .arg(&script)
-            .output();
-
-        if result.map(|r| r.status.success()).unwrap_or(false) {
-            return Ok(true);
+        let activate_script = r#"
+on run argv
+    set appName to item 1 of argv
+    try
+        tell application appName to activate
+        return "true"
+    on error
+        return "false"
+    end try
+end run
+"#;
+        if let Ok(output) = run_osascript(activate_script, &[title]) {
+            if output.status.success() && String::from_utf8_lossy(&output.stdout).trim() == "true" {
+                return Ok(true);
+            }
         }
 
-        // Try partial match
-        let search_script = format!(
-            r#"
-            tell application "System Events"
-                set matchingApps to (application processes whose name contains "{}")
-                if (count of matchingApps) > 0 then
-                    set frontApp to item 1 of matchingApps
-                    set frontmost of frontApp to true
-                    return name of frontApp
-                end if
-            end tell
-            return ""
-            "#,
-            title
-        );
-
-        let output = Command::new("osascript")
-            .arg("-e")
-            .arg(&search_script)
-            .output()?;
-
+        // Partial process-name match via System Events (still zero string interpolation).
+        let search_script = r#"
+on run argv
+    set needle to item 1 of argv
+    tell application "System Events"
+        set matchingApps to (application processes whose name contains needle)
+        if (count of matchingApps) > 0 then
+            set frontApp to item 1 of matchingApps
+            set frontmost of frontApp to true
+            return name of frontApp
+        end if
+    end tell
+    return ""
+end run
+"#;
+        let output = run_osascript(search_script, &[title])?;
         let stdout = String::from_utf8_lossy(&output.stdout);
         Ok(!stdout.trim().is_empty())
+    }
+
+    fn open_app(&self, app: &str) -> Result<bool> {
+        let target = app.trim();
+        if target.is_empty() {
+            return Err(anyhow!("app name or bundle ID required"));
+        }
+        let flag = if looks_like_bundle_id(target) { "-b" } else { "-a" };
+        let output = Command::new("open").arg(flag).arg(target).output()?;
+        if output.status.success() {
+            Ok(true)
+        } else {
+            let err = String::from_utf8_lossy(&output.stderr).trim().to_string();
+            Err(anyhow!("open {flag} {target:?} failed: {err}"))
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn bundle_id_classifier_works() {
+        assert!(looks_like_bundle_id("com.apple.Safari"));
+        assert!(looks_like_bundle_id("com.google.Chrome"));
+        assert!(!looks_like_bundle_id("Google Chrome"));
+        assert!(!looks_like_bundle_id("/Applications/Safari.app"));
+        assert!(!looks_like_bundle_id("Safari"));
+    }
+
+    #[test]
+    fn run_osascript_passes_untrusted_quotes_as_argv() {
+        let tricky = r#"hello "quoted" & \ slash"#;
+        let out = run_osascript("on run argv\nreturn item 1 of argv\nend run\n", &[tricky]).unwrap();
+        assert!(out.status.success());
+        assert_eq!(String::from_utf8_lossy(&out.stdout).trim(), tricky);
     }
 }

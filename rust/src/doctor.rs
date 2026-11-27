@@ -11,6 +11,7 @@ use serde_json::{json, Value};
 
 use crate::native::{self, NativeHostStatus};
 use crate::tools::browser_tool::{diagnose_error, BrowserDiagnostic};
+use crate::tools::computer_tool;
 use crate::zap;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -18,8 +19,19 @@ pub struct ClientRegistration {
     pub client: String,
     pub config_path: String,
     pub registered: bool,
+    pub computer_enabled: bool,
     pub command: Option<String>,
     pub browser_backend: Option<String>,
+    pub detail: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ComputerDiagnostic {
+    pub platform: String,
+    pub native_available: bool,
+    pub screen_size: Option<(i32, i32)>,
+    pub accessibility_granted: Option<bool>,
+    pub screen_recording_granted: Option<bool>,
     pub detail: String,
 }
 
@@ -50,6 +62,7 @@ pub struct DoctorReport {
     pub healthy: bool,
     pub version: String,
     pub binary: String,
+    pub computer: ComputerDiagnostic,
     pub clients: Vec<ClientRegistration>,
     pub native_hosts: Vec<NativeHostStatus>,
     pub zap: ZapDiagnostic,
@@ -58,18 +71,110 @@ pub struct DoctorReport {
     pub recommendations: Vec<String>,
 }
 
+/// Platform-specific Claude Desktop MCP config path under `home`.
+fn claude_desktop_path(home: &Path) -> PathBuf {
+    #[cfg(target_os = "macos")]
+    {
+        home.join("Library/Application Support/Claude/claude_desktop_config.json")
+    }
+    #[cfg(target_os = "windows")]
+    {
+        std::env::var_os("APPDATA")
+            .map(PathBuf::from)
+            .unwrap_or_else(|| home.join("AppData/Roaming"))
+            .join("Claude/claude_desktop_config.json")
+    }
+    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+    {
+        home.join(".config/Claude/claude_desktop_config.json")
+    }
+}
+
+/// Returns true if a client's MCP server command + args expose the native `computer` tool.
+fn args_allow_computer(command: Option<&str>, args: &[String]) -> (bool, Option<&'static str>) {
+    let cmd = command.unwrap_or("");
+    let base = Path::new(cmd)
+        .file_name()
+        .and_then(|s| s.to_str())
+        .unwrap_or(cmd);
+    if base == "uvx" {
+        return (
+            false,
+            Some("uses legacy uvx wrapper (run `hanzo mcp install all` to pin native hanzo-mcp with computer control)"),
+        );
+    }
+    // Check for `--tools=...` or `--tools <list>` excluding `computer`.
+    for (idx, a) in args.iter().enumerate() {
+        let list = if let Some(rest) = a.strip_prefix("--tools=") {
+            Some(rest)
+        } else if a == "--tools" {
+            args.get(idx + 1).map(String::as_str)
+        } else {
+            None
+        };
+        if let Some(csv) = list {
+            let has_computer = csv
+                .split(',')
+                .any(|t| matches!(t.trim(), "computer" | "all" | "*"));
+            if !has_computer {
+                return (
+                    false,
+                    Some("`--tools` filter omits `computer` (remove filter or include `computer`)"),
+                );
+            }
+        }
+    }
+    if base == "npx" {
+        return (
+            true,
+            Some("configured via npx (run `hanzo mcp install all` to pin local native binary)"),
+        );
+    }
+    (true, None)
+}
+
+/// Probe native local computer control readiness and OS permissions.
+pub fn inspect_computer() -> ComputerDiagnostic {
+    let (info, size) = computer_tool::probe_capabilities();
+    let ax = info.backends.get("accessibility").copied();
+    let screen = info.backends.get("screen_recording").copied();
+    let detail = match (info.native_available, ax, screen) {
+        (false, _, _) => format!("native backend unavailable on {}", info.platform),
+        (true, Some(false), Some(false)) => {
+            "native Quartz ready, but Accessibility & Screen Recording permissions are not granted".into()
+        }
+        (true, Some(false), _) => {
+            "native Quartz ready, but Accessibility permission is not granted (needed for input/windows)".into()
+        }
+        (true, _, Some(false)) => {
+            "native Quartz ready, but Screen Recording permission is not granted (needed for screenshots)".into()
+        }
+        (true, Some(true), Some(true)) => "native Quartz ready (Accessibility + Screen Recording granted)".into(),
+        (true, _, _) => format!("native backend ready ({})", info.platform),
+    };
+    ComputerDiagnostic {
+        platform: info.platform,
+        native_available: info.native_available,
+        screen_size: size,
+        accessibility_granted: ax,
+        screen_recording_granted: screen,
+        detail,
+    }
+}
+
 /// Inspect MCP client configs under `home`.
 pub fn inspect_clients(home: &Path) -> Vec<ClientRegistration> {
-    vec![
-        inspect_codex(home),
-        inspect_json_client(
-            "antigravity",
-            home.join(".gemini/config/mcp_config.json"),
-            &["mcpServers", "hanzo"],
-        ),
+    let mut clients = vec![
+        inspect_toml_client("hanzo", home.join(".hanzo/config.toml")),
+        inspect_toml_client("codex", home.join(".codex/config.toml")),
         inspect_json_client(
             "claude",
             home.join(".claude.json"),
+            &["mcpServers", "hanzo"],
+        ),
+        inspect_json_client(
+            "claude-desktop",
+            claude_desktop_path(home),
             &["mcpServers", "hanzo"],
         ),
         inspect_json_client(
@@ -77,28 +182,48 @@ pub fn inspect_clients(home: &Path) -> Vec<ClientRegistration> {
             home.join(".cursor/mcp.json"),
             &["mcpServers", "hanzo"],
         ),
-    ]
+        inspect_json_client(
+            "gemini",
+            home.join(".gemini/settings.json"),
+            &["mcpServers", "hanzo"],
+        ),
+        inspect_json_client(
+            "antigravity",
+            home.join(".gemini/antigravity/mcp_config.json"),
+            &["mcpServers", "hanzo"],
+        ),
+    ];
+    let agy_legacy = home.join(".gemini/config/mcp_config.json");
+    if agy_legacy.exists() {
+        clients.push(inspect_json_client(
+            "antigravity-config",
+            agy_legacy,
+            &["mcpServers", "hanzo"],
+        ));
+    }
+    clients
 }
 
-fn inspect_codex(home: &Path) -> ClientRegistration {
-    let path = home.join(".codex/config.toml");
+fn inspect_toml_client(client: &str, path: PathBuf) -> ClientRegistration {
     let path_str = path.display().to_string();
     let Ok(raw) = std::fs::read_to_string(&path) else {
         return ClientRegistration {
-            client: "codex".into(),
+            client: client.into(),
             config_path: path_str,
             registered: false,
+            computer_enabled: false,
             command: None,
             browser_backend: None,
-            detail: "config.toml not found (run `hanzo mcp install codex`)".into(),
+            detail: format!("config.toml not found (run `hanzo mcp install {client}`)"),
         };
     };
     let parsed: Result<toml::Value, _> = toml::from_str(&raw);
     let Ok(doc) = parsed else {
         return ClientRegistration {
-            client: "codex".into(),
+            client: client.into(),
             config_path: path_str,
             registered: false,
+            computer_enabled: false,
             command: None,
             browser_backend: None,
             detail: "config.toml failed to parse".into(),
@@ -107,32 +232,51 @@ fn inspect_codex(home: &Path) -> ClientRegistration {
     let hanzo = doc.get("mcp_servers").and_then(|s| s.get("hanzo"));
     let Some(h) = hanzo else {
         return ClientRegistration {
-            client: "codex".into(),
+            client: client.into(),
             config_path: path_str,
             registered: false,
+            computer_enabled: false,
             command: None,
             browser_backend: None,
-            detail: "[mcp_servers.hanzo] not configured (run `hanzo mcp install codex`)".into(),
+            detail: format!("[mcp_servers.hanzo] not configured (run `hanzo mcp install {client}`)"),
         };
     };
     let command = h.get("command").and_then(toml::Value::as_str).map(String::from);
+    let args: Vec<String> = h
+        .get("args")
+        .and_then(toml::Value::as_array)
+        .map(|arr| {
+            arr.iter()
+                .filter_map(toml::Value::as_str)
+                .map(String::from)
+                .collect()
+        })
+        .unwrap_or_default();
     let backend = h
         .get("env")
         .and_then(|e| e.get("BROWSER_BACKEND"))
         .and_then(toml::Value::as_str)
         .map(String::from);
     let enabled = h.get("enabled").and_then(toml::Value::as_bool).unwrap_or(true);
+    let missing_bin = command
+        .as_deref()
+        .is_some_and(|c| c.starts_with('/') && !Path::new(c).exists());
+    let (computer_ok, note) = args_allow_computer(command.as_deref(), &args);
     let detail = if !enabled {
         "configured but disabled".into()
-    } else if command.as_deref() == Some("npx") {
-        "configured via npx (run `hanzo mcp install codex` to pin local native binary)".into()
+    } else if missing_bin {
+        "configured binary does not exist".into()
+    } else if let Some(msg) = note {
+        msg.into()
     } else {
         "configured".into()
     };
+    let registered = enabled && !missing_bin;
     ClientRegistration {
-        client: "codex".into(),
+        client: client.into(),
         config_path: path_str,
-        registered: enabled,
+        registered,
+        computer_enabled: registered && computer_ok,
         command,
         browser_backend: backend,
         detail,
@@ -146,9 +290,10 @@ fn inspect_json_client(client: &str, path: PathBuf, keys: &[&str]) -> ClientRegi
             client: client.into(),
             config_path: path_str,
             registered: false,
+            computer_enabled: false,
             command: None,
             browser_backend: None,
-            detail: "config not found".into(),
+            detail: format!("config not found (run `hanzo mcp install {client}`)"),
         };
     };
     let Ok(doc) = serde_json::from_str::<Value>(&raw) else {
@@ -156,6 +301,7 @@ fn inspect_json_client(client: &str, path: PathBuf, keys: &[&str]) -> ClientRegi
             client: client.into(),
             config_path: path_str,
             registered: false,
+            computer_enabled: false,
             command: None,
             browser_backend: None,
             detail: "invalid JSON".into(),
@@ -170,9 +316,10 @@ fn inspect_json_client(client: &str, path: PathBuf, keys: &[&str]) -> ClientRegi
                     client: client.into(),
                     config_path: path_str,
                     registered: false,
+                    computer_enabled: false,
                     command: None,
                     browser_backend: None,
-                    detail: "hanzo MCP server not registered".into(),
+                    detail: format!("hanzo MCP server not registered (run `hanzo mcp install {client}`)"),
                 };
             }
         }
@@ -182,6 +329,16 @@ fn inspect_json_client(client: &str, path: PathBuf, keys: &[&str]) -> ClientRegi
         .and_then(Value::as_str)
         .or_else(|| cur.get("serverUrl").and_then(Value::as_str))
         .map(String::from);
+    let args: Vec<String> = cur
+        .get("args")
+        .and_then(Value::as_array)
+        .map(|arr| {
+            arr.iter()
+                .filter_map(Value::as_str)
+                .map(String::from)
+                .collect()
+        })
+        .unwrap_or_default();
     let backend = cur
         .get("env")
         .and_then(|e| e.get("BROWSER_BACKEND"))
@@ -190,14 +347,19 @@ fn inspect_json_client(client: &str, path: PathBuf, keys: &[&str]) -> ClientRegi
     let missing_bin = command
         .as_deref()
         .is_some_and(|c| c.starts_with('/') && !Path::new(c).exists());
+    let (computer_ok, note) = args_allow_computer(command.as_deref(), &args);
+    let registered = !missing_bin;
     ClientRegistration {
         client: client.into(),
         config_path: path_str,
-        registered: !missing_bin,
+        registered,
+        computer_enabled: registered && computer_ok,
         command,
         browser_backend: backend,
         detail: if missing_bin {
             "configured binary does not exist".into()
+        } else if let Some(msg) = note {
+            msg.into()
         } else {
             "configured".into()
         },
@@ -219,6 +381,7 @@ pub async fn run_doctor(fix: bool) -> Result<DoctorReport> {
         }
     }
 
+    let computer = inspect_computer();
     let clients = inspect_clients(&home);
     let native_hosts = native::diagnose().unwrap_or_default();
 
@@ -293,7 +456,15 @@ pub async fn run_doctor(fix: bool) -> Result<DoctorReport> {
         recommendations.push("Run `hanzo mcp doctor --fix` to self-repair missing or broken browser native messaging manifests.".into());
     }
     if clients.iter().all(|c| !c.registered) {
-        recommendations.push("No MCP client configured yet — run `hanzo mcp install codex` (or configure your client).".into());
+        recommendations.push("No MCP client configured yet — run `hanzo mcp install all` to configure all local AI clients.".into());
+    } else if clients.iter().any(|c| c.registered && !c.computer_enabled) {
+        recommendations.push("One or more MCP clients use legacy `uvx` or omit `computer` in `--tools` — run `hanzo mcp install all` to enable native computer control everywhere.".into());
+    }
+    if computer.accessibility_granted == Some(false) {
+        recommendations.push("macOS Accessibility permission is not granted for this host process — enable it in System Settings → Privacy & Security → Accessibility for mouse/keyboard/window control.".into());
+    }
+    if computer.screen_recording_granted == Some(false) {
+        recommendations.push("macOS Screen Recording permission is not granted for this host process — enable it in System Settings → Privacy & Security → Screen Recording for screenshots.".into());
     }
     if !ext_probe.connected {
         if let Some(d) = &ext_probe.diagnostic {
@@ -306,6 +477,7 @@ pub async fn run_doctor(fix: bool) -> Result<DoctorReport> {
         healthy,
         version: env!("CARGO_PKG_VERSION").into(),
         binary: exe,
+        computer,
         clients,
         native_hosts,
         zap: zap_diag,
@@ -399,11 +571,39 @@ pub fn format_doctor(r: &DoctorReport) -> String {
     out.push(format!("  Binary: {}", r.binary));
     out.push(String::new());
 
+    out.push("Computer Control:".into());
+    let cmark = if r.computer.native_available
+        && r.computer.accessibility_granted != Some(false)
+        && r.computer.screen_recording_granted != Some(false)
+    {
+        "✓"
+    } else if r.computer.native_available {
+        "!"
+    } else {
+        "✗"
+    };
+    let screen_str = r
+        .computer
+        .screen_size
+        .map(|(w, h)| format!("{w}x{h}"))
+        .unwrap_or_else(|| "unknown".into());
+    out.push(format!(
+        "  {cmark} platform={} screen={} — {}",
+        r.computer.platform, screen_str, r.computer.detail
+    ));
+    out.push(String::new());
+
     out.push("MCP Clients:".into());
     for c in &r.clients {
-        let mark = if c.registered { "✓" } else { "·" };
+        let mark = if c.registered && c.computer_enabled {
+            "✓"
+        } else if c.registered {
+            "!"
+        } else {
+            "·"
+        };
         let cmd = c.command.as_deref().unwrap_or("-");
-        out.push(format!("  {mark} {:<12} {}  ({}) [{}]", c.client, c.detail, cmd, c.config_path));
+        out.push(format!("  {mark} {:<16} {}  ({}) [{}]", c.client, c.detail, cmd, c.config_path));
     }
     out.push(String::new());
 
@@ -464,8 +664,9 @@ pub fn format_doctor(r: &DoctorReport) -> String {
     out.join("\n")
 }
 
-/// Configure a supported MCP client (`codex`, `antigravity`, `cursor`, `claude`)
-/// and self-repair browser native messaging registration.
+/// Configure one or all supported MCP clients (`hanzo`, `codex`, `claude`,
+/// `claude-desktop`, `cursor`, `gemini`, `antigravity`, or `all`) and
+/// self-repair browser native messaging registration.
 pub fn run_install(target: &str, binary: Option<PathBuf>, dry_run: bool) -> Result<Value> {
     let home = dirs::home_dir().ok_or_else(|| anyhow!("no home directory"))?;
     let exe = match binary {
@@ -478,10 +679,56 @@ pub fn run_install(target: &str, binary: Option<PathBuf>, dry_run: bool) -> Resu
 pub fn install_in(home: &Path, target: &str, exe: &Path, dry_run: bool) -> Result<Value> {
     let client = target.trim().to_lowercase();
     let result = match client.as_str() {
-        "codex" => install_codex_in(home, exe, dry_run)?,
-        "antigravity" | "gemini" => install_json_client_in(
-            "antigravity",
-            home.join(".gemini/config/mcp_config.json"),
+        "all" => {
+            let mut installed = vec![
+                install_toml_client_in("hanzo", home.join(".hanzo/config.toml"), exe, dry_run)?,
+                install_toml_client_in("codex", home.join(".codex/config.toml"), exe, dry_run)?,
+                install_json_client_in("claude", home.join(".claude.json"), exe, dry_run)?,
+                install_json_client_in("claude-desktop", claude_desktop_path(home), exe, dry_run)?,
+                install_json_client_in("cursor", home.join(".cursor/mcp.json"), exe, dry_run)?,
+                install_json_client_in("gemini", home.join(".gemini/settings.json"), exe, dry_run)?,
+                install_json_client_in(
+                    "antigravity",
+                    home.join(".gemini/antigravity/mcp_config.json"),
+                    exe,
+                    dry_run,
+                )?,
+            ];
+            let agy_legacy = home.join(".gemini/config/mcp_config.json");
+            if agy_legacy.exists() {
+                installed.push(install_json_client_in(
+                    "antigravity-config",
+                    agy_legacy,
+                    exe,
+                    dry_run,
+                )?);
+            }
+            json!({
+                "success": true,
+                "client": "all",
+                "command": exe.display().to_string(),
+                "dry_run": dry_run,
+                "installed": installed,
+            })
+        }
+        "hanzo" => install_toml_client_in("hanzo", home.join(".hanzo/config.toml"), exe, dry_run)?,
+        "codex" => install_toml_client_in("codex", home.join(".codex/config.toml"), exe, dry_run)?,
+        "antigravity" => {
+            let primary = install_json_client_in(
+                "antigravity",
+                home.join(".gemini/antigravity/mcp_config.json"),
+                exe,
+                dry_run,
+            )?;
+            let legacy = home.join(".gemini/config/mcp_config.json");
+            if legacy.exists() {
+                let _ = install_json_client_in("antigravity-config", legacy, exe, dry_run);
+            }
+            primary
+        }
+        "gemini" => install_json_client_in(
+            "gemini",
+            home.join(".gemini/settings.json"),
             exe,
             dry_run,
         )?,
@@ -489,9 +736,12 @@ pub fn install_in(home: &Path, target: &str, exe: &Path, dry_run: bool) -> Resul
         "claude" | "claude-code" => {
             install_json_client_in("claude", home.join(".claude.json"), exe, dry_run)?
         }
+        "claude-desktop" => {
+            install_json_client_in("claude-desktop", claude_desktop_path(home), exe, dry_run)?
+        }
         other => {
             return Err(anyhow!(
-                "Unknown install target {other:?}. Supported targets: codex, antigravity, cursor, claude"
+                "Unknown install target {other:?}. Supported targets: all, hanzo, codex, claude, claude-desktop, cursor, gemini, antigravity"
             ));
         }
     };
@@ -521,7 +771,10 @@ pub fn install_in(home: &Path, target: &str, exe: &Path, dry_run: bool) -> Resul
 /// Idempotently configure `~/.codex/config.toml` with `[mcp_servers.hanzo]`,
 /// preserving all other user tables and settings.
 pub fn install_codex_in(home: &Path, exe: &Path, dry_run: bool) -> Result<Value> {
-    let path = home.join(".codex/config.toml");
+    install_toml_client_in("codex", home.join(".codex/config.toml"), exe, dry_run)
+}
+
+fn install_toml_client_in(client: &str, path: PathBuf, exe: &Path, dry_run: bool) -> Result<Value> {
     let mut doc: toml::Table = if path.exists() {
         let raw = std::fs::read_to_string(&path)?;
         toml::from_str(&raw).map_err(|e| anyhow!("failed to parse {}: {e}", path.display()))?
@@ -564,7 +817,7 @@ pub fn install_codex_in(home: &Path, exe: &Path, dry_run: bool) -> Result<Value>
 
     Ok(json!({
         "success": true,
-        "client": "codex",
+        "client": client,
         "config_path": path.display().to_string(),
         "command": exe.display().to_string(),
         "args": ["--transport", "stdio"],
@@ -656,6 +909,30 @@ mod tests {
         let clients = inspect_clients(home);
         let codex = clients.iter().find(|c| c.client == "codex").unwrap();
         assert!(codex.registered);
+        assert!(codex.computer_enabled);
         assert_eq!(codex.browser_backend.as_deref(), Some("extension"));
+    }
+
+    #[test]
+    fn install_all_configures_every_client_and_flags_uvx_or_filtered_tools() {
+        let tmp = tempfile::tempdir().unwrap();
+        let home = tmp.path();
+        let exe = std::env::current_exe().unwrap();
+
+        // Install all clients cleanly
+        let res = install_in(home, "all", &exe, false).unwrap();
+        assert_eq!(res["success"], true);
+        assert_eq!(res["client"], "all");
+        let clients = inspect_clients(home);
+        for name in ["hanzo", "codex", "claude", "claude-desktop", "cursor", "gemini", "antigravity"] {
+            let c = clients.iter().find(|c| c.client == name).expect(name);
+            assert!(c.registered, "{name} should be registered");
+            assert!(c.computer_enabled, "{name} should have computer enabled");
+        }
+
+        // Legacy uvx wrapper and restricted --tools should flag computer_enabled = false
+        assert!(!args_allow_computer(Some("uvx"), &["hanzo-mcp".into()]).0);
+        assert!(!args_allow_computer(Some("/usr/local/bin/hanzo-mcp"), &["--tools".into(), "fs,exec".into()]).0);
+        assert!(args_allow_computer(Some("/usr/local/bin/hanzo-mcp"), &["--tools=fs,computer".into()]).0);
     }
 }

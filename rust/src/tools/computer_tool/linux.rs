@@ -376,4 +376,22 @@ impl NativeControl for LinuxControl {
         let result = self.run_xdotool(&["search", "--name", title, "windowactivate"]);
         Ok(result.is_ok())
     }
+
+    fn open_app(&self, app: &str) -> Result<bool> {
+        let target = app.trim();
+        if target.is_empty() {
+            return Err(anyhow!("app name required"));
+        }
+        if check_command("gtk-launch") && target.ends_with(".desktop") {
+            let status = Command::new("gtk-launch").arg(target).status()?;
+            return Ok(status.success());
+        }
+        let child = Command::new(target)
+            .stdin(std::process::Stdio::null())
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .spawn()?;
+        let _ = child.id();
+        Ok(true)
+    }
 }

@@ -165,6 +165,10 @@ impl MCPServer {
     /// goes through one writer, so two never interleave. `notifications/cancelled` fires the
     /// named request's token: its task is dropped and sends no answer. At end of input the
     /// requests still running finish and answer before this returns.
+    pub fn registry(&self) -> Arc<RwLock<ToolRegistry>> {
+        Arc::clone(&self.tools)
+    }
+
     pub async fn run_stdio(self) -> Result<()> {
         for root in &self.roots {
             info!("[MCP] allowed root: {}", root.display());

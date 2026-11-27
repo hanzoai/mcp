@@ -57,6 +57,11 @@ shell-escape = "0.1"
 # The ZAP router every Hanzo process embeds (one per login, elected by lock),
 # and this process's seat on it; from 1.1.7 on Unix and Windows alike.
 zapd = "1.1.9"
+tokio-tungstenite = "0.30"
+futures-util = "0.3"
+tokio-rustls = "0.24"
+rustls = "0.21"
+webpki-roots = "0.25"
 
 # Search and AST
 # The in-process text, symbol and document search over tgrep-core; light enough for
