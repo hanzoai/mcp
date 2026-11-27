@@ -720,7 +720,14 @@ impl ComputerTool {
                 let reap = args.clear;
                 let timeout_ms = args.timeout_ms.unwrap_or(DEFAULT_OP_TIMEOUT_MS);
                 match run_blocking(timeout_ms, move || {
-                    let front = ctrl.get_active_window().ok().and_then(|w| w.app);
+                    #[cfg(target_os = "macos")]
+                    let front = health::macos_frontmost_app();
+                    #[cfg(not(target_os = "macos"))]
+                    let front = if reap {
+                        ctrl.get_active_window().ok().and_then(|w| w.app)
+                    } else {
+                        None
+                    };
                     Ok(health::run_health(front.as_deref(), reap))
                 })
                 .await?

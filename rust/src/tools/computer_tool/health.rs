@@ -134,10 +134,50 @@ pub fn is_model_runtime(command: &str) -> bool {
     MODEL_RUNTIME_MARKERS.iter().any(|m| lower.contains(m))
 }
 
+/// Fast, Automation-TCC-free frontmost app lookup on macOS via `lsappinfo`.
+/// Avoids blocking background LaunchAgents on a `System Events` AppleScript prompt.
+#[cfg(target_os = "macos")]
+pub fn macos_frontmost_app() -> Option<String> {
+    let front = Command::new("/usr/bin/lsappinfo")
+        .arg("front")
+        .output()
+        .ok()?;
+    if !front.status.success() {
+        return None;
+    }
+    let asn = String::from_utf8_lossy(&front.stdout).trim().to_string();
+    if asn.is_empty() {
+        return None;
+    }
+    let info = Command::new("/usr/bin/lsappinfo")
+        .args(["info", "-only", "name", &asn])
+        .output()
+        .ok()?;
+    if !info.status.success() {
+        return None;
+    }
+    let line = String::from_utf8_lossy(&info.stdout);
+    let first = line.lines().next()?.trim();
+    if let Some(rest) = first.strip_prefix('"') {
+        if let Some(end) = rest.find('"') {
+            let name = rest[..end].trim();
+            if !name.is_empty() {
+                return Some(name.to_string());
+            }
+        }
+    }
+    None
+}
+
 fn memory_summary() -> MemorySummary {
     #[cfg(target_os = "macos")]
     {
-        let total_bytes: u64 = Command::new("sysctl")
+        let sysctl_bin = if std::path::Path::new("/usr/sbin/sysctl").exists() {
+            "/usr/sbin/sysctl"
+        } else {
+            "sysctl"
+        };
+        let total_bytes: u64 = Command::new(sysctl_bin)
             .args(["-n", "hw.memsize"])
             .output()
             .ok()
@@ -145,7 +185,12 @@ fn memory_summary() -> MemorySummary {
             .unwrap_or(0);
         let total_mb = total_bytes / (1024 * 1024);
 
-        let vm = Command::new("vm_stat")
+        let vm_stat_bin = if std::path::Path::new("/usr/bin/vm_stat").exists() {
+            "/usr/bin/vm_stat"
+        } else {
+            "vm_stat"
+        };
+        let vm = Command::new(vm_stat_bin)
             .output()
             .ok()
             .map(|o| String::from_utf8_lossy(&o.stdout).to_string())
