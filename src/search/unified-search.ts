@@ -441,7 +441,7 @@ async function executeVectorSearch(
 ): Promise<SearchResult[]> {
   // This would integrate with LanceDB or another vector store
   // For now, return empty array as placeholder
-  console.log('Vector search not yet implemented in TypeScript');
+  console.error('Vector search not yet implemented in TypeScript');
   return [];
 }
 
@@ -454,7 +454,7 @@ async function executeMemorySearch(
 ): Promise<SearchResult[]> {
   // This would search conversation history and knowledge base
   // For now, return empty array as placeholder
-  console.log('Memory search not yet implemented in TypeScript');
+  console.error('Memory search not yet implemented in TypeScript');
   return [];
 }
 

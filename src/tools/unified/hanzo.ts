@@ -48,8 +48,12 @@ export const hanzoTool: Tool = {
     },
     required: [],
   },
-  handler: async ({ resource, service, action, args = {}, ...stray }: any = {}) => {
+  handler: async (rawInput: any = {}) => {
     try {
+      if (rawInput !== undefined && (rawInput === null || typeof rawInput !== 'object' || Array.isArray(rawInput))) {
+        return fail('INVALID_ARGS', 'Tool arguments must be an object.');
+      }
+      const { resource, service, action, args = {}, ...stray }: any = rawInput ?? {};
       const target = String(resource ?? service ?? '').trim();
       if (!target) {
         return envelope(
@@ -66,6 +70,9 @@ export const hanzoTool: Tool = {
       if (normalized === 'auth') {
         if (!action) {
           return envelope({ resource: 'auth', actions: AUTH_ACTIONS }, 'help');
+        }
+        if (typeof action !== 'string' || !AUTH_ACTIONS.includes(action)) {
+          return fail('INVALID_ARGS', `Unknown auth action: ${String(action)}. Available: ${AUTH_ACTIONS.join(', ')}`);
         }
         const envKey = (
           process.env.HANZO_API_KEY ||

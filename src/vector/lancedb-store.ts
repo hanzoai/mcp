@@ -470,5 +470,5 @@ export async function getVectorStore(config?: VectorStoreConfig): Promise<LanceD
 export async function indexProject(projectPath: string = process.cwd()): Promise<void> {
   const store = await getVectorStore();
   await store.indexCodebase(projectPath);
-  console.log(`Indexed project at ${projectPath}`);
+  console.error(`Indexed project at ${projectPath}`);
 }
