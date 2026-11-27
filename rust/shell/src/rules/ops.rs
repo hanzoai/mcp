@@ -65,7 +65,7 @@ impl Walker<'_> {
                 self.deny(Kind::Privilege, format!("{name} changes accounts, kernel modules, disks or system settings"));
             }
             "psql" | "pgcli" | "usql" | "mysql" | "mariadb" | "mycli" | "litecli" | "sqlite3" | "sqlite" | "duckdb" | "clickhouse-client" | "clickhouse" | "clickhouse-local" | "cockroach" | "mongosh" | "mongo" | "redis-cli" | "valkey-cli" | "rediscli" | "cqlsh" | "influx" | "sqlcmd" | "bq_" | "snowsql" | "trino" | "presto" | "beeline" | "spark-sql" | "dbt" | "atlas" | "migrate" | "goose" | "sqitch" | "flyway" | "liquibase" | "prisma" | "drizzle-kit" | "sequelize" | "typeorm" | "knex" | "alembic" | "pg_dump" | "pg_restore" | "pg_dumpall" | "mysqldump" | "mongodump" | "mongorestore" | "createdb" | "dropdb" | "createuser" | "dropuser" | "pg_ctl" | "initdb" | "vacuumdb" | "reindexdb" | "pg_upgrade" | "pg_basebackup" => self.database(name, args, io, st),
-            "hanzo" | "lux" | "luxd" | "hanzod" => self.hanzo(name, args, st),
+            "hanzo" | "hanzo-mcp" | "lux" | "luxd" | "hanzod" => self.hanzo(name, args, st),
             _ => return None,
         }
         Some(Out::default())
@@ -859,8 +859,32 @@ impl Walker<'_> {
             return;
         }
         let sub = words.get(1).copied().unwrap_or("");
+        let has_info_flag = args
+            .iter()
+            .filter_map(|v| v.exact())
+            .any(|t| matches!(t, "--version" | "-V" | "--help" | "-h"));
+        if name == "hanzo-mcp" {
+            match first {
+                "version" | "help" | "doctor" | "status" | "info" => {}
+                "" if has_info_flag => {}
+                "pair" => self.ask(Kind::Credential, format!("{name} pair reads or resets a browser pairing code")),
+                "" => self.ask(Kind::Write, format!("{name} starts an MCP server/bridge")),
+                _ => self.ask(Kind::Write, format!("{name} {first} starts an MCP server/bridge or changes local config")),
+            }
+            let _ = st;
+            return;
+        }
         match first {
             "" | "version" | "help" | "status" | "whoami" | "doctor" | "list" | "ls" | "get" | "show" | "logs" | "ps" | "models" | "search" | "info" => {}
+            "mcp" => {
+                match sub {
+                    "version" | "help" | "doctor" | "status" | "info" => {}
+                    "" if has_info_flag => {}
+                    "pair" => self.ask(Kind::Credential, format!("{name} mcp pair reads or resets a browser pairing code")),
+                    "" => self.ask(Kind::Write, format!("{name} mcp starts an MCP server/bridge")),
+                    _ => self.ask(Kind::Write, format!("{name} mcp {sub} starts an MCP server/bridge or changes local config")),
+                }
+            }
             "login" | "logout" | "token" => self.ask(Kind::Credential, format!("{name} {first} changes or prints the login")),
             "auth" => {
                 if !matches!(sub, "status" | "whoami" | "" | "list" | "help" | "info" | "show" | "check") {

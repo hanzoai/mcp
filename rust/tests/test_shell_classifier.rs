@@ -165,3 +165,35 @@ async fn the_git_tool_does_not_run_a_monitor_the_repository_names() {
     tool.execute(status).await.unwrap();
     assert!(!ran.exists(), "the git tool ran the repository's monitor");
 }
+
+#[test]
+fn hanzo_mcp_and_hanzo_mcp_subcommand_classification() {
+    let sh = Shell::new();
+    for ok in [
+        "hanzo-mcp --version",
+        "hanzo-mcp --help",
+        "hanzo-mcp doctor",
+        "hanzo mcp --version",
+        "hanzo mcp --help",
+        "hanzo mcp doctor",
+    ] {
+        let v = sh.classify(ok, None);
+        assert_eq!(v.risk, Risk::Allow, "{ok}: {:?}", v.reasons);
+    }
+    for ask in [
+        "hanzo-mcp",
+        "hanzo-mcp install",
+        "hanzo-mcp pair",
+        "hanzo mcp",
+        "hanzo mcp connect",
+        "hanzo mcp pair",
+    ] {
+        let v = sh.classify(ask, None);
+        assert_eq!(v.risk, Risk::Ask, "{ask}: {:?}", v.reasons);
+        assert!(
+            !v.reasons.iter().any(|r| r.contains("unknown command") || r.contains("does not know")),
+            "{ask} should be classified explicitly, got {:?}",
+            v.reasons
+        );
+    }
+}
