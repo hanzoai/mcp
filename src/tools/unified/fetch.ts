@@ -90,6 +90,7 @@ export const fetchTool: Tool = {
       switch (args.action) {
         case 'get':
         case 'request': {
+          if (!args.url || typeof args.url !== 'string') return fail('INVALID_PARAMS', 'url required');
           const opts: RequestInit = {
             method: args.method || 'GET',
             headers: { ...(args.headers || {}), ...paymentHeader(args.payment) },
@@ -115,6 +116,7 @@ export const fetchTool: Tool = {
         }
 
         case 'fetch': {
+          if (!args.url || typeof args.url !== 'string') return fail('INVALID_PARAMS', 'url required');
           const opts: RequestInit = {
             method: args.method || 'GET',
             headers: { ...(args.headers || {}), ...paymentHeader(args.payment) },
@@ -140,6 +142,7 @@ export const fetchTool: Tool = {
         }
 
         case 'head': {
+          if (!args.url || typeof args.url !== 'string') return fail('INVALID_PARAMS', 'url required');
           const resp = await fetch(args.url, {
             method: 'HEAD',
             headers: { ...(args.headers || {}), ...paymentHeader(args.payment) },
@@ -155,6 +158,7 @@ export const fetchTool: Tool = {
         }
 
         case 'download': {
+          if (!args.url || typeof args.url !== 'string') return fail('INVALID_PARAMS', 'url required');
           if (!args.output) return fail('INVALID_PARAMS', 'output path required');
           const resp = await fetch(args.url, { signal: AbortSignal.timeout(args.timeout || 60000) });
           if (!resp.ok) return fail('HTTP_ERROR', `${resp.status} ${resp.statusText}`);
@@ -165,6 +169,7 @@ export const fetchTool: Tool = {
         }
 
         case 'open': {
+          if (!args.url || typeof args.url !== 'string') return fail('INVALID_PARAMS', 'url required');
           const platform = process.platform;
           const cmd = platform === 'darwin' ? 'open' : platform === 'win32' ? 'start' : 'xdg-open';
           await execAsync(`${cmd} "${args.url}"`);
