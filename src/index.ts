@@ -142,6 +142,10 @@ export type {
 // Import Tool type and tool configuration for use in function signatures
 import { Tool, listed } from './types/index.js';
 import { ToolConfig } from './tools/index.js';
+import {
+  ToolEffectSimulator,
+  buildRiskBlockedToolResult,
+} from './security/risky-tool-simulator.js';
 
 // Main server factory
 export async function createMCPServer(config?: {
@@ -150,13 +154,16 @@ export async function createMCPServer(config?: {
   projectPath?: string;
   customTools?: Tool[];
   toolConfig?: ToolConfig;
+  /** Optional opt-in pre-execution risky-tool effect simulator (HIP-1348 / HIP-1347). Off by default. */
+  riskSimulator?: ToolEffectSimulator;
 }) {
   const { 
     name = 'hanzo-mcp',
     version = '1.0.0',
     projectPath = process.cwd(),
     customTools = [],
-    toolConfig = { enableCore: true, enableUI: false }
+    toolConfig = { enableCore: true, enableUI: false },
+    riskSimulator,
   } = config || {};
   
   // Import tools
@@ -199,7 +206,31 @@ export async function createMCPServer(config?: {
       };
     }
     try {
-      return await tool.handler(params.arguments || {});
+      const args = params.arguments || {};
+      if (riskSimulator) {
+        const action = typeof args.action === 'string' ? args.action : undefined;
+        const overrideCtx =
+          config?.projectPath && !riskSimulator.hasExplicitWorkspaceRoot()
+            ? { workspaceRoot: projectPath }
+            : {};
+        const decision = await riskSimulator.simulate(
+          { tool: tool.name, action, args },
+          overrideCtx
+        );
+        const confirmed = Boolean(args.risk_confirmed === true);
+        if (riskSimulator.isBlocked(decision, confirmed)) {
+          return buildRiskBlockedToolResult(decision);
+        }
+        const result = await tool.handler(args);
+        return {
+          ...result,
+          _meta: {
+            ...(result._meta ?? {}),
+            actionRisk: decision,
+          },
+        };
+      }
+      return await tool.handler(args);
     } catch (error: any) {
       return {
         content: [{ type: 'text', text: `Error executing ${tool.name}: ${error.message}` }],
