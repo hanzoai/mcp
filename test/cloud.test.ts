@@ -52,7 +52,7 @@ describe('the default surface did not grow', () => {
 
   it('reaches every subsystem, and describe, through that one tool', () => {
     const hanzo = getConfiguredTools({}).find((t) => t.name === 'hanzo')!;
-    expect(hanzo.inputSchema.properties.resource.enum).toEqual(['auth', 'connectors', 'describe', 'vault', ...Object.keys(fleet)].sort());
+    expect(hanzo.inputSchema.properties.resource.enum).toEqual(['auth', 'connectors', 'crm', 'describe', 'vault', ...Object.keys(fleet)].sort());
   });
 });
 
