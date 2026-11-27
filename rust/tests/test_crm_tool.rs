@@ -238,23 +238,23 @@ async fn all_13_crm_actions_hit_expected_endpoints_and_payloads() {
     assert_eq!(r.content["ok"], true, "{}", r.content);
     assert_eq!(r.content["data"]["total"], 1);
 
-    // 4. get (using `deals` alias -> `opportunities`)
+    // 4. get (using `deals` alias -> `opportunities` + `include`)
     let r = tool
-        .execute(json!({ "action": "get", "object": "deals", "id": "opp_42", "expand": "company,owner" }))
+        .execute(json!({ "action": "get", "object": "deals", "id": "opp_42", "expand": "company,owner", "include": "timeline,notes" }))
         .await
         .unwrap();
     assert_eq!(r.content["ok"], true, "{}", r.content);
     assert_eq!(r.content["data"]["id"], "opp_42");
 
-    // 5. create
+    // 5. create (wrapped in `{"record": ..., "key": ...}` for /v1/crm/records/:object)
     let r = tool
-        .execute(json!({ "action": "create", "object": "companies", "data": { "name": "Hanzo AI", "domain": "hanzo.ai" } }))
+        .execute(json!({ "action": "create", "object": "companies", "data": { "name": "Hanzo AI", "domain": "hanzo.ai" }, "key": "domain" }))
         .await
         .unwrap();
     assert_eq!(r.content["ok"], true, "{}", r.content);
     assert_eq!(r.content["data"]["id"], "co_9");
 
-    // 6. update
+    // 6. update (wrapped in `{"record": ...}` for /v1/crm/records/:object/:id)
     let r = tool
         .execute(json!({ "action": "update", "object": "people", "id": "p_1", "data": { "title": "Co-CEO" } }))
         .await
@@ -286,13 +286,13 @@ async fn all_13_crm_actions_hit_expected_endpoints_and_payloads() {
 
     // 9. move_stage
     let r = tool
-        .execute(json!({ "action": "move_stage", "id": "opp_42", "stage": "closed_won", "note": "Signed MSA" }))
+        .execute(json!({ "action": "move_stage", "id": "opp_42", "stage": "closed_won", "next_step": "Kickoff", "note": "Signed MSA" }))
         .await
         .unwrap();
     assert_eq!(r.content["ok"], true, "{}", r.content);
     assert_eq!(r.content["data"]["stage"], "closed_won");
 
-    // 10. log_activity
+    // 10. log_activity (normalizes person->person_id etc. and outbound->out)
     let r = tool
         .execute(json!({
             "action": "log_activity",
@@ -311,9 +311,9 @@ async fn all_13_crm_actions_hit_expected_endpoints_and_payloads() {
     assert_eq!(r.content["ok"], true, "{}", r.content);
     assert_eq!(r.content["data"]["id"], "act_1");
 
-    // 11. analytics
+    // 11. analytics (with pipeline query param)
     let r = tool
-        .execute(json!({ "action": "analytics", "period": "30d", "object": "deals" }))
+        .execute(json!({ "action": "analytics", "pipeline": "sales", "period": "30d", "object": "deals" }))
         .await
         .unwrap();
     assert_eq!(r.content["ok"], true, "{}", r.content);
@@ -326,7 +326,8 @@ async fn all_13_crm_actions_hit_expected_endpoints_and_payloads() {
             "mode": "draft_email",
             "prompt": "Follow up after demo",
             "object": "deals",
-            "record_id": "opp_42"
+            "record_id": "opp_42",
+            "model": "enso-auto"
         }))
         .await
         .unwrap();
@@ -340,7 +341,8 @@ async fn all_13_crm_actions_hit_expected_endpoints_and_payloads() {
             "to": "founder@acme.io",
             "subject": "Next steps",
             "body": "Great speaking today.",
-            "person": "p_1"
+            "person": "p_1",
+            "in_reply_to": "<msg1@acme.io>"
         }))
         .await
         .unwrap();
@@ -357,7 +359,7 @@ async fn all_13_crm_actions_hit_expected_endpoints_and_payloads() {
         assert_eq!(req.headers.get("x-org-id").map(String::as_str), Some("hanzo"));
     }
 
-    // Spot-check query strings & JSON bodies.
+    // Spot-check query strings & JSON bodies against hanzo-inc/cloud contracts.
     assert_eq!(reqs[1].query.get("q").map(String::as_str), Some("acme"));
     assert_eq!(reqs[1].query.get("objects").map(String::as_str), Some("people,opportunities"));
     assert_eq!(reqs[1].query.get("limit").map(String::as_str), Some("10"));
@@ -370,27 +372,35 @@ async fn all_13_crm_actions_hit_expected_endpoints_and_payloads() {
     assert_eq!(reqs[2].query.get("expand").map(String::as_str), Some("company"));
 
     assert_eq!(reqs[3].query.get("expand").map(String::as_str), Some("company,owner"));
-    assert_eq!(reqs[4].body, Some(json!({ "name": "Hanzo AI", "domain": "hanzo.ai" })));
-    assert_eq!(reqs[5].body, Some(json!({ "title": "Co-CEO" })));
+    assert_eq!(reqs[3].query.get("include").map(String::as_str), Some("timeline,notes"));
+    assert_eq!(
+        reqs[4].body,
+        Some(json!({ "record": { "name": "Hanzo AI", "domain": "hanzo.ai" }, "key": "domain" }))
+    );
+    assert_eq!(reqs[5].body, Some(json!({ "record": { "title": "Co-CEO" } })));
     assert_eq!(
         reqs[7].body,
         Some(json!({ "source_id": "p_1", "target_id": "p_2", "fields": { "email": "primary@hanzo.ai" } }))
     );
-    assert_eq!(reqs[8].body, Some(json!({ "stage": "closed_won", "note": "Signed MSA" })));
+    assert_eq!(
+        reqs[8].body,
+        Some(json!({ "stage": "closed_won", "next_step": "Kickoff", "note": "Signed MSA" }))
+    );
     assert_eq!(
         reqs[9].body,
         Some(json!({
             "kind": "call",
             "subject": "Discovery call",
             "body": "Discussed enterprise rollout",
-            "person": "p_1",
-            "company": "co_9",
-            "opportunity": "opp_42",
-            "candidate": "cand_3",
-            "direction": "outbound",
+            "person_id": "p_1",
+            "company_id": "co_9",
+            "opportunity_id": "opp_42",
+            "candidate_id": "cand_3",
+            "direction": "out",
             "channel": "phone"
         }))
     );
+    assert_eq!(reqs[10].query.get("pipeline").map(String::as_str), Some("sales"));
     assert_eq!(reqs[10].query.get("object").map(String::as_str), Some("opportunities"));
     assert_eq!(reqs[10].query.get("period").map(String::as_str), Some("30d"));
     assert_eq!(
@@ -399,7 +409,8 @@ async fn all_13_crm_actions_hit_expected_endpoints_and_payloads() {
             "mode": "draft_email",
             "prompt": "Follow up after demo",
             "object": "opportunities",
-            "record_id": "opp_42"
+            "record_id": "opp_42",
+            "model": "enso-auto"
         }))
     );
     assert_eq!(
@@ -408,7 +419,8 @@ async fn all_13_crm_actions_hit_expected_endpoints_and_payloads() {
             "to": "founder@acme.io",
             "subject": "Next steps",
             "body": "Great speaking today.",
-            "person": "p_1"
+            "person": "p_1",
+            "in_reply_to": "<msg1@acme.io>"
         }))
     );
 }
@@ -491,7 +503,11 @@ async fn graceful_base_fallback_on_404_for_all_crud_actions() {
     assert_eq!(reqs[1].path, "/v1/base/collections/people/records");
     assert_eq!(reqs[1].query.get("perPage").map(String::as_str), Some("15"));
     assert_eq!(reqs[4].path, "/v1/crm/records/opportunities");
+    assert_eq!(reqs[4].body, Some(json!({ "record": { "title": "Enterprise" } })));
     assert_eq!(reqs[5].path, "/v1/base/collections/opportunities/records");
+    assert_eq!(reqs[5].body, Some(json!({ "title": "Enterprise" })));
+    assert_eq!(reqs[6].body, Some(json!({ "record": { "done": true } })));
+    assert_eq!(reqs[7].body, Some(json!({ "done": true })));
 }
 
 #[tokio::test]
@@ -593,6 +609,53 @@ async fn invalid_objects_ids_modes_and_missing_auth_are_rejected_without_network
     assert_eq!(r.content["ok"], false);
     assert_eq!(r.content["error"]["code"], "INVALID_ARGS");
 
+    // Unlinked log_activity rejected
+    let r = tool
+        .execute(json!({ "action": "log_activity", "kind": "call", "subject": "No entity" }))
+        .await
+        .unwrap();
+    assert_eq!(r.content["ok"], false);
+    assert_eq!(r.content["error"]["code"], "INVALID_ARGS");
+
+    // Invalid log_activity direction rejected
+    let r = tool
+        .execute(json!({ "action": "log_activity", "kind": "call", "person_id": "p_1", "direction": "sideways" }))
+        .await
+        .unwrap();
+    assert_eq!(r.content["ok"], false);
+    assert_eq!(r.content["error"]["code"], "INVALID_ARGS");
+
+    // Multi-recipient send_email rejected (/v1/marketing/mail takes one string address)
+    let r = tool
+        .execute(json!({ "action": "send_email", "to": ["a@b.co", "c@d.co"], "subject": "Hi", "body": "Body" }))
+        .await
+        .unwrap();
+    assert_eq!(r.content["ok"], false);
+    assert_eq!(r.content["error"]["code"], "INVALID_ARGS");
+
+    // ai_assist ask without prompt & mismatched object/record_id rejected
+    let r = tool
+        .execute(json!({ "action": "ai_assist", "mode": "ask" }))
+        .await
+        .unwrap();
+    assert_eq!(r.content["ok"], false);
+    assert_eq!(r.content["error"]["code"], "INVALID_ARGS");
+
+    let r = tool
+        .execute(json!({ "action": "ai_assist", "mode": "summarize", "object": "people" }))
+        .await
+        .unwrap();
+    assert_eq!(r.content["ok"], false);
+    assert_eq!(r.content["error"]["code"], "INVALID_ARGS");
+
+    // Invalid analytics pipeline rejected
+    let r = tool
+        .execute(json!({ "action": "analytics", "pipeline": "invalid" }))
+        .await
+        .unwrap();
+    assert_eq!(r.content["ok"], false);
+    assert_eq!(r.content["error"]["code"], "INVALID_ARGS");
+
     // Missing API key rejected
     let unauth = CrmTool::with_endpoint(base, None, None);
     let r = unauth.execute(json!({ "action": "objects" })).await.unwrap();
@@ -603,8 +666,9 @@ async fn invalid_objects_ids_modes_and_missing_auth_are_rejected_without_network
 }
 
 #[test]
-fn all_12_canonical_objects_plus_deals_alias_pass_allowlist() {
-    assert_eq!(CRM_OBJECTS.len(), 12);
+fn all_13_canonical_objects_plus_deals_alias_pass_allowlist() {
+    assert_eq!(CRM_OBJECTS.len(), 13);
+    assert!(CRM_OBJECTS.contains(&"applications"));
     for obj in CRM_OBJECTS {
         assert_eq!(normalize_crm_object(obj).unwrap(), *obj);
     }

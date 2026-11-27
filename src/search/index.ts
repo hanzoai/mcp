@@ -176,6 +176,5 @@ export * from './url-helper.js';
 export * from './file-server.js';
 export * from './secure-tunnel.js';
 
-// Export clean-room Zoekt-inspired incremental trigram code search & benchmark (HIP-1347)
+// Export clean-room Zoekt-inspired incremental trigram code search (HIP-1347)
 export * from './trigram-index.js';
-export * from './zoekt-benchmark.js';

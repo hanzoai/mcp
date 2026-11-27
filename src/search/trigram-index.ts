@@ -197,6 +197,7 @@ export interface RebuildStats {
 
 export interface IndexMemoryStats {
   readonly canonicalBlobCount: number;
+  readonly totalCanonicalBytes: number;
   readonly indexedDocCount: number;
   readonly uniqueContentTrigrams: number;
   readonly uniquePathTrigrams: number;
@@ -205,7 +206,23 @@ export interface IndexMemoryStats {
   readonly derivedIntact: boolean;
 }
 
+export interface TrigramIndexOptions {
+  /** Maximum total UTF-8 bytes retained across canonical blobs (default: 256 MiB). */
+  readonly maxTotalBytes?: number;
+  /** Maximum number of canonical blobs retained (default: 50_000). */
+  readonly maxFiles?: number;
+  /** Maximum UTF-8 byte length accepted for any single blob (default: 2 MiB). */
+  readonly maxFileBytes?: number;
+  /** Maximum regex pattern length accepted in search queries (default: 512). */
+  readonly maxRegexLength?: number;
+}
+
 const DEFAULT_MAX_FILE_BYTES = 2 * 1024 * 1024;
+const DEFAULT_MAX_TOTAL_BYTES = 256 * 1024 * 1024;
+const DEFAULT_MAX_FILES = 50_000;
+const DEFAULT_MAX_REGEX_LENGTH = 512;
+const MAX_REGEX_QUANTIFIER_BOUND = 200;
+const MAX_PATH_GLOB_LENGTH = 512;
 const MAX_EXCERPT_CHARS = 500;
 const DEFAULT_PER_FILE_LIMIT = 100;
 const DEFAULT_SKIP_DIRS = new Set([
@@ -300,7 +317,11 @@ export function escapeRegExpLiteral(literal: string): string {
 
 /** Convert a simple glob pattern (`*.ts`, `src/**\/*.cu`, `**\/config.toml`) into a RegExp. */
 export function compilePathGlob(globPattern: string): RegExp {
-  const normalized = globPattern.replace(/\\/g, '/').trim();
+  const raw = globPattern.replace(/\\/g, '/').trim();
+  if (raw.length > MAX_PATH_GLOB_LENGTH) {
+    throw new RangeError(`Path glob exceeds maximum length of ${MAX_PATH_GLOB_LENGTH} characters`);
+  }
+  const normalized = raw.replace(/\*{3,}/g, '**');
   const effective = normalized.includes('/') ? normalized : `**/${normalized}`;
   let regexStr = '^';
   let i = 0;
@@ -342,6 +363,163 @@ export function compilePathGlob(globPattern: string): RegExp {
   }
   regexStr += '$';
   return new RegExp(regexStr, 'i');
+}
+
+/**
+ * Validate a user-supplied regex pattern against catastrophic backtracking (ReDoS)
+ * and oversized inputs before compiling with `new RegExp`.
+ * Returns `null` when safe, or a human-readable rejection reason otherwise.
+ */
+export function validateSafeRegexPattern(
+  pattern: string,
+  maxLength: number = DEFAULT_MAX_REGEX_LENGTH
+): string | null {
+  if (pattern.length > maxLength) {
+    return `Regex pattern length ${pattern.length} exceeds maximum allowed length ${maxLength}`;
+  }
+
+  interface GroupFrame {
+    hasRepeater: boolean;
+    hasAlternation: boolean;
+  }
+
+  const stack: GroupFrame[] = [];
+  let inClass = false;
+  let lastWasUnboundedWildcard = false;
+
+  const parseQuant = (idx: number): { end: number; repeats: boolean; boundExceeded: boolean } | null => {
+    if (idx >= pattern.length) return null;
+    const c = pattern[idx];
+    if (c === '*' || c === '+') {
+      const end = pattern[idx + 1] === '?' ? idx + 2 : idx + 1;
+      return { end, repeats: true, boundExceeded: false };
+    }
+    if (c === '?') {
+      const end = pattern[idx + 1] === '?' ? idx + 2 : idx + 1;
+      return { end, repeats: false, boundExceeded: false };
+    }
+    if (c === '{') {
+      const m = /^\{(\d+)(?:,(\d*))?\}\??/.exec(pattern.slice(idx));
+      if (!m) return null;
+      const minVal = Number.parseInt(m[1], 10);
+      const hasComma = m[2] !== undefined;
+      const maxVal = hasComma ? (m[2] === '' ? Number.POSITIVE_INFINITY : Number.parseInt(m[2], 10)) : minVal;
+      const boundExceeded =
+        minVal > MAX_REGEX_QUANTIFIER_BOUND ||
+        (Number.isFinite(maxVal) && maxVal > MAX_REGEX_QUANTIFIER_BOUND);
+      const repeats = maxVal > 1;
+      return { end: idx + m[0].length, repeats, boundExceeded };
+    }
+    return null;
+  };
+
+  for (let i = 0; i < pattern.length; i++) {
+    const ch = pattern[i];
+    if (ch === '\\') {
+      if (i + 1 >= pattern.length) break;
+      const next = pattern[i + 1];
+      if (!inClass && ((next >= '1' && next <= '9') || next === 'k')) {
+        return 'Backreferences are disallowed for ReDoS safety';
+      }
+      i += 1;
+      if (!inClass) {
+        const q = parseQuant(i + 1);
+        if (q) {
+          if (q.boundExceeded) return `Quantifier exceeds maximum bound of ${MAX_REGEX_QUANTIFIER_BOUND}`;
+          if (q.repeats && stack.length > 0) stack[stack.length - 1].hasRepeater = true;
+          i = q.end - 1;
+        }
+        lastWasUnboundedWildcard = false;
+      }
+      continue;
+    }
+
+    if (inClass) {
+      if (ch === ']') {
+        inClass = false;
+        const q = parseQuant(i + 1);
+        if (q) {
+          if (q.boundExceeded) return `Quantifier exceeds maximum bound of ${MAX_REGEX_QUANTIFIER_BOUND}`;
+          if (q.repeats && stack.length > 0) stack[stack.length - 1].hasRepeater = true;
+          i = q.end - 1;
+        }
+        lastWasUnboundedWildcard = false;
+      }
+      continue;
+    }
+
+    if (ch === '[') {
+      inClass = true;
+      lastWasUnboundedWildcard = false;
+      continue;
+    }
+
+    if (ch === '(') {
+      stack.push({ hasRepeater: false, hasAlternation: false });
+      lastWasUnboundedWildcard = false;
+      continue;
+    }
+
+    if (ch === '|') {
+      if (stack.length > 0) stack[stack.length - 1].hasAlternation = true;
+      lastWasUnboundedWildcard = false;
+      continue;
+    }
+
+    if (ch === ')') {
+      const closed = stack.pop();
+      const q = parseQuant(i + 1);
+      if (q) {
+        if (q.boundExceeded) return `Quantifier exceeds maximum bound of ${MAX_REGEX_QUANTIFIER_BOUND}`;
+        if (q.repeats && closed) {
+          if (closed.hasRepeater) {
+            return 'Nested quantifiers are disallowed for ReDoS safety';
+          }
+          if (closed.hasAlternation) {
+            return 'Quantified alternation group is disallowed for ReDoS safety';
+          }
+        }
+        if (stack.length > 0 && (q.repeats || closed?.hasRepeater)) {
+          stack[stack.length - 1].hasRepeater = true;
+        }
+        i = q.end - 1;
+      } else if (closed?.hasRepeater && stack.length > 0) {
+        stack[stack.length - 1].hasRepeater = true;
+      }
+      lastWasUnboundedWildcard = false;
+      continue;
+    }
+
+    if (ch === '.') {
+      const q = parseQuant(i + 1);
+      if (q) {
+        if (q.boundExceeded) return `Quantifier exceeds maximum bound of ${MAX_REGEX_QUANTIFIER_BOUND}`;
+        if (q.repeats) {
+          if (lastWasUnboundedWildcard) {
+            return 'Adjacent unbounded wildcard quantifiers are disallowed for ReDoS safety';
+          }
+          if (stack.length > 0) stack[stack.length - 1].hasRepeater = true;
+          lastWasUnboundedWildcard = true;
+        } else {
+          lastWasUnboundedWildcard = false;
+        }
+        i = q.end - 1;
+      } else {
+        lastWasUnboundedWildcard = false;
+      }
+      continue;
+    }
+
+    const q = parseQuant(i + 1);
+    if (q) {
+      if (q.boundExceeded) return `Quantifier exceeds maximum bound of ${MAX_REGEX_QUANTIFIER_BOUND}`;
+      if (q.repeats && stack.length > 0) stack[stack.length - 1].hasRepeater = true;
+      i = q.end - 1;
+    }
+    lastWasUnboundedWildcard = false;
+  }
+
+  return null;
 }
 
 function stripTrailingCR(line: string): string {
@@ -866,8 +1044,22 @@ interface IndexedDocState {
  * pre-return multi-tenant ACL filtering.
  */
 export class TrigramCodeIndex {
+  /** Configurable memory and query safety caps. */
+  private readonly maxTotalBytes: number;
+  private readonly maxFiles: number;
+  private readonly maxFileBytes: number;
+  private readonly maxRegexLength: number;
+
   /** Canonical source record store (source of truth; survives derived index wipe). */
   private readonly canonicalBlobs = new Map<string, CanonicalTrigramBlob>();
+  private totalCanonicalBytes = 0;
+
+  constructor(options: TrigramIndexOptions = {}) {
+    this.maxTotalBytes = options.maxTotalBytes ?? DEFAULT_MAX_TOTAL_BYTES;
+    this.maxFiles = options.maxFiles ?? DEFAULT_MAX_FILES;
+    this.maxFileBytes = options.maxFileBytes ?? DEFAULT_MAX_FILE_BYTES;
+    this.maxRegexLength = options.maxRegexLength ?? DEFAULT_MAX_REGEX_LENGTH;
+  }
 
   /** Derived state (completely rebuildable from canonicalBlobs). */
   private nextDocId = 1;
@@ -937,10 +1129,33 @@ export class TrigramCodeIndex {
           elapsedMs: performance.now() - t0,
         };
       }
-      this.detachBranchDoc(canonicalKey, input.tenantId, input.branch, existingBranchDocId);
+    }
+
+    const byteLength = Buffer.byteLength(input.content, 'utf8');
+    if (byteLength > this.maxFileBytes) {
+      throw new RangeError(
+        `Blob ${normPath} (${byteLength} bytes) exceeds maxFileBytes limit (${this.maxFileBytes})`
+      );
     }
 
     const prevCanonical = this.canonicalBlobs.get(canonicalKey);
+    const nextFileCount = this.canonicalBlobs.size + (prevCanonical ? 0 : 1);
+    const nextTotalBytes = this.totalCanonicalBytes - (prevCanonical?.byteLength ?? 0) + byteLength;
+    if (nextFileCount > this.maxFiles) {
+      throw new RangeError(
+        `Canonical blob count (${nextFileCount}) would exceed maxFiles limit (${this.maxFiles})`
+      );
+    }
+    if (nextTotalBytes > this.maxTotalBytes) {
+      throw new RangeError(
+        `Canonical blob memory (${nextTotalBytes} bytes) would exceed maxTotalBytes limit (${this.maxTotalBytes})`
+      );
+    }
+
+    if (existingBranchDocId !== undefined) {
+      this.detachBranchDoc(canonicalKey, input.tenantId, input.branch, existingBranchDocId);
+    }
+
     const version = input.version ?? (prevCanonical ? prevCanonical.version + 1 : 1);
     const lineCount = input.content.length === 0 ? 0 : input.content.split('\n').length;
     const canonical: CanonicalTrigramBlob = {
@@ -954,9 +1169,10 @@ export class TrigramCodeIndex {
       language,
       content: input.content,
       lineCount,
-      byteLength: Buffer.byteLength(input.content, 'utf8'),
+      byteLength,
     };
     this.canonicalBlobs.set(canonicalKey, canonical);
+    this.totalCanonicalBytes = nextTotalBytes;
 
     const docId = this.attachCanonicalBlob(canonicalKey, contentKey, canonical);
     const state = this.docsById.get(docId)!;
@@ -975,7 +1191,11 @@ export class TrigramCodeIndex {
   deleteFile(tenantId: string, repoId: string, branch: string, filePath: string): boolean {
     const normPath = normalizeIndexPath(filePath);
     const canonicalKey = this.makeCanonicalKey(tenantId, repoId, branch, normPath);
+    const prev = this.canonicalBlobs.get(canonicalKey);
     const existed = this.canonicalBlobs.delete(canonicalKey);
+    if (prev) {
+      this.totalCanonicalBytes = Math.max(0, this.totalCanonicalBytes - prev.byteLength);
+    }
     const docId = this.branchPathToDocId.get(canonicalKey);
     if (docId !== undefined) {
       this.detachBranchDoc(canonicalKey, tenantId, branch, docId);
@@ -1034,6 +1254,20 @@ export class TrigramCodeIndex {
         carriedUnchanged += 1;
         continue;
       }
+      const prevTarget = this.canonicalBlobs.get(targetCanonicalKey);
+      const nextFileCount = this.canonicalBlobs.size + (prevTarget ? 0 : 1);
+      const nextTotalBytes = this.totalCanonicalBytes - (prevTarget?.byteLength ?? 0) + state.byteLength;
+      if (nextFileCount > this.maxFiles) {
+        throw new RangeError(
+          `Canonical blob count (${nextFileCount}) would exceed maxFiles limit (${this.maxFiles})`
+        );
+      }
+      if (nextTotalBytes > this.maxTotalBytes) {
+        throw new RangeError(
+          `Canonical blob memory (${nextTotalBytes} bytes) would exceed maxTotalBytes limit (${this.maxTotalBytes})`
+        );
+      }
+
       if (existingTargetDocId !== undefined) {
         this.detachBranchDoc(targetCanonicalKey, delta.tenantId, delta.targetBranch, existingTargetDocId);
       }
@@ -1052,6 +1286,7 @@ export class TrigramCodeIndex {
         lineCount: state.lineCount,
         byteLength: state.byteLength,
       });
+      this.totalCanonicalBytes = nextTotalBytes;
 
       state.branches.add(delta.targetBranch);
       state.branchVersions.set(delta.targetBranch, baseVersion);
@@ -1237,6 +1472,7 @@ export class TrigramCodeIndex {
   /** Wipe both canonical store and derived index, then rebuild from an external list of blobs. */
   rebuildFromBlobs(blobs: readonly TrigramSourceBlobInput[]): RebuildStats {
     this.canonicalBlobs.clear();
+    this.totalCanonicalBytes = 0;
     this.wipeDerivedIndex();
     const sorted = [...blobs].sort((a, b) => {
       const ka = this.makeCanonicalKey(a.tenantId, a.repoId, a.branch, normalizeIndexPath(a.path));
@@ -1289,6 +1525,7 @@ export class TrigramCodeIndex {
 
     return {
       canonicalBlobCount: this.canonicalBlobs.size,
+      totalCanonicalBytes: this.totalCanonicalBytes,
       indexedDocCount: this.docsById.size,
       uniqueContentTrigrams: this.contentAsciiPostings.size + this.contentUnicodePostings.size,
       uniquePathTrigrams: this.pathAsciiPostings.size + this.pathUnicodePostings.size,
@@ -1309,7 +1546,31 @@ export class TrigramCodeIndex {
     const perFileLimit = options.perFileLimit ?? DEFAULT_PER_FILE_LIMIT;
     const contextLines = options.contextLines ?? 0;
     const semanticBoostWeight = options.semanticBoostWeight ?? (kind === 'hybrid' ? 0.15 : 0);
-    const pathGlobRegex = options.pathGlob ? compilePathGlob(options.pathGlob) : null;
+    let pathGlobRegex: RegExp | null = null;
+    if (options.pathGlob) {
+      try {
+        pathGlobRegex = compilePathGlob(options.pathGlob);
+      } catch {
+        return {
+          hits: [],
+          stats: {
+            elapsedMs: performance.now() - t0,
+            authorizedDocs: 0,
+            candidateDocs: 0,
+            verifiedDocs: 0,
+            totalHitsBeforeLimit: 0,
+            usedFastPath: false,
+            plan: {
+              mode: 'scan_fallback',
+              selective: false,
+              branches: [],
+              trigramCount: 0,
+              reason: 'Invalid or oversized path glob',
+            },
+          },
+        };
+      }
+    }
     const langSet = options.languages && options.languages.length > 0 ? new Set(options.languages) : null;
 
     if (!options.query || !this.derivedIntact) {
@@ -1331,6 +1592,53 @@ export class TrigramCodeIndex {
           },
         },
       };
+    }
+
+    if (kind === 'regex') {
+      const safetyIssue = validateSafeRegexPattern(options.query, this.maxRegexLength);
+      if (safetyIssue) {
+        return {
+          hits: [],
+          stats: {
+            elapsedMs: performance.now() - t0,
+            authorizedDocs: 0,
+            candidateDocs: 0,
+            verifiedDocs: 0,
+            totalHitsBeforeLimit: 0,
+            usedFastPath: false,
+            plan: {
+              mode: 'scan_fallback',
+              selective: false,
+              branches: [],
+              trigramCount: 0,
+              reason: `Unsafe regular expression rejected: ${safetyIssue}`,
+            },
+          },
+        };
+      }
+      try {
+        // Validate syntax upfront before touching postings
+        void new RegExp(options.query, caseSensitive ? '' : 'i');
+      } catch {
+        return {
+          hits: [],
+          stats: {
+            elapsedMs: performance.now() - t0,
+            authorizedDocs: 0,
+            candidateDocs: 0,
+            verifiedDocs: 0,
+            totalHitsBeforeLimit: 0,
+            usedFastPath: false,
+            plan: {
+              mode: 'scan_fallback',
+              selective: false,
+              branches: [],
+              trigramCount: 0,
+              reason: 'Invalid regular expression',
+            },
+          },
+        };
+      }
     }
 
     // STEP 1: STRICT PRE-RETURN TENANT & ACL PARTITIONING

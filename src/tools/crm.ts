@@ -37,6 +37,7 @@ export const CRM_OBJECTS = [
   'views',
   'segments',
   'attachments',
+  'applications',
 ] as const;
 
 export type CrmObject = (typeof CRM_OBJECTS)[number];
@@ -64,6 +65,7 @@ export type CrmAction = (typeof CRM_ACTIONS)[number];
 const CRM_ACTION_SET = new Set<string>(CRM_ACTIONS);
 const AI_ASSIST_MODES = ['ask', 'enrich', 'draft_email', 'summarize'] as const;
 const AI_ASSIST_MODE_SET = new Set<string>(AI_ASSIST_MODES);
+const ANALYTICS_PIPELINES = new Set(['sales', 'fundraising']);
 const ORG_RE = /^[A-Za-z0-9._-]{1,128}$/;
 
 export function resolveCrmObject(raw: unknown): CrmObject {
@@ -71,8 +73,16 @@ export function resolveCrmObject(raw: unknown): CrmObject {
   if (s === 'deals') return 'opportunities';
   if (CRM_OBJECT_SET.has(s)) return s as CrmObject;
   throw new Error(
-    `invalid CRM object ${JSON.stringify(raw)}; allowed: people, companies, opportunities (alias: deals), tasks, notes, activities, lists, list_members, candidates, views, segments, attachments`,
+    `invalid CRM object ${JSON.stringify(raw)}; allowed: people, companies, opportunities (alias: deals), tasks, notes, activities, lists, list_members, candidates, views, segments, attachments, applications`,
   );
+}
+
+function normalizeDirection(raw: unknown): string | undefined {
+  const s = typeof raw === 'string' ? raw.trim().toLowerCase() : '';
+  if (!s) return undefined;
+  if (s === 'in' || s === 'inbound') return 'in';
+  if (s === 'out' || s === 'outbound') return 'out';
+  throw new Error(`invalid direction ${JSON.stringify(raw)}; allowed: in (inbound), out (outbound)`);
 }
 
 function validateRecordId(raw: unknown): string {
@@ -299,12 +309,13 @@ async function callWithBaseFallback(
   basePath: string,
   token: string,
   org?: string,
-  body?: unknown,
+  crmBody?: unknown,
+  baseBody?: unknown,
   emptyOk?: unknown,
 ): Promise<ToolResult> {
-  const primary = await sendRequest(method, crmPath, token, org, body);
+  const primary = await sendRequest(method, crmPath, token, org, crmBody);
   if (primary.status === 404) {
-    const fb = await sendRequest(method, basePath, token, org, body);
+    const fb = await sendRequest(method, basePath, token, org, baseBody);
     return finalizeReply(action, fb, emptyOk, { fallback: 'base' });
   }
   return finalizeReply(action, primary, emptyOk);
@@ -315,7 +326,7 @@ export const crmTool: Tool = {
   description:
     'Hanzo Cloud CRM (/v1/crm) with graceful Base fallback (/v1/base/collections/{object}/records): ' +
     'objects, search, list, get, create, update, delete, merge, move_stage, log_activity, analytics, ai_assist, send_email. ' +
-    'Valid objects: people, companies, opportunities (alias: deals), tasks, notes, activities, lists, list_members, candidates, views, segments, attachments.',
+    'Valid objects: people, companies, opportunities (alias: deals), tasks, notes, activities, lists, list_members, candidates, views, segments, attachments, applications.',
   inputSchema: {
     type: 'object',
     properties: {
@@ -345,12 +356,15 @@ export const crmTool: Tool = {
           'views',
           'segments',
           'attachments',
+          'applications',
         ],
         description: 'CRM object collection (`deals` normalizes to `opportunities`)',
       },
       id: { type: 'string', description: 'Record ID (get, update, delete, move_stage, ai_assist)' },
       record_id: { type: 'string', description: 'Alias for id (ai_assist, get, update, delete)' },
-      data: { type: 'object', description: 'Record fields payload (create, update)' },
+      data: { type: 'object', description: 'Record fields payload (create, update) or activity metadata (log_activity)' },
+      record: { type: 'object', description: 'Alias for data (create, update)' },
+      key: { type: 'string', description: 'Optional unique field key for idempotent upsert (create)' },
       q: { type: 'string', description: 'Search query (search)' },
       objects: {
         description: 'Optional comma-separated string or array of CRM objects to scope search',
@@ -362,27 +376,46 @@ export const crmTool: Tool = {
       page: { type: 'number', description: '1-based page number (list)' },
       per_page: { type: 'number', description: 'Records per page (list)' },
       expand: { type: 'string', description: 'Comma-separated relation fields to expand (list, get)' },
-      source_id: { type: 'string', description: 'Source record ID to merge from (merge)' },
+      include: {
+        type: 'string',
+        description: 'Comma-separated related summaries to attach: timeline, notes, tasks, attachments, or all (get)',
+      },
+      source_id: { type: 'string', description: 'Source record ID to merge from (merge) or idempotency key (log_activity)' },
       target_id: { type: 'string', description: 'Target record ID to merge into (merge)' },
       fields: { type: 'object', description: 'Winning field overrides for merge' },
       stage: { type: 'string', description: 'Target deal pipeline stage (move_stage)' },
+      next_step: { type: 'string', description: 'Optional updated next_step for the opportunity (move_stage)' },
       note: { type: 'string', description: 'Optional stage-change note (move_stage)' },
       kind: { type: 'string', description: 'Activity kind, e.g. call, email, meeting, note, task (log_activity)' },
       subject: { type: 'string', description: 'Activity or email subject (log_activity, send_email)' },
+      snippet: { type: 'string', description: 'Short activity summary (log_activity)' },
       body: { type: 'string', description: 'Activity or email body (log_activity, send_email)' },
-      person: { type: 'string', description: 'Linked person record ID (log_activity, send_email)' },
-      company: { type: 'string', description: 'Linked company record ID (log_activity)' },
-      opportunity: { type: 'string', description: 'Linked opportunity/deal record ID (log_activity)' },
-      candidate: { type: 'string', description: 'Linked candidate record ID (log_activity)' },
-      direction: { type: 'string', description: 'Activity direction, e.g. inbound | outbound (log_activity)' },
+      at: { type: 'string', description: 'Optional RFC3339 activity timestamp (log_activity)' },
+      person_id: { type: 'string', description: 'Linked person record ID (log_activity)' },
+      company_id: { type: 'string', description: 'Linked company record ID (log_activity)' },
+      opportunity_id: { type: 'string', description: 'Linked opportunity/deal record ID (log_activity)' },
+      candidate_id: { type: 'string', description: 'Linked candidate record ID (log_activity)' },
+      person: { type: 'string', description: 'Linked person record ID (send_email; alias for person_id in log_activity)' },
+      company: { type: 'string', description: 'Alias for company_id (log_activity)' },
+      opportunity: { type: 'string', description: 'Alias for opportunity_id (log_activity)' },
+      candidate: { type: 'string', description: 'Alias for candidate_id (log_activity)' },
+      direction: { type: 'string', description: 'Activity direction: in | out (aliases: inbound | outbound) (log_activity)' },
       channel: { type: 'string', description: 'Activity channel, e.g. email | phone | slack | linkedin (log_activity)' },
       mode: {
         type: 'string',
         enum: [...AI_ASSIST_MODES],
         description: 'AI assist mode: ask | enrich | draft_email | summarize (ai_assist)',
       },
-      prompt: { type: 'string', description: 'Instruction or question for AI assist (ai_assist)' },
-      to: { description: 'Recipient email address or list of addresses (send_email)' },
+      prompt: { type: 'string', description: 'Instruction or question for AI assist (ai_assist; required for mode=ask)' },
+      model: { type: 'string', description: 'Optional inference model override (ai_assist)' },
+      to: { type: 'string', description: 'Recipient email address (send_email)' },
+      in_reply_to: { type: 'string', description: 'Optional Message-ID header <id@host> being replied to (send_email)' },
+      references: { type: 'string', description: 'Optional space-separated Message-ID thread references (send_email)' },
+      pipeline: {
+        type: 'string',
+        enum: ['sales', 'fundraising'],
+        description: 'Optional pipeline filter: sales | fundraising (analytics)',
+      },
       period: { type: 'string', description: 'Optional analytics window, e.g. 7d, 30d, 90d (analytics)' },
       from: { type: 'string', description: 'Optional analytics start date (analytics)' },
     },
@@ -449,12 +482,14 @@ export const crmTool: Tool = {
           const token = requireToken();
           if (typeof token !== 'string') return token;
           const expand = nonEmptyString(args.expand);
-          const q = qs({ expand });
+          const include = nonEmptyString(args.include);
+          const crmQ = qs({ expand, include });
+          const baseQ = qs({ expand });
           return await callWithBaseFallback(
             action,
             'GET',
-            `/v1/crm/records/${obj}/${encodeURIComponent(id)}${q}`,
-            `/v1/base/collections/${obj}/records/${encodeURIComponent(id)}${q}`,
+            `/v1/crm/records/${obj}/${encodeURIComponent(id)}${crmQ}`,
+            `/v1/base/collections/${obj}/records/${encodeURIComponent(id)}${baseQ}`,
             token,
             org,
           );
@@ -463,10 +498,13 @@ export const crmTool: Tool = {
         case 'create': {
           if (!nonEmptyString(args.object)) return errEnvelope(action, 'INVALID_ARGS', 'object required');
           const obj = resolveCrmObject(args.object);
-          const data = plainObject(args.data ?? args.fields ?? args.body);
+          const data = plainObject(args.data ?? args.record ?? args.fields ?? args.body);
           if (!data) return errEnvelope(action, 'INVALID_ARGS', 'data object required');
           const token = requireToken();
           if (typeof token !== 'string') return token;
+          const crmBody: Record<string, unknown> = { record: data };
+          const key = nonEmptyString(args.key);
+          if (key) crmBody.key = key;
           return await callWithBaseFallback(
             action,
             'POST',
@@ -474,6 +512,7 @@ export const crmTool: Tool = {
             `/v1/base/collections/${obj}/records`,
             token,
             org,
+            crmBody,
             data,
           );
         }
@@ -482,7 +521,7 @@ export const crmTool: Tool = {
           if (!nonEmptyString(args.object)) return errEnvelope(action, 'INVALID_ARGS', 'object required');
           const obj = resolveCrmObject(args.object);
           const id = validateRecordId(args.id ?? args.record_id);
-          const data = plainObject(args.data ?? args.fields ?? args.body);
+          const data = plainObject(args.data ?? args.record ?? args.fields ?? args.body);
           if (!data) return errEnvelope(action, 'INVALID_ARGS', 'data object required');
           if (Object.keys(data).length === 0) return errEnvelope(action, 'INVALID_ARGS', 'data cannot be empty');
           const token = requireToken();
@@ -494,6 +533,7 @@ export const crmTool: Tool = {
             `/v1/base/collections/${obj}/records/${encodeURIComponent(id)}`,
             token,
             org,
+            { record: data },
             data,
           );
         }
@@ -511,6 +551,7 @@ export const crmTool: Tool = {
             `/v1/base/collections/${obj}/records/${encodeURIComponent(id)}`,
             token,
             org,
+            undefined,
             undefined,
             { deleted: true, object: obj, id },
           );
@@ -539,6 +580,8 @@ export const crmTool: Tool = {
           const token = requireToken();
           if (typeof token !== 'string') return token;
           const body: Record<string, unknown> = { stage };
+          const nextStep = nonEmptyString(args.next_step);
+          if (nextStep) body.next_step = nextStep;
           const note = nonEmptyString(args.note);
           if (note) body.note = note;
           return finalizeReply(
@@ -550,30 +593,45 @@ export const crmTool: Tool = {
         case 'log_activity': {
           const kind = nonEmptyString(args.kind ?? args.type);
           if (!kind) return errEnvelope(action, 'INVALID_ARGS', 'kind required');
+          const personId = nonEmptyString(args.person_id ?? args.person);
+          const companyId = nonEmptyString(args.company_id ?? args.company);
+          const opportunityId = nonEmptyString(args.opportunity_id ?? args.opportunity);
+          const candidateId = nonEmptyString(args.candidate_id ?? args.candidate);
+          if (!personId && !companyId && !opportunityId && !candidateId) {
+            return errEnvelope(
+              action,
+              'INVALID_ARGS',
+              'at least one of person_id, company_id, opportunity_id, or candidate_id required',
+            );
+          }
+          const direction = normalizeDirection(args.direction);
           const token = requireToken();
           if (typeof token !== 'string') return token;
           const body: Record<string, unknown> = { kind };
-          for (const key of [
-            'subject',
-            'body',
-            'person',
-            'company',
-            'opportunity',
-            'candidate',
-            'direction',
-            'channel',
-          ]) {
+          if (direction) body.direction = direction;
+          if (personId) body.person_id = personId;
+          if (companyId) body.company_id = companyId;
+          if (opportunityId) body.opportunity_id = opportunityId;
+          if (candidateId) body.candidate_id = candidateId;
+          for (const key of ['subject', 'snippet', 'body', 'channel', 'at', 'source_id']) {
             const val = nonEmptyString(args[key]);
             if (val) body[key] = val;
           }
+          const metaData = plainObject(args.data);
+          if (metaData) body.data = metaData;
           return finalizeReply(action, await sendRequest('POST', '/v1/crm/timeline', token, org, body));
         }
 
         case 'analytics': {
           const obj = nonEmptyString(args.object) ? resolveCrmObject(args.object) : undefined;
+          const pipelineRaw = nonEmptyString(args.pipeline)?.toLowerCase();
+          if (pipelineRaw && !ANALYTICS_PIPELINES.has(pipelineRaw)) {
+            return errEnvelope(action, 'INVALID_ARGS', `invalid pipeline ${JSON.stringify(args.pipeline)}; allowed: sales, fundraising`);
+          }
           const token = requireToken();
           if (typeof token !== 'string') return token;
           const reqPath = `/v1/crm/analytics${qs({
+            pipeline: pipelineRaw,
             object: obj,
             period: nonEmptyString(args.period),
             from: nonEmptyString(args.from),
@@ -591,26 +649,38 @@ export const crmTool: Tool = {
           if (!AI_ASSIST_MODE_SET.has(mode)) {
             return errEnvelope(action, 'INVALID_ARGS', `invalid mode ${JSON.stringify(mode)}; allowed: ${AI_ASSIST_MODES.join(', ')}`);
           }
+          const prompt = nonEmptyString(args.prompt);
+          if (mode === 'ask' && !prompt) {
+            return errEnvelope(action, 'INVALID_ARGS', 'prompt required when mode is ask');
+          }
           const obj = nonEmptyString(args.object) ? resolveCrmObject(args.object) : undefined;
           const recordId = nonEmptyString(args.record_id ?? args.id)
             ? validateRecordId(args.record_id ?? args.id)
             : undefined;
+          if (Boolean(obj) !== Boolean(recordId)) {
+            return errEnvelope(action, 'INVALID_ARGS', 'object and record_id must be provided together');
+          }
           const token = requireToken();
           if (typeof token !== 'string') return token;
           const body: Record<string, unknown> = { mode };
-          const prompt = nonEmptyString(args.prompt);
           if (prompt) body.prompt = prompt;
           if (obj) body.object = obj;
           if (recordId) body.record_id = recordId;
+          const model = nonEmptyString(args.model);
+          if (model) body.model = model;
           return finalizeReply(action, await sendRequest('POST', '/v1/crm/ai/assist', token, org, body));
         }
 
         case 'send_email': {
-          let to: string | string[] | undefined;
+          let to: string | undefined;
           if (typeof args.to === 'string' && args.to.trim()) {
             to = args.to.trim();
-          } else if (Array.isArray(args.to) && args.to.length > 0 && args.to.every((v) => typeof v === 'string' && v.trim())) {
-            to = args.to.map((v) => v.trim());
+          } else if (Array.isArray(args.to)) {
+            const cleaned = args.to.filter((v): v is string => typeof v === 'string' && v.trim().length > 0).map((v) => v.trim());
+            if (cleaned.length > 1) {
+              return errEnvelope(action, 'INVALID_ARGS', 'invalid to: /v1/marketing/mail accepts one email address per request');
+            }
+            if (cleaned.length === 1) to = cleaned[0];
           }
           if (!to) return errEnvelope(action, 'INVALID_ARGS', 'to required');
           const subject = nonEmptyString(args.subject);
@@ -620,8 +690,12 @@ export const crmTool: Tool = {
           const token = requireToken();
           if (typeof token !== 'string') return token;
           const body: Record<string, unknown> = { to, subject, body: emailBody };
-          const person = nonEmptyString(args.person);
+          const person = nonEmptyString(args.person ?? args.person_id);
           if (person) body.person = person;
+          const inReplyTo = nonEmptyString(args.in_reply_to);
+          if (inReplyTo) body.in_reply_to = inReplyTo;
+          const references = nonEmptyString(args.references);
+          if (references) body.references = references;
           return finalizeReply(action, await sendRequest('POST', '/v1/marketing/mail', token, org, body));
         }
       }
