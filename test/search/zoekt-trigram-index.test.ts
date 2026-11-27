@@ -23,6 +23,7 @@ import {
   TrigramCodeIndex,
   TrigramSourceBlobInput,
   planRegexTrigrams,
+  validateSafeRegexPattern,
 } from '../../src/search/trigram-index.js';
 import { runZoektBenchmark } from '../../src/search/zoekt-benchmark.js';
 
@@ -555,4 +556,147 @@ describe('TrigramCodeIndex (HIP-1347 Zoekt Clean-Room Engine)', () => {
     expect(report.boundaryRegimes.shortOrWildcardRegex.trigramFallbackCount).toBe(4);
     expect(report.boundaryRegimes.coldIndexAmortization.breakEvenQueryCount).toBeGreaterThanOrEqual(1);
   }, 60_000);
+
+  it('rejects ReDoS nested quantifiers, backreferences, oversized regexes, and invalid syntax safely', () => {
+    const index = new TrigramCodeIndex();
+    index.upsertFile({
+      tenantId: 'tenant-alpha',
+      repoId: 'core',
+      branch: 'main',
+      path: 'src/evil.ts',
+      content: `${'a'.repeat(60)}!\n`,
+      aclScope: ['team:core'],
+    });
+
+    // Classic ReDoS patterns must be rejected immediately without hanging
+    const unsafePatterns = [
+      '(a+)+$',
+      '([a-z]+)*$',
+      '(a|a)+$',
+      '(.*a){10}',
+      '(a+)\\1',
+      'a{500}',
+      '.*.*foo',
+      'a'.repeat(600),
+    ];
+
+    for (const pat of unsafePatterns) {
+      expect(validateSafeRegexPattern(pat)).not.toBeNull();
+      const res = index.search({ query: pat, kind: 'regex', access: ALPHA_ACCESS });
+      expect(res.hits).toHaveLength(0);
+      expect(res.stats.plan.reason).toContain('Unsafe regular expression rejected');
+    }
+
+    // Invalid regex syntax returns cleanly without throwing
+    const invalid = index.search({ query: '[unterminated(', kind: 'regex', access: ALPHA_ACCESS });
+    expect(invalid.hits).toHaveLength(0);
+    expect(invalid.stats.plan.reason).toBe('Invalid regular expression');
+
+    // Oversized path glob returns cleanly without throwing
+    const badGlob = index.search({
+      query: 'aaa',
+      kind: 'exact',
+      pathGlob: 'a/'.repeat(300),
+      access: ALPHA_ACCESS,
+    });
+    expect(badGlob.hits).toHaveLength(0);
+    expect(badGlob.stats.plan.reason).toContain('path glob');
+  });
+
+  it('enforces configurable canonicalBlobs memory limits (maxFileBytes, maxFiles, maxTotalBytes) without corrupting existing state', () => {
+    const index = new TrigramCodeIndex({
+      maxFileBytes: 64,
+      maxFiles: 2,
+      maxTotalBytes: 100,
+    });
+
+    // Oversized single file rejected
+    expect(() =>
+      index.upsertFile({
+        tenantId: 'tenant-alpha',
+        repoId: 'core',
+        branch: 'main',
+        path: 'src/huge.ts',
+        content: 'x'.repeat(65),
+        aclScope: ['team:core'],
+      })
+    ).toThrow(RangeError);
+    expect(index.getStats().canonicalBlobCount).toBe(0);
+    expect(index.getStats().totalCanonicalBytes).toBe(0);
+
+    index.upsertFile({
+      tenantId: 'tenant-alpha',
+      repoId: 'core',
+      branch: 'main',
+      path: 'src/one.ts',
+      content: 'const ONE_TOKEN = "aaaaaaaaaa";\n', // 32 bytes
+      aclScope: ['team:core'],
+    });
+    index.upsertFile({
+      tenantId: 'tenant-alpha',
+      repoId: 'core',
+      branch: 'main',
+      path: 'src/two.ts',
+      content: 'const TWO_TOKEN = "bbbbbbbbbb";\n', // 32 bytes
+      aclScope: ['team:core'],
+    });
+    expect(index.getStats().totalCanonicalBytes).toBe(64);
+
+    // 3rd file exceeds maxFiles=2
+    expect(() =>
+      index.upsertFile({
+        tenantId: 'tenant-alpha',
+        repoId: 'core',
+        branch: 'main',
+        path: 'src/three.ts',
+        content: 'const THREE = 3;\n',
+        aclScope: ['team:core'],
+      })
+    ).toThrow(RangeError);
+
+    // Updating existing file in place that would exceed maxTotalBytes=100 fails without losing previous version
+    const smallIndex = new TrigramCodeIndex({ maxFileBytes: 80, maxFiles: 5, maxTotalBytes: 80 });
+    smallIndex.upsertFile({
+      tenantId: 'tenant-alpha',
+      repoId: 'core',
+      branch: 'main',
+      path: 'src/a.ts',
+      content: 'const KEEP_ME = "1234567890";\n', // 30 bytes
+      aclScope: ['team:core'],
+    });
+    smallIndex.upsertFile({
+      tenantId: 'tenant-alpha',
+      repoId: 'core',
+      branch: 'main',
+      path: 'src/b.ts',
+      content: 'const OTHER_B = "1234567890";\n', // 30 bytes
+      aclScope: ['team:core'],
+    });
+    expect(() =>
+      smallIndex.upsertFile({
+        tenantId: 'tenant-alpha',
+        repoId: 'core',
+        branch: 'main',
+        path: 'src/a.ts',
+        content: 'x'.repeat(60), // 30 + 60 = 90 > 80
+        aclScope: ['team:core'],
+      })
+    ).toThrow(RangeError);
+    // Original doc remains intact and searchable after rejected update
+    expect(smallIndex.search({ query: 'KEEP_ME', kind: 'exact', access: ALPHA_ACCESS }).hits).toHaveLength(1);
+    expect(smallIndex.getStats().totalCanonicalBytes).toBe(60);
+
+    // Deleting frees budget
+    expect(smallIndex.deleteFile('tenant-alpha', 'core', 'main', 'src/b.ts')).toBe(true);
+    expect(smallIndex.getStats().totalCanonicalBytes).toBe(30);
+    smallIndex.upsertFile({
+      tenantId: 'tenant-alpha',
+      repoId: 'core',
+      branch: 'main',
+      path: 'src/c.ts',
+      content: 'const FITS_NOW = "1234567890";\n',
+      aclScope: ['team:core'],
+    });
+    expect(smallIndex.search({ query: 'FITS_NOW', kind: 'exact', access: ALPHA_ACCESS }).hits).toHaveLength(1);
+  });
 });

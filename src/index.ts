@@ -139,7 +139,7 @@ export type {
   GraphMemoryStats,
 } from './code-graph/index.js';
 
-// Export clean-room incremental trigram code search & benchmark (HIP-1347, Zoekt)
+// Export clean-room incremental trigram code search (HIP-1347, Zoekt)
 export * as trigramSearch from './search/trigram-index.js';
 export {
   TrigramCodeIndex,
@@ -150,6 +150,7 @@ export {
   compilePathGlob,
   extractUniqueTrigrams,
   planRegexTrigrams,
+  validateSafeRegexPattern,
   extractSymbolsFromContent,
   isDocumentAuthorized,
 } from './search/trigram-index.js';
@@ -174,29 +175,8 @@ export type {
   IndexDirectoryStats,
   RebuildStats,
   IndexMemoryStats,
+  TrigramIndexOptions,
 } from './search/trigram-index.js';
-export {
-  runZoektBenchmark,
-  buildBenchmarkQuerySuite,
-  buildDownstreamPatchTasks,
-  renderZoektScoreTableMarkdown,
-  renderZoektResearchReadme,
-} from './search/zoekt-benchmark.js';
-export type {
-  BenchmarkEngineName,
-  BenchmarkQueryCategory,
-  BenchmarkQueryCase,
-  DownstreamPatchTask,
-  EngineHitSummary,
-  EngineBenchmarkMetrics,
-  IncrementalAndBranchMetrics,
-  BoundaryRegimeShortRegex,
-  BoundaryRegimeColdAmortization,
-  SafetyAndRebuildAudit,
-  CorpusSummary,
-  ZoektBenchmarkReport,
-  RunZoektBenchmarkOptions,
-} from './search/zoekt-benchmark.js';
 
 // Import Tool type and tool configuration for use in function signatures
 import { Tool, listed } from './types/index.js';

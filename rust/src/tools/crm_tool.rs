@@ -45,6 +45,7 @@ pub const CRM_OBJECTS: &[&str] = &[
     "views",
     "segments",
     "attachments",
+    "applications",
 ];
 
 /// All supported `crm` actions.
@@ -65,6 +66,7 @@ pub const CRM_ACTIONS: &[&str] = &[
 ];
 
 const AI_ASSIST_MODES: &[&str] = &["ask", "enrich", "draft_email", "summarize"];
+const ANALYTICS_PIPELINES: &[&str] = &["sales", "fundraising"];
 
 /// Validate and normalize a CRM object name against the closed allowlist.
 /// Maps the friendly alias `deals` -> `opportunities`.
@@ -83,10 +85,19 @@ pub fn normalize_crm_object(raw: &str) -> std::result::Result<&'static str, Stri
         "views" => Ok("views"),
         "segments" => Ok("segments"),
         "attachments" => Ok("attachments"),
+        "applications" => Ok("applications"),
         _ => Err(format!(
-            "invalid CRM object {:?}; allowed: people, companies, opportunities (alias: deals), tasks, notes, activities, lists, list_members, candidates, views, segments, attachments",
+            "invalid CRM object {:?}; allowed: people, companies, opportunities (alias: deals), tasks, notes, activities, lists, list_members, candidates, views, segments, attachments, applications",
             raw
         )),
+    }
+}
+
+fn normalize_direction(raw: &str) -> std::result::Result<&'static str, String> {
+    match raw.trim().to_ascii_lowercase().as_str() {
+        "in" | "inbound" => Ok("in"),
+        "out" | "outbound" => Ok("out"),
+        _ => Err(format!("invalid direction {:?}; allowed: in (inbound), out (outbound)", raw)),
     }
 }
 
@@ -303,7 +314,7 @@ impl CrmTool {
     pub fn schema() -> Value {
         json!({
             "name": "crm",
-            "description": "Hanzo Cloud CRM (/v1/crm) with graceful Base fallback (/v1/base/collections/{object}/records): objects, search, list, get, create, update, delete, merge, move_stage, log_activity, analytics, ai_assist, send_email. Valid objects: people, companies, opportunities (alias: deals), tasks, notes, activities, lists, list_members, candidates, views, segments, attachments.",
+            "description": "Hanzo Cloud CRM (/v1/crm) with graceful Base fallback (/v1/base/collections/{object}/records): objects, search, list, get, create, update, delete, merge, move_stage, log_activity, analytics, ai_assist, send_email. Valid objects: people, companies, opportunities (alias: deals), tasks, notes, activities, lists, list_members, candidates, views, segments, attachments, applications.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -321,7 +332,7 @@ impl CrmTool {
                         "enum": [
                             "people", "companies", "opportunities", "deals", "tasks", "notes",
                             "activities", "lists", "list_members", "candidates", "views",
-                            "segments", "attachments"
+                            "segments", "attachments", "applications"
                         ],
                         "description": "CRM object collection (`deals` normalizes to `opportunities`)"
                     },
@@ -335,7 +346,15 @@ impl CrmTool {
                     },
                     "data": {
                         "type": "object",
-                        "description": "Record fields payload (create, update)"
+                        "description": "Record fields payload (create, update) or activity metadata (log_activity)"
+                    },
+                    "record": {
+                        "type": "object",
+                        "description": "Alias for data (create, update)"
+                    },
+                    "key": {
+                        "type": "string",
+                        "description": "Optional unique field name for idempotent upsert (create)"
                     },
                     "q": {
                         "type": "string",
@@ -376,9 +395,13 @@ impl CrmTool {
                         "type": "string",
                         "description": "Comma-separated relation fields to expand (list, get)"
                     },
+                    "include": {
+                        "type": "string",
+                        "description": "Comma-separated related summaries to attach: timeline, notes, tasks, attachments, or all (get)"
+                    },
                     "source_id": {
                         "type": "string",
-                        "description": "Source record ID to merge from (merge)"
+                        "description": "Source record ID to merge from (merge) or idempotency key (log_activity)"
                     },
                     "target_id": {
                         "type": "string",
@@ -392,6 +415,10 @@ impl CrmTool {
                         "type": "string",
                         "description": "Target deal pipeline stage (move_stage)"
                     },
+                    "next_step": {
+                        "type": "string",
+                        "description": "Optional updated next_step for the opportunity (move_stage)"
+                    },
                     "note": {
                         "type": "string",
                         "description": "Optional stage-change note (move_stage)"
@@ -404,29 +431,53 @@ impl CrmTool {
                         "type": "string",
                         "description": "Activity or email subject (log_activity, send_email)"
                     },
+                    "snippet": {
+                        "type": "string",
+                        "description": "Short activity summary (log_activity)"
+                    },
                     "body": {
                         "type": "string",
                         "description": "Activity or email body (log_activity, send_email)"
                     },
-                    "person": {
+                    "at": {
                         "type": "string",
-                        "description": "Linked person record ID (log_activity, send_email)"
+                        "description": "Optional RFC3339 activity timestamp (log_activity)"
                     },
-                    "company": {
+                    "person_id": {
+                        "type": "string",
+                        "description": "Linked person record ID (log_activity)"
+                    },
+                    "company_id": {
                         "type": "string",
                         "description": "Linked company record ID (log_activity)"
                     },
-                    "opportunity": {
+                    "opportunity_id": {
                         "type": "string",
                         "description": "Linked opportunity/deal record ID (log_activity)"
                     },
-                    "candidate": {
+                    "candidate_id": {
                         "type": "string",
                         "description": "Linked candidate record ID (log_activity)"
                     },
+                    "person": {
+                        "type": "string",
+                        "description": "Linked person record ID (send_email; alias for person_id in log_activity)"
+                    },
+                    "company": {
+                        "type": "string",
+                        "description": "Alias for company_id (log_activity)"
+                    },
+                    "opportunity": {
+                        "type": "string",
+                        "description": "Alias for opportunity_id (log_activity)"
+                    },
+                    "candidate": {
+                        "type": "string",
+                        "description": "Alias for candidate_id (log_activity)"
+                    },
                     "direction": {
                         "type": "string",
-                        "description": "Activity direction, e.g. inbound | outbound (log_activity)"
+                        "description": "Activity direction: in | out (aliases: inbound | outbound) (log_activity)"
                     },
                     "channel": {
                         "type": "string",
@@ -439,14 +490,28 @@ impl CrmTool {
                     },
                     "prompt": {
                         "type": "string",
-                        "description": "Instruction or question for AI assist (ai_assist)"
+                        "description": "Instruction or question for AI assist (ai_assist; required for mode=ask)"
+                    },
+                    "model": {
+                        "type": "string",
+                        "description": "Optional inference model override (ai_assist)"
                     },
                     "to": {
-                        "oneOf": [
-                            { "type": "string" },
-                            { "type": "array", "items": { "type": "string" } }
-                        ],
-                        "description": "Recipient email address(es) (send_email)"
+                        "type": "string",
+                        "description": "Recipient email address (send_email)"
+                    },
+                    "in_reply_to": {
+                        "type": "string",
+                        "description": "Optional Message-ID header <id@host> being replied to (send_email)"
+                    },
+                    "references": {
+                        "type": "string",
+                        "description": "Optional space-separated Message-ID thread references (send_email)"
+                    },
+                    "pipeline": {
+                        "type": "string",
+                        "enum": ANALYTICS_PIPELINES,
+                        "description": "Optional pipeline filter: sales | fundraising (analytics)"
                     },
                     "period": {
                         "type": "string",
@@ -594,13 +659,14 @@ impl CrmTool {
         base_path: &str,
         crm_query: &[(&str, String)],
         base_query: &[(&str, String)],
-        body: Option<Value>,
+        crm_body: Option<Value>,
+        base_body: Option<Value>,
         token: &str,
         org: Option<&str>,
         empty_ok: Option<Value>,
     ) -> Result<ToolResult> {
         let (status, parsed, text) = match self
-            .send_request(method.clone(), base_url, crm_path, crm_query, body.clone(), token, org)
+            .send_request(method.clone(), base_url, crm_path, crm_query, crm_body, token, org)
             .await
         {
             Ok(v) => v,
@@ -609,7 +675,7 @@ impl CrmTool {
 
         if status == 404 {
             let (fb_status, fb_parsed, fb_text) = match self
-                .send_request(method, base_url, base_path, base_query, body, token, org)
+                .send_request(method, base_url, base_path, base_query, base_body, token, org)
                 .await
             {
                 Ok(v) => v,
@@ -793,6 +859,7 @@ impl MCPTool for CrmTool {
                     &crm_query,
                     &base_query,
                     None,
+                    None,
                     &token,
                     org.as_deref(),
                     None,
@@ -820,9 +887,14 @@ impl MCPTool for CrmTool {
                     Err((code, msg)) => return Ok(ToolResult::ok(envelope_err("crm", action, code, msg))),
                 };
 
-                let mut query: Vec<(&str, String)> = Vec::new();
+                let mut crm_query: Vec<(&str, String)> = Vec::new();
+                let mut base_query: Vec<(&str, String)> = Vec::new();
                 if let Some(ex) = str_param(&params, &["expand"]) {
-                    query.push(("expand", ex.to_string()));
+                    crm_query.push(("expand", ex.to_string()));
+                    base_query.push(("expand", ex.to_string()));
+                }
+                if let Some(inc) = str_param(&params, &["include"]) {
+                    crm_query.push(("include", inc.to_string()));
                 }
                 let crm_path = format!("/v1/crm/records/{obj}/{id}");
                 let base_path = format!("/v1/base/collections/{obj}/records/{id}");
@@ -832,8 +904,9 @@ impl MCPTool for CrmTool {
                     &base_url,
                     &crm_path,
                     &base_path,
-                    &query,
-                    &query,
+                    &crm_query,
+                    &base_query,
+                    None,
                     None,
                     &token,
                     org.as_deref(),
@@ -850,13 +923,20 @@ impl MCPTool for CrmTool {
                     Ok(o) => o,
                     Err(e) => return Ok(ToolResult::ok(envelope_err("crm", action, "INVALID_ARGS", e))),
                 };
-                let Some(data) = obj_param(&params, &["data", "fields", "body"]) else {
+                let Some(data) = obj_param(&params, &["data", "record", "fields", "body"]) else {
                     return Ok(ToolResult::ok(envelope_err("crm", action, "INVALID_ARGS", "data object required")));
                 };
                 let (base_url, token, org) = match self.resolve_runtime(org_param) {
                     Ok(v) => v,
                     Err((code, msg)) => return Ok(ToolResult::ok(envelope_err("crm", action, code, msg))),
                 };
+
+                let base_body = Value::Object(data.clone());
+                let mut crm_envelope = Map::new();
+                crm_envelope.insert("record".into(), base_body.clone());
+                if let Some(key) = str_param(&params, &["key"]) {
+                    crm_envelope.insert("key".into(), json!(key));
+                }
 
                 let crm_path = format!("/v1/crm/records/{obj}");
                 let base_path = format!("/v1/base/collections/{obj}/records");
@@ -868,7 +948,8 @@ impl MCPTool for CrmTool {
                     &base_path,
                     &[],
                     &[],
-                    Some(Value::Object(data.clone())),
+                    Some(Value::Object(crm_envelope)),
+                    Some(base_body),
                     &token,
                     org.as_deref(),
                     None,
@@ -891,7 +972,7 @@ impl MCPTool for CrmTool {
                     Ok(i) => i,
                     Err(e) => return Ok(ToolResult::ok(envelope_err("crm", action, "INVALID_ARGS", e))),
                 };
-                let Some(data) = obj_param(&params, &["data", "fields", "body"]) else {
+                let Some(data) = obj_param(&params, &["data", "record", "fields", "body"]) else {
                     return Ok(ToolResult::ok(envelope_err("crm", action, "INVALID_ARGS", "data object required")));
                 };
                 if data.is_empty() {
@@ -901,6 +982,9 @@ impl MCPTool for CrmTool {
                     Ok(v) => v,
                     Err((code, msg)) => return Ok(ToolResult::ok(envelope_err("crm", action, code, msg))),
                 };
+
+                let base_body = Value::Object(data.clone());
+                let crm_body = json!({ "record": base_body });
 
                 let crm_path = format!("/v1/crm/records/{obj}/{id}");
                 let base_path = format!("/v1/base/collections/{obj}/records/{id}");
@@ -912,7 +996,8 @@ impl MCPTool for CrmTool {
                     &base_path,
                     &[],
                     &[],
-                    Some(Value::Object(data.clone())),
+                    Some(crm_body),
+                    Some(base_body),
                     &token,
                     org.as_deref(),
                     None,
@@ -950,6 +1035,7 @@ impl MCPTool for CrmTool {
                     &base_path,
                     &[],
                     &[],
+                    None,
                     None,
                     &token,
                     org.as_deref(),
@@ -1016,6 +1102,9 @@ impl MCPTool for CrmTool {
 
                 let mut body = Map::new();
                 body.insert("stage".into(), json!(stage));
+                if let Some(next_step) = str_param(&params, &["next_step"]) {
+                    body.insert("next_step".into(), json!(next_step));
+                }
                 if let Some(note) = str_param(&params, &["note"]) {
                     body.insert("note".into(), json!(note));
                 }
@@ -1027,6 +1116,29 @@ impl MCPTool for CrmTool {
                 let Some(kind) = str_param(&params, &["kind", "type"]) else {
                     return Ok(ToolResult::ok(envelope_err("crm", action, "INVALID_ARGS", "kind required")));
                 };
+                let person_id = str_param(&params, &["person_id", "person"]);
+                let company_id = str_param(&params, &["company_id", "company"]);
+                let opportunity_id = str_param(&params, &["opportunity_id", "opportunity"]);
+                let candidate_id = str_param(&params, &["candidate_id", "candidate"]);
+                if person_id.is_none()
+                    && company_id.is_none()
+                    && opportunity_id.is_none()
+                    && candidate_id.is_none()
+                {
+                    return Ok(ToolResult::ok(envelope_err(
+                        "crm",
+                        action,
+                        "INVALID_ARGS",
+                        "at least one of person_id, company_id, opportunity_id, or candidate_id required",
+                    )));
+                }
+                let direction = match str_param(&params, &["direction"]) {
+                    Some(raw_dir) => match normalize_direction(raw_dir) {
+                        Ok(d) => Some(d),
+                        Err(e) => return Ok(ToolResult::ok(envelope_err("crm", action, "INVALID_ARGS", e))),
+                    },
+                    None => None,
+                };
                 let (base_url, token, org) = match self.resolve_runtime(org_param) {
                     Ok(v) => v,
                     Err((code, msg)) => return Ok(ToolResult::ok(envelope_err("crm", action, code, msg))),
@@ -1034,25 +1146,46 @@ impl MCPTool for CrmTool {
 
                 let mut body = Map::new();
                 body.insert("kind".into(), json!(kind));
-                for key in [
-                    "subject",
-                    "body",
-                    "person",
-                    "company",
-                    "opportunity",
-                    "candidate",
-                    "direction",
-                    "channel",
-                ] {
+                if let Some(d) = direction {
+                    body.insert("direction".into(), json!(d));
+                }
+                if let Some(pid) = person_id {
+                    body.insert("person_id".into(), json!(pid));
+                }
+                if let Some(cid) = company_id {
+                    body.insert("company_id".into(), json!(cid));
+                }
+                if let Some(oid) = opportunity_id {
+                    body.insert("opportunity_id".into(), json!(oid));
+                }
+                if let Some(caid) = candidate_id {
+                    body.insert("candidate_id".into(), json!(caid));
+                }
+                for key in ["subject", "snippet", "body", "channel", "at", "source_id"] {
                     if let Some(val) = str_param(&params, &[key]) {
                         body.insert(key.into(), json!(val));
                     }
+                }
+                if let Some(meta) = obj_param(&params, &["data"]) {
+                    body.insert("data".into(), Value::Object(meta.clone()));
                 }
                 self.call_crm(action, Method::POST, &base_url, "/v1/crm/timeline", &[], Some(Value::Object(body)), &token, org.as_deref(), None).await
             }
 
             "analytics" => {
                 let mut query: Vec<(&str, String)> = Vec::new();
+                if let Some(raw_pipe) = str_param(&params, &["pipeline"]) {
+                    let pipe = raw_pipe.to_ascii_lowercase();
+                    if !ANALYTICS_PIPELINES.contains(&pipe.as_str()) {
+                        return Ok(ToolResult::ok(envelope_err(
+                            "crm",
+                            action,
+                            "INVALID_ARGS",
+                            format!("invalid pipeline {:?}; allowed: sales, fundraising", raw_pipe),
+                        )));
+                    }
+                    query.push(("pipeline", pipe));
+                }
                 if let Some(raw_obj) = str_param(&params, &["object"]) {
                     let obj = match normalize_crm_object(raw_obj) {
                         Ok(o) => o,
@@ -1089,6 +1222,15 @@ impl MCPTool for CrmTool {
                         format!("invalid mode {:?}; allowed: {}", mode, AI_ASSIST_MODES.join(", ")),
                     )));
                 }
+                let prompt = str_param(&params, &["prompt"]);
+                if mode == "ask" && prompt.is_none() {
+                    return Ok(ToolResult::ok(envelope_err(
+                        "crm",
+                        action,
+                        "INVALID_ARGS",
+                        "prompt required when mode is ask",
+                    )));
+                }
                 let normalized_obj = if let Some(raw_obj) = str_param(&params, &["object"]) {
                     match normalize_crm_object(raw_obj) {
                         Ok(o) => Some(o),
@@ -1105,6 +1247,14 @@ impl MCPTool for CrmTool {
                 } else {
                     None
                 };
+                if normalized_obj.is_some() != record_id.is_some() {
+                    return Ok(ToolResult::ok(envelope_err(
+                        "crm",
+                        action,
+                        "INVALID_ARGS",
+                        "object and record_id must be provided together",
+                    )));
+                }
                 let (base_url, token, org) = match self.resolve_runtime(org_param) {
                     Ok(v) => v,
                     Err((code, msg)) => return Ok(ToolResult::ok(envelope_err("crm", action, code, msg))),
@@ -1112,8 +1262,8 @@ impl MCPTool for CrmTool {
 
                 let mut body = Map::new();
                 body.insert("mode".into(), json!(mode));
-                if let Some(prompt) = str_param(&params, &["prompt"]) {
-                    body.insert("prompt".into(), json!(prompt));
+                if let Some(p) = prompt {
+                    body.insert("prompt".into(), json!(p));
                 }
                 if let Some(obj) = normalized_obj {
                     body.insert("object".into(), json!(obj));
@@ -1121,14 +1271,34 @@ impl MCPTool for CrmTool {
                 if let Some(rid) = record_id {
                     body.insert("record_id".into(), json!(rid));
                 }
+                if let Some(model) = str_param(&params, &["model"]) {
+                    body.insert("model".into(), json!(model));
+                }
                 self.call_crm(action, Method::POST, &base_url, "/v1/crm/ai/assist", &[], Some(Value::Object(body)), &token, org.as_deref(), None).await
             }
 
             "send_email" => {
-                let to_val = match params.get("to") {
-                    Some(Value::String(s)) if !s.trim().is_empty() => json!(s.trim()),
-                    Some(Value::Array(arr)) if !arr.is_empty() && arr.iter().all(|v| v.as_str().is_some_and(|s| !s.trim().is_empty())) => {
-                        Value::Array(arr.iter().map(|v| json!(v.as_str().unwrap().trim())).collect())
+                let to_str = match params.get("to") {
+                    Some(Value::String(s)) if !s.trim().is_empty() => s.trim().to_string(),
+                    Some(Value::Array(arr)) => {
+                        let cleaned: Vec<&str> = arr
+                            .iter()
+                            .filter_map(Value::as_str)
+                            .map(str::trim)
+                            .filter(|s| !s.is_empty())
+                            .collect();
+                        if cleaned.len() > 1 {
+                            return Ok(ToolResult::ok(envelope_err(
+                                "crm",
+                                action,
+                                "INVALID_ARGS",
+                                "invalid to: /v1/marketing/mail accepts one email address per request",
+                            )));
+                        }
+                        match cleaned.first() {
+                            Some(addr) => (*addr).to_string(),
+                            None => return Ok(ToolResult::ok(envelope_err("crm", action, "INVALID_ARGS", "to required"))),
+                        }
                     }
                     _ => return Ok(ToolResult::ok(envelope_err("crm", action, "INVALID_ARGS", "to required"))),
                 };
@@ -1144,11 +1314,17 @@ impl MCPTool for CrmTool {
                 };
 
                 let mut body = Map::new();
-                body.insert("to".into(), to_val);
+                body.insert("to".into(), json!(to_str));
                 body.insert("subject".into(), json!(subject));
                 body.insert("body".into(), json!(email_body));
-                if let Some(person) = str_param(&params, &["person"]) {
+                if let Some(person) = str_param(&params, &["person", "person_id"]) {
                     body.insert("person".into(), json!(person));
+                }
+                if let Some(in_reply_to) = str_param(&params, &["in_reply_to"]) {
+                    body.insert("in_reply_to".into(), json!(in_reply_to));
+                }
+                if let Some(references) = str_param(&params, &["references"]) {
+                    body.insert("references".into(), json!(references));
                 }
                 self.call_crm(action, Method::POST, &base_url, "/v1/marketing/mail", &[], Some(Value::Object(body)), &token, org.as_deref(), None).await
             }

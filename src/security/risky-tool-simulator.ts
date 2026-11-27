@@ -1068,7 +1068,13 @@ export async function simulateToolExecutionWithProbe(
         } else if (st.isFile()) {
           notes.push(`Probe: existing file is ${st.size} bytes.`);
           const isWriteTool = action === 'write' || tool === 'write' || tool === 'write_file';
-          if (isWriteTool && !isTmpScratchPath(cleanTarget) && !checks.some((c) => c.category === 'destructive_fs_overwrite')) {
+          const normTarget = normalizeTargetPath(cleanTarget, context.workspaceRoot);
+          const normRoot = context.workspaceRoot
+            ? path.posix.normalize(context.workspaceRoot.replace(/\\/g, '/'))
+            : '';
+          const insideWorkspace = Boolean(normRoot) && (normTarget === normRoot || normTarget.startsWith(`${normRoot}/`));
+          const isExternalScratch = !insideWorkspace && isTmpScratchPath(cleanTarget);
+          if (isWriteTool && !isExternalScratch && !checks.some((c) => c.category === 'destructive_fs_overwrite')) {
             checks.push({
               category: 'destructive_fs_overwrite',
               verdict: 'confirm',
