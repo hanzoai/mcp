@@ -225,6 +225,7 @@ pub async fn dispatch_command(
             .get("name")
             .or_else(|| params.get("tool"))
             .and_then(Value::as_str)
+            .map(str::to_string)
         else {
             return (
                 false,
@@ -234,10 +235,18 @@ pub async fn dispatch_command(
         };
         let tool_args = params
             .get("arguments")
+            .or_else(|| params.get("args"))
             .or_else(|| params.get("params"))
             .cloned()
-            .unwrap_or_else(|| json!({}));
-        return run_local_tool(tools, name, tool_args).await;
+            .unwrap_or_else(|| match params {
+                Value::Object(mut map) => {
+                    map.remove("name");
+                    map.remove("tool");
+                    Value::Object(map)
+                }
+                _ => json!({}),
+            });
+        return run_local_tool(tools, &name, tool_args).await;
     }
 
     if cmd == "browser.proxy" {
@@ -822,6 +831,60 @@ mod tests {
             let payload2: Value =
                 serde_json::from_str(res2["params"]["payloadJSON"].as_str().unwrap()).unwrap();
             assert_eq!(payload2["success"], true);
+
+            // Dispatch mcp.call exec via `args` without explicit `action`
+            ws.send(Message::Text(
+                json!({
+                    "type": "event",
+                    "event": "node.invoke.request",
+                    "payload": {
+                        "id": "corr-3",
+                        "nodeId": "test-node",
+                        "command": "mcp.call",
+                        "paramsJSON": "{\"tool\":\"exec\",\"args\":{\"command\":\"echo bridge-ok\"}}"
+                    }
+                })
+                .to_string()
+                .into(),
+            ))
+            .await
+            .unwrap();
+
+            let res3_raw = ws.next().await.unwrap().unwrap().into_text().unwrap();
+            let res3: Value = serde_json::from_str(&res3_raw).unwrap();
+            assert_eq!(res3["params"]["id"], "corr-3");
+            assert_eq!(res3["params"]["ok"], true);
+            let payload3: Value =
+                serde_json::from_str(res3["params"]["payloadJSON"].as_str().unwrap()).unwrap();
+            assert_eq!(payload3["exit_code"], 0);
+            assert!(payload3["stdout"].as_str().unwrap().contains("bridge-ok"));
+
+            // Dispatch mcp.call exec with flat params (no nested arguments/args wrapper)
+            ws.send(Message::Text(
+                json!({
+                    "type": "event",
+                    "event": "node.invoke.request",
+                    "payload": {
+                        "id": "corr-4",
+                        "nodeId": "test-node",
+                        "command": "mcp.call",
+                        "paramsJSON": "{\"name\":\"exec\",\"command\":\"echo flat-ok\"}"
+                    }
+                })
+                .to_string()
+                .into(),
+            ))
+            .await
+            .unwrap();
+
+            let res4_raw = ws.next().await.unwrap().unwrap().into_text().unwrap();
+            let res4: Value = serde_json::from_str(&res4_raw).unwrap();
+            assert_eq!(res4["params"]["id"], "corr-4");
+            assert_eq!(res4["params"]["ok"], true);
+            let payload4: Value =
+                serde_json::from_str(res4["params"]["payloadJSON"].as_str().unwrap()).unwrap();
+            assert_eq!(payload4["exit_code"], 0);
+            assert!(payload4["stdout"].as_str().unwrap().contains("flat-ok"));
 
             let _ = ws.close(None).await;
         });

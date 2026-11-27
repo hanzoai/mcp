@@ -241,8 +241,12 @@ impl ExecTool {
     /// `execute` with the request's [`Ctx`]: a cancel kills the command's process group, and a
     /// client that asked for progress hears the seconds elapsed and the last line printed.
     pub async fn execute_with(&self, args: ExecToolArgs, ctx: &Ctx) -> Result<String> {
-        let action: ProcAction = if args.action.is_empty() {
-            ProcAction::Help
+        let action: ProcAction = if args.action.trim().is_empty() {
+            if args.command.is_some() {
+                ProcAction::Exec
+            } else {
+                ProcAction::Help
+            }
         } else {
             args.action.parse()?
         };
