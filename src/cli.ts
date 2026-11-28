@@ -53,7 +53,7 @@ program
   .command('serve', { isDefault: true })
   .description('Start the MCP server')
   .allowUnknownOption()
-  .option('-t, --transport <type>', 'Transport type (stdio, http)', 'stdio')
+  .option('-t, --transport <type>', 'Transport type (stdio, http, sse, streamable-http)', 'stdio')
   .option('-p, --port <port>', 'Port for HTTP transport', '3000')
   .option('--project <path>', 'Project path for context', process.cwd())
   .option('--allow-path <path...>', 'Allowed paths for client operations')
@@ -108,12 +108,17 @@ program
       console.error('Orchestration tools enabled');
     }
     
-    if (options.transport === 'stdio') {
+    const transportMode = String(options.transport || 'stdio').toLowerCase();
+    if (transportMode === 'stdio') {
       await startStdioServer(options, toolConfig);
-    } else if (options.transport === 'http') {
+    } else if (
+      transportMode === 'http' ||
+      transportMode === 'sse' ||
+      transportMode === 'streamable-http'
+    ) {
       await startHttpServer(options, toolConfig);
     } else {
-      console.error(`Unknown transport: ${options.transport} (use stdio or http)`);
+      console.error(`Unknown transport: ${options.transport} (use stdio, http, sse, or streamable-http)`);
       process.exit(1);
     }
   });
@@ -167,6 +172,138 @@ program
     }
   });
 
+function resolveHomeDir(): string {
+  return process.env.HANZO_MCP_HOME || process.env.HOME || os.homedir();
+}
+
+function resolveAppDataDir(): string {
+  const home = resolveHomeDir();
+  if (process.env.HANZO_MCP_HOME) {
+    return path.join(home, 'AppData', 'Roaming');
+  }
+  return process.env.APPDATA || path.join(home, 'AppData', 'Roaming');
+}
+
+function resolveXdgConfigDir(): string {
+  const home = resolveHomeDir();
+  if (process.env.HANZO_MCP_HOME) {
+    return path.join(home, '.config');
+  }
+  return process.env.XDG_CONFIG_HOME || path.join(home, '.config');
+}
+
+function resolveClaudeDesktopConfigFile(): string {
+  if (process.platform === 'win32') {
+    return path.join(resolveAppDataDir(), 'Claude', 'claude_desktop_config.json');
+  }
+  if (process.platform === 'darwin') {
+    return path.join(resolveHomeDir(), 'Library', 'Application Support', 'Claude', 'claude_desktop_config.json');
+  }
+  return path.join(resolveXdgConfigDir(), 'Claude', 'claude_desktop_config.json');
+}
+
+function resolveVSCodeMcpConfigFile(): string {
+  if (process.platform === 'win32') {
+    return path.join(resolveAppDataDir(), 'Code', 'User', 'mcp.json');
+  }
+  if (process.platform === 'darwin') {
+    return path.join(resolveHomeDir(), 'Library', 'Application Support', 'Code', 'User', 'mcp.json');
+  }
+  return path.join(resolveXdgConfigDir(), 'Code', 'User', 'mcp.json');
+}
+
+function hasCommand(bin: string): boolean {
+  const locator = process.platform === 'win32' ? 'where' : 'which';
+  return spawnSync(locator, [bin], { stdio: 'ignore' }).status === 0;
+}
+
+function buildMcpEntry(serveArgs: string[], env: Record<string, string> = {}, extra: Record<string, unknown> = {}) {
+  return {
+    ...extra,
+    command: 'npx',
+    args: ['-y', '--package=@hanzo/mcp', 'hanzo-mcp', ...serveArgs],
+    env,
+  };
+}
+
+async function upsertJsonMcpConfig(
+  configFile: string,
+  rootKey: 'mcpServers' | 'servers',
+  serverName: string,
+  entry: Record<string, unknown>,
+): Promise<void> {
+  await fs.mkdir(path.dirname(configFile), { recursive: true });
+  let config: Record<string, any> = {};
+  try {
+    const configContent = await fs.readFile(configFile, 'utf-8');
+    const parsed = JSON.parse(configContent);
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+      config = parsed;
+    }
+  } catch {
+    // Config doesn't exist yet or isn't valid JSON
+  }
+
+  if (!config[rootKey] || typeof config[rootKey] !== 'object' || Array.isArray(config[rootKey])) {
+    config[rootKey] = {};
+  }
+
+  config[rootKey][serverName] = entry;
+  await fs.writeFile(configFile, JSON.stringify(config, null, 2) + '\n', 'utf-8');
+}
+
+async function upsertCodexTomlConfig(
+  configFile: string,
+  serverName: string,
+  command: string,
+  args: string[],
+  env?: Record<string, string>,
+): Promise<void> {
+  await fs.mkdir(path.dirname(configFile), { recursive: true });
+  let existing = '';
+  try {
+    existing = await fs.readFile(configFile, 'utf-8');
+  } catch {
+    // Config doesn't exist yet
+  }
+
+  const kept: string[] = [];
+  let skippingSection = false;
+  const headerExact = `[mcp_servers.${serverName}]`;
+  const headerSubPrefix = `[mcp_servers.${serverName}.`;
+
+  for (const line of existing.split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+      skippingSection = trimmed === headerExact || trimmed.startsWith(headerSubPrefix);
+    }
+    if (!skippingSection) {
+      kept.push(line);
+    }
+  }
+
+  while (kept.length > 0 && kept[kept.length - 1].trim() === '') {
+    kept.pop();
+  }
+
+  const block = [
+    headerExact,
+    `command = ${JSON.stringify(command)}`,
+    `args = [${args.map(a => JSON.stringify(a)).join(', ')}]`,
+  ];
+  if (env && Object.keys(env).length > 0) {
+    block.push('', `[mcp_servers.${serverName}.env]`);
+    for (const [k, v] of Object.entries(env)) {
+      block.push(`${k} = ${JSON.stringify(v)}`);
+    }
+  }
+
+  const nextContent = kept.length > 0
+    ? `${kept.join('\n')}\n\n${block.join('\n')}\n`
+    : `${block.join('\n')}\n`;
+  await fs.writeFile(configFile, nextContent, 'utf-8');
+}
+
 program
   .command('install')
   .description('Install MCP server for various applications')
@@ -181,48 +318,37 @@ program
   .option('--all', 'Install for all supported applications')
   .action(async (options) => {
     const installations: Array<{ name: string; install: () => Promise<void> }> = [];
-    
-    // Helper function to install for Claude Desktop
-    const installClaudeDesktop = async () => {
-      console.log('📦 Installing for Claude Desktop...');
-      const configDir = process.platform === 'win32'
-        ? path.join(process.env.APPDATA || os.homedir(), 'Claude')
-        : path.join(os.homedir(), 'Library', 'Application Support', 'Claude');
-      const configFile = path.join(configDir, 'claude_desktop_config.json');
-      
+    const homeDir = resolveHomeDir();
+    const standardEntry = buildMcpEntry(['serve']);
+
+    const configureJsonTarget = async (
+      label: string,
+      configFile: string,
+      rootKey: 'mcpServers' | 'servers',
+      entry: Record<string, unknown> = standardEntry,
+      note?: string,
+    ) => {
+      console.log(`📦 Installing for ${label}...`);
       try {
-        await fs.mkdir(configDir, { recursive: true });
-        let config: any = {};
-        try {
-          const configContent = await fs.readFile(configFile, 'utf-8');
-          config = JSON.parse(configContent);
-        } catch {
-          // Config doesn't exist yet
+        await upsertJsonMcpConfig(configFile, rootKey, 'hanzo-mcp', entry);
+        console.log(`✓ ${label} configured: ${configFile}`);
+        if (note) {
+          console.log(`  ${note}`);
         }
-        
-        if (!config.mcpServers) {
-          config.mcpServers = {};
-        }
-        
-        config.mcpServers['hanzo-mcp'] = {
-          command: 'npx',
-          args: ['-y', '--package=@hanzo/mcp', 'hanzo-mcp', 'serve'],
-          env: {}
-        };
-        
-        await fs.writeFile(configFile, JSON.stringify(config, null, 2));
-        console.log(`✓ Claude Desktop configured: ${configFile}`);
       } catch (error: any) {
-        console.error(`✗ Claude Desktop installation failed: ${error.message}`);
+        console.error(`✗ ${label} installation failed: ${error.message}`);
       }
     };
-    
+
+    const installClaudeDesktop = () =>
+      configureJsonTarget('Claude Desktop', resolveClaudeDesktopConfigFile(), 'mcpServers');
+
     // Helper function to install for Claude Code. Claude Code reads the servers
     // `claude mcp add` registered, not a file written beside its config.
     const installClaudeCode = async () => {
       console.log('📦 Installing for Claude Code...');
       const args = ['mcp', 'add', '--scope', 'user', 'hanzo', '--', 'npx', '-y', '@hanzo/mcp', 'serve'];
-      const run = spawnSync('claude', args, { stdio: 'inherit' });
+      const run = spawnSync('claude', args, { stdio: 'inherit', shell: process.platform === 'win32' });
       if (run.error || run.status !== 0) {
         const why = run.error ? `did not run: ${run.error.message}` : `exited ${run.status}`;
         console.error(`✗ Claude Code: claude ${args.join(' ')} ${why}`);
@@ -230,206 +356,60 @@ program
       }
       console.log('✓ Claude Code configured for every project (claude mcp list shows hanzo)');
     };
-    
-    // Helper function to install for Cursor
-    const installCursor = async () => {
-      console.log('📦 Installing for Cursor IDE...');
-      const configDir = path.join(os.homedir(), '.cursor', 'mcp');
-      const configFile = path.join(configDir, 'config.json');
-      
-      try {
-        await fs.mkdir(configDir, { recursive: true });
-        let config: any = {};
-        try {
-          const configContent = await fs.readFile(configFile, 'utf-8');
-          config = JSON.parse(configContent);
-        } catch {
-          // Config doesn't exist yet
-        }
-        
-        if (!config.servers) {
-          config.servers = {};
-        }
-        
-        config.servers['hanzo-mcp'] = {
-          command: 'npx',
-          args: ['-y', '--package=@hanzo/mcp', 'hanzo-mcp', 'serve'],
-          env: {}
-        };
-        
-        await fs.writeFile(configFile, JSON.stringify(config, null, 2));
-        console.log(`✓ Cursor configured: ${configFile}`);
-      } catch (error: any) {
-        console.error(`✗ Cursor installation failed: ${error.message}`);
-      }
-    };
-    
-    // Helper function to install for VS Code
-    const installVSCode = async () => {
-      console.log('📦 Installing for VS Code...');
-      const configDir = path.join(os.homedir(), '.vscode', 'mcp');
-      const configFile = path.join(configDir, 'servers.json');
-      
-      try {
-        await fs.mkdir(configDir, { recursive: true });
-        let config: any = {};
-        try {
-          const configContent = await fs.readFile(configFile, 'utf-8');
-          config = JSON.parse(configContent);
-        } catch {
-          // Config doesn't exist yet
-        }
-        
-        if (!config.servers) {
-          config.servers = {};
-        }
-        
-        config.servers['hanzo-mcp'] = {
-          command: 'npx',
-          args: ['-y', '--package=@hanzo/mcp', 'hanzo-mcp', 'serve'],
-          env: {}
-        };
-        
-        await fs.writeFile(configFile, JSON.stringify(config, null, 2));
-        console.log(`✓ VS Code configured: ${configFile}`);
-      } catch (error: any) {
-        console.error(`✗ VS Code installation failed: ${error.message}`);
-      }
-    };
-    
-    // Helper function to install for Gemini
-    const installGemini = async () => {
-      console.log('📦 Installing for Google Gemini...');
-      const configDir = path.join(os.homedir(), '.gemini', 'mcp');
-      const configFile = path.join(configDir, 'servers.json');
-      
-      try {
-        await fs.mkdir(configDir, { recursive: true });
-        let config: any = {};
-        try {
-          const configContent = await fs.readFile(configFile, 'utf-8');
-          config = JSON.parse(configContent);
-        } catch {
-          // Config doesn't exist yet
-        }
-        
-        if (!config.servers) {
-          config.servers = {};
-        }
-        
-        config.servers['hanzo-mcp'] = {
-          command: 'npx',
-          args: ['-y', '--package=@hanzo/mcp', 'hanzo-mcp', 'serve'],
-          env: {}
-        };
-        
-        await fs.writeFile(configFile, JSON.stringify(config, null, 2));
-        console.log(`✓ Gemini configured: ${configFile}`);
-      } catch (error: any) {
-        console.error(`✗ Gemini installation failed: ${error.message}`);
-      }
-    };
-    
-    // Helper function to install for Codex
+
+    const installCursor = () =>
+      configureJsonTarget('Cursor IDE', path.join(homeDir, '.cursor', 'mcp.json'), 'mcpServers');
+
+    const installVSCode = () =>
+      configureJsonTarget(
+        'VS Code',
+        resolveVSCodeMcpConfigFile(),
+        'servers',
+        buildMcpEntry(['serve'], {}, { type: 'stdio' }),
+      );
+
+    const installGemini = () =>
+      configureJsonTarget('Google Gemini', path.join(homeDir, '.gemini', 'settings.json'), 'mcpServers');
+
     const installCodex = async () => {
       console.log('📦 Installing for OpenAI Codex...');
-      const configDir = path.join(os.homedir(), '.openai', 'codex', 'mcp');
-      const configFile = path.join(configDir, 'config.json');
-      
+      const codexArgs = ['mcp', 'add', 'hanzo', '--', 'npx', '-y', '@hanzo/mcp', 'serve'];
+      if (hasCommand('codex')) {
+        const run = spawnSync('codex', codexArgs, { stdio: 'inherit', shell: process.platform === 'win32' });
+        if (!run.error && run.status === 0) {
+          console.log('✓ Codex configured via codex mcp add');
+          return;
+        }
+      }
+      const configFile = path.join(homeDir, '.codex', 'config.toml');
       try {
-        await fs.mkdir(configDir, { recursive: true });
-        let config: any = {};
-        try {
-          const configContent = await fs.readFile(configFile, 'utf-8');
-          config = JSON.parse(configContent);
-        } catch {
-          // Config doesn't exist yet
-        }
-        
-        if (!config.servers) {
-          config.servers = {};
-        }
-        
-        config.servers['hanzo-mcp'] = {
-          command: 'npx',
-          args: ['-y', '--package=@hanzo/mcp', 'hanzo-mcp', 'serve'],
-          env: {}
-        };
-        
-        await fs.writeFile(configFile, JSON.stringify(config, null, 2));
+        await upsertCodexTomlConfig(
+          configFile,
+          'hanzo',
+          'npx',
+          ['-y', '--package=@hanzo/mcp', 'hanzo-mcp', 'serve'],
+        );
         console.log(`✓ Codex configured: ${configFile}`);
       } catch (error: any) {
         console.error(`✗ Codex installation failed: ${error.message}`);
       }
     };
-    
-    // Helper function to install for Windsurf
-    const installWindsurf = async () => {
-      console.log('📦 Installing for Windsurf IDE...');
-      const configDir = path.join(os.homedir(), '.windsurf', 'mcp');
-      const configFile = path.join(configDir, 'config.json');
-      
-      try {
-        await fs.mkdir(configDir, { recursive: true });
-        let config: any = {};
-        try {
-          const configContent = await fs.readFile(configFile, 'utf-8');
-          config = JSON.parse(configContent);
-        } catch {
-          // Config doesn't exist yet
-        }
-        
-        if (!config.servers) {
-          config.servers = {};
-        }
-        
-        config.servers['hanzo-mcp'] = {
-          command: 'npx',
-          args: ['-y', '--package=@hanzo/mcp', 'hanzo-mcp', 'serve'],
-          env: {}
-        };
-        
-        await fs.writeFile(configFile, JSON.stringify(config, null, 2));
-        console.log(`✓ Windsurf configured: ${configFile}`);
-      } catch (error: any) {
-        console.error(`✗ Windsurf installation failed: ${error.message}`);
-      }
-    };
-    
-    // Helper function to install for JetBrains IDEs
-    const installJetBrains = async () => {
-      console.log('📦 Installing for JetBrains IDEs...');
-      // JetBrains uses a common config location for all their IDEs
-      const configDir = path.join(os.homedir(), '.jetbrains', 'mcp');
-      const configFile = path.join(configDir, 'servers.json');
-      
-      try {
-        await fs.mkdir(configDir, { recursive: true });
-        let config: any = {};
-        try {
-          const configContent = await fs.readFile(configFile, 'utf-8');
-          config = JSON.parse(configContent);
-        } catch {
-          // Config doesn't exist yet
-        }
-        
-        if (!config.servers) {
-          config.servers = {};
-        }
-        
-        config.servers['hanzo-mcp'] = {
-          command: 'npx',
-          args: ['-y', '--package=@hanzo/mcp', 'hanzo-mcp', 'serve'],
-          env: {}
-        };
-        
-        await fs.writeFile(configFile, JSON.stringify(config, null, 2));
-        console.log(`✓ JetBrains IDEs configured: ${configFile}`);
-        console.log('  (Works with IntelliJ IDEA, WebStorm, PyCharm, etc.)');
-      } catch (error: any) {
-        console.error(`✗ JetBrains installation failed: ${error.message}`);
-      }
-    };
+
+    const installWindsurf = () =>
+      configureJsonTarget(
+        'Windsurf IDE',
+        path.join(homeDir, '.codeium', 'windsurf', 'mcp_config.json'),
+        'mcpServers',
+      );
+
+    const installJetBrains = () =>
+      configureJsonTarget(
+        'JetBrains IDEs',
+        path.join(homeDir, '.jetbrains', 'mcp', 'servers.json'),
+        'servers',
+        standardEntry,
+        '(Works with IntelliJ IDEA, WebStorm, PyCharm, etc.)',
+      );
     
     // Determine what to install
     if (options.all) {
@@ -521,17 +501,22 @@ program
   .action(async (options) => {
     const isSafe = !options.full;
     const serveArgs = isSafe ? ['serve', '--beta-safe'] : ['serve'];
+    const homeDir = resolveHomeDir();
+    const linkedEnv = { LOCAL_KAI_URL: 'http://127.0.0.1:18977' };
 
     const linkClaudeCode = async () => {
       console.log('📦 Linking for Claude Code...');
       // Remove existing registration if present so flags can be cleanly updated
-      spawnSync('claude', ['mcp', 'remove', 'hanzo', '-s', 'user'], { stdio: 'ignore' });
+      spawnSync('claude', ['mcp', 'remove', 'hanzo', '-s', 'user'], {
+        stdio: 'ignore',
+        shell: process.platform === 'win32',
+      });
       const args = [
         'mcp', 'add', '--scope', 'user', 'hanzo',
         '-e', 'LOCAL_KAI_URL=http://127.0.0.1:18977',
         '--', 'npx', '-y', '@hanzo/mcp', ...serveArgs
       ];
-      const run = spawnSync('claude', args, { stdio: 'inherit' });
+      const run = spawnSync('claude', args, { stdio: 'inherit', shell: process.platform === 'win32' });
       if (run.error || run.status !== 0) {
         const why = run.error ? `did not run: ${run.error.message}` : `exited ${run.status}`;
         console.error(`✗ Claude Code: claude ${args.join(' ')} ${why}`);
@@ -542,23 +527,9 @@ program
 
     const linkCursor = async () => {
       console.log('📦 Linking for Cursor IDE...');
-      const configDir = path.join(os.homedir(), '.cursor', 'mcp');
-      const configFile = path.join(configDir, 'config.json');
+      const configFile = path.join(homeDir, '.cursor', 'mcp.json');
       try {
-        await fs.mkdir(configDir, { recursive: true });
-        let config: any = {};
-        try {
-          config = JSON.parse(await fs.readFile(configFile, 'utf-8'));
-        } catch {}
-        if (!config.servers) config.servers = {};
-        config.servers['hanzo-mcp'] = {
-          command: 'npx',
-          args: ['-y', '--package=@hanzo/mcp', 'hanzo-mcp', ...serveArgs],
-          env: {
-            LOCAL_KAI_URL: 'http://127.0.0.1:18977'
-          }
-        };
-        await fs.writeFile(configFile, JSON.stringify(config, null, 2));
+        await upsertJsonMcpConfig(configFile, 'mcpServers', 'hanzo-mcp', buildMcpEntry(serveArgs, linkedEnv));
         console.log(`✓ Cursor IDE linked: ${configFile}`);
       } catch (error: any) {
         console.error(`✗ Cursor linking failed: ${error.message}`);
@@ -567,23 +538,23 @@ program
 
     const linkCodex = async () => {
       console.log('📦 Linking for OpenAI Codex...');
-      const configDir = path.join(os.homedir(), '.openai', 'codex', 'mcp');
-      const configFile = path.join(configDir, 'config.json');
+      const codexArgs = ['mcp', 'add', 'hanzo', '--', 'npx', '-y', '@hanzo/mcp', ...serveArgs];
+      if (hasCommand('codex')) {
+        const run = spawnSync('codex', codexArgs, { stdio: 'inherit', shell: process.platform === 'win32' });
+        if (!run.error && run.status === 0) {
+          console.log('✓ OpenAI Codex linked via codex mcp add');
+          return;
+        }
+      }
+      const configFile = path.join(homeDir, '.codex', 'config.toml');
       try {
-        await fs.mkdir(configDir, { recursive: true });
-        let config: any = {};
-        try {
-          config = JSON.parse(await fs.readFile(configFile, 'utf-8'));
-        } catch {}
-        if (!config.servers) config.servers = {};
-        config.servers['hanzo-mcp'] = {
-          command: 'npx',
-          args: ['-y', '--package=@hanzo/mcp', 'hanzo-mcp', ...serveArgs],
-          env: {
-            LOCAL_KAI_URL: 'http://127.0.0.1:18977'
-          }
-        };
-        await fs.writeFile(configFile, JSON.stringify(config, null, 2));
+        await upsertCodexTomlConfig(
+          configFile,
+          'hanzo',
+          'npx',
+          ['-y', '--package=@hanzo/mcp', 'hanzo-mcp', ...serveArgs],
+          linkedEnv,
+        );
         console.log(`✓ OpenAI Codex linked: ${configFile}`);
       } catch (error: any) {
         console.error(`✗ Codex linking failed: ${error.message}`);
@@ -592,23 +563,9 @@ program
 
     const linkClaudeDesktop = async () => {
       console.log('📦 Linking for Claude Desktop...');
-      const configDir = process.platform === 'win32'
-        ? path.join(process.env.APPDATA || os.homedir(), 'Claude')
-        : path.join(os.homedir(), 'Library', 'Application Support', 'Claude');
-      const configFile = path.join(configDir, 'claude_desktop_config.json');
+      const configFile = resolveClaudeDesktopConfigFile();
       try {
-        await fs.mkdir(configDir, { recursive: true });
-        let config: any = {};
-        try {
-          config = JSON.parse(await fs.readFile(configFile, 'utf-8'));
-        } catch {}
-        if (!config.mcpServers) config.mcpServers = {};
-        config.mcpServers['hanzo-mcp'] = {
-          command: 'npx',
-          args: ['-y', '--package=@hanzo/mcp', 'hanzo-mcp', ...serveArgs],
-          env: {}
-        };
-        await fs.writeFile(configFile, JSON.stringify(config, null, 2));
+        await upsertJsonMcpConfig(configFile, 'mcpServers', 'hanzo-mcp', buildMcpEntry(serveArgs));
         console.log(`✓ Claude Desktop linked: ${configFile}`);
       } catch (error: any) {
         console.error(`✗ Claude Desktop linking failed: ${error.message}`);
@@ -632,11 +589,13 @@ program
 
     if (targets.length === 0) {
       // Auto-detect installed agents and directories
-      const hasClaude = spawnSync('which', ['claude']).status === 0;
+      const hasClaude = hasCommand('claude');
       let hasCursor = false;
-      try { await fs.access(path.join(os.homedir(), '.cursor')); hasCursor = true; } catch {}
-      let hasCodex = false;
-      try { await fs.access(path.join(os.homedir(), '.openai', 'codex')); hasCodex = true; } catch {}
+      try { await fs.access(path.join(homeDir, '.cursor')); hasCursor = true; } catch {}
+      let hasCodex = hasCommand('codex');
+      if (!hasCodex) {
+        try { await fs.access(path.join(homeDir, '.codex')); hasCodex = true; } catch {}
+      }
 
       if (hasClaude) targets.push({ name: 'Claude Code', run: linkClaudeCode });
       if (hasCursor) targets.push({ name: 'Cursor IDE', run: linkCursor });
@@ -683,14 +642,23 @@ function registerHandlers(
   toolConfig: ToolConfig,
   configuredTools: any[],
   toolMap: Map<string, any>,
+  pendingResponses?: Set<Promise<unknown>>,
 ) {
-  server.setRequestHandler(ListToolsRequestSchema, async () => {
-    return {
-      tools: configuredTools.map(listed),
-    };
-  });
+  const track = <T>(promise: Promise<T>): Promise<T> => {
+    if (!pendingResponses) {
+      return promise;
+    }
+    pendingResponses.add(promise);
+    return promise.finally(() => {
+      pendingResponses.delete(promise);
+    });
+  };
 
-  server.setRequestHandler(CallToolRequestSchema, async (request) => {
+  server.setRequestHandler(ListToolsRequestSchema, async () => track(Promise.resolve({
+    tools: configuredTools.map(listed),
+  })));
+
+  server.setRequestHandler(CallToolRequestSchema, async (request) => track((async () => {
     const name = request.params.name;
     const allowAliases = !toolConfig.coreOnly && !toolConfig.betaSafe && !(toolConfig.disabledTools || []).includes(name);
     const tool = toolMap.get(name) || (allowAliases ? legacyToolAliasMap.get(name) : undefined);
@@ -710,20 +678,18 @@ function registerHandlers(
         isError: true,
       };
     }
-  });
+  })()));
 
-  server.setRequestHandler(ListResourcesRequestSchema, async () => {
-    return {
-      resources: [{
-        uri: 'hanzo://system-prompt',
-        name: 'System Prompt',
-        mimeType: 'text/plain',
-        description: 'Hanzo MCP system prompt and context',
-      }],
-    };
-  });
+  server.setRequestHandler(ListResourcesRequestSchema, async () => track(Promise.resolve({
+    resources: [{
+      uri: 'hanzo://system-prompt',
+      name: 'System Prompt',
+      mimeType: 'text/plain',
+      description: 'Hanzo MCP system prompt and context',
+    }],
+  })));
 
-  server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
+  server.setRequestHandler(ReadResourceRequestSchema, async (request) => track((async () => {
     if (request.params.uri === 'hanzo://system-prompt') {
       const systemPrompt = await getSystemPrompt(options.project);
       return {
@@ -733,8 +699,35 @@ function registerHandlers(
     return {
       contents: [{ uri: request.params.uri, mimeType: 'text/plain', text: 'Resource not found' }],
     };
-  });
+  })()));
 }
+
+function ensureAcceptHeader(req: http.IncomingMessage): boolean {
+  const rawAccept = String(req.headers.accept ?? '').toLowerCase();
+  const wantsJsonOnly = rawAccept.includes('application/json') && !rawAccept.includes('text/event-stream');
+  if (rawAccept.includes('application/json') && rawAccept.includes('text/event-stream')) {
+    return false;
+  }
+  const normalized = 'application/json, text/event-stream';
+  req.headers.accept = normalized;
+  if (Array.isArray(req.rawHeaders)) {
+    const filtered: string[] = [];
+    for (let i = 0; i < req.rawHeaders.length; i += 2) {
+      if (String(req.rawHeaders[i] ?? '').toLowerCase() !== 'accept') {
+        filtered.push(req.rawHeaders[i], req.rawHeaders[i + 1]);
+      }
+    }
+    filtered.push('Accept', normalized);
+    req.rawHeaders = filtered;
+  }
+  return wantsJsonOnly;
+}
+
+const CORS_HEADERS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'POST, GET, DELETE, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Accept, Mcp-Session-Id, Mcp-Protocol-Version, Authorization',
+};
 
 // Serve the tools over streamable http. A fresh server and transport per request
 // keeps the door stateless — no session header, each POST answered on its own,
@@ -744,20 +737,48 @@ async function startHttpServer(options: any, toolConfig: ToolConfig) {
   const toolMap = new Map<string, any>(configuredTools.map(t => [t.name, t]));
   console.error(`Registering ${configuredTools.length} tools...`);
 
-  const port = parseInt(options.port, 10) || 3000;
+  const parsedPort = Number.parseInt(String(options.port ?? ''), 10);
+  const port = Number.isNaN(parsedPort) ? 3000 : parsedPort;
   const host = process.env.HOST || '127.0.0.1';
 
   const httpServer = http.createServer(async (req, res) => {
-    if (req.method !== 'POST') {
-      res.writeHead(405, { Allow: 'POST' }).end();
+    for (const [header, value] of Object.entries(CORS_HEADERS)) {
+      res.setHeader(header, value);
+    }
+
+    if (req.method === 'OPTIONS') {
+      res.writeHead(204, { Allow: 'POST, GET, DELETE, OPTIONS' }).end();
       return;
     }
+
+    const reqPath = (req.url || '/').split('?')[0];
+    if (req.method === 'GET' && reqPath === '/health') {
+      res.writeHead(200, { 'Content-Type': 'application/json' }).end(
+        JSON.stringify({
+          ok: true,
+          name: 'hanzo-mcp',
+          version: packageJson.version,
+          transport: 'streamable-http',
+        }),
+      );
+      return;
+    }
+
+    if (req.method !== 'POST') {
+      res.writeHead(405, { Allow: 'POST, OPTIONS' }).end();
+      return;
+    }
+
+    const enableJsonResponse = ensureAcceptHeader(req);
     const server = new Server(
       { name: 'hanzo-mcp', version: packageJson.version },
       { capabilities: { tools: {}, resources: {} } },
     );
     registerHandlers(server, options, toolConfig, configuredTools, toolMap);
-    const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
+    const transport = new StreamableHTTPServerTransport({
+      sessionIdGenerator: undefined,
+      enableJsonResponse,
+    });
     res.on('close', () => { void transport.close(); void server.close(); });
     try {
       await server.connect(transport);
@@ -768,11 +789,29 @@ async function startHttpServer(options: any, toolConfig: ToolConfig) {
     }
   });
 
-  httpServer.listen(port, host, () => {
-    console.error(`Hanzo MCP server (streamable http) on http://${host}:${port}`);
+  await new Promise<void>((resolve, reject) => {
+    httpServer.once('error', reject);
+    httpServer.listen(port, host, () => {
+      const addr = httpServer.address();
+      const boundPort = typeof addr === 'object' && addr ? addr.port : port;
+      console.error(`Hanzo MCP server (streamable http) on http://${host}:${boundPort}`);
+      resolve();
+    });
   });
 
-  await new Promise<never>(() => {});
+  await new Promise<void>((resolve) => {
+    let shuttingDown = false;
+    const shutdown = () => {
+      if (shuttingDown) {
+        return;
+      }
+      shuttingDown = true;
+      httpServer.close(() => resolve());
+      httpServer.closeAllConnections?.();
+    };
+    process.once('SIGINT', shutdown);
+    process.once('SIGTERM', shutdown);
+  });
 }
 
 async function startStdioServer(options: any, toolConfig: ToolConfig) {
@@ -792,15 +831,49 @@ async function startStdioServer(options: any, toolConfig: ToolConfig) {
   // Get configured tools
   const configuredTools = getConfiguredTools(toolConfig);
   const toolMap = new Map(configuredTools.map(t => [t.name, t]));
+  const pendingResponses = new Set<Promise<unknown>>();
 
   // Register all tools
   console.error(`Registering ${configuredTools.length} tools...`);
 
-  registerHandlers(server, options, toolConfig, configuredTools, toolMap);
+  registerHandlers(server, options, toolConfig, configuredTools, toolMap, pendingResponses);
 
   // Start the MCP stdio server
   const transport = new StdioServerTransport();
   await server.connect(transport);
+
+  let shuttingDown = false;
+  const shutdown = async () => {
+    if (shuttingDown) {
+      return;
+    }
+    shuttingDown = true;
+    try {
+      if (pendingResponses.size > 0) {
+        await Promise.race([
+          Promise.allSettled([...pendingResponses]),
+          new Promise<void>(resolve => setTimeout(resolve, 2000)),
+        ]);
+      }
+      await new Promise<void>(resolve => setImmediate(resolve));
+      await new Promise<void>(resolve => {
+        if (process.stdout.writableEnded) {
+          resolve();
+          return;
+        }
+        process.stdout.write('', () => resolve());
+      });
+      await server.close();
+    } catch {
+      // Transport may already be closed
+    }
+    process.exit(0);
+  };
+
+  process.stdin.once('end', () => { void shutdown(); });
+  process.stdin.once('close', () => { void shutdown(); });
+  process.once('SIGINT', () => { void shutdown(); });
+  process.once('SIGTERM', () => { void shutdown(); });
 
   console.error('Hanzo MCP server started successfully');
 }

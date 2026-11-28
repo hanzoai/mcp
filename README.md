@@ -61,9 +61,9 @@ codex mcp add hanzo -- npx -y hanzo mcp
 hanzo dev
 ```
 
-### 4. Cursor, Windsurf, Zed, and VS Code
+### 4. Cursor
 
-Add to your `mcpServers` configuration (`~/.cursor/mcp.json` or project `.mcp.json`):
+Install automatically with `npx -y @hanzo/mcp install --cursor`, or add to `~/.cursor/mcp.json` (project `.cursor/mcp.json`):
 
 ```json
 {
@@ -76,18 +76,68 @@ Add to your `mcpServers` configuration (`~/.cursor/mcp.json` or project `.mcp.js
 }
 ```
 
+### 5. Windsurf
+
+Install automatically with `npx -y @hanzo/mcp install --windsurf`, or add to `~/.codeium/windsurf/mcp_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "hanzo": {
+      "command": "npx",
+      "args": ["-y", "hanzo", "mcp"]
+    }
+  }
+}
+```
+
+### 6. Gemini CLI
+
+Install automatically with `npx -y @hanzo/mcp install --gemini`, or add to `~/.gemini/settings.json`:
+
+```json
+{
+  "mcpServers": {
+    "hanzo": {
+      "command": "npx",
+      "args": ["-y", "hanzo", "mcp"]
+    }
+  }
+}
+```
+
+### 7. VS Code
+
+Install automatically with `npx -y @hanzo/mcp install --vscode`, or add to VS Code user `mcp.json` / workspace `.vscode/mcp.json`:
+
+```json
+{
+  "servers": {
+    "hanzo": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "hanzo", "mcp"]
+    }
+  }
+}
+```
+
 Once you have run `hanzo auth login`, the server uses that sign-in; set `HANZO_API_KEY`
 in an `env` block only to override it.
 
-### 5. Over HTTP (SSE)
+### 8. Over Streamable HTTP / Hosted Endpoint
 
-For remote or multi-agent deployments:
+For local or remote Streamable HTTP deployments (`https://api.hanzo.ai/v1/mcp` or local server):
 
 ```bash
 hanzo mcp -t sse --port 3333
+# or with the TypeScript server (@hanzo/mcp):
+npx -y @hanzo/mcp serve --transport http --port 3333
 ```
 
-### 6. Choosing tools
+Health check is available at `GET /health` and JSON-RPC requests are served via `POST /` or `POST /v1/mcp`.
+
+### 9. Choosing tools
 
 Every tool schema the server lists is sent to the model on each turn. Serve only the ones you use:
 
